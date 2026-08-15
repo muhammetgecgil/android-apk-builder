@@ -43,11 +43,11 @@ jobs:
       - name: Verify and rename APK
         run: |
           test -s pcb-analyzer/app/build/outputs/apk/debug/app-debug.apk
-          cp pcb-analyzer/app/build/outputs/apk/debug/app-debug.apk PCB_Zeka_Pro_v1.0.1_INSTALL_FIX_S24.apk
+          cp pcb-analyzer/app/build/outputs/apk/debug/app-debug.apk PCB_Zeka_Pro_v2.0_PCB_AI_BOM_S24.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: PCB-Zeka-Pro-v1.0.1-INSTALL-FIX-S24-APK
-          path: PCB_Zeka_Pro_v1.0.1_INSTALL_FIX_S24.apk
+          name: PCB-Zeka-Pro-v2.0-PCB-AI-BOM-S24-APK
+          path: PCB_Zeka_Pro_v2.0_PCB_AI_BOM_S24.apk
           if-no-files-found: error
           retention-days: 30
