@@ -1,0 +1,3 @@
+MG VeinAssist v3.3 Vein First build request
+Triggered from ChatGPT after user test image showed fragmented false-positive blue lines outside/near non-skin regions.
+Build must apply upgrade_v33.py: strict learned skin core, bilateral dark-ridge test, long continuity, temporal motion reset, hair rejection, and soft anatomy prior only.
