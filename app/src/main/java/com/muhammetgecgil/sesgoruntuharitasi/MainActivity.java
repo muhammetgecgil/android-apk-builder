@@ -10,7 +10,6 @@ import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
 import android.view.TextureView;
-import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
@@ -21,9 +20,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 import java.util.Locale;
 
-/** V8 Full Scan: S24 camera+phone mic reference, Fyvadio roaming USB probe, IMU stability gate, full-screen final heatmap. */
+/** V8.1: S24 camera+phone mic reference, Fyvadio roaming USB probe, IMU gate, full-colour acoustic map. */
 public final class MainActivity extends Activity {
-    private static final int REQ=80;
+    private static final int REQ=81;
     private TextureView cameraView;
     private HeatmapOverlayView overlay;
     private TextView usbText,refText,deltaText,statusText,imuText;
@@ -52,8 +51,8 @@ public final class MainActivity extends Activity {
 
         LinearLayout top=new LinearLayout(this);top.setOrientation(LinearLayout.VERTICAL);top.setPadding(dp(10),dp(5),dp(10),dp(6));top.setBackgroundColor(Color.argb(215,4,12,18));
         root.addView(top,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
-        TextView title=label("SES GÖRÜNTÜ HARİTASI V8 • FULL SCAN",16,true);title.setTextColor(Color.WHITE);top.addView(title);
-        statusText=label("Fyvadio aranıyor • S24 referansı hazırlanıyor",10,false);statusText.setTextColor(Color.CYAN);top.addView(statusText);
+        TextView title=label("SES GÖRÜNTÜ HARİTASI V8.1 • FULL COLOR",16,true);title.setTextColor(Color.WHITE);top.addView(title);
+        statusText=label("Fyvadio prob aranıyor • prob kaynak adayından hariç",10,false);statusText.setTextColor(Color.CYAN);top.addView(statusText);
         LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);top.addView(row);
         usbText=metric("USB PROBE\n-- dBFS");refText=metric("PHONE REF\n-- dBFS");deltaText=metric("USB-REF\n-- dB");imuText=metric("IMU\n--");
         row.addView(usbText,weight());row.addView(refText,weight());row.addView(deltaText,weight());row.addView(imuText,weight());
@@ -62,7 +61,7 @@ public final class MainActivity extends Activity {
         FrameLayout.LayoutParams blp=new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM);blp.bottomMargin=dp(56);root.addView(bottom,blp);
         root.setOnApplyWindowInsetsListener((v,insets)->{int nav=insets.getSystemWindowInsetBottom();FrameLayout.LayoutParams lp=(FrameLayout.LayoutParams)bottom.getLayoutParams();lp.bottomMargin=Math.max(dp(12),nav+dp(10));bottom.setLayoutParams(lp);return insets;});root.requestApplyInsets();
 
-        TextView help=label("Fyvadio'yu kamera önünde gezdir • konum otomatik takip edilir • telefon/kamera sabit referanstır",10,false);help.setTextColor(Color.WHITE);bottom.addView(help);
+        TextView help=label("MAVİ→YEŞİL→SARI→TURUNCU→KIRMIZI = artan USB-REF • Fyvadio yalnız probdur",10,false);help.setTextColor(Color.WHITE);bottom.addView(help);
         LinearLayout r1=new LinearLayout(this);r1.setOrientation(LinearLayout.HORIZONTAL);bottom.addView(r1);
         modeButton=button("PROBE-REF");bandButton=button("BAND: TÜM");Button calibrate=button("REF KALİBRE");Button clear=button("HARİTA SİL");
         r1.addView(modeButton,weight());r1.addView(bandButton,weight());r1.addView(calibrate,weight());r1.addView(clear,weight());
@@ -106,7 +105,7 @@ public final class MainActivity extends Activity {
         if(scanning&&visionValid&&cameraStable)overlay.updateProbe(probeX,probeY,s.bandEnergy01,s.deltaDb,s.usbActive);
         runOnUiThread(()->{
             usbText.setText(String.format(Locale.US,"USB PROBE\n%.1f dBFS",s.usbDbfs));refText.setText(String.format(Locale.US,"PHONE REF\n%.1f dBFS",s.refDbfs));deltaText.setText(String.format(Locale.US,"USB-REF\n%+.1f dB",s.deltaDb));imuText.setText(String.format(Locale.US,"IMU\n%.0f%%",motion*100f));
-            String usb=s.usbActive?"USB ✓":"USB ✗";String ref=s.phoneRefActive?(s.dualLive?"REF LIVE ✓":"REF CAL ✓"):"REF ✗";String pv=visionValid?String.format(Locale.US,"PROB AUTO %d%%",Math.round(visionConf*100)):"PROB ARANIYOR";String stable=cameraStable?"KAMERA SABİT":"KAMERA HAREKETLİ • ÖLÇÜM BEKLE";
+            String usb=s.usbActive?"USB ✓":"USB ✗";String ref=s.phoneRefActive?(s.dualLive?"REF LIVE ✓":"REF CAL ✓"):"REF ✗";String pv=visionValid?String.format(Locale.US,"PROB AUTO %d%% • MASK ✓",Math.round(visionConf*100)):"PROB ARANIYOR";String stable=cameraStable?"KAMERA SABİT":"KAMERA HAREKETLİ • ÖLÇÜM BEKLE";
             statusText.setText(usb+" • "+ref+" • "+pv+" • "+stable+"\n"+s.usbName+" • "+s.status);
         });
     }
