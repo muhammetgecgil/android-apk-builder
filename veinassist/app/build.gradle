@@ -7,11 +7,11 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.mg.veinassist'
+        applicationId 'com.mg.veinassist.stable29'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '1.0-github'
+        versionCode 29
+        versionName '2.9-stable-skin-continuity'
     }
 
     buildTypes {
