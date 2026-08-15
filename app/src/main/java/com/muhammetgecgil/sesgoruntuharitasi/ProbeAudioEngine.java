@@ -58,14 +58,15 @@ public final class ProbeAudioEngine {
         String refName=builtIn==null?"Telefon mic bulunamadı":String.valueOf(builtIn.getProductName());
         if(usb==null){ emit(-120,-120,0,0,0,0,false,false,false,usbName,refName,"USB mikrofon bağlı değil");running.set(false);return; }
 
+        boolean refCalibrated=false;
         if (builtIn != null) {
             float measured = measureReference(builtIn);
-            if (measured > -110f) calibratedRefDb = measured;
+            if (measured > -110f) { calibratedRefDb = measured; refCalibrated=true; }
         }
 
         usbRec=build(usb); boolean usbOk=initialized(usbRec);
         refRec=build(builtIn); boolean refOk=initialized(refRec);
-        if(!usbOk){release();emit(-120,-120,0,0,0,0,false,false,false,usbName,refName,"USB AudioRecord açılamadı");running.set(false);return;}
+        if(!usbOk){release();emit(-120,-120,0,0,0,0,false,refCalibrated,false,usbName,refName,"USB AudioRecord açılamadı");running.set(false);return;}
 
         try{usbRec.startRecording();}catch(Exception e){release();running.set(false);return;}
         boolean dual=false;
@@ -89,8 +90,9 @@ public final class ProbeAudioEngine {
             if(mode==MODE_USB_ABSOLUTE) mapEnergy=uf.rms01;
             else if(mode==MODE_USB_MINUS_REF) mapEnergy=clamp01((delta+3f)/24f);
             else mapEnergy=uf.band01;
-            String st=dual?"DUAL LIVE: USB + telefon referans":"USB LIVE • telefon referansı kalibrasyon";
-            emit(uf.dbfs,refDb,delta,uf.rms01,rf==null?0:rf.rms01,mapEnergy,true,dual,dual,usbName,refName,st);
+            boolean refAvailable=dual||refCalibrated;
+            String st=dual?"DUAL LIVE: USB + telefon referans":refCalibrated?"USB LIVE • telefon referansı kalibre":"USB LIVE • telefon referansı yok";
+            emit(uf.dbfs,refDb,delta,uf.rms01,rf==null?0:rf.rms01,mapEnergy,true,refAvailable,dual,usbName,refName,st);
         }
         release();running.set(false);
     }
