@@ -37,12 +37,12 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug --stacktrace
 
       - name: Rename APK
-        run: cp veinassist/app/build/outputs/apk/debug/app-debug.apk MG_VeinAssist_GitHub_v1.apk
+        run: cp veinassist/app/build/outputs/apk/debug/app-debug.apk MG_VeinAssist_v3.0_SkinContinuity.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-VeinAssist-GitHub-v1-APK
-          path: MG_VeinAssist_GitHub_v1.apk
+          name: MG-VeinAssist-v3.0-APK
+          path: MG_VeinAssist_v3.0_SkinContinuity.apk
           if-no-files-found: error
           retention-days: 30
