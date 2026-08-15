@@ -4,16 +4,30 @@ android {
     namespace 'com.muhammetgecgil.pcbzekapro'
     compileSdk 35
 
+    signingConfigs {
+        stableTest {
+            storeFile rootProject.file('../nesnesayar-test.jks')
+            storePassword 'testpass123'
+            keyAlias 'nesnesayar'
+            keyPassword 'testpass123'
+        }
+    }
+
     defaultConfig {
-        applicationId 'com.muhammetgecgil.pcbzekapro'
+        applicationId 'com.muhammetgecgil.pcbzekapro.nativecamera'
         minSdk 26
         targetSdk 35
-        versionCode 100
-        versionName '1.0.0-native'
+        versionCode 101
+        versionName '1.0.1-install-fix'
     }
     buildTypes {
+        debug {
+            minifyEnabled false
+            signingConfig signingConfigs.stableTest
+        }
         release {
             minifyEnabled false
+            signingConfig signingConfigs.stableTest
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
