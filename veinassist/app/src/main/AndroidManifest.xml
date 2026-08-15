@@ -5,10 +5,10 @@
 
     <application
         android:allowBackup="false"
-        android:label="MG VeinAssist"
+        android:label="MG VeinAssist v2.9 Stable"
         android:theme="@style/AppTheme">
         <activity
-            android:name=".MainActivity"
+            android:name=".MainActivityV29"
             android:screenOrientation="portrait"
             android:exported="true">
             <intent-filter>
