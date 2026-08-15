@@ -32,20 +32,20 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Apply VeinAssist v3.1 algorithm patch
-        run: python3 veinassist/upgrade_v31.py
+      - name: Apply VeinAssist v3.2 skin and continuity patch
+        run: python3 veinassist/upgrade_v32.py
 
       - name: Build VeinAssist debug APK
         working-directory: veinassist
         run: gradle --no-daemon :app:assembleDebug --stacktrace
 
       - name: Rename APK
-        run: cp veinassist/app/build/outputs/apk/debug/app-debug.apk MG_VeinAssist_v3.1_Continuity200_Transparent.apk
+        run: cp veinassist/app/build/outputs/apk/debug/app-debug.apk MG_VeinAssist_v3.2_Skin_LongContinuity.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-VeinAssist-v3.1-APK
-          path: MG_VeinAssist_v3.1_Continuity200_Transparent.apk
+          name: MG-VeinAssist-v3.2-APK
+          path: MG_VeinAssist_v3.2_Skin_LongContinuity.apk
           if-no-files-found: error
           retention-days: 30
