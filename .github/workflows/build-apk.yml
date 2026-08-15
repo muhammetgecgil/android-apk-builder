@@ -2,7 +2,7 @@ name: Build V7 Probe Fusion APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ ses-goruntu-v7 ]
   workflow_dispatch:
 
 jobs:
