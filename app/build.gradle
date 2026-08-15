@@ -5,11 +5,11 @@ android {
     compileSdk 36
 
     defaultConfig {
-        applicationId 'com.muhammetgecgil.probefusionv8'
+        applicationId 'com.muhammetgecgil.probefusionv81fix'
         minSdk 26
         targetSdk 36
-        versionCode 81
-        versionName '8.1'
+        versionCode 811
+        versionName '8.1.1'
     }
 
     buildTypes {
