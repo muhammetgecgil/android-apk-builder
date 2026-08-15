@@ -1,0 +1,51 @@
+name: Build PCB Analyzer APK
+
+on:
+  push:
+    branches: [ main, 'agent/**' ]
+    paths:
+      - 'pcb-analyzer/**'
+      - '.github/workflows/build-pcb-analyzer.yml'
+  pull_request:
+    paths:
+      - 'pcb-analyzer/**'
+      - '.github/workflows/build-pcb-analyzer.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android API 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build native debug APK
+        working-directory: pcb-analyzer
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Verify and rename APK
+        run: |
+          test -s pcb-analyzer/app/build/outputs/apk/debug/app-debug.apk
+          cp pcb-analyzer/app/build/outputs/apk/debug/app-debug.apk PCB_Zeka_Pro_v1.0.0_Native_S24.apk
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: PCB-Zeka-Pro-v1.0.0-Native-S24-APK
+          path: PCB_Zeka_Pro_v1.0.0_Native_S24.apk
+          if-no-files-found: error
+          retention-days: 30
