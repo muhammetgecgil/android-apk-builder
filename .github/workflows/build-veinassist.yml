@@ -32,8 +32,8 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Apply VeinAssist v3.3.1 install-fix patch
-        run: python3 veinassist/upgrade_v331_installfix.py
+      - name: Apply VeinAssist v3.4 continuity/skin/Hessian patch
+        run: python3 veinassist/upgrade_v34.py
 
       - name: Build VeinAssist debug APK
         working-directory: veinassist
@@ -49,19 +49,19 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 -v 4 "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee veinassist-apk-badging.txt
-          grep -q "package: name='com.mg.veinassist.installfix331'" veinassist-apk-badging.txt
+          grep -q "package: name='com.mg.veinassist.continuity34'" veinassist-apk-badging.txt
           grep -q "sdkVersion:'26'" veinassist-apk-badging.txt
           grep -q "targetSdkVersion:'35'" veinassist-apk-badging.txt
 
       - name: Rename validated APK
-        run: cp veinassist/app/build/outputs/apk/debug/app-debug.apk MG_VeinAssist_v3.3.1_VeinFirst_INSTALL_FIX.apk
+        run: cp veinassist/app/build/outputs/apk/debug/app-debug.apk MG_VeinAssist_v3.4_Continuity_Skin_Hessian.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-VeinAssist-v3.3.1-INSTALL-FIX-APK
+          name: MG-VeinAssist-v3.4-CONTINUITY-SKIN-HESSIAN-APK
           path: |
-            MG_VeinAssist_v3.3.1_VeinFirst_INSTALL_FIX.apk
+            MG_VeinAssist_v3.4_Continuity_Skin_Hessian.apk
             veinassist-apk-badging.txt
           if-no-files-found: error
           retention-days: 30
