@@ -43,11 +43,11 @@ jobs:
       - name: Verify and rename APK
         run: |
           test -s pcb-analyzer/app/build/outputs/apk/debug/app-debug.apk
-          cp pcb-analyzer/app/build/outputs/apk/debug/app-debug.apk PCB_Zeka_Pro_v3.0_SUPER_OCR_REPAIR_S24.apk
+          cp pcb-analyzer/app/build/outputs/apk/debug/app-debug.apk PCB_Zeka_Pro_v4.0_PRO_SERVICE_S24.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: PCB-Zeka-Pro-v3.0-SUPER-OCR-REPAIR-S24-APK
-          path: PCB_Zeka_Pro_v3.0_SUPER_OCR_REPAIR_S24.apk
+          name: PCB-Zeka-Pro-v4.0-PRO-SERVICE-S24-APK
+          path: PCB_Zeka_Pro_v4.0_PRO_SERVICE_S24.apk
           if-no-files-found: error
           retention-days: 30
