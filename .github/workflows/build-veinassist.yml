@@ -32,20 +32,36 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Apply VeinAssist v3.3 vein-first patch
-        run: python3 veinassist/upgrade_v33.py
+      - name: Apply VeinAssist v3.3.1 install-fix patch
+        run: python3 veinassist/upgrade_v331_installfix.py
 
       - name: Build VeinAssist debug APK
         working-directory: veinassist
         run: gradle --no-daemon :app:assembleDebug --stacktrace
 
-      - name: Rename APK
-        run: cp veinassist/app/build/outputs/apk/debug/app-debug.apk MG_VeinAssist_v3.3_VeinFirst.apk
+      - name: Validate installability
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="veinassist/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          unzip -t "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 -v 4 "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee veinassist-apk-badging.txt
+          grep -q "package: name='com.mg.veinassist.installfix331'" veinassist-apk-badging.txt
+          grep -q "sdkVersion:'26'" veinassist-apk-badging.txt
+          grep -q "targetSdkVersion:'35'" veinassist-apk-badging.txt
+
+      - name: Rename validated APK
+        run: cp veinassist/app/build/outputs/apk/debug/app-debug.apk MG_VeinAssist_v3.3.1_VeinFirst_INSTALL_FIX.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-VeinAssist-v3.3-APK
-          path: MG_VeinAssist_v3.3_VeinFirst.apk
+          name: MG-VeinAssist-v3.3.1-INSTALL-FIX-APK
+          path: |
+            MG_VeinAssist_v3.3.1_VeinFirst_INSTALL_FIX.apk
+            veinassist-apk-badging.txt
           if-no-files-found: error
           retention-days: 30
