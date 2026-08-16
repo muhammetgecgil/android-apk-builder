@@ -2,124 +2,311 @@ package com.muhammetgecgil.camera3d;
 
 import android.Manifest;
 import android.app.Activity;
-import android.content.Context;
+import android.content.ContentValues;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
-import android.graphics.SurfaceTexture;
-import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
-import android.hardware.camera2.*;
-import android.os.*;
-import android.view.*;
-import android.widget.*;
-import java.util.Collections;
+import android.net.Uri;
+import android.opengl.GLES11Ext;
+import android.opengl.GLES20;
+import android.opengl.GLSurfaceView;
+import android.os.Bundle;
+import android.provider.MediaStore;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.Button;
+import android.widget.FrameLayout;
+import android.widget.LinearLayout;
+import android.widget.ProgressBar;
+import android.widget.TextView;
+import android.widget.Toast;
 
-public class MainActivity extends Activity implements SensorEventListener {
-    private static final int REQ_CAMERA=70;
-    private TextureView cameraView;
-    private View depthOverlay;
-    private CameraDevice camera;
-    private CameraCaptureSession session;
-    private HandlerThread cameraThread;
-    private Handler cameraHandler;
-    private SensorManager sensorManager;
-    private Sensor rotationSensor;
-    private boolean opening=false, orientationReady=false, mode3d=true;
-    private float basePitch,baseRoll,depthPx=12f;
-    private TextView status;
+import com.google.ar.core.ArCoreApk;
+import com.google.ar.core.Camera;
+import com.google.ar.core.Config;
+import com.google.ar.core.Frame;
+import com.google.ar.core.PointCloud;
+import com.google.ar.core.Pose;
+import com.google.ar.core.Session;
+import com.google.ar.core.TrackingState;
+import com.google.ar.core.exceptions.CameraNotAvailableException;
 
-    @Override public void onCreate(Bundle b){
+import java.io.OutputStream;
+import java.nio.FloatBuffer;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.Locale;
+
+import javax.microedition.khronos.egl.EGLConfig;
+import javax.microedition.khronos.opengles.GL10;
+
+public class MainActivity extends Activity implements GLSurfaceView.Renderer {
+    private static final int REQ_CAMERA = 71;
+    private GLSurfaceView glView;
+    private Session session;
+    private int cameraTextureId = -1;
+    private volatile boolean scanning = false;
+    private final ArrayList<float[]> points = new ArrayList<>();
+    private final HashSet<Long> voxelKeys = new HashSet<>();
+    private TextView status, countText, guideText;
+    private ProgressBar progress;
+    private Button scanButton, exportButton, clearButton;
+    private long scanStarted = 0;
+    private int targetPoints = 45000;
+
+    @Override public void onCreate(Bundle b) {
         super.onCreate(b);
-        requestWindowFeature(Window.FEATURE_NO_TITLE);
-        getWindow().setStatusBarColor(Color.BLACK);
-        getWindow().setNavigationBarColor(Color.BLACK);
         buildUi();
-        sensorManager=(SensorManager)getSystemService(SENSOR_SERVICE);
-        if(sensorManager!=null) rotationSensor=sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
-        startCameraThread();
-        if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)
-            requestPermissions(new String[]{Manifest.permission.CAMERA},REQ_CAMERA);
-        else tryOpen();
+        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.CAMERA}, REQ_CAMERA);
+        } else {
+            setupAr();
+        }
     }
 
-    private void buildUi(){
-        FrameLayout root=new FrameLayout(this); root.setBackgroundColor(Color.BLACK);
-        cameraView=new TextureView(this);
-        root.addView(cameraView,new FrameLayout.LayoutParams(-1,-1));
+    private void buildUi() {
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(0xff050505);
+        glView = new GLSurfaceView(this);
+        glView.setEGLContextClientVersion(2);
+        glView.setPreserveEGLContextOnPause(true);
+        glView.setRenderer(this);
+        glView.setRenderMode(GLSurfaceView.RENDERMODE_CONTINUOUSLY);
+        root.addView(glView, new FrameLayout.LayoutParams(-1, -1));
 
-        depthOverlay=new View(this);
-        depthOverlay.setBackgroundColor(0x1800C8FF);
-        depthOverlay.setVisibility(View.VISIBLE);
-        root.addView(depthOverlay,new FrameLayout.LayoutParams(-1,-1));
+        LinearLayout top = new LinearLayout(this);
+        top.setOrientation(LinearLayout.VERTICAL);
+        top.setPadding(28, 28, 28, 22);
+        top.setBackgroundColor(0xaa111111);
+        TextView title = new TextView(this);
+        title.setText("CAMERA 3D • CAD SCAN");
+        title.setTextColor(0xffffffff);
+        title.setTextSize(21);
+        status = new TextView(this);
+        status.setText("ARCore hazırlanıyor…");
+        status.setTextColor(0xffdddddd);
+        status.setTextSize(14);
+        countText = new TextView(this);
+        countText.setText("3D nokta: 0");
+        countText.setTextColor(0xff9ee7ff);
+        countText.setTextSize(17);
+        guideText = new TextView(this);
+        guideText.setText("Nesneyi ortada tut. Telefonu yavaşça nesnenin çevresinde 360° gezdir.");
+        guideText.setTextColor(0xffffffff);
+        guideText.setTextSize(14);
+        progress = new ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal);
+        progress.setMax(100);
+        top.addView(title); top.addView(status); top.addView(countText); top.addView(progress); top.addView(guideText);
+        FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(-1, -2, Gravity.TOP);
+        tp.setMargins(16, 35, 16, 0);
+        root.addView(top, tp);
 
-        cameraView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener(){
-            public void onSurfaceTextureAvailable(SurfaceTexture s,int w,int h){tryOpen();}
-            public void onSurfaceTextureSizeChanged(SurfaceTexture s,int w,int h){}
-            public boolean onSurfaceTextureDestroyed(SurfaceTexture s){return true;}
-            public void onSurfaceTextureUpdated(SurfaceTexture s){}
-        });
-
-        LinearLayout top=new LinearLayout(this); top.setOrientation(LinearLayout.VERTICAL); top.setPadding(22,18,22,18); top.setBackgroundColor(0x66000000);
-        TextView title=new TextView(this); title.setText("CAMERA 3D • SAFE LIVE"); title.setTextSize(20); title.setTextColor(Color.WHITE);
-        status=new TextView(this); status.setText("Kamera hazırlanıyor…"); status.setTextSize(13); status.setTextColor(0xffdddddd);
-        top.addView(title); top.addView(status);
-        FrameLayout.LayoutParams tp=new FrameLayout.LayoutParams(-1,-2,Gravity.TOP); tp.setMargins(16,40,16,0); root.addView(top,tp);
-
-        LinearLayout controls=new LinearLayout(this); controls.setOrientation(LinearLayout.VERTICAL); controls.setPadding(22,18,22,22); controls.setBackgroundColor(0xaa111111);
-        LinearLayout row=new LinearLayout(this);
-        Button toggle=new Button(this); toggle.setText("3D AÇIK");
-        toggle.setOnClickListener(v->{mode3d=!mode3d; toggle.setText(mode3d?"3D AÇIK":"NORMAL"); depthOverlay.setVisibility(mode3d?View.VISIBLE:View.GONE);});
-        Button reset=new Button(this); reset.setText("MERKEZLE"); reset.setOnClickListener(v->{orientationReady=false; depthOverlay.setTranslationX(0); depthOverlay.setTranslationY(0);});
-        row.addView(toggle,new LinearLayout.LayoutParams(0,-2,1)); row.addView(reset,new LinearLayout.LayoutParams(0,-2,1)); controls.addView(row);
-        TextView dt=new TextView(this); dt.setText("3D DERİNLİK / PARALLAX"); dt.setTextColor(Color.WHITE); controls.addView(dt);
-        SeekBar sb=new SeekBar(this); sb.setMax(40); sb.setProgress(12); sb.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int p,boolean f){depthPx=p;} public void onStartTrackingTouch(SeekBar s){} public void onStopTrackingTouch(SeekBar s){}}); controls.addView(sb);
-        TextView hint=new TextView(this); hint.setText("Tek kamera yüzeyi kullanılır. Telefon hareketi derinlik katmanını kaydırır; Samsung Camera2 çoklu-yüzey çökmesi engellenmiştir."); hint.setTextColor(0xffcccccc); controls.addView(hint);
-        FrameLayout.LayoutParams cp=new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM); cp.setMargins(16,0,16,40); root.addView(controls,cp);
+        LinearLayout bottom = new LinearLayout(this);
+        bottom.setOrientation(LinearLayout.VERTICAL);
+        bottom.setPadding(18, 18, 18, 24);
+        bottom.setBackgroundColor(0xcc111111);
+        LinearLayout row = new LinearLayout(this);
+        scanButton = new Button(this);
+        scanButton.setText("3D TARAMAYI BAŞLAT");
+        scanButton.setOnClickListener(v -> toggleScan());
+        clearButton = new Button(this);
+        clearButton.setText("TEMİZLE");
+        clearButton.setOnClickListener(v -> clearScan());
+        row.addView(scanButton, new LinearLayout.LayoutParams(0, -2, 2f));
+        row.addView(clearButton, new LinearLayout.LayoutParams(0, -2, 1f));
+        bottom.addView(row);
+        exportButton = new Button(this);
+        exportButton.setText("CAD VERİSİ DIŞA AKTAR • PLY + OBJ");
+        exportButton.setEnabled(false);
+        exportButton.setOnClickListener(v -> exportCadData());
+        bottom.addView(exportButton);
+        TextView note = new TextView(this);
+        note.setText("Bu sürüm gerçek ARCore 3D nokta bulutu üretir. PLY/OBJ mühendislik verisidir; STEP katı model sonraki yüzey-uydurma aşamasıdır.");
+        note.setTextColor(0xffcccccc);
+        note.setTextSize(12);
+        bottom.addView(note);
+        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
+        bp.setMargins(16, 0, 16, 38);
+        root.addView(bottom, bp);
         setContentView(root);
     }
 
-    private void startCameraThread(){if(cameraThread!=null)return; cameraThread=new HandlerThread("camera3d"); cameraThread.start(); cameraHandler=new Handler(cameraThread.getLooper());}
-    private void tryOpen(){
-        if(isFinishing()||isDestroyed()||opening||camera!=null||cameraView==null||!cameraView.isAvailable())return;
-        if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)return;
-        if(cameraHandler==null)startCameraThread(); openCamera();
+    private void setupAr() {
+        try {
+            ArCoreApk.Availability availability = ArCoreApk.getInstance().checkAvailability(this);
+            if (availability.isUnsupported()) {
+                status.setText("Bu cihaz ARCore desteklemiyor");
+                return;
+            }
+            session = new Session(this);
+            Config config = new Config(session);
+            config.setUpdateMode(Config.UpdateMode.LATEST_CAMERA_IMAGE);
+            session.configure(config);
+            status.setText("ARCore hazır • 3D taramayı başlat");
+        } catch (Throwable t) {
+            status.setText("ARCore başlatılamadı: " + t.getClass().getSimpleName());
+        }
     }
-    private void openCamera(){
-        try{
-            CameraManager m=(CameraManager)getSystemService(Context.CAMERA_SERVICE); if(m==null)return;
-            String selected=null; for(String id:m.getCameraIdList()){Integer f=m.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING); if(f!=null&&f==CameraCharacteristics.LENS_FACING_BACK){selected=id;break;}}
-            if(selected==null){status.setText("Arka kamera bulunamadı");return;}
-            opening=true; status.setText("Arka kamera açılıyor…");
-            m.openCamera(selected,new CameraDevice.StateCallback(){
-                public void onOpened(CameraDevice c){opening=false;camera=c;createPreview();}
-                public void onDisconnected(CameraDevice c){opening=false;c.close();camera=null;runOnUiThread(()->status.setText("Kamera bağlantısı kesildi"));}
-                public void onError(CameraDevice c,int e){opening=false;c.close();camera=null;runOnUiThread(()->status.setText("Kamera hatası: "+e));}
-            },cameraHandler);
-        }catch(Throwable e){opening=false;runOnUiThread(()->status.setText("Kamera açılamadı: "+e.getClass().getSimpleName()));}
+
+    private void toggleScan() {
+        if (session == null) { setupAr(); if (session == null) return; }
+        scanning = !scanning;
+        if (scanning) {
+            scanStarted = System.currentTimeMillis();
+            scanButton.setText("TARAMAYI BİTİR");
+            guideText.setText("Yavaş hareket et • Nesneyi her açıdan gör • Parlama ve hızlı dönüşten kaçın");
+        } else {
+            scanButton.setText("3D TARAMAYI BAŞLAT");
+            guideText.setText("Tarama durdu. Nokta sayısı yeterliyse CAD verisini dışa aktar.");
+            exportButton.setEnabled(points.size() > 100);
+        }
     }
-    private void createPreview(){
-        try{
-            SurfaceTexture t=cameraView.getSurfaceTexture(); if(t==null)return; t.setDefaultBufferSize(1280,720); Surface s=new Surface(t);
-            CaptureRequest.Builder r=camera.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW); r.addTarget(s); r.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-            camera.createCaptureSession(Collections.singletonList(s),new CameraCaptureSession.StateCallback(){
-                public void onConfigured(CameraCaptureSession cs){session=cs;try{cs.setRepeatingRequest(r.build(),null,cameraHandler);runOnUiThread(()->status.setText("CANLI • GÜVENLİ KAMERA AKTİF"));}catch(Throwable e){runOnUiThread(()->status.setText("Önizleme hatası"));}}
-                public void onConfigureFailed(CameraCaptureSession cs){runOnUiThread(()->status.setText("Kamera oturumu kurulamadı"));}
-            },cameraHandler);
-        }catch(Throwable e){runOnUiThread(()->status.setText("Önizleme kurulamadı: "+e.getClass().getSimpleName()));}
+
+    private synchronized void clearScan() {
+        scanning = false;
+        points.clear();
+        voxelKeys.clear();
+        scanButton.setText("3D TARAMAYI BAŞLAT");
+        exportButton.setEnabled(false);
+        countText.setText("3D nokta: 0");
+        progress.setProgress(0);
+        guideText.setText("Nesneyi ortada tut. Telefonu yavaşça nesnenin çevresinde 360° gezdir.");
     }
-    public void onSensorChanged(SensorEvent e){
-        if(e.sensor.getType()!=Sensor.TYPE_ROTATION_VECTOR)return; float[] r=new float[9],o=new float[3]; SensorManager.getRotationMatrixFromVector(r,e.values); SensorManager.getOrientation(r,o);
-        if(!orientationReady){basePitch=o[1];baseRoll=o[2];orientationReady=true;return;} if(!mode3d)return;
-        float dx=clamp(o[2]-baseRoll),dy=clamp(o[1]-basePitch); depthOverlay.setTranslationX(Math.max(-depthPx,Math.min(depthPx,dx*depthPx*2))); depthOverlay.setTranslationY(Math.max(-depthPx/2,Math.min(depthPx/2,dy*depthPx)));
-        float a=0.05f+Math.min(0.18f,depthPx/180f); depthOverlay.setAlpha(a);
+
+    @Override public void onSurfaceCreated(GL10 gl, EGLConfig config) {
+        int[] tex = new int[1];
+        GLES20.glGenTextures(1, tex, 0);
+        cameraTextureId = tex[0];
+        GLES20.glBindTexture(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, cameraTextureId);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+        GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+        GLES20.glClearColor(0.03f,0.03f,0.03f,1f);
     }
-    private float clamp(float a){while(a>Math.PI)a-=2*Math.PI;while(a<-Math.PI)a+=2*Math.PI;return a;}
-    public void onAccuracyChanged(Sensor s,int a){}
-    protected void onResume(){super.onResume();if(sensorManager!=null&&rotationSensor!=null)sensorManager.registerListener(this,rotationSensor,SensorManager.SENSOR_DELAY_GAME);if(cameraThread==null)startCameraThread();tryOpen();}
-    protected void onPause(){if(sensorManager!=null)sensorManager.unregisterListener(this);closeCamera();super.onPause();}
-    private void closeCamera(){opening=false;if(session!=null){try{session.close();}catch(Throwable ignored){}session=null;}if(camera!=null){try{camera.close();}catch(Throwable ignored){}camera=null;}}
-    protected void onDestroy(){closeCamera();if(cameraThread!=null){cameraThread.quitSafely();cameraThread=null;cameraHandler=null;}super.onDestroy();}
-    public void onRequestPermissionsResult(int rc,String[] p,int[] g){super.onRequestPermissionsResult(rc,p,g);if(rc==REQ_CAMERA&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)tryOpen();else if(status!=null)status.setText("Kamera izni gerekli");}
+
+    @Override public void onSurfaceChanged(GL10 gl, int width, int height) {
+        GLES20.glViewport(0,0,width,height);
+        if (session != null) session.setDisplayGeometry(getWindowManager().getDefaultDisplay().getRotation(), width, height);
+    }
+
+    @Override public void onDrawFrame(GL10 gl) {
+        GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT | GLES20.GL_DEPTH_BUFFER_BIT);
+        Session s = session;
+        if (s == null || cameraTextureId < 0) return;
+        try {
+            s.setCameraTextureName(cameraTextureId);
+            Frame frame = s.update();
+            Camera camera = frame.getCamera();
+            if (camera.getTrackingState() != TrackingState.TRACKING) {
+                runOnUiThread(() -> status.setText("Takip bekleniyor • telefonu yavaş hareket ettir"));
+                return;
+            }
+            if (scanning) collectPointCloud(frame);
+        } catch (Throwable t) {
+            runOnUiThread(() -> status.setText("Tarama hatası: " + t.getClass().getSimpleName()));
+        }
+    }
+
+    private void collectPointCloud(Frame frame) {
+        try (PointCloud cloud = frame.acquirePointCloud()) {
+            FloatBuffer fb = cloud.getPoints();
+            int count = fb.remaining() / 4;
+            int stride = Math.max(1, count / 700);
+            synchronized (this) {
+                for (int i=0;i<count;i+=stride) {
+                    int p=i*4;
+                    float x=fb.get(p), y=fb.get(p+1), z=fb.get(p+2), confidence=fb.get(p+3);
+                    if (confidence < 0.35f) continue;
+                    if (Math.abs(x)>5 || Math.abs(y)>5 || Math.abs(z)>5) continue;
+                    long key = voxelKey(x,y,z,0.008f);
+                    if (voxelKeys.add(key)) {
+                        points.add(new float[]{x,y,z,confidence});
+                        if (points.size() >= 120000) { scanning=false; break; }
+                    }
+                }
+                int n=points.size();
+                int pct=Math.min(100,(int)(100f*n/targetPoints));
+                runOnUiThread(() -> {
+                    countText.setText("3D nokta: " + n);
+                    progress.setProgress(pct);
+                    status.setText(pct<30?"Geometri toplanıyor…":pct<75?"İyi • diğer yüzleri tara":"Yoğun nokta bulutu • taramayı bitirebilirsin");
+                    exportButton.setEnabled(n>100);
+                });
+            }
+        }
+    }
+
+    private long voxelKey(float x,float y,float z,float cell) {
+        long ix=(long)Math.floor(x/cell)+1048576;
+        long iy=(long)Math.floor(y/cell)+1048576;
+        long iz=(long)Math.floor(z/cell)+1048576;
+        return ((ix & 0x1fffffL)<<42)|((iy & 0x1fffffL)<<21)|(iz & 0x1fffffL);
+    }
+
+    private void exportCadData() {
+        final ArrayList<float[]> copy;
+        synchronized (this) { copy = new ArrayList<>(points); }
+        if (copy.size()<10) { Toast.makeText(this,"Önce tarama yap",Toast.LENGTH_SHORT).show(); return; }
+        new Thread(() -> {
+            try {
+                String stamp=new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.US).format(new Date());
+                Uri ply=writeDownload("Camera3D_"+stamp+".ply","application/octet-stream",buildPly(copy));
+                Uri obj=writeDownload("Camera3D_"+stamp+".obj","text/plain",buildObj(copy));
+                runOnUiThread(() -> Toast.makeText(this,"PLY + OBJ Downloads klasörüne kaydedildi",Toast.LENGTH_LONG).show());
+            } catch (Throwable t) {
+                runOnUiThread(() -> Toast.makeText(this,"Dışa aktarma hatası: "+t.getClass().getSimpleName(),Toast.LENGTH_LONG).show());
+            }
+        }).start();
+    }
+
+    private byte[] buildPly(ArrayList<float[]> pts) {
+        StringBuilder sb=new StringBuilder(pts.size()*35);
+        sb.append("ply\nformat ascii 1.0\nelement vertex ").append(pts.size()).append("\nproperty float x\nproperty float y\nproperty float z\nproperty float confidence\nend_header\n");
+        for(float[] p:pts) sb.append(p[0]).append(' ').append(p[1]).append(' ').append(p[2]).append(' ').append(p[3]).append('\n');
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private byte[] buildObj(ArrayList<float[]> pts) {
+        StringBuilder sb=new StringBuilder(pts.size()*30);
+        sb.append("# Camera3D CAD Scan point cloud\n");
+        for(float[] p:pts) sb.append("v ").append(p[0]).append(' ').append(p[1]).append(' ').append(p[2]).append('\n');
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private Uri writeDownload(String name,String mime,byte[] data) throws Exception {
+        ContentValues cv=new ContentValues();
+        cv.put(MediaStore.Downloads.DISPLAY_NAME,name);
+        cv.put(MediaStore.Downloads.MIME_TYPE,mime);
+        cv.put(MediaStore.Downloads.RELATIVE_PATH,"Download/Camera3D");
+        Uri uri=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,cv);
+        if(uri==null) throw new IllegalStateException("MediaStore insert failed");
+        try(OutputStream os=getContentResolver().openOutputStream(uri)){ if(os==null) throw new IllegalStateException("output null"); os.write(data); }
+        return uri;
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        if (session == null && checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED) setupAr();
+        if (session != null) {
+            try { session.resume(); } catch (CameraNotAvailableException e) { status.setText("Kamera ARCore tarafından açılamadı"); }
+        }
+        if (glView != null) glView.onResume();
+    }
+
+    @Override protected void onPause() {
+        if (glView != null) glView.onPause();
+        if (session != null) session.pause();
+        super.onPause();
+    }
+
+    @Override protected void onDestroy() {
+        if(session!=null){session.close();session=null;}
+        super.onDestroy();
+    }
+
+    @Override public void onRequestPermissionsResult(int rc,String[] p,int[] g){
+        super.onRequestPermissionsResult(rc,p,g);
+        if(rc==REQ_CAMERA && g.length>0 && g[0]==PackageManager.PERMISSION_GRANTED){setupAr();onResume();}
+        else status.setText("Kamera izni gerekli");
+    }
 }
