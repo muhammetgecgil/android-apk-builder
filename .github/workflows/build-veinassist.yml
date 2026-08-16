@@ -5,6 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'veinassist/**'
+      - '!veinassist/releases/**'
       - '.github/workflows/build-veinassist.yml'
   workflow_dispatch:
 
@@ -76,3 +77,19 @@ jobs:
           name: MG VeinAssist v3.6 Fullscreen Overlay
           make_latest: false
           files: MG_VeinAssist_v3.6_Fullscreen_Overlay.apk
+
+      - name: Store validated APK in repository
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p veinassist/releases
+          cp MG_VeinAssist_v3.6_Fullscreen_Overlay.apk veinassist/releases/MG_VeinAssist_v3.6_Fullscreen_Overlay.apk
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add veinassist/releases/MG_VeinAssist_v3.6_Fullscreen_Overlay.apk
+          if git diff --cached --quiet; then
+            echo "APK already stored"
+          else
+            git commit -m "Store validated VeinAssist v3.6 APK [skip ci]"
+            git push
+          fi
