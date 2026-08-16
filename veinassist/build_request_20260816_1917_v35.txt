@@ -1,0 +1,10 @@
+Build request: MG VeinAssist v3.5
+Requested behavior:
+- preserve existing UI, colors, layout
+- skin-only cyan painting; never paint background/non-skin
+- black/dark hair rejection
+- stronger spatial + temporal vessel continuity and gap bridging
+- anatomy as soft prior only; never hallucinate a vein
+- hold + to accelerate sensitivity, hold - to decrease
+- keep tap one-step behavior
+Build and validate APK via build-veinassist.yml.
