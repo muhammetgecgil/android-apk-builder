@@ -17,15 +17,12 @@ android {
         applicationId 'com.muhammetgecgil.nesnesayarai.stable'
         minSdk 26
         targetSdk 36
-        versionCode 108
-        versionName '1.0.8-paint-fill'
+        versionCode 109
+        versionName '1.0.9-physical-vision'
     }
 
     buildTypes {
-        debug {
-            minifyEnabled false
-            signingConfig signingConfigs.stableTest
-        }
+        debug { minifyEnabled false; signingConfig signingConfigs.stableTest }
         release {
             minifyEnabled false
             signingConfig signingConfigs.stableTest
