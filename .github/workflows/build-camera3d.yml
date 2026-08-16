@@ -24,6 +24,9 @@ jobs:
         uses: android-actions/setup-android@v3
       - name: Install Android API 36
         run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - name: Create persistent Camera3D signing key
+        run: |
+          keytool -genkeypair -v -keystore camera3d-debug.keystore -storepass camera3d -alias camera3d -keypass camera3d -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Camera3D,O=Muhammet Gecgil,C=TR"
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -34,13 +37,13 @@ jobs:
         run: |
           APK=camera3d/build/outputs/apk/debug/camera3d-debug.apk
           test -s "$APK"
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | head -20
-          cp "$APK" Camera3D_v1.0.1.apk
+          cp "$APK" Camera3D_v1.0.2.apk
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: Camera3D-v1.0.1-verified
-          path: Camera3D_v1.0.1.apk
+          name: Camera3D-v1.0.2-verified
+          path: Camera3D_v1.0.2.apk
           if-no-files-found: error
           retention-days: 30
