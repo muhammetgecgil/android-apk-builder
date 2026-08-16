@@ -4,11 +4,11 @@ android {
     namespace 'com.muhammetgecgil.sesgoruntuharitasi'
     compileSdk 36
     defaultConfig {
-        applicationId 'com.muhammetgecgil.probefusionv85'
+        applicationId 'com.muhammetgecgil.probefusionv86'
         minSdk 26
         targetSdk 36
-        versionCode 850
-        versionName '8.5'
+        versionCode 860
+        versionName '8.6'
     }
     buildTypes {
         debug { minifyEnabled false }
