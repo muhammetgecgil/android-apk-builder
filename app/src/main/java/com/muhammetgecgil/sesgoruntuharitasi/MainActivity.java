@@ -18,9 +18,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Locale;
 
-/** V8.8: robust acoustic source finder. Source variability is separated from probe motion. */
+/** V8.9: robust source finder + ultra-fast learned microphone appearance tracker. */
 public final class MainActivity extends Activity {
-    private static final int REQ=88;
+    private static final int REQ=89;
     private static final float PARK_X=.14f,PARK_Y=.70f,PARK_R=.11f;
     private TextureView cameraView;
     private HeatmapOverlayView overlay;
@@ -52,8 +52,8 @@ public final class MainActivity extends Activity {
         overlay.setTargetListener((x,y)->{probeX=x;probeY=y;vision.seed(x,y);visionValid=true;probeFrozen=false;probeMoving=false;});
 
         LinearLayout top=new LinearLayout(this);top.setOrientation(LinearLayout.VERTICAL);top.setPadding(dp(10),dp(5),dp(10),dp(6));top.setBackgroundColor(Color.argb(215,4,12,18));root.addView(top,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
-        TextView title=label("SES GÖRÜNTÜ HARİTASI V8.8 • ROBUST SOURCE FINDER",16,true);title.setTextColor(Color.WHITE);top.addView(title);
-        statusText=label("Öncelik: doğru kaynak konumu • renk yalnız ölçüm farkını gösterir",10,false);statusText.setTextColor(Color.CYAN);top.addView(statusText);
+        TextView title=label("SES GÖRÜNTÜ HARİTASI V8.9 • FAST TRACK",16,true);title.setTextColor(Color.WHITE);top.addView(title);
+        statusText=label("Prob görüntüsü öğrenilir • daire aramadan hızlı takip • kayıpta merkez donar",10,false);statusText.setTextColor(Color.CYAN);top.addView(statusText);
         LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);top.addView(row);
         usbText=metric("USB PROBE\n-- dBFS");refText=metric("PHONE REF\n-- dBFS");deltaText=metric("HARİTA\n-- dB");imuText=metric("IMU\n--");row.addView(usbText,weight());row.addView(refText,weight());row.addView(deltaText,weight());row.addView(imuText,weight());
 
@@ -64,14 +64,14 @@ public final class MainActivity extends Activity {
         LinearLayout r1=new LinearLayout(this);r1.setOrientation(LinearLayout.HORIZONTAL);bottom.addView(r1);
         Button mode=button("AUTO KAYNAK");bandButton=button("BAND: TÜM");Button cal=button("REF KALİBRE");Button clear=button("HARİTA SİL");r1.addView(mode,weight());r1.addView(bandButton,weight());r1.addView(cal,weight());r1.addView(clear,weight());
         LinearLayout r2=new LinearLayout(this);r2.setOrientation(LinearLayout.HORIZONTAL);bottom.addView(r2);
-        scanButton=button("TARAMAYI BAŞLAT");Button auto=button("PROB: DAİRE");Button reset=button("YENİ TARAMA");r2.addView(scanButton,weight());r2.addView(auto,weight());r2.addView(reset,weight());
+        scanButton=button("TARAMAYI BAŞLAT");Button auto=button("PROB: HIZLI");Button reset=button("YENİ TARAMA");r2.addView(scanButton,weight());r2.addView(auto,weight());r2.addView(reset,weight());
 
         mode.setOnClickListener(v->Toast.makeText(this,"AUTO: sabit kaynakta prob seviyesi; değişken kaynakta canlı S24 referansı varsa USB−REF kullanılır",Toast.LENGTH_LONG).show());
         bandButton.setOnClickListener(v->cycleBand());
         cal.setOnClickListener(v->{if(audio!=null){audio.stop();audio.start();Toast.makeText(this,"S24 referansı yeniden kalibre ediliyor",Toast.LENGTH_SHORT).show();}});
         clear.setOnClickListener(v->resetScan());
         scanButton.setOnClickListener(v->{if(!scanning&&!finished){if(!parked){Toast.makeText(this,"Önce probu sol alttaki başlangıç dairesine getir",Toast.LENGTH_LONG).show();return;}resetHistories();overlay.clearMap();overlay.beginScan();scanning=true;finished=false;scanButton.setText("TARAMAYI BİTİR");}else if(scanning){scanning=false;finished=true;overlay.finishScan();scanButton.setText("YENİ TARAMA");Toast.makeText(this,overlay.isHomogeneous()?"Tarama bitti • alan büyük ölçüde homojen":"Tarama bitti • kaynak adayı gerçek ölçüm noktalarından hesaplandı",Toast.LENGTH_LONG).show();}else resetScan();});
-        auto.setOnClickListener(v->{vision.seed(probeX,probeY);visionValid=true;probeFrozen=false;probeMoving=false;});reset.setOnClickListener(v->resetScan());
+        auto.setOnClickListener(v->{vision.seed(probeX,probeY);visionValid=true;probeFrozen=false;probeMoving=false;Toast.makeText(this,"Prob görüntüsü yeniden öğreniliyor",Toast.LENGTH_SHORT).show();});reset.setOnClickListener(v->resetScan());
     }
 
     private void resetHistories(){refHistory.clear();stationaryUsbHistory.clear();mapMedianHistory.clear();variableSource=false;variableUncertain=false;}
@@ -80,9 +80,9 @@ public final class MainActivity extends Activity {
 
     private final Runnable visionLoop=new Runnable(){@Override public void run(){
         if(cameraView!=null&&cameraView.isAvailable()){
-            try{Bitmap b=cameraView.getBitmap(180,320);ProbeVisionTracker.Result r=vision.track(b);if(b!=null)b.recycle();probeX=r.x01;probeY=r.y01;probeR=r.radius01;visionConf=r.confidence;visionValid=r.valid;probeFrozen=r.frozen;probeMoving=r.moving;float dx=probeX-PARK_X,dy=probeY-PARK_Y;parked=visionValid&&!probeFrozen&&(dx*dx+dy*dy)<PARK_R*PARK_R;overlay.setTracker(probeX,probeY,probeR,visionConf,visionValid,probeFrozen);overlay.setParked(parked);}catch(Exception ignored){}
+            try{Bitmap b=cameraView.getBitmap(144,256);ProbeVisionTracker.Result r=vision.track(b);if(b!=null)b.recycle();probeX=r.x01;probeY=r.y01;probeR=r.radius01;visionConf=r.confidence;visionValid=r.valid;probeFrozen=r.frozen;probeMoving=r.moving;float dx=probeX-PARK_X,dy=probeY-PARK_Y;parked=visionValid&&!probeFrozen&&(dx*dx+dy*dy)<PARK_R*PARK_R;overlay.setTracker(probeX,probeY,probeR,visionConf,visionValid,probeFrozen);overlay.setParked(parked);}catch(Exception ignored){}
         }
-        handler.postDelayed(this,90);
+        handler.postDelayed(this,35);
     }};
 
     private void onProbe(ProbeAudioEngine.Snapshot s){
@@ -101,7 +101,7 @@ public final class MainActivity extends Activity {
             usbText.setText(String.format(Locale.US,"USB PROBE\n%.1f dBFS",s.usbDbfs));refText.setText(String.format(Locale.US,"PHONE REF\n%.1f dBFS",s.refDbfs));deltaText.setText(String.format(Locale.US,"HARİTA\n%.1f dB",fm));imuText.setText(String.format(Locale.US,"IMU\n%.0f%%",motion*100f));
             String phase=finished?"SONUÇ HAZIR":scanning?"TARAMA AKTİF":parked?"PROB HAZIR":"PROBU SOL ALTA GETİR";
             String src=!variableSource?"SABİT/KARARLI SES":s.dualLive?"DEĞİŞKEN SES • S24 CANLI TELAFİ":"DEĞİŞKEN SES • DUAL YOK • YAVAŞ/BEKLEMELİ ÖLÇÜM";if(variableUncertain)src+=" • GÜVEN DÜŞÜK";
-            String track=probeFrozen?"PROB KAYIP • MERKEZ DONDU":visionValid?String.format(Locale.US,"PROB %d%%",Math.round(visionConf*100)):"PROB ARANIYOR";
+            String track=probeFrozen?"PROB KAYIP • MERKEZ DONDU":visionValid?String.format(Locale.US,"HIZLI TAKİP %d%%",Math.round(visionConf*100)):"PROB ARANIYOR";
             String write=scanning?(canWrite?"ÖLÇÜM ✓":"ÖLÇÜM BEKLE"):"ÖLÇÜM KAPALI";statusText.setText(phase+" • "+src+" • "+track+" • "+write+"\n"+s.status);
         });
     }
