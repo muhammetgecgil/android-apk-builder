@@ -5,12 +5,11 @@ android {
     compileSdk 36
 
     defaultConfig {
-        // Separate identity: installs alongside every earlier Camera3D test build.
-        applicationId 'com.muhammetgecgil.cameracadscan.v111'
+        applicationId 'com.muhammetgecgil.cameracadscan.v120'
         minSdk 26
         targetSdk 36
         versionCode 1
-        versionName '1.1.1'
+        versionName '1.2.0'
     }
 
     signingConfigs {
