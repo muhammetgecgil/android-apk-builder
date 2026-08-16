@@ -8,6 +8,9 @@ on:
       - '.github/workflows/build-veinassist.yml'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -56,7 +59,7 @@ jobs:
       - name: Rename validated APK
         run: cp veinassist/app/build/outputs/apk/debug/app-debug.apk MG_VeinAssist_v3.6_Fullscreen_Overlay.apk
 
-      - name: Upload APK
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: MG-VeinAssist-v3.6-FULLSCREEN-OVERLAY-APK
@@ -65,3 +68,11 @@ jobs:
             veinassist-apk-badging.txt
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish direct APK release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: veinassist-v3.6-fullscreen
+          name: MG VeinAssist v3.6 Fullscreen Overlay
+          make_latest: false
+          files: MG_VeinAssist_v3.6_Fullscreen_Overlay.apk
