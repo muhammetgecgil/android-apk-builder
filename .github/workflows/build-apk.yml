@@ -29,11 +29,11 @@ jobs:
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Nesne_Sayar_AI_v107.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Nesne_Sayar_AI_v110.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nesne-Sayar-AI-v107
-          path: Nesne_Sayar_AI_v107.apk
+          name: Nesne-Sayar-AI-v110
+          path: Nesne_Sayar_AI_v110.apk
           if-no-files-found: error
           retention-days: 30
