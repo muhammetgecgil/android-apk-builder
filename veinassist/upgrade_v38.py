@@ -16,68 +16,91 @@ def rep(old, new, label):
         raise RuntimeError(f'Patch point not found: {label}')
     s = s.replace(old, new, 1)
 
-# v3.8: UI/layout/palette stay exactly as v3.7. Algorithm only.
-# Real S24 Ultra test showed TEN detected but CIZGI=0: v3.7 rejected weak RGB
-# vessel evidence too early. Keep skin/background safety but allow weak evidence
-# to accumulate into a continuous path across several frames.
+# v3.8 algorithm-only update. UI/layout/palette remain unchanged.
+# S24 Ultra field test: learned skin succeeds (TEN ~83%) while the old path gate
+# returns CIZGI=0. The fix is weak-evidence accumulation + continuity, not atlas hallucination.
 
+# At sensitivity 73 this lowers the working floor substantially while retaining a hard floor.
 rep('float threshold = Math.max(3.05f, 9.35f - sensitivity * 0.0305f);',
-    'float threshold = Math.max(2.05f, 8.10f - sensitivity * 0.0540f);',
+    'float threshold = Math.max(1.85f, 7.70f - sensitivity * 0.0520f);',
     'adaptive RGB threshold')
 
-# Permit continuity analysis a little closer to the learned limb interior.
-# Final painting remains guarded by the separate dense-skin paint gate.
-rep('innerSkin[i] = borderSafe && skin[i] && skinDensity[i] >= 0.978f;',
-    'innerSkin[i] = borderSafe && skin[i] && skinDensity[i] >= 0.955f;',
+# v3.5's actual detector interior is 0.965. Relax only analysis support; final cyan paint
+# still has its separate 0.985 dense-skin gate, so tables/chairs/background stay unpainted.
+rep('innerSkin[i] = borderSafe && skinDensity[i] >= 0.965f;',
+    'innerSkin[i] = borderSafe && skinDensity[i] >= 0.945f;',
     'inner skin continuity support')
 
-# Visible-light vein contrast can change sign with exposure/white balance.
-# Use the magnitude of local R-G residual. Hair/creases are still suppressed by
-# black-pixel, thinness, edge and bilateral-profile tests.
+# RGB vein colour can change sign with exposure/white balance. Use local chromatic residual
+# magnitude as one weak cue; it never paints by itself.
 rep('float haemoglobinCue = Math.max(0f, rgIndex[i] - rgMean10[i]);\n                haemoglobinCue = Math.min(7.0f, haemoglobinCue * 0.34f);',
     'float rgResidual = rgIndex[i] - rgMean10[i];\n                float haemoglobinCue = Math.min(7.0f, Math.abs(rgResidual) * 0.30f);',
     'bidirectional RGB chromatic cue')
 
 rep('float ridge = body * 0.56f\n                        + illuminationNorm * 0.46f\n                        + hessian * 0.78f\n                        + haemoglobinCue * 0.56f',
-    'float ridge = body * 0.64f\n                        + illuminationNorm * 0.60f\n                        + hessian * 0.86f\n                        + haemoglobinCue * 0.72f',
+    'float ridge = body * 0.66f\n                        + illuminationNorm * 0.62f\n                        + hessian * 0.90f\n                        + haemoglobinCue * 0.74f',
     'weak vessel response gain')
 
-# Long directional agreement is more important than high single-pixel contrast.
-rep('if (lineSkin < 8 || lineStrong < 6) continue;',
-    'if (lineSkin < 7 || lineStrong < 4) continue;',
-    'directional continuity support')
+# Let weak centre pixels enter directional testing, but still demand support on both sides.
+rep('if (!innerSkin[i] || base < threshold * 0.22f) continue;',
+    'if (!innerSkin[i] || base < threshold * 0.12f) continue;',
+    'directional base floor')
+rep('if (ridgeSoftness[i] < 0.50f && base < threshold * 1.30f) continue;',
+    'if (ridgeSoftness[i] < 0.38f && base < threshold * 1.05f) continue;',
+    'soft ridge entry')
+rep('if (raw[i1] > threshold * 0.19f) lineStrong++;\n                        if (raw[i2] > threshold * 0.19f) lineStrong++;',
+    'if (raw[i1] > threshold * 0.13f) lineStrong++;\n                        if (raw[i2] > threshold * 0.13f) lineStrong++;',
+    'along line weak evidence')
 rep('if (bilateral < 1.20f || outerBilateral < 0.95f || sideAsymmetry > 13.5f) continue;',
-    'if (bilateral < 0.78f || outerBilateral < 0.58f || sideAsymmetry > 15.5f) continue;',
-    'soft ridge bilateral profile')
+    'if (bilateral < 0.62f || outerBilateral < 0.42f || sideAsymmetry > 16.0f) continue;',
+    'soft bilateral profile')
 
-# Let faint but stable evidence build over multiple frames.
-rep('if (s > threshold * 0.72f) persistence[i] = (byte)Math.min(12, persistence[i] + 1);',
-    'if (s > threshold * 0.52f) persistence[i] = (byte)Math.min(15, persistence[i] + 1);',
+# Temporal hysteresis: stable faint evidence accumulates instead of disappearing every frame.
+rep('if (s > threshold * 0.58f) persistence[i] = (byte)Math.min(15, persistence[i] + 1);',
+    'if (s > threshold * 0.40f) persistence[i] = (byte)Math.min(15, persistence[i] + 1);',
     'persistence entry')
-rep('strong[i] = temporal[i] > threshold * 1.12f && persistence[i] >= 3;',
-    'strong[i] = temporal[i] > threshold * 0.96f && persistence[i] >= 2;',
+rep('strong[i] = temporal[i] > threshold * 1.00f && persistence[i] >= 3;',
+    'strong[i] = temporal[i] > threshold * 0.80f && persistence[i] >= 2;',
     'strong temporal seed')
-rep('weak[i] = temporal[i] > threshold * 0.72f && persistence[i] >= 3;',
-    'weak[i] = temporal[i] > threshold * 0.52f && persistence[i] >= 2;',
+rep('weak[i] = temporal[i] > threshold * 0.60f && persistence[i] >= 2;',
+    'weak[i] = temporal[i] > threshold * 0.40f && persistence[i] >= 2;',
     'weak temporal path')
 
-# Keep long vessel-like curves; reject dots/blobs, but don't require bright contrast.
-rep('if (size < 18) continue;', 'if (size < 10) continue;', 'component minimum size')
-rep('boolean longEnough = span >= 18;', 'boolean longEnough = span >= 14;', 'component span')
-rep('boolean sparseCurve = span >= 28 && fill <= 0.54f;',
-    'boolean sparseCurve = span >= 22 && fill <= 0.62f;',
-    'sparse curve')
-rep('boolean elongated = elongation >= 1.80f && fill <= 0.70f;',
-    'boolean elongated = elongation >= 1.52f && fill <= 0.76f;',
-    'elongation')
-rep('boolean scoreOk = meanScore >= 5.25f;',
-    'boolean scoreOk = meanScore >= Math.max(2.85f, thresholdForComponent() * 0.80f);',
-    'adaptive component score')
+# Component/path gate. Old v3.5 demanded span 34 + geodesic 42 + 50% temporal stability.
+# That erased the user's faint wrist paths. Keep a continuity requirement, but make it adaptive.
+rep('if (size < 20) continue;', 'if (size < 9) continue;', 'component minimum size')
+rep('boolean longEnough = span >= 34 && geodesic >= 42;',
+    'boolean longEnough = span >= 16 && geodesic >= 21;',
+    'component long enough')
+rep('boolean longCurve = span >= 44 && geodesic >= 55 && fill <= 0.66f;',
+    'boolean longCurve = span >= 24 && geodesic >= 31 && fill <= 0.76f;',
+    'component long curve')
+rep('boolean elongated = elongation >= 1.62f && fill <= 0.74f;',
+    'boolean elongated = elongation >= 1.30f && fill <= 0.84f;',
+    'component elongation')
+rep('boolean branchLike = geodesic >= 58 && span >= 42 && fill <= 0.52f;',
+    'boolean branchLike = geodesic >= 34 && span >= 24 && fill <= 0.67f;',
+    'component branch')
+rep('boolean widthOk = width <= 13.8f;',
+    'boolean widthOk = width <= 16.5f;',
+    'component width')
+rep('boolean scoreOk = meanScore >= Math.max(2.80f, thresholdForComponent() * 1.03f);',
+    'boolean scoreOk = meanScore >= Math.max(1.90f, thresholdForComponent() * 0.66f);',
+    'component score')
+rep('boolean temporalOk = stableFraction >= 0.50f || strongStable >= 10;',
+    'boolean temporalOk = stableFraction >= 0.24f || strongStable >= 4;',
+    'component temporal stability')
+rep('boolean directionOk = directionLinkFraction >= 0.60f;',
+    'boolean directionOk = directionLinkFraction >= 0.36f;',
+    'component direction links')
+rep('boolean pathOk = pathness >= 3.15f || branchLike;',
+    'boolean pathOk = pathness >= 1.75f || branchLike;',
+    'component pathness')
 
-# Anatomy remains only a weak orientation prior after image evidence exists.
-rep('if (d0 <= 24f) livePrior = 1.07f;\n            else if (d0 >= 68f) livePrior = 0.90f;',
-    'if (d0 <= 28f) livePrior = 1.12f;\n            else if (d0 >= 72f) livePrior = 0.88f;',
-    'live anatomy prior')
+# Anatomy is only a direction prior after image evidence exists. It cannot manufacture a vessel.
+if 'if (d0 <= 24f) livePrior = 1.07f;\n            else if (d0 >= 68f) livePrior = 0.90f;' in s:
+    s = s.replace('if (d0 <= 24f) livePrior = 1.07f;\n            else if (d0 >= 68f) livePrior = 0.90f;',
+                  'if (d0 <= 28f) livePrior = 1.12f;\n            else if (d0 >= 72f) livePrior = 0.88f;', 1)
 
 analyzer_p.write_text(s, encoding='utf-8')
 
