@@ -1,8 +1,8 @@
-name: Build V8.9 Fast Track APK
+name: Build V9.0 Auto Reacquire APK
 
 on:
   push:
-    branches: [ ses-goruntu-v89 ]
+    branches: [ ses-goruntu-v90 ]
   workflow_dispatch:
 
 jobs:
@@ -29,10 +29,10 @@ jobs:
       - name: Validate APK
         run: test -f app/build/outputs/apk/debug/app-debug.apk && ls -lh app/build/outputs/apk/debug/app-debug.apk
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Ses_Goruntu_Haritasi_V8_9_FastTrack_Fyvadio_S24.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Ses_Goruntu_Haritasi_V9_0_AutoReacquire_Fyvadio_S24.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Ses-Goruntu-Haritasi-V8-9-FastTrack-APK
-          path: Ses_Goruntu_Haritasi_V8_9_FastTrack_Fyvadio_S24.apk
+          name: Ses-Goruntu-Haritasi-V9-0-AutoReacquire-APK
+          path: Ses_Goruntu_Haritasi_V9_0_AutoReacquire_Fyvadio_S24.apk
           if-no-files-found: error
