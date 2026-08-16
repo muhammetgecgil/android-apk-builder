@@ -5,7 +5,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
     <uses-feature android:name="android.hardware.microphone" android:required="true" />
-    <application android:allowBackup="true" android:label="Ses Haritası V8.3 Prob Center" android:supportsRtl="true" android:theme="@style/AppTheme">
+    <application android:allowBackup="true" android:label="Ses Haritası V8.4 Park Start" android:supportsRtl="true" android:theme="@style/AppTheme">
         <activity android:name=".MainActivity" android:configChanges="orientation|screenSize" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
