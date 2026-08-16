@@ -12,71 +12,27 @@ import android.view.Gravity;
 import android.view.TextureView;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.Toast;
+import android.widget.*;
 import java.util.Locale;
 
-/** V8.6: rainbow map and freeze-on-loss probe tracking. */
+/** V8.7: dedicated 96 Hz scan + dynamic min/max rainbow + freeze-on-loss. */
 public final class MainActivity extends Activity {
-    private static final int REQ=86;
-    private static final float PARK_X=.14f, PARK_Y=.70f, PARK_R=.11f;
-    private TextureView cameraView; private HeatmapOverlayView overlay;
-    private TextView usbText,refText,deltaText,statusText,imuText;
-    private ProbeAudioEngine audio; private CameraController camera; private ImuEngine imu;
-    private final ProbeVisionTracker vision=new ProbeVisionTracker();
-    private final Handler handler=new Handler(Looper.getMainLooper());
-    private float probeX=.14f,probeY=.70f,probeR=.08f,visionConf=0f;
-    private boolean visionValid=false,probeFrozen=true,parked=false,scanning=false,finished=false;
-    private Button modeButton,bandButton,scanButton;
+    private static final int REQ=87; private static final float PARK_X=.14f,PARK_Y=.70f,PARK_R=.11f;
+    private TextureView cameraView; private HeatmapOverlayView overlay; private TextView usbText,refText,deltaText,statusText,imuText;
+    private ProbeAudioEngine audio; private CameraController camera; private ImuEngine imu; private final ProbeVisionTracker vision=new ProbeVisionTracker(); private final Handler handler=new Handler(Looper.getMainLooper());
+    private float probeX=.14f,probeY=.70f,probeR=.08f,visionConf=0f; private boolean visionValid=false,probeFrozen=true,parked=false,scanning=false,finished=false; private Button modeButton,bandButton,scanButton;
 
     @Override protected void onCreate(Bundle b){super.onCreate(b);requestWindowFeature(Window.FEATURE_NO_TITLE);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);getWindow().setStatusBarColor(Color.rgb(4,12,18));getWindow().setNavigationBarColor(Color.rgb(4,12,18));buildUi();if(hasPermissions())startAll();else requestPermissions(new String[]{Manifest.permission.CAMERA,Manifest.permission.RECORD_AUDIO},REQ);}
-
-    private void buildUi(){
-        FrameLayout root=new FrameLayout(this);root.setBackgroundColor(Color.BLACK);setContentView(root);
-        cameraView=new TextureView(this);root.addView(cameraView,new FrameLayout.LayoutParams(-1,-1));
-        overlay=new HeatmapOverlayView(this);root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));overlay.setPark(PARK_X,PARK_Y,PARK_R);
-        overlay.setTargetListener((x,y)->{probeX=x;probeY=y;vision.seed(x,y);visionValid=true;probeFrozen=false;Toast.makeText(this,"Prob merkezi manuel kilitlendi",Toast.LENGTH_SHORT).show();});
-
-        LinearLayout top=new LinearLayout(this);top.setOrientation(LinearLayout.VERTICAL);top.setPadding(dp(10),dp(5),dp(10),dp(6));top.setBackgroundColor(Color.argb(215,4,12,18));root.addView(top,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));
-        TextView title=label("SES GÖRÜNTÜ HARİTASI V8.6 • RAINBOW FREEZE",16,true);title.setTextColor(Color.WHITE);top.addView(title);
-        statusText=label("Prob kaybolursa merkez donar ve ölçüm yazılmaz",10,false);statusText.setTextColor(Color.CYAN);top.addView(statusText);
-        LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);top.addView(row);
-        usbText=metric("USB PROBE\n-- dBFS");refText=metric("PHONE REF\n-- dBFS");deltaText=metric("USB-REF\n-- dB");imuText=metric("IMU\n--");row.addView(usbText,weight());row.addView(refText,weight());row.addView(deltaText,weight());row.addView(imuText,weight());
-
-        LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.VERTICAL);bottom.setPadding(dp(8),dp(5),dp(8),dp(8));bottom.setBackgroundColor(Color.argb(230,4,12,18));FrameLayout.LayoutParams blp=new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM);blp.bottomMargin=dp(72);root.addView(bottom,blp);
-        root.setOnApplyWindowInsetsListener((v,insets)->{int nav=insets.getSystemWindowInsetBottom();FrameLayout.LayoutParams lp=(FrameLayout.LayoutParams)bottom.getLayoutParams();lp.bottomMargin=Math.max(dp(18),nav+dp(16));bottom.setLayoutParams(lp);return insets;});root.requestApplyInsets();
-        TextView help=label("GÖKKUŞAĞI: MOR→MAVİ→CAMGÖBEĞİ→YEŞİL→SARI→TURUNCU→KIRMIZI",10,false);help.setTextColor(Color.WHITE);bottom.addView(help);
-        LinearLayout r1=new LinearLayout(this);r1.setOrientation(LinearLayout.HORIZONTAL);bottom.addView(r1);modeButton=button("PROBE-REF");bandButton=button("BAND: TÜM");Button calibrate=button("REF KALİBRE");Button clear=button("HARİTA SİL");r1.addView(modeButton,weight());r1.addView(bandButton,weight());r1.addView(calibrate,weight());r1.addView(clear,weight());
-        LinearLayout r2=new LinearLayout(this);r2.setOrientation(LinearLayout.HORIZONTAL);bottom.addView(r2);scanButton=button("TARAMAYI BAŞLAT");Button auto=button("PROB: DAİRE");Button reset=button("YENİ TARAMA");r2.addView(scanButton,weight());r2.addView(auto,weight());r2.addView(reset,weight());
-
-        modeButton.setOnClickListener(v->cycleMode());bandButton.setOnClickListener(v->cycleBand());
-        calibrate.setOnClickListener(v->{if(audio!=null){audio.stop();audio.start();Toast.makeText(this,"S24 referansı yeniden kalibre ediliyor",Toast.LENGTH_SHORT).show();}});
-        clear.setOnClickListener(v->resetScan());
-        scanButton.setOnClickListener(v->{if(!scanning&&!finished){if(!parked){Toast.makeText(this,"Önce probu sol alttaki başlangıç dairesine getir",Toast.LENGTH_LONG).show();return;}overlay.clearMap();overlay.beginScan();scanning=true;finished=false;scanButton.setText("TARAMAYI BİTİR");}else if(scanning){scanning=false;finished=true;overlay.finishScan();scanButton.setText("YENİ TARAMA");}else resetScan();});
-        auto.setOnClickListener(v->{vision.seed(probeX,probeY);visionValid=true;probeFrozen=false;});reset.setOnClickListener(v->resetScan());
-    }
-
+    private void buildUi(){FrameLayout root=new FrameLayout(this);root.setBackgroundColor(Color.BLACK);setContentView(root);cameraView=new TextureView(this);root.addView(cameraView,new FrameLayout.LayoutParams(-1,-1));overlay=new HeatmapOverlayView(this);root.addView(overlay,new FrameLayout.LayoutParams(-1,-1));overlay.setPark(PARK_X,PARK_Y,PARK_R);overlay.setTargetListener((x,y)->{probeX=x;probeY=y;vision.seed(x,y);visionValid=true;probeFrozen=false;});
+        LinearLayout top=new LinearLayout(this);top.setOrientation(LinearLayout.VERTICAL);top.setPadding(dp(10),dp(5),dp(10),dp(6));top.setBackgroundColor(Color.argb(215,4,12,18));root.addView(top,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));TextView title=label("SES GÖRÜNTÜ HARİTASI V8.7 • 96 Hz DYNAMIC",16,true);title.setTextColor(Color.WHITE);top.addView(title);statusText=label("96 Hz ölçümü • renkler tarama MIN↔MAX arasında dağıtılır",10,false);statusText.setTextColor(Color.CYAN);top.addView(statusText);LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);top.addView(row);usbText=metric("USB PROBE\n-- dBFS");refText=metric("PHONE REF\n-- dBFS");deltaText=metric("96 Hz\n-- dB");imuText=metric("IMU\n--");row.addView(usbText,weight());row.addView(refText,weight());row.addView(deltaText,weight());row.addView(imuText,weight());
+        LinearLayout bottom=new LinearLayout(this);bottom.setOrientation(LinearLayout.VERTICAL);bottom.setPadding(dp(8),dp(5),dp(8),dp(8));bottom.setBackgroundColor(Color.argb(230,4,12,18));FrameLayout.LayoutParams blp=new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM);blp.bottomMargin=dp(72);root.addView(bottom,blp);root.setOnApplyWindowInsetsListener((v,insets)->{int nav=insets.getSystemWindowInsetBottom();FrameLayout.LayoutParams lp=(FrameLayout.LayoutParams)bottom.getLayoutParams();lp.bottomMargin=Math.max(dp(18),nav+dp(16));bottom.setLayoutParams(lp);return insets;});root.requestApplyInsets();TextView help=label("MOR=MİN • MAVİ • CAMGÖBEĞİ • YEŞİL • SARI • TURUNCU • KIRMIZI=MAX",10,false);help.setTextColor(Color.WHITE);bottom.addView(help);LinearLayout r1=new LinearLayout(this);r1.setOrientation(LinearLayout.HORIZONTAL);bottom.addView(r1);modeButton=button("FREKANS");bandButton=button("96 Hz");Button cal=button("REF KALİBRE");Button clear=button("HARİTA SİL");r1.addView(modeButton,weight());r1.addView(bandButton,weight());r1.addView(cal,weight());r1.addView(clear,weight());LinearLayout r2=new LinearLayout(this);r2.setOrientation(LinearLayout.HORIZONTAL);bottom.addView(r2);scanButton=button("TARAMAYI BAŞLAT");Button auto=button("PROB: DAİRE");Button reset=button("YENİ TARAMA");r2.addView(scanButton,weight());r2.addView(auto,weight());r2.addView(reset,weight());
+        modeButton.setOnClickListener(v->cycleMode());bandButton.setOnClickListener(v->cycleBand());cal.setOnClickListener(v->{if(audio!=null){audio.stop();audio.start();}});clear.setOnClickListener(v->resetScan());scanButton.setOnClickListener(v->{if(!scanning&&!finished){if(!parked){Toast.makeText(this,"Önce probu sol alttaki başlangıç dairesine getir",Toast.LENGTH_LONG).show();return;}overlay.clearMap();overlay.beginScan();scanning=true;finished=false;scanButton.setText("TARAMAYI BİTİR");}else if(scanning){scanning=false;finished=true;overlay.finishScan();scanButton.setText("YENİ TARAMA");}else resetScan();});auto.setOnClickListener(v->{vision.seed(probeX,probeY);visionValid=true;probeFrozen=false;});reset.setOnClickListener(v->resetScan());}
     private void resetScan(){scanning=false;finished=false;overlay.clearMap();overlay.setIdle();scanButton.setText("TARAMAYI BAŞLAT");}
-    private void startAll(){if(camera==null)camera=new CameraController(this,cameraView);camera.start();if(imu==null)imu=new ImuEngine(this);imu.start();if(audio==null)audio=new ProbeAudioEngine(this,this::onProbe);audio.setMode(ProbeAudioEngine.MODE_USB_MINUS_REF);audio.start();handler.removeCallbacks(visionLoop);handler.post(visionLoop);}
-
-    private final Runnable visionLoop=new Runnable(){@Override public void run(){
-        if(cameraView!=null&&cameraView.isAvailable()){
-            try{Bitmap b=cameraView.getBitmap(180,320);ProbeVisionTracker.Result r=vision.track(b);if(b!=null)b.recycle();probeX=r.x01;probeY=r.y01;probeR=r.radius01;visionConf=r.confidence;visionValid=r.valid;probeFrozen=r.frozen;float dx=probeX-PARK_X,dy=probeY-PARK_Y;parked=visionValid&&!probeFrozen&&(dx*dx+dy*dy)<PARK_R*PARK_R;overlay.setTracker(probeX,probeY,probeR,visionConf,visionValid,probeFrozen);overlay.setParked(parked);}catch(Exception ignored){}
-        }
-        handler.postDelayed(this,90);
-    }};
-
-    private void onProbe(ProbeAudioEngine.Snapshot s){
-        ImuEngine.Snapshot m=imu==null?null:imu.getLatest();float motion=m==null?0f:m.motion01;boolean stable=motion<.18f;
-        if(scanning&&visionValid&&!probeFrozen&&stable)overlay.updateProbe(probeX,probeY,s.bandEnergy01,s.deltaDb,s.usbActive);
-        runOnUiThread(()->{usbText.setText(String.format(Locale.US,"USB PROBE\n%.1f dBFS",s.usbDbfs));refText.setText(String.format(Locale.US,"PHONE REF\n%.1f dBFS",s.refDbfs));deltaText.setText(String.format(Locale.US,"USB-REF\n%+.1f dB",s.deltaDb));imuText.setText(String.format(Locale.US,"IMU\n%.0f%%",motion*100f));String phase=finished?"SONUÇ HAZIR":scanning?"TARAMA AKTİF":parked?"PROB HAZIR • BAŞLAT":"PROBU SOL ALTA GETİR";String track=probeFrozen?"PROB KAYIP • MERKEZ DONDU":visionValid?String.format(Locale.US,"PROB %d%%",Math.round(visionConf*100)):"PROB ARANIYOR";String write=scanning?(probeFrozen?"ÖLÇÜM DURDU":stable?"ÖLÇÜM YAZILIYOR":"KAMERA HAREKETLİ • BEKLE"):"ÖLÇÜM KAPALI";statusText.setText(phase+" • "+track+" • "+write+"\n"+s.status);});
-    }
-
+    private void startAll(){if(camera==null)camera=new CameraController(this,cameraView);camera.start();if(imu==null)imu=new ImuEngine(this);imu.start();if(audio==null)audio=new ProbeAudioEngine(this,this::onProbe);audio.setMode(ProbeAudioEngine.MODE_BAND_SCAN);audio.setBand(ProbeAudioEngine.BAND_96);audio.start();handler.removeCallbacks(visionLoop);handler.post(visionLoop);}
+    private final Runnable visionLoop=new Runnable(){@Override public void run(){if(cameraView!=null&&cameraView.isAvailable()){try{Bitmap b=cameraView.getBitmap(180,320);ProbeVisionTracker.Result r=vision.track(b);if(b!=null)b.recycle();probeX=r.x01;probeY=r.y01;probeR=r.radius01;visionConf=r.confidence;visionValid=r.valid;probeFrozen=r.frozen;float dx=probeX-PARK_X,dy=probeY-PARK_Y;parked=visionValid&&!probeFrozen&&(dx*dx+dy*dy)<PARK_R*PARK_R;overlay.setTracker(probeX,probeY,probeR,visionConf,visionValid,probeFrozen);overlay.setParked(parked);}catch(Exception ignored){}}handler.postDelayed(this,90);}};
+    private void onProbe(ProbeAudioEngine.Snapshot s){ImuEngine.Snapshot m=imu==null?null:imu.getLatest();float motion=m==null?0f:m.motion01;boolean stable=motion<.18f;float measure=(audio!=null&&audio.getBand()==ProbeAudioEngine.BAND_96)?s.bandDbfs:(audio!=null&&audio.getMode()==ProbeAudioEngine.MODE_BAND_SCAN?s.bandDbfs:s.deltaDb);if(scanning&&visionValid&&!probeFrozen&&stable)overlay.updateProbe(probeX,probeY,measure,s.usbActive);runOnUiThread(()->{usbText.setText(String.format(Locale.US,"USB PROBE\n%.1f dBFS",s.usbDbfs));refText.setText(String.format(Locale.US,"PHONE REF\n%.1f dBFS",s.refDbfs));deltaText.setText(String.format(Locale.US,(audio!=null&&audio.getBand()==ProbeAudioEngine.BAND_96?"96 Hz\n%.1f dB":"USB-REF\n%+.1f dB"),(audio!=null&&audio.getBand()==ProbeAudioEngine.BAND_96?s.bandDbfs:s.deltaDb)));imuText.setText(String.format(Locale.US,"IMU\n%.0f%%",motion*100f));String phase=finished?"SONUÇ HAZIR":scanning?"TARAMA AKTİF":parked?"PROB HAZIR":"PROBU SOL ALTA GETİR";String track=probeFrozen?"PROB KAYIP • MERKEZ DONDU":visionValid?String.format(Locale.US,"PROB %d%%",Math.round(visionConf*100)):"PROB ARANIYOR";statusText.setText(phase+" • "+track+" • "+(stable?"STABLE":"HAREKET • BEKLE")+"\n"+s.status);});}
     private void cycleMode(){if(audio==null)return;int n=(audio.getMode()+1)%3;audio.setMode(n);modeButton.setText(n==0?"USB MUTLAK":n==1?"PROBE-REF":"FREKANS");}
-    private void cycleBand(){if(audio==null)return;int n=(audio.getBand()+1)%4;audio.setBand(n);bandButton.setText(n==0?"BAND: TÜM":n==1?"BAND: DÜŞÜK":n==2?"BAND: KONUŞMA":"BAND: TİZ");}
+    private void cycleBand(){if(audio==null)return;int n=(audio.getBand()+1)%5;audio.setBand(n);bandButton.setText(n==0?"BAND: TÜM":n==1?"BAND: DÜŞÜK":n==2?"BAND: KONUŞMA":n==3?"BAND: TİZ":"96 Hz");if(n==ProbeAudioEngine.BAND_96){audio.setMode(ProbeAudioEngine.MODE_BAND_SCAN);modeButton.setText("FREKANS");}}
     private boolean hasPermissions(){return checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED&&checkSelfPermission(Manifest.permission.RECORD_AUDIO)==PackageManager.PERMISSION_GRANTED;}
     @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==REQ&&hasPermissions())startAll();}
     @Override protected void onResume(){super.onResume();if(hasPermissions())startAll();}
