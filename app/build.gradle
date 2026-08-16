@@ -17,8 +17,8 @@ android {
         applicationId 'com.muhammetgecgil.nesnesayarai.stable'
         minSdk 26
         targetSdk 36
-        versionCode 110
-        versionName '1.1.0-hybrid-physical-vision'
+        versionCode 111
+        versionName '1.1.1-strict-roi-centered-labels'
     }
 
     buildTypes {
