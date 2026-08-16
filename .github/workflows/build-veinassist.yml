@@ -36,8 +36,8 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Apply VeinAssist v3.7 strict skin and continuity patch
-        run: python3 veinassist/upgrade_v37.py
+      - name: Apply VeinAssist v3.8 adaptive RGB path patch
+        run: python3 veinassist/upgrade_v38.py
 
       - name: Build VeinAssist debug APK
         working-directory: veinassist
@@ -53,19 +53,19 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/zipalign" -c -P 16 -v 4 "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | tee veinassist-apk-badging.txt
-          grep -q "package: name='com.mg.veinassist.continuity37'" veinassist-apk-badging.txt
+          grep -q "package: name='com.mg.veinassist.adaptive38'" veinassist-apk-badging.txt
           grep -q "sdkVersion:'26'" veinassist-apk-badging.txt
           grep -q "targetSdkVersion:'35'" veinassist-apk-badging.txt
 
       - name: Rename validated APK
-        run: cp veinassist/app/build/outputs/apk/debug/app-debug.apk MG_VeinAssist_v3.7_Skin_Continuity.apk
+        run: cp veinassist/app/build/outputs/apk/debug/app-debug.apk MG_VeinAssist_v3.8_Adaptive_RGB_Path.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MG-VeinAssist-v3.7-SKIN-CONTINUITY-APK
+          name: MG-VeinAssist-v3.8-ADAPTIVE-RGB-PATH-APK
           path: |
-            MG_VeinAssist_v3.7_Skin_Continuity.apk
+            MG_VeinAssist_v3.8_Adaptive_RGB_Path.apk
             veinassist-apk-badging.txt
           if-no-files-found: error
           retention-days: 30
@@ -73,23 +73,23 @@ jobs:
       - name: Publish direct APK release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: veinassist-v3.7-skin-continuity
-          name: MG VeinAssist v3.7 Skin Continuity
+          tag_name: veinassist-v3.8-adaptive-rgb-path
+          name: MG VeinAssist v3.8 Adaptive RGB Path
           make_latest: false
-          files: MG_VeinAssist_v3.7_Skin_Continuity.apk
+          files: MG_VeinAssist_v3.8_Adaptive_RGB_Path.apk
 
       - name: Store validated APK in repository
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p veinassist/releases
-          cp MG_VeinAssist_v3.7_Skin_Continuity.apk veinassist/releases/MG_VeinAssist_v3.7_Skin_Continuity.apk
+          cp MG_VeinAssist_v3.8_Adaptive_RGB_Path.apk veinassist/releases/MG_VeinAssist_v3.8_Adaptive_RGB_Path.apk
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add veinassist/releases/MG_VeinAssist_v3.7_Skin_Continuity.apk
+          git add veinassist/releases/MG_VeinAssist_v3.8_Adaptive_RGB_Path.apk
           if git diff --cached --quiet; then
             echo "APK already stored"
           else
-            git commit -m "Store validated VeinAssist v3.7 APK [skip ci]"
+            git commit -m "Store validated VeinAssist v3.8 APK [skip ci]"
             git push
           fi
