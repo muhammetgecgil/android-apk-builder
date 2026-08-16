@@ -3,20 +3,15 @@ plugins { id 'com.android.application' }
 android {
     namespace 'com.muhammetgecgil.sesgoruntuharitasi'
     compileSdk 36
-
     defaultConfig {
-        applicationId 'com.muhammetgecgil.probefusionv82'
+        applicationId 'com.muhammetgecgil.probefusionv83'
         minSdk 26
         targetSdk 36
-        versionCode 820
-        versionName '8.2'
+        versionCode 830
+        versionName '8.3'
     }
-
     buildTypes {
         debug { minifyEnabled false }
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
+        release { minifyEnabled false; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro' }
     }
 }
