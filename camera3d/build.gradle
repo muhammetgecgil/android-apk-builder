@@ -14,9 +14,7 @@ android {
 
     signingConfigs {
         debug {
-            // Keep one deterministic debug key across GitHub Actions builds.
-            // This prevents Android from rejecting an update because each runner generated a new key.
-            storeFile file('../camera3d-debug.keystore')
+            storeFile rootProject.file('camera3d-debug.keystore')
             storePassword 'camera3d'
             keyAlias 'camera3d'
             keyPassword 'camera3d'
@@ -24,9 +22,7 @@ android {
     }
 
     buildTypes {
-        debug {
-            signingConfig signingConfigs.debug
-        }
+        debug { signingConfig signingConfigs.debug }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
