@@ -1,0 +1,44 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.muhammetgecgil.mg3dscanner'
+    compileSdk 35
+
+    signingConfigs {
+        stableTest {
+            storeFile rootProject.file('../nesnesayar-test.jks')
+            storePassword 'testpass123'
+            keyAlias 'nesnesayar'
+            keyPassword 'testpass123'
+        }
+    }
+
+    defaultConfig {
+        applicationId 'com.muhammetgecgil.mg3dscanner'
+        minSdk 26
+        targetSdk 35
+        versionCode 100
+        versionName '1.0.0'
+    }
+
+    buildTypes {
+        debug {
+            minifyEnabled false
+            signingConfig signingConfigs.stableTest
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.stableTest
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'androidx.core:core:1.15.0'
+}
