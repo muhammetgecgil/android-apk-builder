@@ -1,8 +1,8 @@
-name: Build V9.1 Persistent Dynamic Track APK
+name: Build V9.2 Perspective Track APK
 
 on:
   push:
-    branches: [ ses-goruntu-v91 ]
+    branches: [ ses-goruntu-v92 ]
   workflow_dispatch:
 
 jobs:
@@ -29,10 +29,10 @@ jobs:
       - name: Validate APK
         run: test -f app/build/outputs/apk/debug/app-debug.apk && ls -lh app/build/outputs/apk/debug/app-debug.apk
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Ses_Goruntu_Haritasi_V9_1_Persistent_DynamicTrack_Fyvadio_S24.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Ses_Goruntu_Haritasi_V9_2_PerspectiveTrack_Fyvadio_S24.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Ses-Goruntu-Haritasi-V9-1-Persistent-DynamicTrack-APK
-          path: Ses_Goruntu_Haritasi_V9_1_Persistent_DynamicTrack_Fyvadio_S24.apk
+          name: Ses-Goruntu-Haritasi-V9-2-PerspectiveTrack-APK
+          path: Ses_Goruntu_Haritasi_V9_2_PerspectiveTrack_Fyvadio_S24.apk
           if-no-files-found: error
