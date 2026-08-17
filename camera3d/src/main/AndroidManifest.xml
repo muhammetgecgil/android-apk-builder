@@ -4,7 +4,7 @@
     <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
     <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="Camera 3D CAD Scan">
         <meta-data android:name="com.google.ar.core" android:value="optional" />
-        <activity android:name=".MainActivity" android:screenOrientation="fullSensor" android:exported="true">
+        <activity android:name=".MainActivityV17" android:screenOrientation="landscape" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
