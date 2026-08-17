@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Muhammet Türk Radyo</string>
+    <string name="notif_channel_name">Radyo oynatma</string>
+    <string name="notif_channel_desc">Canlı internet radyosu arka plan oynatma denetimleri</string>
+</resources>
