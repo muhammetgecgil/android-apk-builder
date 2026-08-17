@@ -23,9 +23,7 @@ android {
 
     sourceSets {
         main {
-            java {
-                include 'com/muhammetgecgil/nesnesayarai/MainActivityV9.java'
-            }
+            java.srcDirs = ['src/mgdiff/java']
         }
     }
 
