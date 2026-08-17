@@ -38,6 +38,7 @@ jobs:
         run: |
           cat app/src/main/assets/index.html.gz.b64.part* | tr -d '\n\r ' | base64 -d > app/src/main/assets/index.html.gz
           gzip -t app/src/main/assets/index.html.gz
+          echo 'Türk Radyo v20.1 UI asset restored successfully.'
 
       - name: Lint and build
         working-directory: turkradyo-playstore
