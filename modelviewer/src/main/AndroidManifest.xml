@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="MG 3D Model Viewer" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="MG 3D Model Viewer" android:icon="@drawable/ic_launcher_cad" android:roundIcon="@drawable/ic_launcher_cad" android:hardwareAccelerated="true">
+        <activity android:name=".CadViewerActivity" android:screenOrientation="sensorLandscape" android:exported="false"/>
         <activity android:name=".MainActivity" android:screenOrientation="sensorLandscape" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
