@@ -1,0 +1,87 @@
+name: Build MG 3D Model Viewer CAD APK
+
+on:
+  push:
+    branches: [ camera3d-v1 ]
+    paths:
+      - 'modelviewer-cad/**'
+      - 'settings.gradle'
+      - '.github/workflows/build-modelviewer-cad.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK, NDK and CMake
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+
+      - name: Clone OCCT 8.0.0
+        run: |
+          git clone --depth 1 --branch V8_0_0 https://github.com/Open-Cascade-SAS/OCCT.git occt-src
+
+      - name: Build minimal OCCT for Android arm64
+        env:
+          NDK: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+        run: |
+          mkdir -p occt-build modelviewer-cad/src/main/cpp/occt
+          cmake -S occt-src -B occt-build \
+            -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/27.2.12479018/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-26 \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$GITHUB_WORKSPACE/modelviewer-cad/src/main/cpp/occt" \
+            -DBUILD_LIBRARY_TYPE=Shared \
+            -DBUILD_MODULE_Draw=OFF \
+            -DBUILD_MODULE_Visualization=OFF \
+            -DBUILD_MODULE_ApplicationFramework=OFF \
+            -DUSE_FREETYPE=OFF \
+            -DUSE_TCL=OFF \
+            -DUSE_TK=OFF \
+            -DUSE_RAPIDJSON=OFF \
+            -DUSE_DRACO=OFF \
+            -DBUILD_DOC_Overview=OFF
+          cmake --build occt-build --parallel 4
+          cmake --install occt-build
+          echo "OCCT libraries:"
+          find modelviewer-cad/src/main/cpp/occt -name '*.so' -maxdepth 4 -print | head -100
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build CAD APK
+        run: gradle --no-daemon :modelviewer-cad:assembleDebug --stacktrace
+
+      - name: Verify APK
+        run: |
+          APK=modelviewer-cad/build/outputs/apk/debug/modelviewer-cad-debug.apk
+          test -s "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | head -20
+          cp "$APK" MG_3D_Model_Viewer_CAD_v1.3.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MG-3D-Model-Viewer-CAD-v1.3-verified
+          path: MG_3D_Model_Viewer_CAD_v1.3.apk
+          if-no-files-found: error
+          retention-days: 30
