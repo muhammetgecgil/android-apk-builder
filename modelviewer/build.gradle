@@ -1,0 +1,29 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.muhammetgecgil.modelviewer'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'com.muhammetgecgil.modelviewer.v100'
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName '1.0.0'
+    }
+    signingConfigs {
+        debug {
+            storeFile rootProject.file('modelviewer-debug.keystore')
+            storePassword 'modelviewer'
+            keyAlias 'modelviewer'
+            keyPassword 'modelviewer'
+        }
+    }
+    buildTypes {
+        debug { signingConfig signingConfigs.debug }
+        release { minifyEnabled false }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
