@@ -1,0 +1,54 @@
+name: Build Türk Radyo Play
+
+on:
+  push:
+    branches: [turkradyo-play-v201]
+    paths:
+      - 'turkradyo-playstore/**'
+      - '.github/workflows/build-turkradyo-play.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install API 36
+        run: yes | sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+
+      - name: Gradle 9.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.1.0'
+
+      - name: Restore UI asset
+        working-directory: turkradyo-playstore
+        run: |
+          base64 -d app/src/main/assets/index.html.gz.b64 > app/src/main/assets/index.html.gz
+          gzip -t app/src/main/assets/index.html.gz
+
+      - name: Lint and build
+        working-directory: turkradyo-playstore
+        run: gradle :app:lintRelease :app:assembleDebug :app:bundleRelease --stacktrace
+
+      - name: Upload outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: turkradyo-play-v201
+          if-no-files-found: error
+          path: |
+            turkradyo-playstore/app/build/outputs/apk/debug/*.apk
+            turkradyo-playstore/app/build/outputs/bundle/release/*.aab
+            turkradyo-playstore/app/build/reports/lint-results-release.*
