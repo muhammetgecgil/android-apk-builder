@@ -6,5 +6,7 @@ public final class CadNative {
     public static native float[] getTriangles();
     public static native String getModelInfo();
     public static native String autoDimensions();
+    public static native String massProperties();
+    public static native String geometryReport();
     public static native void clearModel();
 }
