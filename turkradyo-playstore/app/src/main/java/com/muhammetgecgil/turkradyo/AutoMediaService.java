@@ -22,6 +22,7 @@ public class AutoMediaService extends MediaBrowserService {
         session.setCallback(new MediaSession.Callback() {
             @Override public void onPlay() { playLast(); }
             @Override public void onPlayFromMediaId(String mediaId, Bundle extras) { if (LAST.equals(mediaId)) playLast(); }
+            @Override public void onPlayFromSearch(String query, Bundle extras) { playLast(); }
             @Override public void onPause() {
                 startService(new Intent(AutoMediaService.this, RadioService.class).setAction(RadioService.ACTION_PAUSE));
                 updateState(PlaybackState.STATE_PAUSED);
@@ -50,7 +51,8 @@ public class AutoMediaService extends MediaBrowserService {
     }
 
     private void updateState(int state) {
-        long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_STOP | PlaybackState.ACTION_PLAY_FROM_MEDIA_ID;
+        long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_STOP |
+                PlaybackState.ACTION_PLAY_FROM_MEDIA_ID | PlaybackState.ACTION_PLAY_FROM_SEARCH;
         session.setPlaybackState(new PlaybackState.Builder()
                 .setActions(actions)
                 .setState(state, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f)
