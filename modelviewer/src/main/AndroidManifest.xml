@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="3D Model Viewer">
+    <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="MG 3D Model Viewer" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher_round">
         <activity android:name=".MainActivity" android:screenOrientation="sensorLandscape" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
