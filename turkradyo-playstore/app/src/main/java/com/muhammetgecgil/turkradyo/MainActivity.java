@@ -97,18 +97,20 @@ public class MainActivity extends Activity {
     }
 
     private void startRadioIntent(Intent i) {
-        if (Build.VERSION.SDK_INT >= 26 && RadioService.ACTION_PLAY.equals(i.getAction())) startForegroundService(i); else startService(i);
+        if (Build.VERSION.SDK_INT >= 26 && RadioService.ACTION_PLAY.equals(i.getAction())) startForegroundService(i);
+        else startService(i);
     }
 
     private void openExternal(String url) {
-        if (url == null || url.isBlank()) return;
+        if (url == null || url.trim().isEmpty()) return;
         try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { }
     }
 
     private void openShazam() {
         Intent launch = getPackageManager().getLaunchIntentForPackage("com.shazam.android");
         try {
-            if (launch != null) startActivity(launch); else startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.shazam.com/")));
+            if (launch != null) startActivity(launch);
+            else startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.shazam.com/")));
         } catch (Exception ignored) { }
     }
 
@@ -131,7 +133,9 @@ public class MainActivity extends Activity {
         try {
             if (Build.VERSION.SDK_INT < 31 || am.canScheduleExactAlarms()) am.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, when, pi);
             else am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, when, pi);
-        } catch (SecurityException e) { am.set(AlarmManager.RTC_WAKEUP, when, pi); }
+        } catch (SecurityException e) {
+            am.set(AlarmManager.RTC_WAKEUP, when, pi);
+        }
     }
 
     private void scheduleSleep(Uri uri, boolean clear) {
@@ -150,7 +154,7 @@ public class MainActivity extends Activity {
             byte[] buf = new byte[8192];
             int n;
             while ((n = gz.read(buf)) > 0) out.write(buf, 0, n);
-            return out.toString(StandardCharsets.UTF_8);
+            return new String(out.toByteArray(), StandardCharsets.UTF_8);
         }
     }
 
@@ -158,5 +162,8 @@ public class MainActivity extends Activity {
     private static int parseInt(String s, int d) { try { return Integer.parseInt(s); } catch (Exception e) { return d; } }
     private static long parseLong(String s, long d) { try { return Long.parseLong(s); } catch (Exception e) { return d; } }
 
-    @Override public void onBackPressed() { if (webView != null && webView.canGoBack()) webView.goBack(); else super.onBackPressed(); }
+    @Override public void onBackPressed() {
+        if (webView != null && webView.canGoBack()) webView.goBack();
+        else super.onBackPressed();
+    }
 }
