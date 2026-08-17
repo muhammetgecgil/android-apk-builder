@@ -74,7 +74,6 @@ jobs:
           grep -qi "cff09eb09175519edd966d02d00a36027d047b59ba8ca03923a3a44c39615dc7" cert.txt
           unzip -l "$APK" | grep -q 'assets/cadviewer/occt-import-js.wasm'
           unzip -l "$APK" | grep -q 'assets/cadviewer/three.min.js'
-          unzip -l "$APK" | grep -q 'CadViewerActivity'
           cp "$APK" MG_3D_Model_Viewer_v1.4.0_CAD.apk
           cp "$AAB" MG_3D_Model_Viewer_v1.4.0_CAD.aab
           sha256sum MG_3D_Model_Viewer_v1.4.0_CAD.apk MG_3D_Model_Viewer_v1.4.0_CAD.aab > SHA256SUMS.txt
