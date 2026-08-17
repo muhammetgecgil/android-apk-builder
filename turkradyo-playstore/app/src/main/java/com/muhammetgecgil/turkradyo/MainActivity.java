@@ -161,9 +161,4 @@ public class MainActivity extends Activity {
     private static float parseFloat(String s, float d) { try { return Float.parseFloat(s); } catch (Exception e) { return d; } }
     private static int parseInt(String s, int d) { try { return Integer.parseInt(s); } catch (Exception e) { return d; } }
     private static long parseLong(String s, long d) { try { return Long.parseLong(s); } catch (Exception e) { return d; } }
-
-    @Override public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) webView.goBack();
-        else super.onBackPressed();
-    }
 }
