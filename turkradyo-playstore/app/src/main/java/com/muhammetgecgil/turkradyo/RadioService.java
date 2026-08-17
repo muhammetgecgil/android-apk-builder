@@ -35,7 +35,9 @@ public class RadioService extends Service {
         audioManager = (AudioManager) getSystemService(AUDIO_SERVICE);
         session = new MediaSession(this, "MuhammetTurkRadyo");
         session.setCallback(new MediaSession.Callback() {
-            @Override public void onPlay() { resume(); }
+            @Override public void onPlay() { resumeOrPlayLast(); }
+            @Override public void onPlayFromSearch(String query, Bundle extras) { resumeOrPlayLast(); }
+            @Override public void onPlayFromMediaId(String mediaId, Bundle extras) { resumeOrPlayLast(); }
             @Override public void onPause() { pause(); }
             @Override public void onStop() { stopSelfSafely(); }
         });
@@ -53,7 +55,7 @@ public class RadioService extends Service {
             startForeground(NOTIFY_ID, buildNotification("Bağlanıyor…", true));
             play(url);
         } else if (ACTION_PAUSE.equals(a)) pause();
-        else if (ACTION_RESUME.equals(a)) resume();
+        else if (ACTION_RESUME.equals(a)) resumeOrPlayLast();
         else if (ACTION_STOP.equals(a)) stopSelfSafely();
         else if (ACTION_VOLUME.equals(a)) {
             volume = clamp(intent.getFloatExtra("volume", 1f));
@@ -99,8 +101,23 @@ public class RadioService extends Service {
         notifyState("Duraklatıldı", false);
     }
 
-    private void resume() {
-        try { if (player != null) { player.start(); updateSession(PlaybackState.STATE_PLAYING); notifyState("Canlı yayın", false); } } catch (Exception ignored) { }
+    private void resumeOrPlayLast() {
+        try {
+            if (player != null) {
+                player.start();
+                updateSession(PlaybackState.STATE_PLAYING);
+                notifyState("Canlı yayın", false);
+                return;
+            }
+        } catch (Exception ignored) { }
+        String lastUrl = getSharedPreferences("radio", MODE_PRIVATE).getString("last_url", "");
+        String lastName = getSharedPreferences("radio", MODE_PRIVATE).getString("last_name", "Türk Radyo");
+        if (lastUrl != null && !lastUrl.trim().isEmpty()) {
+            station = lastName;
+            url = lastUrl;
+            startForeground(NOTIFY_ID, buildNotification("Bağlanıyor…", true));
+            play(lastUrl);
+        }
     }
 
     private void stopSelfSafely() {
@@ -127,7 +144,8 @@ public class RadioService extends Service {
     }
 
     private void updateSession(int state) {
-        long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_STOP | PlaybackState.ACTION_PLAY_PAUSE;
+        long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_STOP |
+                PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_PLAY_FROM_MEDIA_ID | PlaybackState.ACTION_PLAY_FROM_SEARCH;
         session.setPlaybackState(new PlaybackState.Builder().setActions(actions).setState(state, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f).build());
         session.setMetadata(new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE, station).putString(MediaMetadata.METADATA_KEY_ARTIST, "Muhammet Türk Radyo").build());
     }
