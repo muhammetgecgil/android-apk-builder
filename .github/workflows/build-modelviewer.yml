@@ -2,7 +2,7 @@ name: Build 3D Model Viewer Stable APK
 
 on:
   push:
-    branches: [ camera3d-v1 ]
+    branches: [ camera3d-v1, camera3d-icon-v132 ]
     paths:
       - 'modelviewer/**'
       - 'settings.gradle'
@@ -35,22 +35,23 @@ jobs:
           gradle-version: '8.11.1'
       - name: Build stable release APK
         run: gradle --no-daemon :modelviewer:assembleRelease --stacktrace
-      - name: Verify install package and fixed certificate
+      - name: Verify install package, icon and fixed certificate
         run: |
           APK=modelviewer/build/outputs/apk/release/modelviewer-release.apk
           test -s "$APK"
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK" | tee cert.txt
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | tee badging.txt
           grep -q "package: name='com.muhammetgecgil.mg3dmodelviewer'" badging.txt
+          grep -q "application-icon" badging.txt
           grep -qi "cff09eb09175519edd966d02d00a36027d047b59ba8ca03923a3a44c39615dc7" cert.txt
-          cp "$APK" MG_3D_Model_Viewer_v1.3.1_STABLE.apk
-          sha256sum MG_3D_Model_Viewer_v1.3.1_STABLE.apk > SHA256SUMS.txt
+          cp "$APK" MG_3D_Model_Viewer_v1.3.2_ICON.apk
+          sha256sum MG_3D_Model_Viewer_v1.3.2_ICON.apk > SHA256SUMS.txt
       - name: Upload verified stable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-3D-Model-Viewer-v1.3.1-STABLE
+          name: MG-3D-Model-Viewer-v1.3.2-ICON
           path: |
-            MG_3D_Model_Viewer_v1.3.1_STABLE.apk
+            MG_3D_Model_Viewer_v1.3.2_ICON.apk
             SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
