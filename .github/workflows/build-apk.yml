@@ -1,4 +1,4 @@
-name: Build Nesne Sayar AI APK
+name: Build MG Diff APK
 
 on:
   push:
@@ -29,11 +29,11 @@ jobs:
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Nesne_Sayar_AI_v114.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk MG_Diff_v1.0.1_TEST.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Nesne-Sayar-AI-v114
-          path: Nesne_Sayar_AI_v114.apk
+          name: MG-Diff-v1.0.1-TEST
+          path: MG_Diff_v1.0.1_TEST.apk
           if-no-files-found: error
           retention-days: 30
