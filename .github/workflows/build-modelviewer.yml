@@ -1,4 +1,4 @@
-name: Build 3D Model Viewer CAD Direct Workspace
+name: Build 3D Model Viewer Direct CAD Home
 
 on:
   push:
@@ -40,8 +40,9 @@ jobs:
           python3 modelviewer/upgrade_cad_v171.py
           python3 modelviewer/upgrade_cad_v172.py
           python3 modelviewer/upgrade_cad_v173.py
-          sed -i "s/versionCode 15/versionCode 22/" modelviewer/build.gradle
-          sed -i "s/versionName '1.3.2'/versionName '1.7.3'/" modelviewer/build.gradle
+          python3 modelviewer/upgrade_cad_v174.py
+          sed -i "s/versionCode 15/versionCode 23/" modelviewer/build.gradle
+          sed -i "s/versionName '1.3.2'/versionName '1.7.4'/" modelviewer/build.gradle
       - name: Bundle pinned offline CAD engine
         run: |
           set -euxo pipefail
@@ -63,7 +64,7 @@ jobs:
           gradle-version: '8.11.1'
       - name: Build signed APK and AAB
         run: gradle --no-daemon :modelviewer:assembleRelease :modelviewer:bundleRelease --stacktrace
-      - name: Verify direct workspace package
+      - name: Verify direct CAD home package
         run: |
           APK=modelviewer/build/outputs/apk/release/modelviewer-release.apk
           AAB=modelviewer/build/outputs/bundle/release/modelviewer-release.aab
@@ -71,21 +72,23 @@ jobs:
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK" | tee cert.txt
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | tee badging.txt
           grep -q "package: name='com.muhammetgecgil.mg3dmodelviewer'" badging.txt
-          grep -q "versionCode='22'" badging.txt
-          grep -q "versionName='1.7.3'" badging.txt
+          grep -q "versionCode='23'" badging.txt
+          grep -q "versionName='1.7.4'" badging.txt
           grep -qi "cff09eb09175519edd966d02d00a36027d047b59ba8ca03923a3a44c39615dc7" cert.txt
-          unzip -p "$APK" assets/cadviewer/index.html | grep -q 'DOSYA AÇ'
-          unzip -l "$APK" | grep -q 'assets/cadviewer/cad-v173.js'
-          cp "$APK" MG_3D_Model_Viewer_v1.7.3_DIRECT_WORKSPACE.apk
-          cp "$AAB" MG_3D_Model_Viewer_v1.7.3_DIRECT_WORKSPACE.aab
-          sha256sum MG_3D_Model_Viewer_v1.7.3_DIRECT_WORKSPACE.apk MG_3D_Model_Viewer_v1.7.3_DIRECT_WORKSPACE.aab > SHA256SUMS.txt
-      - name: Upload verified Direct Workspace
+          unzip -p "$APK" assets/cadviewer/index.html | grep -q 'CAD ÇALIŞMA ALANI'
+          unzip -l "$APK" | grep -q 'assets/cadviewer/cad-v174.js'
+          unzip -p "$APK" assets/cadviewer/cad-v174.js | grep -q 'legacyBlackScreen:false'
+          unzip -p "$APK" classes.dex | strings | grep -q 'openFileFromCad'
+          cp "$APK" MG_3D_Model_Viewer_v1.7.4_DIRECT_CAD_HOME.apk
+          cp "$AAB" MG_3D_Model_Viewer_v1.7.4_DIRECT_CAD_HOME.aab
+          sha256sum MG_3D_Model_Viewer_v1.7.4_DIRECT_CAD_HOME.apk MG_3D_Model_Viewer_v1.7.4_DIRECT_CAD_HOME.aab > SHA256SUMS.txt
+      - name: Upload verified Direct CAD Home
         uses: actions/upload-artifact@v4
         with:
-          name: MG-3D-Model-Viewer-v1.7.3-DIRECT-WORKSPACE
+          name: MG-3D-Model-Viewer-v1.7.4-DIRECT-CAD-HOME
           path: |
-            MG_3D_Model_Viewer_v1.7.3_DIRECT_WORKSPACE.apk
-            MG_3D_Model_Viewer_v1.7.3_DIRECT_WORKSPACE.aab
+            MG_3D_Model_Viewer_v1.7.4_DIRECT_CAD_HOME.apk
+            MG_3D_Model_Viewer_v1.7.4_DIRECT_CAD_HOME.aab
             SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
