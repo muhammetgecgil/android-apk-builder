@@ -55,6 +55,13 @@ public class MainActivity extends Activity {
             return super.shouldInterceptRequest(view, req);
         }
 
+        @Override public void onPageFinished(WebView view, String url) {
+            super.onPageFinished(view, url);
+            if (url.endsWith("/index.html")) {
+                view.evaluateJavascript("(function(){if(document.getElementById('privacyBtn'))return;var x=document.querySelector('.topBtns');if(!x)return;var b=document.createElement('button');b.id='privacyBtn';b.className='iconBtn';b.textContent='Gizlilik';b.onclick=function(){location.href='https://appassets.androidplatform.net/assets/privacy.html'};x.appendChild(b);})();", null);
+            }
+        }
+
         @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
             Uri uri = req.getUrl();
             if ("radioapp".equalsIgnoreCase(uri.getScheme())) {
