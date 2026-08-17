@@ -1,4 +1,4 @@
-name: Build 3D Model Viewer Play Store Release
+name: Build 3D Model Viewer Stable APK
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
     paths:
       - 'modelviewer/**'
       - 'settings.gradle'
+      - '.github/mg3d-release.jks.b64'
       - '.github/workflows/build-modelviewer.yml'
   workflow_dispatch:
 
@@ -24,42 +25,32 @@ jobs:
         uses: android-actions/setup-android@v3
       - name: Install Android API 36
         run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
-      - name: Create Model Viewer upload signing key
-        run: |
-          keytool -genkeypair -v -keystore modelviewer-debug.keystore -storepass modelviewer -alias modelviewer -keypass modelviewer -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=MG 3D Model Viewer,O=Muhammet Gecgil,C=TR"
+      - name: Restore persistent MG 3D signing key
+        run: base64 -d .github/mg3d-release.jks.b64 > mg3d-release.jks
       - name: Apply unit-aware measurement upgrade
         run: python3 modelviewer/upgrade_units_playstore.py
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Build signed release APK and AAB
-        run: gradle --no-daemon :modelviewer:assembleRelease :modelviewer:bundleRelease --stacktrace
-      - name: Verify release package
+      - name: Build stable release APK
+        run: gradle --no-daemon :modelviewer:assembleRelease --stacktrace
+      - name: Verify install package and fixed certificate
         run: |
           APK=modelviewer/build/outputs/apk/release/modelviewer-release.apk
-          AAB=modelviewer/build/outputs/bundle/release/modelviewer-release.aab
           test -s "$APK"
-          test -s "$AAB"
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | head -30
-          cp "$APK" MG_3D_Model_Viewer_v1.3.0_PlayStore.apk
-          cp "$AAB" MG_3D_Model_Viewer_v1.3.0_PlayStore.aab
-          sha256sum MG_3D_Model_Viewer_v1.3.0_PlayStore.apk MG_3D_Model_Viewer_v1.3.0_PlayStore.aab > SHA256SUMS.txt
-      - name: Upload Play Store release
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK" | tee cert.txt
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | tee badging.txt
+          grep -q "package: name='com.muhammetgecgil.mg3dmodelviewer'" badging.txt
+          grep -qi "cff09eb09175519edd966d02d00a36027d047b59ba8ca03923a3a44c39615dc7" cert.txt
+          cp "$APK" MG_3D_Model_Viewer_v1.3.1_STABLE.apk
+          sha256sum MG_3D_Model_Viewer_v1.3.1_STABLE.apk > SHA256SUMS.txt
+      - name: Upload verified stable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-3D-Model-Viewer-v1.3.0-PlayStore
+          name: MG-3D-Model-Viewer-v1.3.1-STABLE
           path: |
-            MG_3D_Model_Viewer_v1.3.0_PlayStore.apk
-            MG_3D_Model_Viewer_v1.3.0_PlayStore.aab
+            MG_3D_Model_Viewer_v1.3.1_STABLE.apk
             SHA256SUMS.txt
-          if-no-files-found: error
-          retention-days: 30
-      - name: Upload signing-key backup
-        uses: actions/upload-artifact@v4
-        with:
-          name: MG-3D-Model-Viewer-v1.3.0-UPLOAD-KEY-BACKUP
-          path: modelviewer-debug.keystore
           if-no-files-found: error
           retention-days: 30
