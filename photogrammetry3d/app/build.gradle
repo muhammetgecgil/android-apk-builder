@@ -17,23 +17,12 @@ android {
         applicationId 'com.muhammetgecgil.mg3dscanner'
         minSdk 26
         targetSdk 35
-        versionCode 100
-        versionName '1.0.0'
+        versionCode 110
+        versionName '1.1.0'
     }
-
     buildTypes {
-        debug {
-            minifyEnabled false
-            signingConfig signingConfigs.stableTest
-        }
-        release {
-            minifyEnabled false
-            signingConfig signingConfigs.stableTest
-        }
+        debug { minifyEnabled false; signingConfig signingConfigs.stableTest }
+        release { minifyEnabled false; signingConfig signingConfigs.stableTest }
     }
-
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
-    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
