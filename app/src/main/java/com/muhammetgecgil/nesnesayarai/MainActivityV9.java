@@ -1,87 +1,22 @@
 package com.muhammetgecgil.nesnesayarai;
 
-import android.graphics.Bitmap;
-import android.graphics.PointF;
-import android.graphics.RectF;
-import java.util.*;
+import android.app.*;import android.os.*;import android.graphics.Color;import android.text.*;import android.text.style.*;import android.view.*;import android.widget.*;import android.content.*;import android.net.Uri;import java.io.*;import java.nio.charset.StandardCharsets;import java.util.*;import java.util.zip.*;
 
-/** V114 - fiziksel govde oncelikli sayim.
- * ML adaylarini sayim sonucu olarak degil, fiziksel nesne hipotezi olarak kullanir.
- * Ayni govde icindeki halka, dugme, pervane, desen ve ic parca adaylarini tek nesnede toplar.
- */
-public class MainActivityV9 extends MainActivityV8 {
- @Override void ui(){super.ui();status.setText("V114 Fiziksel Govde");}
-
- @Override List<Obj> solve(Bitmap src,List<RectF> raw,List<PointF> rv,int vw,int vh){
-  final int W=src.getWidth(),H=src.getHeight();
-  if(rv==null||rv.size()<3||raw==null||raw.isEmpty())return new ArrayList<>();
-  List<RectF> a=new ArrayList<>();
-  for(RectF z:raw){
-   RectF r=new RectF(Math.max(0,z.left),Math.max(0,z.top),Math.min(W,z.right),Math.min(H,z.bottom));
-   float af=area(r)/(W*(float)H);
-   if(af<.00015f||af>.46f)continue;
-   if(!centerInRoi(r,W,H,rv,vw,vh))continue;
-   if(roiCoverage(r,W,H,rv,vw,vh)<.58f)continue;
-   a.add(r);
-  }
-  // Tile tekrarlarini temizle; buyuk govde adayini kaybetme.
-  a.sort((x,y)->Float.compare(area(y),area(x)));
-  List<RectF> u=new ArrayList<>();
-  for(RectF c:a){boolean dup=false;for(RectF q:u){
-    float ov=iou(c,q), ct=Math.max(contain(c,q),contain(q,c));
-    float d=(float)Math.hypot(c.centerX()-q.centerX(),c.centerY()-q.centerY());
-    float s=.16f*(diag(c)+diag(q));
-    float ar=Math.min(area(c),area(q))/Math.max(1f,Math.max(area(c),area(q)));
-    if(ov>.62f||(d<s&&ar>.68f)){dup=true;break;}
-   }if(!dup)u.add(c);
-  }
-
-  // Parent-child grafigi: ic bolgeler fiziksel govdenin ayri nesnesi degildir.
-  boolean[] internal=new boolean[u.size()];
-  for(int i=0;i<u.size();i++)for(int j=0;j<u.size();j++)if(i!=j){
-   RectF child=u.get(i), parent=u.get(j);
-   float ratio=area(child)/Math.max(1f,area(parent));
-   if(ratio>=.03f&&ratio<=.72f&&contain(child,parent)>.86f){
-    float dc=(float)Math.hypot(child.centerX()-parent.centerX(),child.centerY()-parent.centerY());
-    // Merkeze yakin nested aday: halka/dugme/pervane/desen olma olasiligi yuksek.
-    if(dc < .43f*diag(parent)) internal[i]=true;
-   }
-  }
-
-  List<RectF> bodies=new ArrayList<>();for(int i=0;i<u.size();i++)if(!internal[i])bodies.add(u.get(i));
-  // Bir fiziksel govde farkli tile'larda parcalandiysa yakin/ust uste adaylari birlestir.
-  bodies.sort((x,y)->Float.compare(area(y),area(x)));
-  List<RectF> merged=new ArrayList<>();
-  for(RectF c:bodies){boolean done=false;for(int i=0;i<merged.size();i++){
-    RectF q=merged.get(i);float ov=iou(c,q);
-    float d=(float)Math.hypot(c.centerX()-q.centerX(),c.centerY()-q.centerY());
-    float lim=.20f*(diag(c)+diag(q));
-    if(ov>.38f||(d<lim&&Math.min(area(c),area(q))/Math.max(1f,Math.max(area(c),area(q)))>.42f)){
-     RectF n=new RectF(Math.min(c.left,q.left),Math.min(c.top,q.top),Math.max(c.right,q.right),Math.max(c.bottom,q.bottom));
-     if(area(n)<1.55f*Math.max(area(c),area(q)))merged.set(i,n);done=true;break;
-    }
-   }if(!done)merged.add(new RectF(c));
-  }
-
-  // Buyuk bir grup kutusu birden fazla ayri govdeyi kapsiyorsa grup kutusunu sayma.
-  boolean[] drop=new boolean[merged.size()];
-  for(int i=0;i<merged.size();i++){RectF big=merged.get(i);int kids=0;List<PointF> cc=new ArrayList<>();
-   for(int j=0;j<merged.size();j++)if(i!=j){RectF sm=merged.get(j);float ratio=area(sm)/Math.max(1f,area(big));
-    if(ratio>.025f&&ratio<.48f&&contain(sm,big)>.80f){kids++;cc.add(new PointF(sm.centerX(),sm.centerY()));}}
-   if(kids>=2&&separated(cc,big))drop[i]=true;
-  }
-
-  List<Obj> out=new ArrayList<>();
-  for(int i=0;i<merged.size();i++)if(!drop[i]){
-   RectF r=merged.get(i);
-   // Etiket tam fiziksel govde merkezinde.
-   PointF c=new PointF(r.centerX(),r.centerY());
-   out.add(new Obj(r,c,3));
-  }
-  out.sort((x,y)->{int z=Float.compare(x.center.y,y.center.y);return z!=0?z:Float.compare(x.center.x,y.center.x);});
-  return out;
- }
-
- float roiCoverage(RectF r,int W,int H,List<PointF> rv,int vw,int vh){int in=0,n=0;for(int yy=1;yy<=5;yy++)for(int xx=1;xx<=5;xx++){float x=r.left+r.width()*xx/6f,y=r.top+r.height()*yy/6f;n++;if(pip(x,y,W,H,rv,vw,vh))in++;}return in/(float)n;}
- boolean separated(List<PointF> c,RectF big){float th=.24f*Math.min(big.width(),big.height());for(int i=0;i<c.size();i++)for(int j=i+1;j<c.size();j++)if(Math.hypot(c.get(i).x-c.get(j).x,c.get(i).y-c.get(j).y)>th)return true;return false;}
+public class MainActivityV9 extends Activity{
+ EditText left,right; TextView info; static final int OA=11,OB=12; int green=Color.rgb(205,245,214),red=Color.rgb(255,215,215);
+ public void onCreate(Bundle b){super.onCreate(b);setContentView(ui());}
+ View ui(){ScrollView sc=new ScrollView(this);LinearLayout root=col();root.setPadding(dp(14),dp(14),dp(14),dp(30));root.setBackgroundColor(Color.rgb(247,248,252));sc.addView(root);
+  TextView t=tx("MG Diff",26,Color.rgb(25,45,90));t.setTypeface(null,1);root.addView(t);TextView s=tx("Sadece gerçek değişiklikleri gösterir",13,Color.DKGRAY);root.addView(s);
+  LinearLayout bar=row();Button cmp=bt("Farkları Bul",true),sw=bt("Yer Değiştir",false),cl=bt("Temizle",false);bar.addView(cmp,w());bar.addView(sw,w());bar.addView(cl,w());root.addView(bar);
+  LinearLayout opens=row();Button oa=bt("Orijinal Dosya Aç",false),ob=bt("Revize Dosya Aç",false);opens.addView(oa,w());opens.addView(ob,w());root.addView(opens);
+  LinearLayout labels=row();TextView la=tx("ORİJİNAL METİN • YEŞİL",14,Color.rgb(25,120,55)),lb=tx("REVİZE METİN • KIRMIZI",14,Color.rgb(190,45,45));la.setTypeface(null,1);lb.setTypeface(null,1);labels.addView(la,w());labels.addView(lb,w());root.addView(labels);
+  LinearLayout ed=row();left=edit();right=edit();ed.addView(left,new LinearLayout.LayoutParams(0,dp(500),1));ed.addView(right,new LinearLayout.LayoutParams(0,dp(500),1));root.addView(ed);
+  info=tx("Hazır",14,Color.rgb(45,70,150));info.setPadding(0,dp(10),0,0);root.addView(info);
+  cmp.setOnClickListener(v->diff());sw.setOnClickListener(v->{String a=plain(left),c=plain(right);left.setText(c);right.setText(a);});cl.setOnClickListener(v->{left.setText("");right.setText("");info.setText("Hazır");});oa.setOnClickListener(v->open(OA));ob.setOnClickListener(v->open(OB));return sc;}
+ LinearLayout col(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);return l;} LinearLayout row(){LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.HORIZONTAL);l.setPadding(0,dp(5),0,dp(5));return l;} LinearLayout.LayoutParams w(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(0,-2,1);p.setMargins(dp(3),0,dp(3),0);return p;}
+ TextView tx(String x,int z,int c){TextView v=new TextView(this);v.setText(x);v.setTextSize(z);v.setTextColor(c);return v;} Button bt(String x,boolean p){Button b=new Button(this);b.setText(x);b.setAllCaps(false);if(p)b.setTextColor(Color.WHITE);b.setBackgroundColor(p?Color.rgb(45,92,220):Color.rgb(235,238,246));return b;} EditText edit(){EditText e=new EditText(this);e.setGravity(Gravity.TOP|Gravity.START);e.setTextSize(17);e.setPadding(dp(10),dp(10),dp(10),dp(10));e.setBackgroundColor(Color.WHITE);e.setInputType(131073);return e;} int dp(int n){return(int)(n*getResources().getDisplayMetrics().density+.5f);} String plain(EditText e){return e.getText().toString();}
+ void diff(){String a=plain(left),b=plain(right);if(a.equals(b)){left.setText(a);right.setText(b);info.setText("Fark yok");return;} if((long)a.length()*b.length()>9000000L){wordDiff(a,b);return;} int n=a.length(),m=b.length();int[][]d=new int[n+1][m+1];for(int i=n-1;i>=0;i--)for(int j=m-1;j>=0;j--)d[i][j]=a.charAt(i)==b.charAt(j)?d[i+1][j+1]+1:Math.max(d[i+1][j],d[i][j+1]);SpannableStringBuilder A=new SpannableStringBuilder(a),B=new SpannableStringBuilder(b);int i=0,j=0,c=0;while(i<n||j<m){if(i<n&&j<m&&a.charAt(i)==b.charAt(j)){i++;j++;}else if(j<m&&(i==n||d[i][j+1]>=d[i+1][j])){B.setSpan(new BackgroundColorSpan(red),j,j+1,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);j++;c++;}else{A.setSpan(new BackgroundColorSpan(green),i,i+1,Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);i++;c++;}}left.setText(A);right.setText(B);info.setText(c+" karakter farkı • yalnız değişen kısım boyandı");}
+ void wordDiff(String a,String b){String[]A=a.split("(?<=\\s)|(?=\\s)|(?=[.,;:!?()])|(?<=[.,;:!?()])"),B=b.split("(?<=\\s)|(?=\\s)|(?=[.,;:!?()])|(?<=[.,;:!?()])");int[][]d=new int[A.length+1][B.length+1];for(int i=A.length-1;i>=0;i--)for(int j=B.length-1;j>=0;j--)d[i][j]=A[i].equals(B[j])?d[i+1][j+1]+1:Math.max(d[i+1][j],d[i][j+1]);SpannableStringBuilder la=new SpannableStringBuilder(),rb=new SpannableStringBuilder();int i=0,j=0,c=0;while(i<A.length||j<B.length){if(i<A.length&&j<B.length&&A[i].equals(B[j])){la.append(A[i]);rb.append(B[j]);i++;j++;}else if(j<B.length&&(i==A.length||d[i][j+1]>=d[i+1][j])){int st=rb.length();rb.append(B[j]);rb.setSpan(new BackgroundColorSpan(red),st,rb.length(),33);j++;c++;}else{int st=la.length();la.append(A[i]);la.setSpan(new BackgroundColorSpan(green),st,la.length(),33);i++;c++;}}left.setText(la);right.setText(rb);info.setText(c+" parça farkı • büyük belge modu");}
+ void open(int r){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");i.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"text/plain","application/vnd.openxmlformats-officedocument.wordprocessingml.document"});startActivityForResult(i,r);} protected void onActivityResult(int q,int r,Intent d){super.onActivityResult(q,r,d);if(r!=RESULT_OK||d==null||d.getData()==null)return;try{Uri u=d.getData();String n=name(u);String x=n.toLowerCase().endsWith(".docx")?docx(u):txt(u);if(q==OA)left.setText(x);else right.setText(x);info.setText(n+" açıldı");}catch(Exception e){info.setText("Dosya açılamadı: "+e.getMessage());}}
+ String name(Uri u){String n="belge";try(android.database.Cursor c=getContentResolver().query(u,null,null,null,null)){if(c!=null&&c.moveToFirst()){int k=c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);if(k>=0)n=c.getString(k);}}return n;} String txt(Uri u)throws Exception{try(InputStream in=getContentResolver().openInputStream(u);ByteArrayOutputStream o=new ByteArrayOutputStream()){byte[]z=new byte[8192];int n;while((n=in.read(z))>0)o.write(z,0,n);return o.toString("UTF-8");}} String docx(Uri u)throws Exception{try(ZipInputStream z=new ZipInputStream(getContentResolver().openInputStream(u))){ZipEntry e;while((e=z.getNextEntry())!=null)if("word/document.xml".equals(e.getName())){ByteArrayOutputStream o=new ByteArrayOutputStream();byte[]b=new byte[8192];int n;while((n=z.read(b))>0)o.write(b,0,n);return o.toString("UTF-8").replaceAll("</w:p>","\n").replaceAll("<[^>]+>","").replace("&amp;","&").replace("&lt;","<").replace("&gt;",">").trim();}}throw new IOException("DOCX metni yok");}
 }
