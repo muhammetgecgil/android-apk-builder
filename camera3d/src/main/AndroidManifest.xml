@@ -2,9 +2,9 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
     <uses-feature android:name="android.hardware.camera.ar" android:required="false" />
-    <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="Camera 3D Photo Scan">
+    <application android:theme="@android:style/Theme.Material.NoActionBar" android:label="Camera 3D Solid Scan">
         <meta-data android:name="com.google.ar.core" android:value="optional" />
-        <activity android:name=".MainActivityV18" android:screenOrientation="landscape" android:exported="true">
+        <activity android:name=".MainActivityV19" android:screenOrientation="landscape" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
