@@ -36,7 +36,7 @@ jobs:
       - name: Restore UI asset
         working-directory: turkradyo-playstore
         run: |
-          base64 -d app/src/main/assets/index.html.gz.b64 > app/src/main/assets/index.html.gz
+          cat app/src/main/assets/index.html.gz.b64.part* | tr -d '\n\r ' | base64 -d > app/src/main/assets/index.html.gz
           gzip -t app/src/main/assets/index.html.gz
 
       - name: Lint and build
