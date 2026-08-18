@@ -1,3 +1,3 @@
-run_id=32159011406
-sha=10eb6deb763b02e9dc9be59c6ebf72745b6f2a14
-artifact=MG-3D-Model-Viewer-v1.8.5-CAD-TOOLS
+run_id=32163341143
+sha=bd80c907ed286a7ef3724291ed0bee2710512310
+artifact=MG-3D-Model-Viewer-v1.8.6-DIRECT-DIA-TOLERANCE
