@@ -1,4 +1,4 @@
-name: Build 3D Model Viewer CAD 1.9.0
+name: Build 3D Model Viewer CAD 1.9.1
 
 on:
   push:
@@ -59,8 +59,9 @@ jobs:
           python3 modelviewer/upgrade_cad_v188.py
           python3 modelviewer/upgrade_cad_v189.py
           python3 modelviewer/upgrade_cad_v190.py
-          sed -i "s/versionCode 15/versionCode 38/" modelviewer/build.gradle
-          sed -i "s/versionName '1.3.2'/versionName '1.9.0'/" modelviewer/build.gradle
+          python3 modelviewer/upgrade_cad_v191.py
+          sed -i "s/versionCode 15/versionCode 39/" modelviewer/build.gradle
+          sed -i "s/versionName '1.3.2'/versionName '1.9.1'/" modelviewer/build.gradle
       - name: Bundle pinned offline CAD engines
         run: |
           set -euxo pipefail
@@ -87,7 +88,7 @@ jobs:
           gradle-version: '8.11.1'
       - name: Build signed APK and AAB
         run: gradle --no-daemon :modelviewer:assembleRelease :modelviewer:bundleRelease --stacktrace
-      - name: Verify v1.9.0 bottom bar alignment
+      - name: Verify v1.9.1 persistent bottom anchor
         run: |
           APK=modelviewer/build/outputs/apk/release/modelviewer-release.apk
           AAB=modelviewer/build/outputs/bundle/release/modelviewer-release.aab
@@ -95,28 +96,29 @@ jobs:
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK" | tee cert.txt
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | tee badging.txt
           grep -q "package: name='com.muhammetgecgil.mg3dmodelviewer'" badging.txt
-          grep -q "versionCode='38'" badging.txt
-          grep -q "versionName='1.9.0'" badging.txt
+          grep -q "versionCode='39'" badging.txt
+          grep -q "versionName='1.9.1'" badging.txt
           grep -qi "cff09eb09175519edd966d02d00a36027d047b59ba8ca03923a3a44c39615dc7" cert.txt
-          unzip -l "$APK" | grep -q 'assets/cadviewer/cad-v190.js'
-          unzip -p "$APK" assets/cadviewer/cad-v190.js | grep -q 'bottomRightAlignedToPanel:true'
-          cp "$APK" MG_3D_Model_Viewer_v1.9.0_BOTTOM_ALIGN.apk
-          cp "$AAB" MG_3D_Model_Viewer_v1.9.0_BOTTOM_ALIGN.aab
-          sha256sum MG_3D_Model_Viewer_v1.9.0_BOTTOM_ALIGN.apk MG_3D_Model_Viewer_v1.9.0_BOTTOM_ALIGN.aab > SHA256SUMS.txt
+          unzip -l "$APK" | grep -q 'assets/cadviewer/cad-v191.js'
+          unzip -p "$APK" assets/cadviewer/cad-v191.js | grep -q 'bottomRightAnchorPersistent:true'
+          unzip -p "$APK" assets/cadviewer/cad-v191.js | grep -q 'analysisExpandsLeftOnly:true'
+          cp "$APK" MG_3D_Model_Viewer_v1.9.1_BOTTOM_ANCHOR.apk
+          cp "$AAB" MG_3D_Model_Viewer_v1.9.1_BOTTOM_ANCHOR.aab
+          sha256sum MG_3D_Model_Viewer_v1.9.1_BOTTOM_ANCHOR.apk MG_3D_Model_Viewer_v1.9.1_BOTTOM_ANCHOR.aab > SHA256SUMS.txt
       - name: Upload verified build
         uses: actions/upload-artifact@v4
         with:
-          name: MG-3D-Model-Viewer-v1.9.0-BOTTOM-ALIGN
+          name: MG-3D-Model-Viewer-v1.9.1-BOTTOM-ANCHOR
           path: |
-            MG_3D_Model_Viewer_v1.9.0_BOTTOM_ALIGN.apk
-            MG_3D_Model_Viewer_v1.9.0_BOTTOM_ALIGN.aab
+            MG_3D_Model_Viewer_v1.9.1_BOTTOM_ANCHOR.apk
+            MG_3D_Model_Viewer_v1.9.1_BOTTOM_ANCHOR.aab
             SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 30
       - name: Record successful run id
         run: |
           mkdir -p build-status
-          printf 'run_id=%s\nsha=%s\nartifact=%s\n' "${GITHUB_RUN_ID}" "${GITHUB_SHA}" "MG-3D-Model-Viewer-v1.9.0-BOTTOM-ALIGN" > build-status/MODELVIEWER_LAST_SUCCESS.txt
+          printf 'run_id=%s\nsha=%s\nartifact=%s\n' "${GITHUB_RUN_ID}" "${GITHUB_SHA}" "MG-3D-Model-Viewer-v1.9.1-BOTTOM-ANCHOR" > build-status/MODELVIEWER_LAST_SUCCESS.txt
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add build-status/MODELVIEWER_LAST_SUCCESS.txt
