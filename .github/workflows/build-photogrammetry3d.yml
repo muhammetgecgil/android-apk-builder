@@ -5,7 +5,7 @@ on:
     paths: [ 'photogrammetry3d/**', '.github/workflows/build-photogrammetry3d.yml' ]
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,13 +24,24 @@ jobs:
       - run: base64 -d .github/nesnesayar-test.jks.b64 > nesnesayar-test.jks
       - working-directory: photogrammetry3d
         run: gradle --no-daemon :app:assembleDebug --stacktrace
-      - run: |
+      - name: Verify APK
+        run: |
           test -s photogrammetry3d/app/build/outputs/apk/debug/app-debug.apk
-          cp photogrammetry3d/app/build/outputs/apk/debug/app-debug.apk MG_3D_Scanner_v1.0.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging MG_3D_Scanner_v1.0.apk | head -20
+          cp photogrammetry3d/app/build/outputs/apk/debug/app-debug.apk MG_3D_Studio_Pro_v2.1.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging MG_3D_Studio_Pro_v2.1.apk | head -20
+          unzip -t MG_3D_Studio_Pro_v2.1.apk >/dev/null
       - uses: actions/upload-artifact@v4
         with:
-          name: MG-3D-Scanner-v1.0-APK
-          path: MG_3D_Scanner_v1.0.apk
+          name: MG-3D-Studio-Pro-v2.1-APK
+          path: MG_3D_Studio_Pro_v2.1.apk
           if-no-files-found: error
           retention-days: 30
+      - name: Record successful build
+        run: |
+          mkdir -p build-status
+          printf 'run_id=%s\nsha=%s\nartifact=MG-3D-Studio-Pro-v2.1-APK\n' '${{ github.run_id }}' '${{ github.sha }}' > build-status/MG3D_LAST_SUCCESS.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add build-status/MG3D_LAST_SUCCESS.txt
+          git commit -m 'Record successful MG3D build [skip ci]' || exit 0
+          git push
