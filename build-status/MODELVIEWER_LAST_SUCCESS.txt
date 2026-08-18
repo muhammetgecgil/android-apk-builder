@@ -1,3 +1,3 @@
-run_id=32145460875
-sha=066698499ae8199d05a17e2e51fcfd29108a21cb
-artifact=MG-3D-Model-Viewer-v1.8.4-TOUCH-EDGE-UNDO
+run_id=32159011406
+sha=10eb6deb763b02e9dc9be59c6ebf72745b6f2a14
+artifact=MG-3D-Model-Viewer-v1.8.5-CAD-TOOLS
