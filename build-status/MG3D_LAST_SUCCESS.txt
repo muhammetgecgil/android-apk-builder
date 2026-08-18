@@ -1,3 +1,3 @@
-run_id=32162580338
-sha=3b5d99d3d3fd73da9975a0ece472b83d051158b2
-artifact=MG-3D-Studio-Pro-v2.5.1-APK
+run_id=32163653316
+sha=0e74da100b91b6ec0afdd68f70ebf343befd959a
+artifact=MG-3D-Studio-Pro-v2.5.2-APK
