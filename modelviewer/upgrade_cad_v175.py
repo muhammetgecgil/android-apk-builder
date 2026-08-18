@@ -1,6 +1,7 @@
 from pathlib import Path
 import re
 
+# v1.7.6: CAD home uses the same Android ACTION_OPEN_DOCUMENT picker behavior as the removed legacy screen.
 cad=Path('modelviewer/src/main/java/com/muhammetgecgil/modelviewer/CadViewerActivity.java')
 c=cad.read_text(encoding='utf-8')
 # Android document picker: keep */* so vendor-specific CAD MIME types are visible.
@@ -9,7 +10,6 @@ c=c.replace('i.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"model/step","model
 pat=r'''\s*if\(l\.endsWith\("\.iges"\)\|\|l\.endsWith\("\.igs"\)\)modelType="iges";\s*else if\(l\.endsWith\("\.brep"\)\|\|l\.endsWith\("\.brp"\)\)modelType="brep";\s*else if\(l\.endsWith\("\.obj"\)\)modelType="obj";\s*else if\(l\.endsWith\("\.stl"\)\)modelType="stl";\s*else if\(l\.endsWith\("\.ply"\)\)modelType="ply";\s*else modelType="step";'''
 rep='''\n        int dot=l.lastIndexOf('.');\n        modelType=(dot>=0&&dot<l.length()-1)?l.substring(dot+1):"unknown";\n        if(modelType.equals("stp"))modelType="step";\n        else if(modelType.equals("igs"))modelType="iges";\n        else if(modelType.equals("brp"))modelType="brep";'''
 c,n=re.subn(pat,rep,c,count=1)
-# v1.7.4 may already have extension extraction. In that case leave it intact.
 if n==0 and 'int dot=l.lastIndexOf' not in c:
     marker='String l=modelName.toLowerCase(Locale.ROOT);'
     if marker in c:
@@ -49,7 +49,6 @@ if 'async function loadViaAssimp' not in h:
     if start<0: raise SystemExit('main function not found')
     h=h[:start]+helper+'\n'+h[start:]
 
-# Replace the entire main routine by position instead of fragile exact-string matching.
 start=h.find('async function main(){')
 end=h.find('main();',start)
 if start<0 or end<0: raise SystemExit('main routine boundaries not found')
@@ -99,7 +98,6 @@ if '/cad-v175.js' not in h:
     h=h.replace('</body>','<script src="/cad-v175.js"></script></body>',1)
 html.write_text(h,encoding='utf-8')
 
-# Runtime pen FAB; avoids patching older generator scripts.
 AS=Path('modelviewer/src/main/assets/cadviewer')
 (AS/'cad-v175.js').write_text(r'''(function(){
 function installPen(){
@@ -113,7 +111,7 @@ function installPen(){
   document.body.appendChild(b);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',installPen);else installPen();
-window.MG_CAD_V175={version:'1.7.5',assimp:true,broadFormats:true,penFab:true};
+window.MG_CAD_V175={version:'1.7.6',legacyPickerRestored:true,bridge:'AndroidHost',assimp:true,broadFormats:true,penFab:true};
 })();
 ''',encoding='utf-8')
-print('v1.7.5 broad format + pen fix applied')
+print('v1.7.6 file picker + broad format support applied')
