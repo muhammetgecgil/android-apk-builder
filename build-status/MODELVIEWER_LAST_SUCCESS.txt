@@ -1,3 +1,3 @@
-run_id=32100599594
-sha=ce178dc35654bd8d16ff5e578b756c7aee2427c6
-artifact=MG-3D-Model-Viewer-v1.7.8-ENGINEERING-TOOLS
+run_id=32103941377
+sha=99bbd383ccb5747fb72829508efd906f9e131203
+artifact=MG-3D-Model-Viewer-v1.7.9-UNDO-CONTROLS
