@@ -1,0 +1,34 @@
+name: Build Drawing2CAD APK
+on:
+  push:
+    branches: [ main ]
+    paths: [ 'drawing2cad/**', '.github/workflows/build-drawing2cad.yml' ]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Build
+        working-directory: drawing2cad
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Verify APK
+        run: |
+          test -s drawing2cad/app/build/outputs/apk/debug/app-debug.apk
+          cp drawing2cad/app/build/outputs/apk/debug/app-debug.apk MG_Drawing2CAD_v1.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging MG_Drawing2CAD_v1.apk | head -20
+          unzip -t MG_Drawing2CAD_v1.apk >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MG-Drawing2CAD-v1-APK
+          path: MG_Drawing2CAD_v1.apk
+          retention-days: 30
