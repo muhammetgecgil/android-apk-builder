@@ -1,3 +1,3 @@
-run_id=32116615133
-sha=fc62d7b990d5e23853561d2e86e2d1afce21c403
-artifact=MG-3D-Model-Viewer-v1.8.3-ZIP-CAD
+run_id=32145460875
+sha=066698499ae8199d05a17e2e51fcfd29108a21cb
+artifact=MG-3D-Model-Viewer-v1.8.4-TOUCH-EDGE-UNDO
