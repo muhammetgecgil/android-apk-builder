@@ -8,8 +8,9 @@ public class RobustPoseSurfaceActivityV251 extends RobustPoseSurfaceActivityV25 
    Uri u = super.save25(m);
    runOnUiThread(() -> {
      try {
-       Intent i = new Intent(this, CadSurfaceActivity.class);
+       Intent i = new Intent(this, AutoObjCadSurfaceActivity.class);
        i.setData(u);
+       i.putExtra("generated_format","obj");
        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
        startActivity(i);
      } catch (Throwable ignored) {}
