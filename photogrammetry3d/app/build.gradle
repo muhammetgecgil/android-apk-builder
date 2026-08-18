@@ -17,12 +17,16 @@ android {
         applicationId 'com.muhammetgecgil.mg3dscanner'
         minSdk 26
         targetSdk 35
-        versionCode 211
-        versionName '2.1.1'
+        versionCode 220
+        versionName '2.2.0'
     }
     buildTypes {
         debug { minifyEnabled false; signingConfig signingConfigs.stableTest }
         release { minifyEnabled false; signingConfig signingConfigs.stableTest }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+
+dependencies {
+    implementation 'org.opencv:opencv:4.13.0'
 }
