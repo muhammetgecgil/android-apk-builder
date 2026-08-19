@@ -17,8 +17,8 @@ android {
         applicationId 'com.muhammetgecgil.mg3dscanner'
         minSdk 26
         targetSdk 35
-        versionCode 290
-        versionName '2.9.0'
+        versionCode 300
+        versionName '3.0.0'
     }
     buildTypes {
         debug { minifyEnabled false; signingConfig signingConfigs.stableTest }
