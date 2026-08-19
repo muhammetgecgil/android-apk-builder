@@ -2,7 +2,7 @@ name: Build Training Assistant APK
 
 on:
   push:
-    branches: ["agent/training-assistant"]
+    branches: ["main", "agent/training-assistant"]
     paths:
       - "training-assistant/**"
       - ".github/workflows/build-training-assistant.yml"
