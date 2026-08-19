@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MainActivity extends Activity implements SensorEventListener {
     private static final UUID SIM_UUID = UUID.fromString("6d9b6c72-4d47-4d8e-9b58-b5e7465b4a22");
     private static final int REQ_BT = 44;
-    private static final long TX_PERIOD_NS = 20_000_000L; // 50 Hz
+    private static final long TX_PERIOD_NS = 20_000_000L;
 
     private BluetoothAdapter bt;
     private BluetoothSocket socket;
@@ -73,21 +73,21 @@ public class MainActivity extends Activity implements SensorEventListener {
     private void showRoleScreen() {
         closeConnections(); pilotMode=receiverMode=false;
         LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setGravity(Gravity.CENTER); root.setPadding(46,36,46,36); root.setBackgroundColor(Color.rgb(3,9,13));
-        root.addView(title("FIXTURE COCKPIT SIM • PRO",32));
-        TextView sub=title("Tek APK • Çift telefon • Bluetooth IMU uçuş simülatörü",16); sub.setTextColor(Color.LTGRAY); root.addView(sub);
-        Button pilot=btn("PİLOT / FİKSTÜR KOKPİT"); Button display=btn("UÇAK EKRANI / F-22 GÖRSELİ");
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(440),dp(72)); lp.setMargins(0,16,0,0); root.addView(pilot,lp); root.addView(display,lp);
-        TextView info=title("1) Telefonları Android Bluetooth ayarlarından eşleştir  2) Uçak ekranını aç  3) Pilot telefonundan Bağlan",14); info.setTextColor(Color.GRAY); root.addView(info);
+        root.addView(title("FIXTURE COCKPIT SIM • PRO V2",32));
+        TextView sub=title("Tek APK • Çift telefon • Bluetooth IMU • gerçekçi kokpit ve uçuş görünümü",16); sub.setTextColor(Color.LTGRAY); root.addView(sub);
+        Button pilot=btn("PİLOT / GERÇEKÇİ KOKPİT"); Button display=btn("UÇAK EKRANI / F-22 SINIFI GÖRÜNÜM");
+        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(460),dp(72)); lp.setMargins(0,16,0,0); root.addView(pilot,lp); root.addView(display,lp);
+        TextView info=title("1) Telefonları Bluetooth ayarlarından eşleştir  2) Uçak ekranını aç  3) Pilot telefonundan Bağlan",14); info.setTextColor(Color.GRAY); root.addView(info);
         pilot.setOnClickListener(v->startPilot()); display.setOnClickListener(v->startReceiver()); setContentView(root);
     }
 
     private void startPilot() {
         closeConnections(); pilotMode=true; receiverMode=false; centerValid=false; roll=pitch=yaw=0;
         FrameLayout root=new FrameLayout(this); pilotView=new PilotView(this); root.addView(pilotView,new FrameLayout.LayoutParams(-1,-1));
-        LinearLayout controls=new LinearLayout(this); controls.setOrientation(LinearLayout.HORIZONTAL); controls.setGravity(Gravity.CENTER); controls.setPadding(8,6,8,6); controls.setBackgroundColor(0x99000000);
-        Button connect=btn("BLUETOOTH BAĞLAN"); Button center=btn("IMU MERKEZLE"); Button minus=btn("GAZ −"); Button plus=btn("GAZ +"); Button back=btn("MOD SEÇİMİ");
+        LinearLayout controls=new LinearLayout(this); controls.setOrientation(LinearLayout.HORIZONTAL); controls.setGravity(Gravity.CENTER); controls.setPadding(8,5,8,5); controls.setBackgroundColor(0xD0000000);
+        Button connect=btn("DATA LINK"); Button center=btn("IMU MERKEZLE"); Button minus=btn("THR −"); Button plus=btn("THR +"); Button back=btn("MOD");
         controls.addView(connect); controls.addView(center); controls.addView(minus); controls.addView(plus); controls.addView(back);
-        root.addView(controls,new FrameLayout.LayoutParams(-1,dp(58),Gravity.BOTTOM)); setContentView(root);
+        root.addView(controls,new FrameLayout.LayoutParams(-1,dp(56),Gravity.BOTTOM)); setContentView(root);
         if(rotationSensor!=null) sensors.registerListener(this,rotationSensor,SensorManager.SENSOR_DELAY_GAME);
         connect.setOnClickListener(v->chooseBondedAndConnect());
         center.setOnClickListener(v->{ zeroRoll=rawRoll; zeroPitch=rawPitch; zeroYaw=rawYaw; centerValid=true; roll=pitch=yaw=0; toast("IMU nötr konumu kaydedildi"); });
@@ -97,7 +97,7 @@ public class MainActivity extends Activity implements SensorEventListener {
     private void startReceiver() {
         closeConnections(); receiverMode=true; pilotMode=false; lastPacketMs=0; lastRxSeq=0; droppedPackets=0;
         FrameLayout root=new FrameLayout(this); flightView=new FlightView(this); root.addView(flightView,new FrameLayout.LayoutParams(-1,-1));
-        Button back=btn("MOD SEÇİMİ"); FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(dp(145),dp(50),Gravity.TOP|Gravity.RIGHT); bp.setMargins(0,10,10,0); root.addView(back,bp); back.setOnClickListener(v->showRoleScreen()); setContentView(root); startServer();
+        Button back=btn("MOD"); FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(dp(100),dp(48),Gravity.TOP|Gravity.RIGHT); bp.setMargins(0,10,10,0); root.addView(back,bp); back.setOnClickListener(v->showRoleScreen()); setContentView(root); startServer();
     }
 
     private boolean btAllowed(){return Build.VERSION.SDK_INT<31 || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)==PackageManager.PERMISSION_GRANTED;}
@@ -110,7 +110,7 @@ public class MainActivity extends Activity implements SensorEventListener {
     }
 
     private void connectTo(BluetoothDevice device){
-        toast("Bağlanıyor: "+device.getName()); io.execute(()->{try{closeSocketOnly(); BluetoothSocket s=device.createRfcommSocketToServiceRecord(SIM_UUID); s.connect(); socket=s; writer=new BufferedWriter(new OutputStreamWriter(s.getOutputStream(),StandardCharsets.UTF_8)); reader=new BufferedReader(new InputStreamReader(s.getInputStream(),StandardCharsets.UTF_8)); connected=true; runOnUiThread(()->toast("Bluetooth bağlantısı kuruldu")); readAcks();}catch(Exception e){connected=false;runOnUiThread(()->toast("Bağlantı başarısız: "+e.getClass().getSimpleName()));}});
+        toast("Bağlanıyor: "+device.getName()); io.execute(()->{try{closeSocketOnly(); BluetoothSocket s=device.createRfcommSocketToServiceRecord(SIM_UUID); s.connect(); socket=s; writer=new BufferedWriter(new OutputStreamWriter(s.getOutputStream(),StandardCharsets.UTF_8)); reader=new BufferedReader(new InputStreamReader(s.getInputStream(),StandardCharsets.UTF_8)); connected=true; runOnUiThread(()->toast("Bluetooth data link kuruldu")); readAcks();}catch(Exception e){connected=false;runOnUiThread(()->toast("Bağlantı başarısız: "+e.getClass().getSimpleName()));}});
     }
 
     private void readAcks() throws IOException {
@@ -158,39 +158,78 @@ public class MainActivity extends Activity implements SensorEventListener {
     private static float wrap(float a){while(a>180)a-=360;while(a<-180)a+=360;return a;} private static float lerpAngle(float a,float b,float t){return wrap(a+wrap(b-a)*t);}
     private static float slew(float current,float target,float maxStep){float d=wrap(target-current);return current+clamp(d,-maxStep,maxStep);} private static float adaptiveFilter(float current,float target,float slow,float fast,float threshold){float d=Math.abs(wrap(target-current));return lerpAngle(current,target,d>threshold?fast:slow);}
 
+    private void drawAtmosphere(Canvas c, Paint p, int w, int h, float horizon, long now, float bank){
+        LinearGradient sky=new LinearGradient(0,0,0,horizon+80,new int[]{Color.rgb(4,22,48),Color.rgb(33,88,142),Color.rgb(130,185,220),Color.rgb(224,216,184)},null,Shader.TileMode.CLAMP);p.setShader(sky);c.drawRect(0,0,w,h,p);p.setShader(null);
+        p.setShader(new RadialGradient(w*0.78f,h*0.18f,Math.min(w,h)*0.22f,new int[]{0xCCFFF7C8,0x55FFF2B0,0x00FFFFFF},null,Shader.TileMode.CLAMP));c.drawCircle(w*0.78f,h*0.18f,Math.min(w,h)*0.24f,p);p.setShader(null);
+        c.save();c.rotate(-bank*0.18f,w/2f,h/2f);for(int i=0;i<10;i++){float drift=((now/24f)*(0.2f+throttle*0.5f)+i*171)%(w+420)-210;float y=70+(i*83)%(int)Math.max(110,horizon*0.7f);float s=0.6f+(i%4)*0.18f;drawCloud(c,p,drift,y,115*s,30*s,0x70FFFFFF);}c.restore();
+    }
+
+    private void drawCloud(Canvas c, Paint p, float x,float y,float rx,float ry,int color){
+        p.setShader(new RadialGradient(x,y,rx,new int[]{color,0x44FFFFFF,0x00FFFFFF},null,Shader.TileMode.CLAMP));c.drawOval(x-rx,y-ry,x+rx,y+ry,p);p.setShader(null);
+        p.setColor(0x45FFFFFF);c.drawOval(x-rx*0.55f,y-ry*1.1f,x+rx*0.2f,y+ry*0.35f,p);c.drawOval(x-rx*0.05f,y-ry*0.9f,x+rx*0.7f,y+ry*0.45f,p);
+    }
+
     class PilotView extends View{
-        Paint p=new Paint(3); public PilotView(Context c){super(c);p.setTypeface(Typeface.create("monospace",Typeface.BOLD));}
-        @Override protected void onDraw(Canvas c){super.onDraw(c);int w=getWidth(),h=getHeight();c.drawColor(Color.rgb(4,12,17));float cy=h/2f+pitch*5.2f;
-            c.save();c.rotate(-roll,w/2f,h/2f);p.setColor(Color.rgb(18,67,96));c.drawRect(-w,cy-1400,w*2,cy,p);p.setColor(Color.rgb(78,52,30));c.drawRect(-w,cy,w*2,cy+1400,p);p.setColor(Color.WHITE);p.setStrokeWidth(4);c.drawLine(-w,cy,w*2,cy,p);drawPitchLadder(c,w,cy);c.restore();
-            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(4);p.setColor(Color.rgb(120,255,170));c.drawCircle(w/2f,h/2f,105,p);c.drawLine(w/2f-145,h/2f,w/2f-36,h/2f,p);c.drawLine(w/2f+36,h/2f,w/2f+145,h/2f,p);c.drawLine(w/2f,h/2f-18,w/2f,h/2f+38,p);p.setStyle(Paint.Style.FILL);
-            p.setTextSize(25);p.setTextAlign(Paint.Align.LEFT);c.drawText(String.format(Locale.US,"ROLL %+05.1f°",roll),24,38,p);c.drawText(String.format(Locale.US,"PITCH %+05.1f°",pitch),24,70,p);c.drawText(String.format(Locale.US,"HDG %03.0f°",(yaw+360)%360),24,102,p);
-            p.setTextAlign(Paint.Align.RIGHT);p.setColor(connected?Color.rgb(90,255,130):Color.rgb(255,90,70));c.drawText(connected?"DATA LINK ●":"DATA LINK ○",w-24,38,p);p.setColor(Color.rgb(120,255,170));c.drawText(String.format(Locale.US,"RTT %.0f ms",rttMs),w-24,70,p);c.drawText(String.format(Locale.US,"THR %3.0f%%",throttle*100),w-24,102,p);p.setTextAlign(Paint.Align.LEFT);postInvalidateDelayed(33);
+        Paint p=new Paint(3); long t0=System.currentTimeMillis(); public PilotView(Context c){super(c);p.setTypeface(Typeface.create("monospace",Typeface.BOLD));setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
+        @Override protected void onDraw(Canvas c){super.onDraw(c);int w=getWidth(),h=getHeight();long now=System.currentTimeMillis();float horizon=h*0.48f+pitch*4.7f;
+            drawAtmosphere(c,p,w,h,horizon,now,roll);
+            c.save();c.rotate(-roll*0.34f,w/2f,h/2f);drawWorld(c,w,h,horizon,now);c.restore();
+            drawCanopy(c,w,h);drawHudGlass(c,w,h);drawHud(c,w,h);drawCockpitPanel(c,w,h);postInvalidateDelayed(16);
         }
-        private void drawPitchLadder(Canvas c,int w,float cy){p.setTextSize(14);p.setStrokeWidth(2);for(int d=-30;d<=30;d+=10){if(d==0)continue;float y=cy-d*5.2f;float len=(d%20==0)?95:65;p.setColor(0xCCFFFFFF);c.drawLine(w/2f-len,y,w/2f-20,y,p);c.drawLine(w/2f+20,y,w/2f+len,y,p);c.drawText(Integer.toString(Math.abs(d)),w/2f+len+8,y+5,p);}}
+        private void drawWorld(Canvas c,int w,int h,float horizon,long now){
+            LinearGradient ground=new LinearGradient(0,horizon,0,h,new int[]{Color.rgb(74,92,72),Color.rgb(38,52,39),Color.rgb(18,27,22)},null,Shader.TileMode.CLAMP);p.setShader(ground);c.drawRect(-w,horizon,w*2,h*2,p);p.setShader(null);
+            p.setColor(0x50D8CFAE);p.setStrokeWidth(2);for(int i=1;i<8;i++){float y=horizon+(h-horizon)*(i*i)/64f;c.drawLine(-w,y,w*2,y,p);}float shift=(now-t0)*0.035f;for(int i=-10;i<20;i++){float x=w/2f+(i*85f-(shift%85));c.drawLine(x,horizon,x+(x-w/2f)*1.8f,h,p);}p.setColor(Color.rgb(62,78,58));Path ridge=new Path();ridge.moveTo(-w,horizon+40);for(int x=-w;x<=w*2;x+=80)ridge.lineTo(x,horizon+28+(float)Math.sin((x+shift)/115.0)*32);ridge.lineTo(w*2,h);ridge.lineTo(-w,h);ridge.close();c.drawPath(ridge,p);
+        }
+        private void drawCanopy(Canvas c,int w,int h){
+            p.setStyle(Paint.Style.STROKE);p.setStrokeCap(Paint.Cap.ROUND);p.setStrokeWidth(Math.max(18,w*0.022f));p.setColor(Color.rgb(25,30,31));Path frame=new Path();frame.moveTo(w*0.06f,h*0.04f);frame.quadTo(w*0.12f,h*0.20f,w*0.17f,h*0.70f);frame.moveTo(w*0.94f,h*0.04f);frame.quadTo(w*0.88f,h*0.20f,w*0.83f,h*0.70f);frame.moveTo(w*0.50f,0);frame.lineTo(w*0.50f,h*0.18f);c.drawPath(frame,p);p.setStrokeWidth(5);p.setColor(0x557FB1C5);c.drawPath(frame,p);p.setStyle(Paint.Style.FILL);p.setStrokeCap(Paint.Cap.BUTT);
+        }
+        private void drawHudGlass(Canvas c,int w,int h){
+            float left=w*0.31f,right=w*0.69f,top=h*0.10f,bottom=h*0.56f;Path g=new Path();g.moveTo(left,top+25);g.lineTo(left+40,top);g.lineTo(right-40,top);g.lineTo(right,top+25);g.lineTo(right-15,bottom);g.lineTo(left+15,bottom);g.close();p.setShader(new LinearGradient(0,top,0,bottom,0x253C8F84,0x061B3F3D,Shader.TileMode.CLAMP));c.drawPath(g,p);p.setShader(null);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(4);p.setColor(0xAA5A6B64);c.drawPath(g,p);p.setStyle(Paint.Style.FILL);
+        }
+        private void drawHud(Canvas c,int w,int h){
+            int green=Color.rgb(112,255,150);p.setColor(green);p.setStrokeWidth(3);p.setTextSize(18);p.setTextAlign(Paint.Align.CENTER);float cx=w/2f,cy=h*0.33f;
+            p.setStyle(Paint.Style.STROKE);c.drawCircle(cx,cy,46,p);c.drawLine(cx-92,cy,cx-26,cy,p);c.drawLine(cx+26,cy,cx+92,cy,p);c.drawLine(cx,cy-17,cx,cy+22,p);for(int d=-30;d<=30;d+=10){if(d==0)continue;float y=cy-d*3.4f;c.drawLine(cx-58,y,cx-20,y,p);c.drawLine(cx+20,y,cx+58,y,p);}p.setStyle(Paint.Style.FILL);
+            c.drawText(String.format(Locale.US,"%03.0f",(yaw+360)%360),cx,h*0.145f,p);p.setTextAlign(Paint.Align.LEFT);c.drawText(String.format(Locale.US,"SPD %3.0f",280+throttle*920),w*0.315f,h*0.25f,p);p.setTextAlign(Paint.Align.RIGHT);c.drawText(String.format(Locale.US,"ALT %4.0f",5200+pitch*35),w*0.685f,h*0.25f,p);p.setTextAlign(Paint.Align.LEFT);
+        }
+        private void drawCockpitPanel(Canvas c,int w,int h){
+            float top=h*0.61f;p.setShader(new LinearGradient(0,top,0,h,Color.rgb(35,38,39),Color.rgb(8,10,11),Shader.TileMode.CLAMP));c.drawRoundRect(0,top,w,h,28,28,p);p.setShader(null);p.setColor(Color.rgb(65,69,70));c.drawRect(w*0.02f,top+10,w*0.98f,top+20,p);
+            drawMfd(c,w*0.08f,top+36,w*0.34f,h-62,"ENG / FUEL",true);drawMfd(c,w*0.66f,top+36,w*0.92f,h-62,"NAV / LINK",false);drawCenterStack(c,w,h,top);
+        }
+        private void drawMfd(Canvas c,float l,float t,float r,float b,String title,boolean engine){
+            p.setColor(Color.rgb(12,15,16));c.drawRoundRect(l-12,t-12,r+12,b+12,16,16,p);p.setColor(Color.rgb(48,53,54));c.drawRoundRect(l-5,t-5,r+5,b+5,10,10,p);p.setColor(Color.rgb(5,18,15));c.drawRect(l,t,r,b,p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setColor(Color.rgb(95,255,145));c.drawRect(l,t,r,b,p);p.setStyle(Paint.Style.FILL);p.setTextSize(13);p.setColor(Color.rgb(105,255,150));c.drawText(title,l+8,t+18,p);
+            if(engine){c.drawText(String.format(Locale.US,"THR   %3.0f %%",throttle*100),l+12,t+48,p);c.drawText(String.format(Locale.US,"RPM   %3.0f %%",42+throttle*58),l+12,t+70,p);c.drawText("FUEL  74 %",l+12,t+92,p);c.drawText("NOZ   AUTO",l+12,t+114,p);}else{c.drawText(String.format(Locale.US,"HDG   %03.0f",(yaw+360)%360),l+12,t+48,p);c.drawText(String.format(Locale.US,"ROLL  %+04.0f",roll),l+12,t+70,p);c.drawText(String.format(Locale.US,"PITCH %+04.0f",pitch),l+12,t+92,p);c.drawText(connected?"DATALINK  GOOD":"DATALINK  STBY",l+12,t+114,p);}
+            for(int i=0;i<5;i++){p.setColor(Color.rgb(75,82,82));c.drawCircle(l+18+i*(r-l-36)/4,b+13,4,p);}
+        }
+        private void drawCenterStack(Canvas c,int w,int h,float top){
+            float l=w*0.39f,r=w*0.61f,t=top+36,b=h-62;p.setColor(Color.rgb(18,21,22));c.drawRoundRect(l,t,r,b,10,10,p);p.setColor(Color.rgb(90,94,90));p.setTextSize(12);p.setTextAlign(Paint.Align.CENTER);c.drawText("MASTER ARM   SAFE",w/2f,t+22,p);c.drawText(connected?"LINK 1   READY":"LINK 1   STBY",w/2f,t+43,p);c.drawText(String.format(Locale.US,"RTT %.0f ms",rttMs),w/2f,t+64,p);p.setColor(Color.rgb(255,170,55));c.drawCircle(w/2f-34,t+88,6,p);p.setColor(connected?Color.rgb(80,255,120):Color.rgb(255,70,55));c.drawCircle(w/2f+34,t+88,6,p);p.setTextAlign(Paint.Align.LEFT);
+        }
     }
 
     class FlightView extends View{
         Paint p=new Paint(3); long t0=System.currentTimeMillis(),lastFrame=t0; float altitude=5200f,simSpeed=520f,verticalSpeed;
         public FlightView(Context c){super(c);p.setTypeface(Typeface.create("monospace",Typeface.BOLD));setLayerType(View.LAYER_TYPE_SOFTWARE,null);}
         @Override protected void onDraw(Canvas c){super.onDraw(c);int w=getWidth(),h=getHeight();long now=System.currentTimeMillis();float dt=clamp((now-lastFrame)/1000f,0.001f,0.05f);lastFrame=now;boolean live=connected&&now-lastPacketMs<1200;
-            float targetSpeed=280+throttle*920;simSpeed=lerp(simSpeed,targetSpeed,0.035f);verticalSpeed=(float)(Math.sin(Math.toRadians(pitch))*simSpeed*0.70f);altitude=Math.max(0,altitude+verticalSpeed*dt);
-            LinearGradient sky=new LinearGradient(0,0,0,h,Color.rgb(3,18,36),Color.rgb(55,118,155),Shader.TileMode.CLAMP);p.setShader(sky);c.drawRect(0,0,w,h,p);p.setShader(null);drawMovingClouds(c,w,h,now);
-            float horizon=h*0.55f+pitch*4.0f;c.save();c.rotate(-roll*0.42f,w/2f,h/2f);p.setColor(Color.rgb(31,52,43));c.drawRect(-w,horizon,w*2,h*2,p);p.setColor(Color.rgb(116,142,124));p.setStrokeWidth(3);c.drawLine(-w,horizon,w*2,horizon,p);drawTerrain(c,w,horizon,now);c.restore();
-            drawJet(c,w,h,now);drawHud(c,w,h,simSpeed,altitude,verticalSpeed,live,now);if(!live)drawLinkLost(c,w,h);postInvalidateDelayed(16);
+            float targetSpeed=280+throttle*920;simSpeed=lerp(simSpeed,targetSpeed,0.035f);verticalSpeed=(float)(Math.sin(Math.toRadians(pitch))*simSpeed*0.70f);altitude=Math.max(0,altitude+verticalSpeed*dt);float horizon=h*0.54f+pitch*4.4f;
+            drawAtmosphere(c,p,w,h,horizon,now,roll);c.save();c.rotate(-roll*0.30f,w/2f,h/2f);drawTerrain(c,w,h,horizon,now);c.restore();drawJet(c,w,h,now);drawHud(c,w,h,live);if(!live)drawLinkLost(c,w,h);postInvalidateDelayed(16);
         }
-        private void drawMovingClouds(Canvas c,int w,int h,long now){p.setColor(0x28FFFFFF);float drift=((now-t0)*0.02f*(0.4f+throttle))%w;for(int i=0;i<7;i++){float x=(i*223+drift)% (w+220)-110;float y=55+(i*67)%(int)(h*0.34f);c.drawOval(x-80,y-18,x+80,y+18,p);}}
-        private void drawTerrain(Canvas c,int w,float horizon,long now){p.setColor(Color.rgb(22,43,35));Path m=new Path();m.moveTo(-w,horizon+90);for(int x=-w;x<=w*2;x+=90){float y=horizon+65+(float)Math.sin((x+(now-t0)*0.02)/150.0)*32;m.lineTo(x,y);}m.lineTo(w*2,getHeight()*2);m.lineTo(-w,getHeight()*2);m.close();c.drawPath(m,p);}
-        private void drawJet(Canvas c,int w,int h,long now){float cx=w/2f,cy=h*0.62f+pitch*1.3f;float scale=Math.min(w,h)/620f;c.save();c.translate(cx,cy);c.rotate(roll*0.92f);c.scale(scale,scale);
-            p.setShadowLayer(20,0,8,0x88000000);p.setColor(Color.rgb(72,82,90));Path body=new Path();body.moveTo(0,-130);body.lineTo(28,-58);body.lineTo(118,12);body.lineTo(55,26);body.lineTo(30,104);body.lineTo(9,84);body.lineTo(0,126);body.lineTo(-9,84);body.lineTo(-30,104);body.lineTo(-55,26);body.lineTo(-118,12);body.lineTo(-28,-58);body.close();c.drawPath(body,p);p.clearShadowLayer();
-            p.setColor(Color.rgb(38,47,54));Path canopy=new Path();canopy.moveTo(0,-88);canopy.lineTo(16,-48);canopy.lineTo(0,-18);canopy.lineTo(-16,-48);canopy.close();c.drawPath(canopy,p);p.setColor(Color.rgb(115,125,130));p.setStrokeWidth(3);c.drawLine(-90,12,90,12,p);
-            float flame=18+throttle*38+(float)Math.sin(now/55.0)*4;p.setColor(Color.rgb(255,150,45));c.drawOval(-25,93,-7,93+flame,p);c.drawOval(7,93,25,93+flame,p);p.setColor(Color.rgb(255,230,120));c.drawOval(-20,95,-12,95+flame*.55f,p);c.drawOval(12,95,20,95+flame*.55f,p);c.restore();}
-        private void drawHud(Canvas c,int w,int h,float speed,float alt,float vs,boolean live,long now){p.setColor(Color.rgb(110,255,150));p.setStrokeWidth(3);p.setStyle(Paint.Style.STROKE);c.drawCircle(w/2f,h/2f,62,p);c.drawLine(w/2f-120,h/2f,w/2f-30,h/2f,p);c.drawLine(w/2f+30,h/2f,w/2f+120,h/2f,p);p.setStyle(Paint.Style.FILL);p.setTextSize(22);
-            c.drawText(String.format(Locale.US,"SPD %4.0f kt",speed),22,42,p);c.drawText(String.format(Locale.US,"ALT %5.0f ft",alt),22,72,p);c.drawText(String.format(Locale.US,"V/S %+5.0f",vs),22,102,p);c.drawText(String.format(Locale.US,"HDG %03.0f°",(yaw+360)%360),w/2f-60,34,p);
-            p.setTextAlign(Paint.Align.RIGHT);c.drawText(String.format(Locale.US,"ROLL %+05.1f°",roll),w-22,42,p);c.drawText(String.format(Locale.US,"PITCH %+05.1f°",pitch),w-22,72,p);c.drawText(String.format(Locale.US,"THR %3.0f%%",throttle*100),w-22,102,p);c.drawText(String.format(Locale.US,"LINK %.0f Hz  DROP %d",linkHz,droppedPackets),w-22,h-28,p);p.setTextAlign(Paint.Align.LEFT);
-            drawCompassTape(c,w);drawBankScale(c,w,h);if(live){p.setColor(Color.rgb(90,255,130));p.setTextSize(14);c.drawText("IMU DATA LINK • LIVE",20,h-28,p);}
+        private void drawTerrain(Canvas c,int w,int h,float horizon,long now){
+            LinearGradient g=new LinearGradient(0,horizon,0,h,new int[]{Color.rgb(91,104,82),Color.rgb(44,64,45),Color.rgb(20,30,24)},null,Shader.TileMode.CLAMP);p.setShader(g);c.drawRect(-w,horizon,w*2,h*2,p);p.setShader(null);float shift=(now-t0)*0.045f*(0.4f+throttle);
+            p.setColor(Color.rgb(42,59,44));Path ridge=new Path();ridge.moveTo(-w,horizon+70);for(int x=-w;x<=w*2;x+=70)ridge.lineTo(x,horizon+50+(float)Math.sin((x+shift)/120.0)*26+(float)Math.sin((x-shift)/47.0)*9);ridge.lineTo(w*2,h*2);ridge.lineTo(-w,h*2);ridge.close();c.drawPath(ridge,p);
+            p.setColor(0x38D7D2BC);p.setStrokeWidth(2);for(int i=1;i<9;i++){float y=horizon+(h-horizon)*(i*i)/81f;c.drawLine(-w,y,w*2,y,p);}for(int i=-12;i<24;i++){float x=w/2f+(i*90f-(shift%90));c.drawLine(x,horizon,x+(x-w/2f)*2.1f,h,p);}
         }
-        private void drawCompassTape(Canvas c,int w){p.setTextSize(13);p.setColor(Color.rgb(110,255,150));float hdg=(yaw+360)%360;for(int d=-40;d<=40;d+=10){float x=w/2f+d*5.2f;float val=(hdg+d+360)%360;c.drawLine(x,50,x,62,p);c.drawText(String.format(Locale.US,"%03.0f",val),x-11,78,p);}}
-        private void drawBankScale(Canvas c,int w,int h){p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setColor(Color.rgb(110,255,150));RectF r=new RectF(w/2f-145,h/2f-145,w/2f+145,h/2f+145);c.drawArc(r,205,130,false,p);p.setStyle(Paint.Style.FILL);}
-        private void drawLinkLost(Canvas c,int w,int h){p.setColor(0xB0000000);c.drawRect(0,0,w,h,p);p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.rgb(255,185,70));p.setTextSize(34);c.drawText("IMU DATA LINK BEKLENİYOR",w/2f,h/2f-8,p);p.setTextSize(17);c.drawText("Pilot telefonunda BLUETOOTH BAĞLAN → bu telefonu seç",w/2f,h/2f+30,p);p.setTextAlign(Paint.Align.LEFT);}
+        private void drawJet(Canvas c,int w,int h,long now){
+            float cx=w/2f,cy=h*0.61f+pitch*1.0f;float scale=Math.min(w,h)/610f;c.save();c.translate(cx,cy);c.rotate(roll*0.94f);c.scale(scale,scale);
+            p.setShadowLayer(26,0,12,0xAA000000);Path shadow=new Path();shadow.moveTo(0,-150);shadow.lineTo(26,-86);shadow.lineTo(52,-58);shadow.lineTo(140,2);shadow.lineTo(82,24);shadow.lineTo(58,48);shadow.lineTo(38,118);shadow.lineTo(18,102);shadow.lineTo(0,144);shadow.lineTo(-18,102);shadow.lineTo(-38,118);shadow.lineTo(-58,48);shadow.lineTo(-82,24);shadow.lineTo(-140,2);shadow.lineTo(-52,-58);shadow.lineTo(-26,-86);shadow.close();p.setColor(Color.rgb(45,50,54));c.drawPath(shadow,p);p.clearShadowLayer();
+            LinearGradient metal=new LinearGradient(-120,-70,120,80,new int[]{Color.rgb(103,112,119),Color.rgb(62,70,77),Color.rgb(35,43,49)},null,Shader.TileMode.CLAMP);p.setShader(metal);Path body=new Path();body.moveTo(0,-154);body.lineTo(28,-88);body.lineTo(55,-58);body.lineTo(142,2);body.lineTo(84,24);body.lineTo(60,47);body.lineTo(40,121);body.lineTo(18,101);body.lineTo(0,147);body.lineTo(-18,101);body.lineTo(-40,121);body.lineTo(-60,47);body.lineTo(-84,24);body.lineTo(-142,2);body.lineTo(-55,-58);body.lineTo(-28,-88);body.close();c.drawPath(body,p);p.setShader(null);
+            p.setColor(Color.rgb(28,37,43));Path canopy=new Path();canopy.moveTo(0,-113);canopy.lineTo(18,-76);canopy.lineTo(15,-42);canopy.lineTo(0,-26);canopy.lineTo(-15,-42);canopy.lineTo(-18,-76);canopy.close();c.drawPath(canopy,p);p.setShader(new LinearGradient(-12,-103,14,-36,0xCC5C8294,0x33203B4B,Shader.TileMode.CLAMP));c.drawPath(canopy,p);p.setShader(null);
+            p.setColor(Color.rgb(37,43,47));Path leftTail=new Path();leftTail.moveTo(-42,52);leftTail.lineTo(-70,105);leftTail.lineTo(-45,91);leftTail.lineTo(-24,53);leftTail.close();c.drawPath(leftTail,p);Path rightTail=new Path();rightTail.moveTo(42,52);rightTail.lineTo(70,105);rightTail.lineTo(45,91);rightTail.lineTo(24,53);rightTail.close();c.drawPath(rightTail,p);
+            p.setColor(Color.rgb(24,27,28));c.drawOval(-35,94,-8,127,p);c.drawOval(8,94,35,127,p);float flame=16+throttle*44+(float)Math.sin(now/48.0)*4;p.setShader(new LinearGradient(0,118,0,118+flame,new int[]{0xFFFFF1A0,0xFFFF9A28,0x55FF3A00},null,Shader.TileMode.CLAMP));c.drawOval(-31,114,-11,114+flame,p);c.drawOval(11,114,31,114+flame,p);p.setShader(null);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);p.setColor(0x887E8C92);c.drawPath(body,p);p.setStyle(Paint.Style.FILL);c.restore();
+        }
+        private void drawHud(Canvas c,int w,int h,boolean live){
+            int green=Color.rgb(105,255,145);p.setColor(green);p.setStrokeWidth(3);p.setStyle(Paint.Style.STROKE);c.drawCircle(w/2f,h/2f,58,p);c.drawLine(w/2f-118,h/2f,w/2f-28,h/2f,p);c.drawLine(w/2f+28,h/2f,w/2f+118,h/2f,p);p.setStyle(Paint.Style.FILL);p.setTextSize(20);c.drawText(String.format(Locale.US,"SPD %4.0f kt",simSpeed),20,42,p);c.drawText(String.format(Locale.US,"ALT %5.0f ft",altitude),20,70,p);c.drawText(String.format(Locale.US,"V/S %+5.0f",verticalSpeed),20,98,p);p.setTextAlign(Paint.Align.CENTER);c.drawText(String.format(Locale.US,"HDG %03.0f°",(yaw+360)%360),w/2f,32,p);p.setTextAlign(Paint.Align.RIGHT);c.drawText(String.format(Locale.US,"ROLL %+05.1f°",roll),w-20,42,p);c.drawText(String.format(Locale.US,"PITCH %+05.1f°",pitch),w-20,70,p);c.drawText(String.format(Locale.US,"THR %3.0f%%",throttle*100),w-20,98,p);c.drawText(String.format(Locale.US,"LINK %.0f Hz  DROP %d",linkHz,droppedPackets),w-20,h-26,p);p.setTextAlign(Paint.Align.LEFT);if(live){p.setColor(Color.rgb(80,255,120));p.setTextSize(14);c.drawText("IMU DATA LINK • LIVE",20,h-26,p);}drawCompassTape(c,w);
+        }
+        private void drawCompassTape(Canvas c,int w){p.setTextSize(12);p.setColor(Color.rgb(105,255,145));float hdg=(yaw+360)%360;for(int d=-40;d<=40;d+=10){float x=w/2f+d*5.0f;float val=(hdg+d+360)%360;c.drawLine(x,48,x,59,p);c.drawText(String.format(Locale.US,"%03.0f",val),x-10,74,p);}}
+        private void drawLinkLost(Canvas c,int w,int h){p.setColor(0xB0000000);c.drawRect(0,0,w,h,p);p.setTextAlign(Paint.Align.CENTER);p.setColor(Color.rgb(255,190,70));p.setTextSize(32);c.drawText("IMU DATA LINK BEKLENİYOR",w/2f,h/2f-8,p);p.setTextSize(16);c.drawText("Pilot telefonunda DATA LINK → bu telefonu seç",w/2f,h/2f+28,p);p.setTextAlign(Paint.Align.LEFT);}
     }
 }
