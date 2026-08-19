@@ -1,0 +1,3 @@
+run_id=32295663969
+sha=a30df0b4b3acf63acec1c3613bee9b014e778a38
+artifact=MG-CAD-PRO-v2.0.5-SECTION-TOOLBAR
