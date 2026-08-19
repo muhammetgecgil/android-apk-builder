@@ -38,18 +38,19 @@ jobs:
         run: |
           cat app/src/main/assets/index.html.gz.b64.part* | tr -d '\n\r ' | base64 -d > app/src/main/assets/index.html.gz
           gzip -t app/src/main/assets/index.html.gz
-          echo 'Türk Radyo v20.1 UI asset restored successfully.'
+          echo 'Türk Radyo v20.2 UI asset restored successfully.'
 
       - name: Lint and build
         working-directory: turkradyo-playstore
-        run: gradle :app:lintRelease :app:assembleDebug :app:bundleRelease --stacktrace
+        run: gradle :app:lintRelease :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
 
       - name: Upload outputs
         uses: actions/upload-artifact@v4
         with:
-          name: turkradyo-play-v201
+          name: turkradyo-play-v202-media-notification
           if-no-files-found: error
           path: |
             turkradyo-playstore/app/build/outputs/apk/debug/*.apk
+            turkradyo-playstore/app/build/outputs/apk/release/*.apk
             turkradyo-playstore/app/build/outputs/bundle/release/*.aab
             turkradyo-playstore/app/build/reports/lint-results-release.*
