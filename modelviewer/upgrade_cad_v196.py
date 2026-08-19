@@ -1,0 +1,14 @@
+from pathlib import Path
+AS=Path('modelviewer/src/main/assets/cadviewer')
+html=AS/'index.html'
+s=html.read_text(encoding='utf-8')
+if '/cad-v196.js' not in s: s=s.replace('</body>','<script src="/cad-v196.js"></script></body>',1)
+html.write_text(s,encoding='utf-8')
+js=r'''(function(){'use strict';const E=id=>document.getElementById(id);let ortho=null,oldCam=null;
+function box(){try{return new THREE.Box3().setFromObject(group)}catch(e){return null}}
+function setOrtho(v){const b=box();if(!b||b.isEmpty())return;const c=new THREE.Vector3(),sz=new THREE.Vector3();b.getCenter(c);b.getSize(sz);const aspect=innerWidth/innerHeight,span=Math.max(sz.x,sz.y,sz.z)*.72||1;ortho=new THREE.OrthographicCamera(-span*aspect,span*aspect,span,-span,.001,span*20+1000);let d=Math.max(sz.x,sz.y,sz.z)*4+10,dir,up=new THREE.Vector3(0,1,0);if(v==='front')dir=new THREE.Vector3(0,0,1);else if(v==='back')dir=new THREE.Vector3(0,0,-1);else if(v==='right')dir=new THREE.Vector3(1,0,0);else if(v==='left')dir=new THREE.Vector3(-1,0,0);else if(v==='top'){dir=new THREE.Vector3(0,1,0);up.set(0,0,-1)}else if(v==='bottom'){dir=new THREE.Vector3(0,-1,0);up.set(0,0,1)}else dir=new THREE.Vector3(1,1,1).normalize();ortho.position.copy(c).add(dir.multiplyScalar(d));ortho.up.copy(up);ortho.lookAt(c);ortho.updateProjectionMatrix();if(!oldCam)oldCam=camera;window.camera=ortho;try{controls.object=ortho;controls.target.copy(c);controls.enableRotate=false;controls.enablePan=true;controls.enableZoom=true;controls.update()}catch(e){}try{grid.visible=false;axes.visible=false}catch(e){} }
+function restore(){if(oldCam){window.camera=oldCam;try{controls.object=oldCam;controls.enableRotate=true;controls.update()}catch(e){}oldCam=null}try{grid.visible=true;axes.visible=true}catch(e){}}
+function install(){const p=E('mgDrawing195');if(!p)return false;if(p.dataset.mg196)return true;p.dataset.mg196='1';let row=p.querySelector('.row');if(row){row.innerHTML='<button id="d196Front">ÖN</button><button id="d196Top">ÜST</button><button id="d196Right">SAĞ</button><button id="d196Left">SOL</button><button id="d196Back">ARKA</button><button id="d196Bottom">ALT</button><button id="d196Iso">İZO</button>';[['Front','front'],['Top','top'],['Right','right'],['Left','left'],['Back','back'],['Bottom','bottom'],['Iso','iso']].forEach(a=>{E('d196'+a[0]).onclick=()=>{try{paperMode(false)}catch(e){}setOrtho(a[1]);setTimeout(()=>{try{paperMode(true);addDims()}catch(e){}},100)}})}return true}
+const mo=new MutationObserver(()=>install());mo.observe(document.documentElement,{childList:true,subtree:true});document.addEventListener('click',e=>{if(e.target&&e.target.id==='d195Close')restore()},true);window.MG_CAD_V196={version:'1.9.6',trueOrthographicProjection:true,sixStandardViews:true,noPerspective:true,noGridInDrawing:true};})();'''
+(AS/'cad-v196.js').write_text(js,encoding='utf-8')
+print('v1.9.6 orthographic technical drawing')
