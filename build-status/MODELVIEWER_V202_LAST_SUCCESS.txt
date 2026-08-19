@@ -1,0 +1,3 @@
+run_id=32288684286
+sha=45eba70f1fd9ee4128d0e9f749832ec30575deba
+artifact=MG-CAD-PRO-v2.0.2-ISO-DIMENSIONS
