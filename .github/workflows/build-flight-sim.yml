@@ -6,6 +6,11 @@ on:
     paths:
       - 'flight-sim/**'
       - '.github/workflows/build-flight-sim.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'flight-sim/**'
+      - '.github/workflows/build-flight-sim.yml'
   workflow_dispatch:
 
 permissions:
