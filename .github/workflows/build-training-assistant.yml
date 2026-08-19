@@ -1,8 +1,8 @@
-name: Build Training Assistant APK
+name: Build Training Assistant v1.1
 
 on:
   push:
-    branches: ["main", "agent/training-assistant"]
+    branches: ["main", "agent/training-assistant-v110"]
     paths:
       - "training-assistant/**"
       - ".github/workflows/build-training-assistant.yml"
@@ -26,19 +26,22 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: "8.9"
+          gradle-version: "9.5.0"
 
-      - name: Build debug APK
+      - name: Build test APK and release bundle
         working-directory: training-assistant
-        run: gradle --no-daemon :app:assembleDebug
+        run: |
+          gradle --no-daemon :app:assembleDebug :app:bundleRelease
 
-      - name: Rename APK
+      - name: Stage outputs
         run: |
           mkdir -p out
-          cp training-assistant/app/build/outputs/apk/debug/app-debug.apk out/Egitim-Asistani-v1.0.0.apk
+          cp training-assistant/app/build/outputs/apk/debug/app-debug.apk out/Egitim-Asistani-v1.1.0.apk
+          cp training-assistant/app/build/outputs/bundle/release/app-release.aab out/Egitim-Asistani-v1.1.0-PLAY-UNSIGNED.aab
+          sha256sum out/* > out/SHA256SUMS.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Egitim-Asistani-v1.0.0
-          path: out/Egitim-Asistani-v1.0.0.apk
+          name: Egitim-Asistani-v1.1.0
+          path: out/*
           if-no-files-found: error
