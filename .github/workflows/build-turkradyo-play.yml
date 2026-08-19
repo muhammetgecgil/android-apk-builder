@@ -38,12 +38,17 @@ jobs:
         with:
           gradle-version: '9.1.0'
 
-      - name: Restore UI asset
+      - name: Verify latest UI asset
         working-directory: turkradyo-playstore
         run: |
-          cat app/src/main/assets/index.html.gz.b64.part* | tr -d '\n\r ' | base64 -d > app/src/main/assets/index.html.gz
-          gzip -t app/src/main/assets/index.html.gz
-          echo 'Türk Radyo v20.3 UI asset restored successfully.'
+          if [ -f app/src/main/assets/index.html.gz ]; then
+            gzip -t app/src/main/assets/index.html.gz
+            echo 'Using committed v20.1 UI asset with front-page Shazam and radio alarm.'
+          else
+            cat app/src/main/assets/index.html.gz.b64.part* | tr -d '\n\r ' | base64 -d > app/src/main/assets/index.html.gz
+            gzip -t app/src/main/assets/index.html.gz
+            echo 'UI asset restored from legacy chunks.'
+          fi
 
       - name: Lint and build
         working-directory: turkradyo-playstore
@@ -52,7 +57,7 @@ jobs:
       - name: Upload outputs
         uses: actions/upload-artifact@v4
         with:
-          name: turkradyo-v203-official-gradle
+          name: turkradyo-v204-official-gradle
           if-no-files-found: error
           path: |
             turkradyo-playstore/app/build/outputs/apk/debug/*.apk
