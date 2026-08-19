@@ -10,9 +10,9 @@ import android.widget.LinearLayout;
 
 import java.util.Locale;
 
-/** Aircraft display V9: high-detail 3D fighter + refined wing/store overlay + pilot HMD. */
+/** V11 aircraft display: cinematic 3D fighter scene + pilot HMD. */
 public final class AircraftDisplayView extends LinearLayout {
-    private final JetWingStoreView jet;
+    private final CinematicSceneView jet;
     private final HelmetPanel panel;
     private final Handler ui=new Handler(Looper.getMainLooper());
     private final long demoStart=System.currentTimeMillis();
@@ -24,9 +24,9 @@ public final class AircraftDisplayView extends LinearLayout {
 
     public AircraftDisplayView(Context c){
         super(c);setOrientation(HORIZONTAL);setGravity(Gravity.CENTER);setBackgroundColor(Color.rgb(2,7,12));
-        jet=new JetWingStoreView(c);panel=new HelmetPanel(c);
-        addView(jet,new LayoutParams(0,LayoutParams.MATCH_PARENT,.76f));
-        addView(panel,new LayoutParams(0,LayoutParams.MATCH_PARENT,.24f));
+        jet=new CinematicSceneView(c);panel=new HelmetPanel(c);
+        addView(jet,new LayoutParams(0,LayoutParams.MATCH_PARENT,.82f));
+        addView(panel,new LayoutParams(0,LayoutParams.MATCH_PARENT,.18f));
         ui.post(tick);
     }
     public void setTelemetry(float r,float p,float y,float t,float hz,int d){roll=r;pitch=p;yaw=y;throttle=t;linkHz=hz;drops=d;lastLiveMs=System.currentTimeMillis();}
@@ -35,8 +35,14 @@ public final class AircraftDisplayView extends LinearLayout {
 
     private final Runnable tick=new Runnable(){@Override public void run(){
         if(!isAttachedToWindow())return;long now=System.currentTimeMillis();boolean live=now-lastLiveMs<=1200;
-        if(!live&&demoEnabled){float t=(now-demoStart)/1000f;float rr=24f*(float)Math.sin(t*.42f)+5f*(float)Math.sin(t*.92f);float pp=7f*(float)Math.sin(t*.28f)+2.2f*(float)Math.cos(t*.62f);float yy=(t*10f)%360f;float tt=.74f+.11f*(float)Math.sin(t*.16f);
-            dr+=angle(rr-dr)*.028f;dp+=(pp-dp)*.028f;dy+=angle(yy-dy)*.020f;dt+=(tt-dt)*.022f;roll=dr;pitch=dp;yaw=dy;throttle=dt;linkHz=50;drops=0;
+        if(!live&&demoEnabled){
+            float t=(now-demoStart)/1000f;
+            float rr=28f*(float)Math.sin(t*.38f)+7f*(float)Math.sin(t*.87f);
+            float pp=8f*(float)Math.sin(t*.26f)+2.6f*(float)Math.cos(t*.61f);
+            float yy=(t*11f)%360f;
+            float tt=.76f+.12f*(float)Math.sin(t*.14f);
+            dr+=angle(rr-dr)*.024f;dp+=(pp-dp)*.024f;dy+=angle(yy-dy)*.018f;dt+=(tt-dt)*.020f;
+            roll=dr;pitch=dp;yaw=dy;throttle=dt;linkHz=50;drops=0;
         }else if(live){dr=roll;dp=pitch;dy=yaw;dt=throttle;}
         jet.setTelemetry(roll,pitch,yaw,throttle,linkHz,drops,live||demoEnabled);
         panel.setData(roll,pitch,yaw,throttle,linkHz,drops,live,!live&&demoEnabled);
