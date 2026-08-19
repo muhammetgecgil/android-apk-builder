@@ -1,3 +1,3 @@
-run_id=32179539244
-sha=225a688d271e6ec66bb1429cb4f6e945c5f32e42
-artifact=MG-3D-Model-Viewer-v1.9.1-BOTTOM-ANCHOR
+run_id=32213656783
+sha=5442bdfa280f670ac9711bc86e7ebca006c1df4d
+artifact=MG-CAD-PRO-v1.9.2-INSPECTION
