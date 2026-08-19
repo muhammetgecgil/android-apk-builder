@@ -1,0 +1,3 @@
+run_id=32260413368
+sha=a1f189acbe8c9ebecf57ad56ae36a8313bb1f85d
+artifact=MG-CAD-PRO-v1.9.7-CLASSIC-DRAWING
