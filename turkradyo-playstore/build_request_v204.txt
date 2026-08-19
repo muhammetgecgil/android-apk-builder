@@ -1,0 +1,1 @@
+Trigger official Gradle CI build for Türk Radyo v20.3 on 2026-08-19. Preserve 80-station sequential previous/next behavior.
