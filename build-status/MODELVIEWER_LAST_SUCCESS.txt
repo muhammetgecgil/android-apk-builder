@@ -1,3 +1,3 @@
-run_id=32215673925
-sha=aab5bc95662d2f1f1d983cebd0e65bd24be60a12
-artifact=MG-CAD-PRO-v1.9.3-MEASURE-FACE
+run_id=32216195421
+sha=d894b7c8ade72dff30d2a4ca48472407ccad7f6f
+artifact=MG-CAD-PRO-v1.9.4-DRAWING
