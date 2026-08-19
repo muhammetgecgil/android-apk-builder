@@ -57,3 +57,12 @@ jobs:
             MG_CAD_PRO_v1.9.6_ORTHOGRAPHIC.aab
             SHA256SUMS.txt
           if-no-files-found: error
+      - name: Record v1.9.6 successful run id
+        run: |
+          mkdir -p build-status
+          printf 'run_id=%s\nsha=%s\nartifact=%s\n' "${GITHUB_RUN_ID}" "${GITHUB_SHA}" "MG-CAD-PRO-v1.9.6-ORTHOGRAPHIC" > build-status/MODELVIEWER_V196_LAST_SUCCESS.txt
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add build-status/MODELVIEWER_V196_LAST_SUCCESS.txt
+          git commit -m 'Record successful v1.9.6 build [skip ci]' || exit 0
+          git push
