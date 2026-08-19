@@ -43,13 +43,13 @@ jobs:
         run: |
           test -s flight-sim/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs flight-sim/app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging flight-sim/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='8'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging flight-sim/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='9'"
       - name: Rename APK
-        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Fixture_Cockpit_Sim_Combat_World_v8.0.apk
+        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Fixture_Cockpit_Sim_Wing_Missiles_v9.0.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Fixture-Cockpit-Sim-Combat-World-v8.0-APK
-          path: Fixture_Cockpit_Sim_Combat_World_v8.0.apk
+          name: Fixture-Cockpit-Sim-Wing-Missiles-v9.0-APK
+          path: Fixture_Cockpit_Sim_Wing_Missiles_v9.0.apk
           if-no-files-found: error
           retention-days: 30
