@@ -10,9 +10,9 @@ import android.widget.LinearLayout;
 
 import java.util.Locale;
 
-/** Aircraft display V7: high-detail 3D fighter + pilot-helmet HMD side display. */
+/** Aircraft display V9: high-detail 3D fighter + refined wing/store overlay + pilot HMD. */
 public final class AircraftDisplayView extends LinearLayout {
-    private final Jet3DViewV7 jet;
+    private final JetWingStoreView jet;
     private final HelmetPanel panel;
     private final Handler ui=new Handler(Looper.getMainLooper());
     private final long demoStart=System.currentTimeMillis();
@@ -24,7 +24,7 @@ public final class AircraftDisplayView extends LinearLayout {
 
     public AircraftDisplayView(Context c){
         super(c);setOrientation(HORIZONTAL);setGravity(Gravity.CENTER);setBackgroundColor(Color.rgb(2,7,12));
-        jet=new Jet3DViewV7(c);panel=new HelmetPanel(c);
+        jet=new JetWingStoreView(c);panel=new HelmetPanel(c);
         addView(jet,new LayoutParams(0,LayoutParams.MATCH_PARENT,.76f));
         addView(panel,new LayoutParams(0,LayoutParams.MATCH_PARENT,.24f));
         ui.post(tick);
