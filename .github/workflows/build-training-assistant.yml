@@ -6,6 +6,11 @@ on:
     paths:
       - "training-assistant/**"
       - ".github/workflows/build-training-assistant.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "training-assistant/**"
+      - ".github/workflows/build-training-assistant.yml"
   workflow_dispatch:
 
 jobs:
