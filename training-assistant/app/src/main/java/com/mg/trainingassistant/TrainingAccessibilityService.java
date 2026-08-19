@@ -1,258 +1,145 @@
 package com.mg.trainingassistant;
 
+import android.Manifest;
 import android.accessibilityservice.AccessibilityService;
-import android.graphics.Rect;
+import android.accessibilityservice.AccessibilityService.ScreenshotResult;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.hardware.HardwareBuffer;
+import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
+
 import java.text.Normalizer;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 
 public class TrainingAccessibilityService extends AccessibilityService {
-    private static final String PREFS = "training_assistant";
-    private static final long SCAN_INTERVAL_MS = 1200L;
-    private static final long MIN_CLICK_INTERVAL_MS = 2600L;
-    private static final long SAME_LABEL_GUARD_MS = 7500L;
-    private static final long SCROLL_INTERVAL_MS = 4500L;
+    private static final String PREFS="training_assistant";
+    private static final long SCAN_MS=1100, OCR_MS=6000, CLICK_GUARD=2200;
+    private static final List<String> PLAY=Arrays.asList("play","oynat","baslat","başlat","resume","devam oynat");
+    private static final List<String> PAUSE=Arrays.asList("pause","duraklat","oynatmayi duraklat","oynatmayı duraklat");
+    private static final List<String> NEXT=Arrays.asList("ileri","devam","devam et","sonraki","sonraki adim","sonraki ders","next","continue","next step","next lesson","proceed");
+    private static final List<String> COMPLETE=Arrays.asList("tamamlandi","tamamlandı","completed","complete","100%","100 %","bitti","finished","lesson complete","ders tamamlandi");
+    private static final List<String> STOP=Arrays.asList("quiz","sinav","sınav","exam","assessment","degerlendirme","değerlendirme","submit answer","cevabi gonder","cevabı gönder","onayla","dogrula","doğrula");
+    private static final List<String> BLOCKED=Arrays.asList("com.android.settings","com.android.systemui","com.google.android.permissioncontroller","com.samsung.android.permissioncontroller","com.google.android.packageinstaller");
 
-    private static final List<String> NEXT_WORDS = Arrays.asList(
-            "ileri", "devam", "devam et", "sonraki", "sonraki adim", "sonraki ders", "ileri git",
-            "next", "continue", "next step", "next lesson", "proceed", "resume");
+    private final Handler h=new Handler(Looper.getMainLooper());
+    private long lastClick=0,lastOcr=0,pageStart=0,playStarted=0;
+    private String pageSig="";
+    private boolean ocrBusy=false;
+    private SpeechRecognizer speech;
+    private Intent speechIntent;
 
-    private static final List<String> STRONG_STOP_WORDS = Arrays.asList(
-            "quiz", "sinav", "sertifika sinavi", "degerlendirme", "exam", "assessment",
-            "cevabi gonder", "cevapla", "submit answer", "check answer", "dogrula", "onayla");
+    private final Runnable loop=new Runnable(){@Override public void run(){scan();h.postDelayed(this,SCAN_MS);}};
 
-    private static final List<String> BLOCKED_PACKAGES = Arrays.asList(
-            "com.android.settings", "com.android.systemui", "com.google.android.permissioncontroller",
-            "com.samsung.android.permissioncontroller", "com.google.android.packageinstaller");
+    @Override protected void onServiceConnected(){super.onServiceConnected();h.removeCallbacks(loop);h.post(loop);startSpeech();}
+    @Override public void onAccessibilityEvent(AccessibilityEvent e){if(isRunning()) h.postDelayed(this::scan,120);}
+    @Override public void onInterrupt(){h.removeCallbacks(loop);stopSpeech();}
+    @Override public void onDestroy(){h.removeCallbacks(loop);stopSpeech();super.onDestroy();}
 
-    private final Handler handler = new Handler(Looper.getMainLooper());
-    private long lastClickAt = 0L;
-    private long lastScrollAt = 0L;
-    private long pageChangedAt = 0L;
-    private String lastClickedLabel = "";
-    private String lastPageSignature = "";
-    private boolean scanQueued = false;
+    private boolean isRunning(){return getSharedPreferences(PREFS,MODE_PRIVATE).getBoolean("running",false)&&getSharedPreferences(PREFS,MODE_PRIVATE).getBoolean("consent",false);}
 
-    private final Runnable watchdog = new Runnable() {
-        @Override
-        public void run() {
-            scanNow();
-            handler.postDelayed(this, SCAN_INTERVAL_MS);
-        }
-    };
+    private void scan(){
+        if(!isRunning()) return;
+        AccessibilityNodeInfo root=getRootInActiveWindow(); if(root==null) return;
+        String pkg=root.getPackageName()==null?"":root.getPackageName().toString();
+        if(pkg.equals(getPackageName())||blocked(pkg)) return;
+        String visible=collect(root,new StringBuilder(),0).toString().replaceAll("\\s+"," ").trim();
+        String n=norm(visible); if(visible.length()>20) CaptureStore.append(this,"SCREEN",visible);
+        String sig=pkg+"|"+(n.length()>700?n.substring(0,700):n).hashCode();
+        long now=SystemClock.uptimeMillis();
+        if(!sig.equals(pageSig)){pageSig=sig;pageStart=now;playStarted=0;}
+        if(contains(n,STOP)) return;
+        if(now-lastOcr>OCR_MS){lastOcr=now;captureOcr();}
+        if(now-lastClick<CLICK_GUARD) return;
 
-    @Override
-    protected void onServiceConnected() {
-        super.onServiceConnected();
-        handler.removeCallbacks(watchdog);
-        handler.post(watchdog);
-    }
+        AccessibilityNodeInfo pause=findByWords(root,PAUSE,0);
+        AccessibilityNodeInfo play=findByWords(root,PLAY,0);
+        boolean completion=contains(n,COMPLETE);
 
-    @Override
-    public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (!isRunning()) return;
-        CharSequence pkg = event == null ? null : event.getPackageName();
-        if (pkg != null && isBlockedPackage(pkg.toString())) return;
-        queueScan(180L);
-    }
-
-    @Override
-    public void onInterrupt() {
-        handler.removeCallbacks(watchdog);
-    }
-
-    @Override
-    public void onDestroy() {
-        handler.removeCallbacks(watchdog);
-        super.onDestroy();
-    }
-
-    private boolean isRunning() {
-        return getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean("running", false)
-                && getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean("consent", false);
-    }
-
-    private void queueScan(long delayMs) {
-        if (scanQueued) return;
-        scanQueued = true;
-        handler.postDelayed(() -> {
-            scanQueued = false;
-            scanNow();
-        }, delayMs);
-    }
-
-    private void scanNow() {
-        if (!isRunning()) return;
-
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root == null) return;
-
-        CharSequence pkg = root.getPackageName();
-        if (pkg == null || isBlockedPackage(pkg.toString()) || getPackageName().contentEquals(pkg)) return;
-
-        String allText = normalize(collectText(root, 0, new StringBuilder()).toString());
-        String signature = buildSignature(pkg.toString(), allText);
-        long now = SystemClock.uptimeMillis();
-
-        if (!signature.equals(lastPageSignature)) {
-            lastPageSignature = signature;
-            pageChangedAt = now;
-            lastClickedLabel = "";
+        // First appearance of Play on a new lesson starts the lesson automatically.
+        if(play!=null && playStarted==0){
+            if(click(play)){playStarted=now;lastClick=now;return;}
         }
 
-        if (containsAny(allText, STRONG_STOP_WORDS)) return;
-        if (now - lastClickAt < MIN_CLICK_INTERVAL_MS) return;
+        // While Pause is visible, media is actively playing: never advance.
+        if(pause!=null) return;
 
-        Candidate best = findBestCandidate(root, 0, new Candidate());
-        if (best.node != null && best.score >= 40) {
-            String label = normalize(nodeText(best.node));
-            if (label.equals(lastClickedLabel) && now - lastClickAt < SAME_LABEL_GUARD_MS) return;
+        // If Play/Replay reappears after we started playback, treat it as natural media end.
+        boolean endedAfterPlay = playStarted>0 && now-playStarted>8000 && play!=null;
+        boolean dwellFallback = playStarted==0 && now-pageStart>45000;
+        if(completion || endedAfterPlay || dwellFallback){
+            AccessibilityNodeInfo next=findByWords(root,NEXT,0);
+            if(next!=null && click(next)){lastClick=now;return;}
+        }
+    }
 
-            AccessibilityNodeInfo clickable = clickableAncestor(best.node);
-            if (clickable != null && clickable.isEnabled() && clickable.isVisibleToUser()) {
-                boolean clicked = clickable.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                if (clicked) {
-                    lastClickAt = now;
-                    lastClickedLabel = label;
-                    return;
-                }
+    private void captureOcr(){
+        if(ocrBusy || Build.VERSION.SDK_INT<30 || !isRunning()) return;
+        ocrBusy=true;
+        takeScreenshot(0,getMainExecutor(),new TakeScreenshotCallback(){
+            @Override public void onSuccess(ScreenshotResult r){
+                HardwareBuffer hb=r.getHardwareBuffer();
+                Bitmap b=null;
+                try{ b=Bitmap.wrapHardwareBuffer(hb,r.getColorSpace()); }
+                catch(Exception ignored){}
+                if(b==null){hb.close();ocrBusy=false;return;}
+                Bitmap copy=b.copy(Bitmap.Config.ARGB_8888,false); hb.close();
+                TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).process(InputImage.fromBitmap(copy,0))
+                        .addOnSuccessListener(t->{CaptureStore.append(TrainingAccessibilityService.this,"OCR",t.getText());copy.recycle();ocrBusy=false;})
+                        .addOnFailureListener(e->{copy.recycle();ocrBusy=false;});
             }
-        }
-
-        if (now - pageChangedAt > 1800L && now - lastScrollAt > SCROLL_INTERVAL_MS) {
-            AccessibilityNodeInfo scrollable = findScrollable(root, 0);
-            if (scrollable != null && scrollable.isVisibleToUser()) {
-                if (scrollable.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)) {
-                    lastScrollAt = now;
-                    queueScan(650L);
-                }
-            }
-        }
+            @Override public void onFailure(int errorCode){ocrBusy=false;}
+        });
     }
 
-    private Candidate findBestCandidate(AccessibilityNodeInfo node, int depth, Candidate best) {
-        if (node == null || depth > 24) return best;
-
-        String text = normalize(nodeText(node));
-        if (node.isVisibleToUser() && node.isEnabled() && matchesNext(text)) {
-            int score = 40;
-            if (node.isClickable()) score += 25;
-            if (looksLikeButton(node)) score += 15;
-            if (isExactNext(text)) score += 15;
-
-            Rect r = new Rect();
-            node.getBoundsInScreen(r);
-            if (r.top > 700) score += 5;
-
-            if (score > best.score) {
-                best.node = node;
-                best.score = score;
-            }
+    private void startSpeech(){
+        if(!SpeechRecognizer.isRecognitionAvailable(this)||checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED) return;
+        if(speech==null){
+            speech=SpeechRecognizer.createSpeechRecognizer(this);
+            speech.setRecognitionListener(new RecognitionListener(){
+                @Override public void onReadyForSpeech(Bundle p){} @Override public void onBeginningOfSpeech(){} @Override public void onRmsChanged(float r){} @Override public void onBufferReceived(byte[] b){} @Override public void onEndOfSpeech(){}
+                @Override public void onError(int e){h.postDelayed(TrainingAccessibilityService.this::restartSpeech,900);}
+                @Override public void onResults(Bundle b){saveSpeech(b);h.postDelayed(TrainingAccessibilityService.this::restartSpeech,500);}
+                @Override public void onPartialResults(Bundle b){saveSpeech(b);}
+                @Override public void onEvent(int e,Bundle b){}
+            });
+            speechIntent=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+            speechIntent.putExtra(RecognizerIntent.EXTRA_LANGUAGE,"tr-TR");
+            speechIntent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS,true);
+            speechIntent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS,3);
         }
-
-        for (int i = 0; i < node.getChildCount(); i++) {
-            findBestCandidate(node.getChild(i), depth + 1, best);
-        }
-        return best;
+        try{speech.startListening(speechIntent);}catch(Exception ignored){}
     }
+    private void restartSpeech(){if(isRunning()){try{if(speech!=null)speech.cancel();}catch(Exception ignored){} startSpeech();}}
+    private void saveSpeech(Bundle b){if(b==null)return;ArrayList<String> a=b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);if(a!=null&&!a.isEmpty())CaptureStore.append(this,"STT",a.get(0));}
+    private void stopSpeech(){if(speech!=null){try{speech.cancel();speech.destroy();}catch(Exception ignored){}speech=null;}}
 
-    private AccessibilityNodeInfo clickableAncestor(AccessibilityNodeInfo node) {
-        AccessibilityNodeInfo current = node;
-        int hops = 0;
-        while (current != null && !current.isClickable() && hops < 5) {
-            current = current.getParent();
-            hops++;
-        }
-        return current;
-    }
-
-    private AccessibilityNodeInfo findScrollable(AccessibilityNodeInfo node, int depth) {
-        if (node == null || depth > 24) return null;
-        if (node.isScrollable() && node.isEnabled() && node.isVisibleToUser()) return node;
-        for (int i = node.getChildCount() - 1; i >= 0; i--) {
-            AccessibilityNodeInfo found = findScrollable(node.getChild(i), depth + 1);
-            if (found != null) return found;
-        }
+    private AccessibilityNodeInfo findByWords(AccessibilityNodeInfo node,List<String> words,int depth){
+        if(node==null||depth>25)return null;
+        String t=norm(nodeText(node));
+        if(node.isVisibleToUser()&&node.isEnabled()&&matches(t,words))return node;
+        for(int i=0;i<node.getChildCount();i++){AccessibilityNodeInfo f=findByWords(node.getChild(i),words,depth+1);if(f!=null)return f;}
         return null;
     }
-
-    private boolean looksLikeButton(AccessibilityNodeInfo node) {
-        CharSequence cls = node.getClassName();
-        if (cls == null) return false;
-        String c = cls.toString().toLowerCase(Locale.ROOT);
-        return c.contains("button") || c.contains("materialbutton") || c.contains("textview");
-    }
-
-    private boolean matchesNext(String text) {
-        if (text.isEmpty()) return false;
-        for (String word : NEXT_WORDS) {
-            if (text.equals(word)
-                    || text.startsWith(word + " ")
-                    || text.endsWith(" " + word)
-                    || text.equals(word + " >")
-                    || text.equals(word + " ›")
-                    || text.equals(word + " →")) return true;
-        }
-        return false;
-    }
-
-    private boolean isExactNext(String text) {
-        for (String word : NEXT_WORDS) if (text.equals(word)) return true;
-        return false;
-    }
-
-    private boolean containsAny(String text, List<String> words) {
-        for (String w : words) if (text.contains(w)) return true;
-        return false;
-    }
-
-    private boolean isBlockedPackage(String pkg) {
-        for (String blocked : BLOCKED_PACKAGES) {
-            if (pkg.equals(blocked) || pkg.startsWith(blocked + ".")) return true;
-        }
-        return false;
-    }
-
-    private StringBuilder collectText(AccessibilityNodeInfo node, int depth, StringBuilder out) {
-        if (node == null || depth > 24 || out.length() > 16000) return out;
-        String t = nodeText(node);
-        if (!t.isEmpty()) out.append(' ').append(t);
-        for (int i = 0; i < node.getChildCount(); i++) {
-            collectText(node.getChild(i), depth + 1, out);
-        }
-        return out;
-    }
-
-    private String nodeText(AccessibilityNodeInfo node) {
-        List<String> parts = new ArrayList<>();
-        if (node.getText() != null) parts.add(node.getText().toString());
-        if (node.getContentDescription() != null) parts.add(node.getContentDescription().toString());
-        if (node.getHintText() != null) parts.add(node.getHintText().toString());
-        return String.join(" ", parts).trim();
-    }
-
-    private String buildSignature(String pkg, String text) {
-        String compact = text.length() > 900 ? text.substring(0, 900) : text;
-        return pkg + "|" + compact.hashCode();
-    }
-
-    private String normalize(String s) {
-        String lower = s == null ? "" : s.toLowerCase(new Locale("tr", "TR"));
-        lower = lower.replace('ı', 'i');
-        String n = Normalizer.normalize(lower, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
-        return n.replaceAll("\\s+", " ").trim();
-    }
-
-    private static class Candidate {
-        AccessibilityNodeInfo node;
-        int score = Integer.MIN_VALUE;
-    }
+    private boolean click(AccessibilityNodeInfo n){AccessibilityNodeInfo c=n;int i=0;while(c!=null&&!c.isClickable()&&i++<6)c=c.getParent();return c!=null&&c.isEnabled()&&c.isVisibleToUser()&&c.performAction(AccessibilityNodeInfo.ACTION_CLICK);}
+    private boolean matches(String t,List<String>w){if(t.isEmpty())return false;for(String x:w){String q=norm(x);if(t.equals(q)||t.startsWith(q+" ")||t.endsWith(" "+q))return true;}return false;}
+    private boolean contains(String t,List<String>w){for(String x:w)if(t.contains(norm(x)))return true;return false;}
+    private boolean blocked(String p){for(String b:BLOCKED)if(p.equals(b)||p.startsWith(b+"."))return true;return false;}
+    private StringBuilder collect(AccessibilityNodeInfo n,StringBuilder o,int d){if(n==null||d>25||o.length()>20000)return o;String t=nodeText(n);if(!t.isEmpty())o.append(' ').append(t);for(int i=0;i<n.getChildCount();i++)collect(n.getChild(i),o,d+1);return o;}
+    private String nodeText(AccessibilityNodeInfo n){List<String>p=new ArrayList<>();if(n.getText()!=null)p.add(n.getText().toString());if(n.getContentDescription()!=null)p.add(n.getContentDescription().toString());if(n.getHintText()!=null)p.add(n.getHintText().toString());return String.join(" ",p).trim();}
+    private String norm(String s){String l=s==null?"":s.toLowerCase(new Locale("tr","TR")).replace('ı','i');return Normalizer.normalize(l,Normalizer.Form.NFD).replaceAll("\\p{M}","").replaceAll("\\s+"," ").trim();}
 }
