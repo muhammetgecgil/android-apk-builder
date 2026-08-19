@@ -7,7 +7,7 @@ on:
       - 'turkradyo-playstore/**'
       - '.github/workflows/build-turkradyo-play.yml'
   pull_request:
-    branches: [turkradyo-play-v201]
+    branches: [main, turkradyo-play-v201]
     paths:
       - 'turkradyo-playstore/**'
       - '.github/workflows/build-turkradyo-play.yml'
@@ -43,7 +43,7 @@ jobs:
         run: |
           cat app/src/main/assets/index.html.gz.b64.part* | tr -d '\n\r ' | base64 -d > app/src/main/assets/index.html.gz
           gzip -t app/src/main/assets/index.html.gz
-          echo 'Türk Radyo v20.2 UI asset restored successfully.'
+          echo 'Türk Radyo v20.3 UI asset restored successfully.'
 
       - name: Lint and build
         working-directory: turkradyo-playstore
@@ -52,7 +52,7 @@ jobs:
       - name: Upload outputs
         uses: actions/upload-artifact@v4
         with:
-          name: turkradyo-play-v202-media-notification
+          name: turkradyo-v203-official-gradle
           if-no-files-found: error
           path: |
             turkradyo-playstore/app/build/outputs/apk/debug/*.apk
