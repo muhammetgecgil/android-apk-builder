@@ -8,12 +8,16 @@ import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
 import android.net.Uri;
 import android.os.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class RadioService extends Service {
     public static final String ACTION_PLAY = "turkradyo.PLAY";
     public static final String ACTION_PAUSE = "turkradyo.PAUSE";
     public static final String ACTION_RESUME = "turkradyo.RESUME";
     public static final String ACTION_STOP = "turkradyo.STOP";
+    public static final String ACTION_PREVIOUS = "turkradyo.PREVIOUS";
+    public static final String ACTION_NEXT = "turkradyo.NEXT";
     public static final String ACTION_VOLUME = "turkradyo.VOLUME";
     public static final String ACTION_GAIN = "turkradyo.GAIN";
     private static final String CHANNEL = "turkradyo_media";
@@ -40,6 +44,8 @@ public class RadioService extends Service {
             @Override public void onPlayFromMediaId(String mediaId, Bundle extras) { resumeOrPlayLast(); }
             @Override public void onPause() { pause(); }
             @Override public void onStop() { stopSelfSafely(); }
+            @Override public void onSkipToPrevious() { cycleStation(-1); }
+            @Override public void onSkipToNext() { cycleStation(1); }
         });
         session.setActive(true);
         updateSession(PlaybackState.STATE_NONE);
@@ -52,11 +58,14 @@ public class RadioService extends Service {
             station = safe(intent.getStringExtra("name"), "Türk Radyo");
             url = safe(intent.getStringExtra("url"), "");
             getSharedPreferences("radio", MODE_PRIVATE).edit().putString("last_name", station).putString("last_url", url).apply();
+            syncQueueIndexToCurrent();
             startForeground(NOTIFY_ID, buildNotification("Bağlanıyor…", true));
             play(url);
         } else if (ACTION_PAUSE.equals(a)) pause();
         else if (ACTION_RESUME.equals(a)) resumeOrPlayLast();
         else if (ACTION_STOP.equals(a)) stopSelfSafely();
+        else if (ACTION_PREVIOUS.equals(a)) cycleStation(-1);
+        else if (ACTION_NEXT.equals(a)) cycleStation(1);
         else if (ACTION_VOLUME.equals(a)) {
             volume = clamp(intent.getFloatExtra("volume", 1f));
             if (player != null) player.setVolume(volume, volume);
@@ -93,6 +102,53 @@ public class RadioService extends Service {
             updateSession(PlaybackState.STATE_ERROR);
             notifyState("Yayın açılamadı", false);
         }
+    }
+
+    private void cycleStation(int direction) {
+        try {
+            android.content.SharedPreferences p = getSharedPreferences("radio", MODE_PRIVATE);
+            String raw = p.getString("queue_json", "");
+            if (raw == null || raw.trim().isEmpty()) return;
+            JSONObject root = new JSONObject(raw);
+            JSONArray list = root.optJSONArray("s");
+            if (list == null || list.length() == 0) return;
+            int n = list.length();
+            int idx = p.getInt("queue_index", root.optInt("i", 0));
+            for (int tries = 0; tries < n; tries++) {
+                idx = (idx + direction + n) % n;
+                JSONObject item = list.optJSONObject(idx);
+                if (item == null) continue;
+                String nextUrl = safe(item.optString("url", ""), "");
+                if (nextUrl.isEmpty()) continue;
+                String nextName = safe(item.optString("name", "Türk Radyo"), "Türk Radyo");
+                station = nextName;
+                url = nextUrl;
+                p.edit().putInt("queue_index", idx).putString("last_name", station).putString("last_url", url).apply();
+                startForeground(NOTIFY_ID, buildNotification("Bağlanıyor…", true));
+                play(url);
+                sendBroadcast(new Intent("com.muhammetgecgil.turkradyo.STATION_CHANGED").setPackage(getPackageName()).putExtra("index", idx).putExtra("name", station));
+                return;
+            }
+        } catch (Exception ignored) { }
+    }
+
+    private void syncQueueIndexToCurrent() {
+        try {
+            android.content.SharedPreferences p = getSharedPreferences("radio", MODE_PRIVATE);
+            String raw = p.getString("queue_json", "");
+            if (raw == null || raw.isEmpty()) return;
+            JSONObject root = new JSONObject(raw);
+            JSONArray list = root.optJSONArray("s");
+            if (list == null) return;
+            for (int i = 0; i < list.length(); i++) {
+                JSONObject item = list.optJSONObject(i);
+                if (item == null) continue;
+                if (url.equals(item.optString("url", "")) || station.equals(item.optString("name", ""))) {
+                    p.edit().putInt("queue_index", i).apply();
+                    return;
+                }
+            }
+        } catch (Exception ignored) { }
     }
 
     private void pause() {
@@ -145,9 +201,14 @@ public class RadioService extends Service {
 
     private void updateSession(int state) {
         long actions = PlaybackState.ACTION_PLAY | PlaybackState.ACTION_PAUSE | PlaybackState.ACTION_STOP |
-                PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_PLAY_FROM_MEDIA_ID | PlaybackState.ACTION_PLAY_FROM_SEARCH;
+                PlaybackState.ACTION_PLAY_PAUSE | PlaybackState.ACTION_SKIP_TO_PREVIOUS | PlaybackState.ACTION_SKIP_TO_NEXT |
+                PlaybackState.ACTION_PLAY_FROM_MEDIA_ID | PlaybackState.ACTION_PLAY_FROM_SEARCH;
         session.setPlaybackState(new PlaybackState.Builder().setActions(actions).setState(state, PlaybackState.PLAYBACK_POSITION_UNKNOWN, 1f).build());
-        session.setMetadata(new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE, station).putString(MediaMetadata.METADATA_KEY_ARTIST, "Muhammet Türk Radyo").build());
+        session.setMetadata(new MediaMetadata.Builder()
+                .putString(MediaMetadata.METADATA_KEY_TITLE, station)
+                .putString(MediaMetadata.METADATA_KEY_ARTIST, "Muhammet Türk Radyo")
+                .putString(MediaMetadata.METADATA_KEY_ALBUM, "Canlı Radyo")
+                .build());
     }
 
     private void createChannel() {
@@ -161,22 +222,33 @@ public class RadioService extends Service {
     private Notification buildNotification(String text, boolean connecting) {
         Intent open = new Intent(this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent content = PendingIntent.getActivity(this, 1, open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-        PendingIntent pause = servicePending(ACTION_PAUSE, 2);
-        PendingIntent resume = servicePending(ACTION_RESUME, 3);
-        PendingIntent stop = servicePending(ACTION_STOP, 4);
+        PendingIntent previous = servicePending(ACTION_PREVIOUS, 2);
+        PendingIntent pause = servicePending(ACTION_PAUSE, 3);
+        PendingIntent resume = servicePending(ACTION_RESUME, 4);
+        PendingIntent next = servicePending(ACTION_NEXT, 5);
+        PendingIntent stop = servicePending(ACTION_STOP, 6);
+
+        Notification.Action prevAction = new Notification.Action.Builder(android.R.drawable.ic_media_previous, "Önceki radyo", previous).build();
         Notification.Action playPause = new Notification.Action.Builder(android.R.drawable.ic_media_pause, "Duraklat", pause).build();
         if (player == null || (!connecting && !isPlaying())) playPause = new Notification.Action.Builder(android.R.drawable.ic_media_play, "Oynat", resume).build();
+        Notification.Action nextAction = new Notification.Action.Builder(android.R.drawable.ic_media_next, "Sonraki radyo", next).build();
+        Notification.Action stopAction = new Notification.Action.Builder(android.R.drawable.ic_menu_close_clear_cancel, "Durdur", stop).build();
+
         return new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(R.drawable.ic_radio)
                 .setContentTitle(station)
                 .setContentText(text)
+                .setSubText("Muhammet Türk Radyo")
                 .setContentIntent(content)
                 .setOngoing(isPlaying() || connecting)
                 .setOnlyAlertOnce(true)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .setCategory(Notification.CATEGORY_TRANSPORT)
+                .addAction(prevAction)
                 .addAction(playPause)
-                .addAction(new Notification.Action.Builder(android.R.drawable.ic_menu_close_clear_cancel, "Durdur", stop).build())
-                .setStyle(new Notification.MediaStyle().setMediaSession(session.getSessionToken()).setShowActionsInCompactView(0, 1))
+                .addAction(nextAction)
+                .addAction(stopAction)
+                .setStyle(new Notification.MediaStyle().setMediaSession(session.getSessionToken()).setShowActionsInCompactView(0, 1, 2))
                 .build();
     }
 
