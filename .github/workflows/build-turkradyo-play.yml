@@ -6,6 +6,11 @@ on:
     paths:
       - 'turkradyo-playstore/**'
       - '.github/workflows/build-turkradyo-play.yml'
+  pull_request:
+    branches: [turkradyo-play-v201]
+    paths:
+      - 'turkradyo-playstore/**'
+      - '.github/workflows/build-turkradyo-play.yml'
   workflow_dispatch:
 
 jobs:
