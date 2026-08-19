@@ -40,13 +40,16 @@ jobs:
         working-directory: flight-sim
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Verify APK
-        run: test -s flight-sim/app/build/outputs/apk/debug/app-debug.apk
+        run: |
+          test -s flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging flight-sim/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='2'"
       - name: Rename APK
-        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Fixture_Cockpit_Sim_v1.0.apk
+        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Fixture_Cockpit_Sim_PRO_v2.0.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Fixture-Cockpit-Sim-v1.0-APK
-          path: Fixture_Cockpit_Sim_v1.0.apk
+          name: Fixture-Cockpit-Sim-PRO-v2.0-APK
+          path: Fixture_Cockpit_Sim_PRO_v2.0.apk
           if-no-files-found: error
           retention-days: 30
