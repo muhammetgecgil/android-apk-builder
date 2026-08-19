@@ -1,4 +1,4 @@
-name: Build Drawing2CAD v1.4 APK
+name: Build Drawing2CAD v1.5 APK
 on:
   push:
     branches: [ main ]
@@ -21,27 +21,27 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Build Drawing2CAD v1.4
+      - name: Build Drawing2CAD v1.5
         working-directory: drawing2cad
         run: gradle --no-daemon clean :app:assembleDebug --stacktrace
       - name: Verify APK
         run: |
           test -s drawing2cad/app/build/outputs/apk/debug/app-debug.apk
-          cp drawing2cad/app/build/outputs/apk/debug/app-debug.apk MG_Drawing2CAD_v1.4_TechnicalDrawing.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging MG_Drawing2CAD_v1.4_TechnicalDrawing.apk | head -20
-          unzip -t MG_Drawing2CAD_v1.4_TechnicalDrawing.apk >/dev/null
+          cp drawing2cad/app/build/outputs/apk/debug/app-debug.apk MG_Drawing2CAD_v1.5_MultiView.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging MG_Drawing2CAD_v1.5_MultiView.apk | head -20
+          unzip -t MG_Drawing2CAD_v1.5_MultiView.apk >/dev/null
       - uses: actions/upload-artifact@v4
         with:
-          name: MG-Drawing2CAD-v1.4-TechnicalDrawing-APK
-          path: MG_Drawing2CAD_v1.4_TechnicalDrawing.apk
+          name: MG-Drawing2CAD-v1.5-MultiView-APK
+          path: MG_Drawing2CAD_v1.5_MultiView.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish APK in repo
         run: |
           mkdir -p releases
-          cp MG_Drawing2CAD_v1.4_TechnicalDrawing.apk releases/MG_Drawing2CAD_v1.4_TechnicalDrawing.apk
+          cp MG_Drawing2CAD_v1.5_MultiView.apk releases/MG_Drawing2CAD_v1.5_MultiView.apk
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add releases/MG_Drawing2CAD_v1.4_TechnicalDrawing.apk
-          git commit -m 'Publish verified Drawing2CAD v1.4 TechnicalDrawing APK [skip ci]' || exit 0
+          git add releases/MG_Drawing2CAD_v1.5_MultiView.apk
+          git commit -m 'Publish verified Drawing2CAD v1.5 MultiView APK [skip ci]' || exit 0
           git push
