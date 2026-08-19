@@ -62,8 +62,9 @@ public class SfmSurfaceActivityV30 extends RobustPoseSurfaceActivityV251 {
   for(MatOfDMatch mm:knn){DMatch[] q=mm.toArray(); if(q.length<2||q[0].distance>=.72*q[1].distance)continue; if(q[0].queryIdx<0||q[0].queryIdx>=ka.length||q[0].trainIdx<0||q[0].trainIdx>=kb.length)continue; p1.add(ka[q[0].queryIdx].pt);p2.add(kb[q[0].trainIdx].pt);}
   if(p1.size()<30)return null;
   MatOfPoint2f a=new MatOfPoint2f();a.fromList(p1);MatOfPoint2f b=new MatOfPoint2f();b.fromList(p2);
-  double w=A.gray.cols(),h=A.gray.rows(),f=.92*Math.max(w,h); org.opencv.core.Point pp=new org.opencv.core.Point(w*.5,h*.5); Mat mask=new Mat();
-  Mat E=Calib3d.findEssentialMat(a,b,f,pp,Calib3d.RANSAC,.999,1.25,mask); if(E==null||E.empty())return null;
+  double w=A.gray.cols(),h=A.gray.rows(),f=.92*Math.max(w,h); org.opencv.core.Point pp=new org.opencv.core.Point(w*.5,h*.5);
+  Mat E=Calib3d.findEssentialMat(a,b,f,pp,Calib3d.RANSAC,.999,1.25,1000); if(E==null||E.empty())return null;
+  Mat mask=Mat.ones(p1.size(),1,CvType.CV_8U);
   Mat R=new Mat(),t=new Mat(); int in=Calib3d.recoverPose(E,a,b,R,t,f,pp,mask); if(in<24)return null;
   Pair out=new Pair(); out.R=R;out.t=t;out.inliers=in;
   byte[] mk=new byte[(int)mask.total()]; if(mk.length>0)mask.get(0,0,mk);
@@ -97,7 +98,6 @@ public class SfmSurfaceActivityV30 extends RobustPoseSurfaceActivityV251 {
   double minx=1e9,miny=1e9,minz=1e9,maxx=-1e9,maxy=-1e9,maxz=-1e9;for(P3 p:a){minx=Math.min(minx,p.x);miny=Math.min(miny,p.y);minz=Math.min(minz,p.z);maxx=Math.max(maxx,p.x);maxy=Math.max(maxy,p.y);maxz=Math.max(maxz,p.z);}double sx=maxx-minx,sy=maxy-miny,sz=maxz-minz,s=Math.max(sx,Math.max(sy,sz));if(s<1e-9)return null;
   boolean[][][] o=new boolean[R][R][R];int rad=2;
   for(P3 p:a){int x=(int)Math.round((p.x-minx)/s*(R-8))+4,y=(int)Math.round((p.y-miny)/s*(R-8))+4,z=(int)Math.round((p.z-minz)/s*(R-8))+4;for(int dx=-rad;dx<=rad;dx++)for(int dy=-rad;dy<=rad;dy++)for(int dz=-rad;dz<=rad;dz++){if(dx*dx+dy*dy+dz*dz>rad*rad)continue;int X=x+dx,Y=y+dy,Z=z+dz;if(X>=0&&Y>=0&&Z>=0&&X<R&&Y<R&&Z<R)o[X][Y][Z]=true;}}
-  // close tiny gaps without creating long plates
   for(int pass=0;pass<2;pass++){boolean[][][] n=new boolean[R][R][R];for(int x=1;x<R-1;x++)for(int y=1;y<R-1;y++)for(int z=1;z<R-1;z++){int c=0;for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++)for(int dz=-1;dz<=1;dz++)if(o[x+dx][y+dy][z+dz])c++;n[x][y][z]=o[x][y][z]||c>=5;}o=n;}
   o=largest(o,R);return Hull.surface(o,R);
  }
