@@ -22,6 +22,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.zip.GZIPInputStream;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 public class MainActivity extends Activity {
     private WebView webView;
@@ -43,7 +45,7 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(true);
         s.setAllowContentAccess(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        s.setUserAgentString(s.getUserAgentString() + " MuhammetTurkRadyo/2.0.1");
+        s.setUserAgentString(s.getUserAgentString() + " MuhammetTurkRadyo/2.0.2");
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) { return handleUri(request.getUrl()); }
@@ -66,7 +68,10 @@ public class MainActivity extends Activity {
         String cmd = uri.getHost();
         if (cmd == null) return true;
         switch (cmd) {
-            case "play": startRadio(RadioService.ACTION_PLAY, uri.getQueryParameter("url"), uri.getQueryParameter("name"), 0f); break;
+            case "play":
+                syncQueueFromWeb();
+                startRadio(RadioService.ACTION_PLAY, uri.getQueryParameter("url"), uri.getQueryParameter("name"), 0f);
+                break;
             case "pause": startRadio(RadioService.ACTION_PAUSE, null, null, 0f); break;
             case "resume": startRadio(RadioService.ACTION_RESUME, null, null, 0f); break;
             case "stop": startRadio(RadioService.ACTION_STOP, null, null, 0f); break;
@@ -86,6 +91,24 @@ public class MainActivity extends Activity {
             default: break;
         }
         return true;
+    }
+
+    private void syncQueueFromWeb() {
+        if (webView == null) return;
+        String js = "(function(){try{return JSON.stringify({i:(typeof index==='number'?index:0),s:(stations||[]).slice(0,80).map(function(x){return {name:(x.name||'Türk Radyo'),url:(x._url||x.url_resolved||x.url||'')};})});}catch(e){return '';}})()";
+        webView.evaluateJavascript(js, value -> {
+            try {
+                JSONArray wrapper = new JSONArray("[" + value + "]");
+                String decoded = wrapper.optString(0, "");
+                if (decoded == null || decoded.trim().isEmpty()) return;
+                JSONObject root = new JSONObject(decoded);
+                int idx = root.optInt("i", 0);
+                getSharedPreferences("radio", MODE_PRIVATE).edit()
+                        .putString("queue_json", decoded)
+                        .putInt("queue_index", idx)
+                        .apply();
+            } catch (Exception ignored) { }
+        });
     }
 
     private void startRadio(String action, String url, String name, float value) {
