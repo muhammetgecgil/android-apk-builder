@@ -1,0 +1,3 @@
+run_id=32332497548
+sha=5a9bce9f742e9ea6d5fcaafa89a3a87e42450e8b
+artifact=MG-CAD-PRO-v2.0.9-TECH-EXIT
