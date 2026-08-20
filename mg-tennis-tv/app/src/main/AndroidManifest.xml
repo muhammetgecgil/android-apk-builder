@@ -11,6 +11,8 @@
         android:allowBackup="true"
         android:hardwareAccelerated="true"
         android:largeHeap="true"
+        android:icon="@drawable/mg_tennis_icon"
+        android:roundIcon="@drawable/mg_tennis_icon"
         android:label="MG Tennis TV"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.Material.Light.NoActionBar.Fullscreen">
