@@ -44,9 +44,10 @@ jobs:
           curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/parametric-base.glb -o $A/tennis-player.glb
           rm -f $A/spectator.glb
           test $(stat -c%s $A/opponent.glb) -gt 1000000
+          test $(stat -c%s $A/tennis-player.glb) -gt 1000000
           test -s $A/v12-human-patch.js
 
-      - name: Inject v1.6 reactive opponent globals and inward seats
+      - name: Inject v1.7 single real opponent and empty arena
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -57,11 +58,22 @@ jobs:
           s=s.replace('sun.shadow.mapSize.set(4096,4096)','sun.shadow.mapSize.set(2048,2048)')
           s=s.replace('2 TELEFON HOST','AI + RAKET EKRAN')
           s=s.replace('KONTROLCÜ','RAKET TELEFON')
-          # Classic-script `let` globals are not properties of window. The external opponent
-          # system must share the exact same game state, so expose these declarations with var.
+          # Make core game state available to the external opponent controller.
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,', 'var scene,camera,renderer,clock,loader,player,opponent,')
           s=s.replace('let playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,', 'var playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,')
           s=s.replace('let ballVel=new THREE.Vector3(),ballTrail=[];', 'var ballVel=new THREE.Vector3(),ballTrail=[];')
+          s=s.replace('let targetOpponentX=0,targetOpponentZ=-9.55;', 'var targetOpponentX=0,targetOpponentZ=-9.55;')
+          # Remove primitive spectator generation at source, not after rendering.
+          a=s.find('const bodyGeom=new THREE.CylinderGeometry')
+          b=s.find('const adMat=',a)
+          if a!=-1 and b!=-1:
+              s=s[:a]+'// v1.7: spectator meshes intentionally removed\n'+s[b:]
+          # Disable legacy character loader; it used to overwrite the new real opponent asynchronously.
+          a=s.find('function loadCharacters()')
+          b=s.find('function loadOne(',a)
+          if a!=-1 and b!=-1:
+              s=s[:a]+"function loadCharacters(){$('loadmsg').textContent='Gerçek rakip hazırlanıyor…';$('loadfill').style.width='18%'}\n"+s[b:]
+          # Place chair backs in local outward direction so seats face the court.
           old="m.compose(new THREE.Vector3(p.x,p.y+.72,p.z+(p.ry>0?-.20:.20)),q,sc);backI.setMatrixAt(idx,m);"
           new="let bv=new THREE.Vector3(0,.72,-.20).applyQuaternion(q).add(new THREE.Vector3(p.x,p.y,p.z));m.compose(bv,q,sc);backI.setMatrixAt(idx,m);"
           s=s.replace(old,new)
@@ -69,10 +81,10 @@ jobs:
               s=s.replace('</body>','<script src=\"v12-human-patch.js\"></script></body>')
           p.write_text(s)
           assert 'var scene,camera,renderer,clock,loader,player,opponent,' in s
-          assert 'var playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,' in s
-          assert 'var ballVel=new THREE.Vector3(),ballTrail=[];' in s
+          assert 'var targetOpponentX=0,targetOpponentZ=-9.55;' in s
+          assert 'spectator meshes intentionally removed' in s
+          assert "function loadCharacters(){$('loadmsg').textContent='Gerçek rakip hazırlanıyor…'" in s
           assert 'v12-human-patch.js' in s
-          assert 'new THREE.Vector3(0,.72,-.20)' in s
           PY
 
       - name: Set up JDK 17
@@ -101,18 +113,19 @@ jobs:
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='16'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='17'"
           unzip -l $APK | grep -q assets/opponent.glb
+          unzip -l $APK | grep -q assets/tennis-player.glb
           unzip -l $APK | grep -q assets/v12-human-patch.js
-          unzip -l $APK | grep -q classes.dex
           ! unzip -l $APK | grep -q assets/spectator.glb
-          unzip -p $APK assets/index.html | grep -q 'var scene,camera,renderer,clock,loader,player,opponent,'
-          unzip -p $APK assets/v12-human-patch.js | grep -q "state='READY'"
-          cp $APK MG_Tennis_TV_v1.6_Reactive_3D_Opponent.apk
+          unzip -p $APK assets/index.html | grep -q 'spectator meshes intentionally removed'
+          unzip -p $APK assets/index.html | grep -q "function loadCharacters()"
+          unzip -p $APK assets/v12-human-patch.js | grep -q 'REAL_TENNIS_OPPONENT'
+          cp $APK MG_Tennis_TV_v1.7_RealOpponent_Direct.apk
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v1.6-Reactive-3D-Opponent-APK
-          path: MG_Tennis_TV_v1.6_Reactive_3D_Opponent.apk
+          name: MG-Tennis-TV-v1.7-RealOpponent-Direct-APK
+          path: MG_Tennis_TV_v1.7_RealOpponent_Direct.apk
           retention-days: 30
