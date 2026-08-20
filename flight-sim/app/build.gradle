@@ -8,7 +8,18 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 35
-        versionCode 11
-        versionName '11.0'
+        versionCode 12
+        versionName '12.0'
     }
+
+    packagingOptions {
+        jniLibs { useLegacyPackaging = false }
+    }
+}
+
+dependencies {
+    // V12 console-class mobile rendering foundation: physically based rendering + glTF 2.0.
+    implementation 'com.google.android.filament:filament-android:1.72.0'
+    implementation 'com.google.android.filament:gltfio-android:1.72.0'
+    implementation 'com.google.android.filament:filament-utils-android:1.72.0'
 }
