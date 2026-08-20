@@ -31,10 +31,10 @@ jobs:
       - name: Stage APK
         run: |
           mkdir -p out
-          cp stone-fluorescence/app/build/outputs/apk/debug/app-debug.apk out/Stone-Glow-Analyzer-v1.1-Live.apk
-          sha256sum out/Stone-Glow-Analyzer-v1.1-Live.apk > out/SHA256SUMS.txt
+          cp stone-fluorescence/app/build/outputs/apk/debug/app-debug.apk out/Stone-Glow-Analyzer-v1.2-Filters.apk
+          sha256sum out/Stone-Glow-Analyzer-v1.2-Filters.apk > out/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Stone-Glow-Analyzer-v1.1-Live
+          name: Stone-Glow-Analyzer-v1.2-Filters
           path: out/*
           if-no-files-found: error
