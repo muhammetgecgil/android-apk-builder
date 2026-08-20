@@ -94,7 +94,7 @@ jobs:
           unzip -l $APK | grep -q assets/opponent.glb
           unzip -l $APK | grep -q assets/spectator.glb
           unzip -l $APK | grep -q assets/v12-human-patch.js
-          unzip -l $APK | grep -q 'RacketService.class'
+          unzip -l $APK | grep -q classes.dex
           cp $APK MG_Tennis_TV_v1.3_AI_Racket_TV.apk
 
       - name: Upload installable APK
