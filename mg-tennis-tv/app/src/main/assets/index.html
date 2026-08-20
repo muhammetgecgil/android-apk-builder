@@ -1,277 +1,41 @@
 <!doctype html>
 <html lang="tr">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>MG Tennis TV Pro</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>MG Tennis TV Ultra Realistic</title>
 <style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070a;font-family:Arial,Helvetica,sans-serif;color:#fff;touch-action:none}
-#game{position:fixed;inset:0}
-#hud{position:fixed;left:0;right:0;top:0;height:72px;display:flex;align-items:center;gap:10px;padding:8px 12px;box-sizing:border-box;background:linear-gradient(180deg,rgba(3,8,14,.87),rgba(3,8,14,.28),transparent);z-index:8;pointer-events:none}
-#hud button{pointer-events:auto;border:1px solid rgba(255,255,255,.28);border-radius:11px;background:rgba(15,24,34,.88);color:white;padding:10px 15px;font-weight:700;font-size:13px;letter-spacing:.25px;box-shadow:0 5px 18px rgba(0,0,0,.25)}
-#hud button:active{transform:scale(.97)}
-#brand{margin-left:auto;text-align:right;line-height:1.05;text-shadow:0 2px 10px #000}
-#brand b{font-size:16px;letter-spacing:1.3px}#brand small{font-size:10px;opacity:.72}
-#score{position:fixed;top:78px;left:50%;transform:translateX(-50%);z-index:7;min-width:280px;text-align:center;background:rgba(4,9,15,.74);border:1px solid rgba(255,255,255,.22);border-radius:12px;padding:8px 18px;backdrop-filter:blur(6px);box-shadow:0 8px 25px rgba(0,0,0,.3);text-shadow:0 2px 7px #000}
-#score .main{font-size:24px;font-weight:800;letter-spacing:1px}#score .sub{font-size:11px;opacity:.78;margin-top:2px}
-#status{position:fixed;bottom:15px;left:15px;z-index:7;background:rgba(3,8,13,.67);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:8px 11px;font-size:11px;line-height:1.35;text-shadow:0 2px 5px #000}
-#powerWrap{position:fixed;right:18px;bottom:18px;z-index:7;width:150px;height:13px;border:1px solid rgba(255,255,255,.3);background:rgba(0,0,0,.4);border-radius:9px;overflow:hidden}
-#power{width:0%;height:100%;background:linear-gradient(90deg,#72ff72,#e9ff4c,#ff7045);transition:width .08s}
-#controller{display:none;position:fixed;inset:0;z-index:20;background:radial-gradient(circle at 50% 42%,#173d4b,#071016 62%,#030507);align-items:center;justify-content:center;text-align:center}
-#controller .card{width:min(660px,86vw);padding:30px;border:1px solid rgba(255,255,255,.22);border-radius:26px;background:rgba(9,19,27,.7);box-shadow:0 30px 80px rgba(0,0,0,.5)}
-#controller h1{font-size:34px;margin:0 0 10px}#controller p{opacity:.8;line-height:1.6;margin:5px 0}#swingText{font-size:58px;font-weight:900;height:70px;margin-top:18px;text-shadow:0 0 25px rgba(226,255,64,.7)}
-#loading{position:fixed;inset:0;z-index:30;background:#05080c;display:flex;align-items:center;justify-content:center;text-align:center}
-#loading .box{width:min(520px,82vw)}#loading h2{letter-spacing:1px}#loadbar{height:8px;background:#17222b;border-radius:5px;overflow:hidden}#loadfill{height:100%;width:9%;background:#d8f33a;transition:width .25s}
-#flash{position:fixed;inset:0;z-index:18;pointer-events:none;opacity:0;background:rgba(223,255,70,.16)}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070a;font-family:Arial,sans-serif;color:#fff;touch-action:none}#game{position:fixed;inset:0}#hud{position:fixed;left:0;right:0;top:0;height:70px;display:flex;gap:9px;align-items:center;padding:8px 12px;box-sizing:border-box;background:linear-gradient(180deg,rgba(2,6,10,.88),rgba(2,6,10,.20),transparent);z-index:8;pointer-events:none}#hud button{pointer-events:auto;border:1px solid rgba(255,255,255,.28);border-radius:10px;background:rgba(12,20,28,.90);color:#fff;padding:10px 14px;font-weight:700;font-size:12px}#brand{margin-left:auto;text-align:right;text-shadow:0 2px 8px #000}#brand b{font-size:15px;letter-spacing:1.2px}#brand small{font-size:10px;opacity:.75}#score{position:fixed;top:76px;left:50%;transform:translateX(-50%);z-index:7;min-width:290px;text-align:center;background:rgba(3,8,13,.72);border:1px solid rgba(255,255,255,.20);border-radius:11px;padding:8px 16px;box-shadow:0 8px 28px rgba(0,0,0,.35)}#score .main{font-size:23px;font-weight:800}#score .sub{font-size:10px;opacity:.76}#status{position:fixed;left:14px;bottom:14px;z-index:7;background:rgba(2,7,11,.72);border:1px solid rgba(255,255,255,.15);border-radius:10px;padding:8px 11px;font-size:11px}#powerWrap{position:fixed;right:18px;bottom:18px;z-index:7;width:150px;height:12px;border:1px solid rgba(255,255,255,.32);background:rgba(0,0,0,.45);border-radius:8px;overflow:hidden}#power{height:100%;width:0;background:linear-gradient(90deg,#83ff67,#edff4d,#ff694d);transition:width .08s}#controller{display:none;position:fixed;inset:0;z-index:20;background:radial-gradient(circle,#173e4d,#071016 62%,#030507);align-items:center;justify-content:center;text-align:center}#controller .card{width:min(650px,86vw);padding:30px;border:1px solid rgba(255,255,255,.22);border-radius:25px;background:rgba(8,18,26,.72)}#swingText{font-size:55px;font-weight:900;height:65px}#loading{position:fixed;inset:0;z-index:30;background:#05080c;display:flex;align-items:center;justify-content:center;text-align:center}#loading .box{width:min(520px,82vw)}#loadbar{height:8px;background:#17222b;border-radius:5px;overflow:hidden}#loadfill{height:100%;width:8%;background:#d8f33a;transition:width .25s}#flash{position:fixed;inset:0;z-index:18;pointer-events:none;opacity:0;background:rgba(230,255,75,.15)}
 </style>
-</head>
-<body>
-<div id="game"></div>
-<div id="hud">
-  <button onclick="callAndroid('startAi')">AI MAÇ</button>
-  <button onclick="callAndroid('startHost')">2 TELEFON HOST</button>
-  <button onclick="callAndroid('startController')">KONTROLCÜ</button>
-  <button onclick="callAndroid('calibrate')">KALİBRE</button>
-  <div id="brand"><b>MG TENNIS TV</b><br><small>REALISTIC PBR EDITION</small></div>
-</div>
-<div id="score"><div class="main" id="scoreMain">0  ·  0 — 0  ·  0</div><div class="sub" id="scoreSub">OYUNCU 1  •  MAÇ  •  OYUNCU 2</div></div>
-<div id="status">3D motor hazırlanıyor…</div>
-<div id="powerWrap"><div id="power"></div></div>
-<div id="controller"><div class="card"><h1>BLUETOOTH RAKET</h1><p>Telefonu gerçek raket gibi tut ve vuruş yap.</p><p>İvmeölçer + jiroskop birlikte vuruş gücünü hesaplar.</p><p id="ctrlState">Ana telefon seçiliyor…</p><div id="swingText"></div></div></div>
-<div id="loading"><div class="box"><h2>REALISTIC TENNIS 3D</h2><p id="loadText">Kort ve insan modelleri yükleniyor…</p><div id="loadbar"><div id="loadfill"></div></div></div></div>
-<div id="flash"></div>
-<script src="three.min.js"></script>
-<script src="GLTFLoader.js"></script>
-<script>
-'use strict';
-const $=id=>document.getElementById(id);
-function callAndroid(name){try{if(window.Android&&Android[name])Android[name]();}catch(e){console.log(e)}}
-function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
-function lerp(a,b,t){return a+(b-a)*t}
-
-let scene,camera,renderer,clock,loader;
-let player=null,opponent=null,playerMixer=null,opponentMixer=null;
-let playerRacket=null,opponentRacket=null,ball=null,trailLine=null;
-let playerX=0,opponentX=0,targetPlayerX=0,playerTilt=0;
-let mode='ai',controllerConnectedState=false;
-let pendingLocal=null,pendingRemote=null,playerSwingPhase=0,opponentSwingPhase=0;
-let ballVel=new THREE.Vector3(),ballTrail=[];
-let serving=true,lastHitter='player',bounceNear=0,bounceFar=0;
-let pointsP=0,pointsO=0,gamesP=0,gamesO=0;
-let totalLoaded=0;
-const BALL_R=.043;
-const COURT_W=10.97, COURT_L=23.77, HALF_W=COURT_W/2, HALF_L=COURT_L/2;
-
-function init(){
- scene=new THREE.Scene();
- scene.background=new THREE.Color(0x93b9d2);
- scene.fog=new THREE.FogExp2(0x93b9d2,.0125);
- clock=new THREE.Clock();
- renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});
- renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
- renderer.setSize(innerWidth,innerHeight);
- renderer.shadowMap.enabled=true;
- renderer.shadowMap.type=THREE.PCFSoftShadowMap;
- renderer.outputEncoding=THREE.sRGBEncoding;
- renderer.toneMapping=THREE.ACESFilmicToneMapping;
- renderer.toneMappingExposure=1.08;
- renderer.physicallyCorrectLights=true;
- $('game').appendChild(renderer.domElement);
-
- camera=new THREE.PerspectiveCamera(47,innerWidth/innerHeight,.04,130);
- camera.position.set(0,7.4,18.7);
- camera.lookAt(0,1.0,-1.5);
-
- const hemi=new THREE.HemisphereLight(0xdcefff,0x284032,1.55); scene.add(hemi);
- const sun=new THREE.DirectionalLight(0xfff3db,3.4);
- sun.position.set(-9,15,10); sun.castShadow=true;
- sun.shadow.mapSize.set(2048,2048);
- sun.shadow.camera.left=-16; sun.shadow.camera.right=16; sun.shadow.camera.top=22; sun.shadow.camera.bottom=-15;
- sun.shadow.camera.near=1; sun.shadow.camera.far=55; sun.shadow.bias=-.00018; scene.add(sun);
- const fill=new THREE.DirectionalLight(0xbfd9ff,.75); fill.position.set(10,8,-12); scene.add(fill);
-
- buildArena();
- buildBall();
- loader=new THREE.GLTFLoader();
- loadCharacters();
- window.addEventListener('resize',onResize);
- animate();
+</head><body>
+<div id="game"></div><div id="hud"><button onclick="callAndroid('startAi')">AI MAÇ</button><button onclick="callAndroid('startHost')">2 TELEFON HOST</button><button onclick="callAndroid('startController')">KONTROLCÜ</button><button onclick="callAndroid('calibrate')">KALİBRE</button><div id="brand"><b>MG TENNIS TV</b><br><small>ULTRA REALISTIC WORLD SCALE</small></div></div>
+<div id="score"><div class="main" id="scoreMain">0 · 0 — 0 · 0</div><div class="sub" id="scoreSub">OYUNCU 1 • MAÇ • OYUNCU 2</div></div><div id="status">3D salon hazırlanıyor…</div><div id="powerWrap"><div id="power"></div></div>
+<div id="controller"><div class="card"><h1>BLUETOOTH RAKET</h1><p>Telefonu gerçek raket gibi tut ve vuruş yap.</p><p>İvmeölçer + jiroskop vuruş gücünü hesaplar.</p><p id="ctrlState">Ana telefon seçiliyor…</p><div id="swingText"></div></div></div>
+<div id="loading"><div class="box"><h2>ULTRA REALISTIC TENNIS 3D</h2><p>Kort, salon ve insan modelleri yükleniyor…</p><div id="loadbar"><div id="loadfill"></div></div></div></div><div id="flash"></div>
+<script src="three.min.js"></script><script src="GLTFLoader.js"></script><script>
+'use strict';const $=id=>document.getElementById(id);const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));const lerp=(a,b,t)=>a+(b-a)*t;function callAndroid(n){try{if(window.Android&&Android[n])Android[n]()}catch(e){}}
+let scene,camera,renderer,clock,loader,player,opponent,playerMixer,opponentMixer,playerRacket,opponentRacket,ball,trailLine;
+let playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,targetPlayerX=0,targetPlayerZ=9.55,playerTilt=0,mode='ai',pendingLocal=null,pendingRemote=null,playerSwingPhase=0,opponentSwingPhase=0,serving=true,lastHitter='player',bounceNear=0,bounceFar=0,pointsP=0,pointsO=0,gamesP=0,gamesO=0,totalLoaded=0;
+let ballVel=new THREE.Vector3(),ballTrail=[];const BALL_R=.0335,COURT_W=10.97,COURT_L=23.77,HALF_W=COURT_W/2,HALF_L=COURT_L/2;
+function init(){scene=new THREE.Scene();scene.background=new THREE.Color(0x9db7c8);scene.fog=new THREE.FogExp2(0x9db7c8,.009);clock=new THREE.Clock();renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.03;renderer.physicallyCorrectLights=true;$('game').appendChild(renderer.domElement);camera=new THREE.PerspectiveCamera(46,innerWidth/innerHeight,.03,160);camera.position.set(0,6.7,19.5);camera.lookAt(0,1,-1.6);const hemi=new THREE.HemisphereLight(0xe7f3ff,0x29382f,1.35);scene.add(hemi);const sun=new THREE.DirectionalLight(0xfff1d7,3.1);sun.position.set(-8,16,9);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-18;sun.shadow.camera.right=18;sun.shadow.camera.top=24;sun.shadow.camera.bottom=-18;sun.shadow.camera.near=1;sun.shadow.camera.far=65;sun.shadow.bias=-.00015;scene.add(sun);const fill=new THREE.DirectionalLight(0xbfd8ff,.7);fill.position.set(10,7,-10);scene.add(fill);buildArena();buildBall();loader=new THREE.GLTFLoader();loadCharacters();addEventListener('resize',onResize);animate()}
+function texture(base){const c=document.createElement('canvas');c.width=c.height=1024;const x=c.getContext('2d');x.fillStyle=base;x.fillRect(0,0,1024,1024);let im=x.getImageData(0,0,1024,1024),d=im.data;for(let i=0;i<d.length;i+=4){let n=(Math.random()-.5)*11;d[i]=clamp(d[i]+n,0,255);d[i+1]=clamp(d[i+1]+n,0,255);d[i+2]=clamp(d[i+2]+n,0,255)}x.putImageData(im,0,0);let t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(3,6);t.anisotropy=renderer.capabilities.getMaxAnisotropy();t.encoding=THREE.sRGBEncoding;return t}
+function buildArena(){const outer=new THREE.Mesh(new THREE.PlaneGeometry(28,38),new THREE.MeshStandardMaterial({map:texture('#46654f'),roughness:.98}));outer.rotation.x=-Math.PI/2;outer.receiveShadow=true;scene.add(outer);const court=new THREE.Mesh(new THREE.PlaneGeometry(COURT_W,COURT_L),new THREE.MeshStandardMaterial({map:texture('#477c9e'),roughness:.9}));court.rotation.x=-Math.PI/2;court.position.y=.008;court.receiveShadow=true;scene.add(court);const lm=new THREE.MeshStandardMaterial({color:0xf7f5ec,roughness:.75});const line=(x,z,w,d)=>{let m=new THREE.Mesh(new THREE.BoxGeometry(w,.018,d),lm);m.position.set(x,.023,z);m.receiveShadow=true;scene.add(m)};const lw=.05;line(-HALF_W,0,lw,COURT_L);line(HALF_W,0,lw,COURT_L);line(0,-HALF_L,COURT_W,lw);line(0,HALF_L,COURT_W,lw);line(-4.115,0,lw,COURT_L);line(4.115,0,lw,COURT_L);line(0,-6.40,8.23,lw);line(0,6.40,8.23,lw);line(0,0,lw,12.8);line(0,-HALF_L+.12,.11,.25);line(0,HALF_L-.12,.11,.25);
+const postMat=new THREE.MeshStandardMaterial({color:0x24282a,metalness:.5,roughness:.35});for(const x of[-6.35,6.35]){let p=new THREE.Mesh(new THREE.CylinderGeometry(.052,.06,1.09,18),postMat);p.position.set(x,.545,0);p.castShadow=true;scene.add(p)}const net=new THREE.Mesh(new THREE.PlaneGeometry(12.7,.92,64,12),new THREE.MeshStandardMaterial({color:0x121314,wireframe:true,transparent:true,opacity:.48,side:THREE.DoubleSide}));net.position.set(0,.46,0);net.castShadow=true;scene.add(net);let tape=new THREE.Mesh(new THREE.BoxGeometry(12.7,.06,.04),new THREE.MeshStandardMaterial({color:0xf5f2e8,roughness:.75}));tape.position.set(0,.94,0);scene.add(tape);
+const concrete=new THREE.MeshStandardMaterial({color:0x777d7d,roughness:.95});for(const z of[-17.8,17.8]){let w=new THREE.Mesh(new THREE.BoxGeometry(25,5,.55),concrete);w.position.set(0,2.5,z);w.receiveShadow=true;scene.add(w)}for(const x of[-12.5,12.5]){let w=new THREE.Mesh(new THREE.BoxGeometry(.55,5,35),concrete);w.position.set(x,2.5,0);scene.add(w)}
+const steel=new THREE.MeshStandardMaterial({color:0x30363a,metalness:.7,roughness:.4});for(let x=-12;x<=12;x+=4){let b=new THREE.Mesh(new THREE.BoxGeometry(.16,.16,35),steel);b.position.set(x,8.2,0);scene.add(b)}for(let z=-16;z<=16;z+=4){let b=new THREE.Mesh(new THREE.BoxGeometry(25,.16,.16),steel);b.position.set(0,8.2,z);scene.add(b)}const lampMat=new THREE.MeshStandardMaterial({color:0xffffff,emissive:0xffffff,emissiveIntensity:2.1,roughness:.4});for(let x=-10;x<=10;x+=5)for(let z=-14;z<=14;z+=7){let l=new THREE.Mesh(new THREE.BoxGeometry(1.7,.06,.65),lampMat);l.position.set(x,8.0,z);scene.add(l);let pl=new THREE.PointLight(0xf7fbff,.32,10);pl.position.set(x,7.75,z);scene.add(pl)}
+function chair(){let g=new THREE.Group(),m=new THREE.MeshStandardMaterial({color:0x173f5c,roughness:.7}),metal=new THREE.MeshStandardMaterial({color:0x353b40,metalness:.7,roughness:.4});let seat=new THREE.Mesh(new THREE.BoxGeometry(.46,.08,.43),m);seat.position.y=.48;let back=new THREE.Mesh(new THREE.BoxGeometry(.46,.48,.08),m);back.position.set(0,.72,.18);back.rotation.x=-.08;g.add(seat,back);for(const x of[-.18,.18])for(const z of[-.15,.15]){let leg=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,.45,8),metal);leg.position.set(x,.23,z);g.add(leg)}return g}
+for(let side=-1;side<=1;side+=2)for(let row=0;row<7;row++)for(let i=0;i<30;i++){if(i===14||i===15)continue;let c=chair();c.position.set(side*(7.0+row*.62),row*.34,-13+i*.9);c.rotation.y=side>0?-Math.PI/2:Math.PI/2;c.scale.setScalar(.95);scene.add(c)}
+const rail=new THREE.MeshStandardMaterial({color:0xaab2b6,metalness:.82,roughness:.28});for(const side of[-1,1]){let r=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,28,10),rail);r.rotation.x=Math.PI/2;r.position.set(side*6.6,1.05,0);scene.add(r)}
 }
-
-function courtTexture(base){
- const size=1024,c=document.createElement('canvas'); c.width=c.height=size; const x=c.getContext('2d');
- x.fillStyle=base; x.fillRect(0,0,size,size);
- const img=x.getImageData(0,0,size,size),d=img.data;
- for(let i=0;i<d.length;i+=4){const n=(Math.random()-.5)*14;d[i]=clamp(d[i]+n,0,255);d[i+1]=clamp(d[i+1]+n,0,255);d[i+2]=clamp(d[i+2]+n,0,255)}
- x.putImageData(img,0,0); const t=new THREE.CanvasTexture(c); t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(2.5,5.5);t.anisotropy=renderer.capabilities.getMaxAnisotropy();t.encoding=THREE.sRGBEncoding;return t;
-}
-function buildArena(){
- const outMat=new THREE.MeshStandardMaterial({map:courtTexture('#2f7659'),roughness:.95,metalness:0});
- const outer=new THREE.Mesh(new THREE.PlaneGeometry(20,32),outMat);outer.rotation.x=-Math.PI/2;outer.receiveShadow=true;scene.add(outer);
- const courtMat=new THREE.MeshStandardMaterial({map:courtTexture('#2b6f8d'),roughness:.86,metalness:0});
- const court=new THREE.Mesh(new THREE.PlaneGeometry(COURT_W,COURT_L),courtMat);court.rotation.x=-Math.PI/2;court.position.y=.006;court.receiveShadow=true;scene.add(court);
- const lineMat=new THREE.MeshStandardMaterial({color:0xf6f5ed,roughness:.72});
- function line(x,z,w,d){const m=new THREE.Mesh(new THREE.BoxGeometry(w,.018,d),lineMat);m.position.set(x,.022,z);m.receiveShadow=true;scene.add(m)}
- const lw=.055;
- line(-HALF_W,0,lw,COURT_L);line(HALF_W,0,lw,COURT_L);line(0,-HALF_L,COURT_W,lw);line(0,HALF_L,COURT_W,lw);
- line(-4.115,0,lw,COURT_L);line(4.115,0,lw,COURT_L);
- line(0,-6.40,8.23,lw);line(0,6.40,8.23,lw);line(0,0,lw,12.8);
- line(0,-HALF_L+.12,.10,.25);line(0,HALF_L-.12,.10,.25);
-
- const postMat=new THREE.MeshStandardMaterial({color:0x252a2e,roughness:.35,metalness:.45});
- for(const x of [-6.35,6.35]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.055,.065,1.10,16),postMat);p.position.set(x,.55,0);p.castShadow=true;scene.add(p)}
- const netMat=new THREE.MeshStandardMaterial({color:0x101214,wireframe:true,transparent:true,opacity:.50,side:THREE.DoubleSide,roughness:.8});
- const net=new THREE.Mesh(new THREE.PlaneGeometry(12.7,.92,48,9),netMat);net.position.set(0,.46,0);net.castShadow=true;scene.add(net);
- const tape=new THREE.Mesh(new THREE.BoxGeometry(12.7,.065,.045),new THREE.MeshStandardMaterial({color:0xf4f2e8,roughness:.7}));tape.position.set(0,.94,0);tape.castShadow=true;scene.add(tape);
-
- const wallMat=new THREE.MeshStandardMaterial({color:0x22323b,roughness:.7});
- const back1=new THREE.Mesh(new THREE.BoxGeometry(18,2.4,.55),wallMat);back1.position.set(0,1.2,-15.4);back1.castShadow=true;back1.receiveShadow=true;scene.add(back1);
- const back2=back1.clone();back2.position.z=15.4;scene.add(back2);
- const side1=new THREE.Mesh(new THREE.BoxGeometry(.5,2.1,30),wallMat);side1.position.set(-9.6,1.05,0);scene.add(side1);const side2=side1.clone();side2.position.x=9.6;scene.add(side2);
-
- const seatGeo=new THREE.BoxGeometry(.42,.28,.44), seatMatA=new THREE.MeshStandardMaterial({color:0x173f5c,roughness:.78}), seatMatB=new THREE.MeshStandardMaterial({color:0xd7d9d5,roughness:.8});
- for(let side=-1;side<=1;side+=2){for(let row=0;row<4;row++){for(let i=0;i<28;i++){const s=new THREE.Mesh(seatGeo,(i+row)%8===0?seatMatB:seatMatA);s.position.set(side*(7.2+row*.55),.35+row*.35,-11.8+i*.88);s.rotation.y=side>0?-Math.PI/2:Math.PI/2;s.castShadow=row<2;scene.add(s)}}}
- const bannerMat=new THREE.MeshStandardMaterial({color:0x0e1a22,roughness:.65,metalness:.08});
- for(const z of [-14.9,14.9]){const b=new THREE.Mesh(new THREE.BoxGeometry(7,.95,.08),bannerMat);b.position.set(0,.95,z+(z>0?-.32:.32));scene.add(b)}
-}
-
-function buildBall(){
- const mat=new THREE.MeshStandardMaterial({color:0xd8ef34,roughness:.48,metalness:0,emissive:0x182000,emissiveIntensity:.22});
- ball=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,32,18),mat);ball.castShadow=true;ball.position.set(.35,1.1,9.7);scene.add(ball);
- const g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]);
- trailLine=new THREE.Line(g,new THREE.LineBasicMaterial({color:0xd9f84a,transparent:true,opacity:.28}));scene.add(trailLine);
-}
-
-function createRacket(color){
- const g=new THREE.Group();
- const frameMat=new THREE.MeshStandardMaterial({color:color,roughness:.32,metalness:.55});
- const gripMat=new THREE.MeshStandardMaterial({color:0x121212,roughness:.88});
- const frame=new THREE.Mesh(new THREE.TorusGeometry(.31,.025,10,52),frameMat);frame.scale.y=1.28;frame.castShadow=true;g.add(frame);
- const throat=new THREE.Mesh(new THREE.CylinderGeometry(.035,.046,.50,12),frameMat);throat.position.y=-.53;throat.castShadow=true;g.add(throat);
- const grip=new THREE.Mesh(new THREE.CylinderGeometry(.047,.052,.32,12),gripMat);grip.position.y=-.91;grip.castShadow=true;g.add(grip);
- const stringMat=new THREE.LineBasicMaterial({color:0xd7d9d7,transparent:true,opacity:.72});
- const pts=[];for(let i=-4;i<=4;i++){const x=i*.06;pts.push(new THREE.Vector3(x,-.33,0),new THREE.Vector3(x,.33,0));const y=i*.07;pts.push(new THREE.Vector3(-.27,y,0),new THREE.Vector3(.27,y,0))}
- const sg=new THREE.BufferGeometry().setFromPoints(pts);g.add(new THREE.LineSegments(sg,stringMat));g.scale.setScalar(.92);return g;
-}
-
-function loadCharacters(){
- $('loadfill').style.width='18%';
- loadOne('human.glb',true,()=>{totalLoaded++;$('loadfill').style.width='57%';finishLoadingIfReady()});
- loadOne('man.glb',false,()=>{totalLoaded++;$('loadfill').style.width='91%';finishLoadingIfReady()});
-}
-function loadOne(url,isPlayer,done){
- loader.load(url,gltf=>{
-   const model=gltf.scene;
-   model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material){o.material.side=THREE.FrontSide;if('envMapIntensity' in o.material)o.material.envMapIntensity=.7;o.material.needsUpdate=true}}});
-   const box=new THREE.Box3().setFromObject(model);const h=Math.max(.001,box.max.y-box.min.y);const s=1.80/h;model.scale.setScalar(s);
-   const box2=new THREE.Box3().setFromObject(model);model.position.y-=box2.min.y;
-   const wrap=new THREE.Group();wrap.add(model);wrap.position.set(0,0,isPlayer?9.65:-9.65);wrap.rotation.y=isPlayer?Math.PI:0;scene.add(wrap);
-   if(gltf.animations&&gltf.animations.length){const mix=new THREE.AnimationMixer(model);const idle=gltf.animations.find(c=>/idle/i.test(c.name))||gltf.animations.find(c=>/walk/i.test(c.name))||gltf.animations[0];const action=mix.clipAction(idle);action.play();action.timeScale=.72;if(isPlayer)playerMixer=mix;else opponentMixer=mix}
-   const r=createRacket(isPlayer?0x1c242c:0x8b1722);scene.add(r);
-   if(isPlayer){player=wrap;playerRacket=r}else{opponent=wrap;opponentRacket=r}
-   done();
- },xhr=>{},err=>{console.log('model load error',url,err);const wrap=fallbackHuman(isPlayer);if(isPlayer)player=wrap;else opponent=wrap;done()});
-}
-function fallbackHuman(isPlayer){
- const g=new THREE.Group(),skin=new THREE.MeshStandardMaterial({color:isPlayer?0xc68d69:0x9a684e,roughness:.66}),cloth=new THREE.MeshStandardMaterial({color:isPlayer?0xf1f3f4:0x253b66,roughness:.75});
- const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.30,.62,8,16),cloth);torso.position.y=1.16;torso.castShadow=true;g.add(torso);
- const head=new THREE.Mesh(new THREE.SphereGeometry(.19,24,16),skin);head.position.y=1.72;head.castShadow=true;g.add(head);
- for(const x of [-.18,.18]){const leg=new THREE.Mesh(new THREE.CapsuleGeometry(.095,.62,7,12),skin);leg.position.set(x,.45,0);leg.castShadow=true;g.add(leg)}
- g.position.set(0,0,isPlayer?9.65:-9.65);g.rotation.y=isPlayer?Math.PI:0;scene.add(g);const r=createRacket(isPlayer?0x1c242c:0x8b1722);scene.add(r);if(isPlayer)playerRacket=r;else opponentRacket=r;return g;
-}
-function finishLoadingIfReady(){if(totalLoaded<2)return;$('loadfill').style.width='100%';setTimeout(()=>{$('loading').style.display='none';$('status').textContent='Hazır • sensör raket aktif • servis için vuruş yap';resetPoint()},350)}
-
-function positionRackets(){
- if(playerRacket){const a=playerSwingPhase;playerRacket.position.set(playerX+.43,1.10,9.55);playerRacket.rotation.order='YXZ';playerRacket.rotation.y=Math.PI;playerRacket.rotation.z=-.25 + Math.sin(a*Math.PI)*1.95;playerRacket.rotation.x=.10+Math.sin(a*Math.PI)*.45}
- if(opponentRacket){const a=opponentSwingPhase;opponentRacket.position.set(opponentX-.43,1.10,-9.55);opponentRacket.rotation.order='YXZ';opponentRacket.rotation.y=0;opponentRacket.rotation.z=.25-Math.sin(a*Math.PI)*1.95;opponentRacket.rotation.x=-.10-Math.sin(a*Math.PI)*.4}
-}
-
-window.setPlayerTilt=function(v){playerTilt=clamp(Number(v)||0,-6,6);targetPlayerX=clamp(playerTilt*.76,-4.25,4.25)};
-window.nativeSwing=function(power,dir,remote){power=clamp(Number(power)||1,.55,2.5);dir=clamp(Number(dir)||0,-1,1);showPower(power);if(remote){pendingRemote={power,dir,t:performance.now()};opponentSwingPhase=.001}else{pendingLocal={power,dir,t:performance.now()};playerSwingPhase=.001;if(serving&&mode!=='controller')serve(power,dir)}};
-window.controllerSwing=function(power){showPower(power);$('swingText').textContent='VURUŞ!';setTimeout(()=>{$('swingText').textContent=''},170)};
-window.controllerConnected=function(v){controllerConnectedState=!!v;$('ctrlState').textContent=v?'Ana telefona bağlandı • vuruşa hazır':'Bağlantı kurulamadı'};
-window.calibrationFlash=function(){const f=$('flash');f.style.opacity='1';setTimeout(()=>f.style.opacity='0',110)};
-window.androidReady=function(){$('status').textContent=totalLoaded<2?'İnsan modelleri yükleniyor…':'Hazır • sensör raket aktif'};
-window.setMode=function(m){mode=m||'ai';$('controller').style.display=mode==='controller'?'flex':'none';$('hud').style.display=mode==='controller'?'none':'flex';$('score').style.display=mode==='controller'?'none':'block';$('status').style.display=mode==='controller'?'none':'block';$('powerWrap').style.display=mode==='controller'?'none':'block';if(mode!=='controller'){resetPoint();$('status').textContent=mode==='host'?'2 telefon modu • rakip bağlantısı bekleniyor':'AI rakip • servis için vuruş yap'}};
-function showPower(p){$('power').style.width=(clamp((p-.55)/1.95,0,1)*100).toFixed(0)+'%';setTimeout(()=>{$('power').style.width='0%'},300)}
-
-function serve(power,dir){
- serving=false;lastHitter='player';bounceNear=bounceFar=0;
- ball.position.set(playerX+.28,1.22,9.35);
- ballVel.set(dir*3.4,4.6+power*1.35,-10.7-power*2.2);
- $('status').textContent='Ralli';
-}
-function resetPoint(){
- serving=true;pendingLocal=pendingRemote=null;bounceNear=bounceFar=0;ballVel.set(0,0,0);ballTrail=[];
- if(ball)ball.position.set(playerX+.30,1.15,9.35);
- updateScore();
-}
-function pointTo(winner){
- if(winner==='player')pointsP++;else pointsO++;
- if(pointsP>=4||pointsO>=4){if(Math.abs(pointsP-pointsO)>=2){if(pointsP>pointsO)gamesP++;else gamesO++;pointsP=pointsO=0}}
- updateScore();
- $('status').textContent=(winner==='player'?'Sayı senin':'Sayı rakibin')+' • yeni servis';
- setTimeout(resetPoint,900);
-}
-function label(me,other){if(me<=2)return ['0','15','30'][me];if(me===3&&other<=3)return '40';if(me>=3&&other>=3){if(me===other)return '40';if(me===other+1)return 'AD';return '40'}return '40'}
-function updateScore(){$('scoreMain').textContent=gamesP+'  ·  '+label(pointsP,pointsO)+' — '+label(pointsO,pointsP)+'  ·  '+gamesO;$('scoreSub').textContent='OYUNCU 1  •  GERÇEK TENİS SKORU  •  '+(mode==='ai'?'AI':'OYUNCU 2')}
-
-function tryLocalHit(now){
- if(!pendingLocal||now-pendingLocal.t>520)return false;
- const dx=Math.abs(ball.position.x-playerX),dz=Math.abs(ball.position.z-9.0);
- if(ballVel.z>0&&dz<2.25&&dx<1.75&&ball.position.y<2.65){
-   const p=pendingLocal.power,d=pendingLocal.dir;ballVel.set(d*5.3+(ball.position.x-playerX)*.7,4.4+p*2.0,-11.5-p*3.0);pendingLocal=null;lastHitter='player';bounceFar=0;playerSwingPhase=.001;flashHit();return true}
- return false;
-}
-function tryOpponentHit(now){
- const dx=Math.abs(ball.position.x-opponentX),dz=Math.abs(ball.position.z+9.0);
- if(!(ballVel.z<0&&dz<2.3&&dx<1.9&&ball.position.y<2.7))return false;
- if(mode==='host'){
-   if(!pendingRemote||now-pendingRemote.t>580)return false;
-   const p=pendingRemote.power,d=pendingRemote.dir;ballVel.set(d*5.1+(ball.position.x-opponentX)*.65,4.3+p*1.9,11.3+p*2.8);pendingRemote=null;
- } else {
-   const p=.88+Math.random()*.55;const target=clamp(playerX+(Math.random()-.5)*3.2,-4.2,4.2);ballVel.set((target-ball.position.x)*.42,4.7+Math.random()*1.4,12.0+p*1.9);
- }
- lastHitter='opponent';bounceNear=0;opponentSwingPhase=.001;flashHit();return true;
-}
-function flashHit(){const f=$('flash');f.style.opacity='.8';setTimeout(()=>f.style.opacity='0',65);try{if(window.Android&&Android.vibrate)Android.vibrate(16)}catch(e){}}
-
-function updateGame(dt,now){
- if(mode==='controller')return;
- playerX=lerp(playerX,targetPlayerX,1-Math.exp(-dt*9));
- if(player)player.position.x=playerX;
- if(!serving){
-   const aiTarget=clamp(ball.position.x,-4.2,4.2);const maxStep=dt*(mode==='ai'?4.4:3.8);opponentX+=clamp(aiTarget-opponentX,-maxStep,maxStep);
- }
- if(opponent)opponent.position.x=opponentX;
- positionRackets();
- if(playerSwingPhase>0){playerSwingPhase+=dt*4.8;if(playerSwingPhase>=1)playerSwingPhase=0;if(player)player.rotation.z=Math.sin(Math.min(1,playerSwingPhase)*Math.PI)*-.12}
- else if(player)player.rotation.z=lerp(player.rotation.z,0,dt*10);
- if(opponentSwingPhase>0){opponentSwingPhase+=dt*4.8;if(opponentSwingPhase>=1)opponentSwingPhase=0;if(opponent)opponent.rotation.z=Math.sin(Math.min(1,opponentSwingPhase)*Math.PI)*.12}
- else if(opponent)opponent.rotation.z=lerp(opponent.rotation.z,0,dt*10);
- if(serving){if(ball)ball.position.set(playerX+.30,1.14+Math.sin(now*.002)*.025,9.35);return}
-
- ballVel.y-=9.81*dt;ballVel.multiplyScalar(Math.pow(.997,dt*60));
- ball.position.addScaledVector(ballVel,dt);
- tryLocalHit(now);tryOpponentHit(now);
-
- if(Math.abs(ball.position.z)<.12&&Math.abs(ball.position.x)<6.4&&ball.position.y<.96&&Math.abs(ballVel.z)>1){ballVel.z*=-.12;ballVel.x*=.55;ballVel.y=Math.min(ballVel.y,.4)}
- if(ball.position.y<=BALL_R&&ballVel.y<0){
-   const inCourt=Math.abs(ball.position.x)<=HALF_W+.08&&Math.abs(ball.position.z)<=HALF_L+.08;
-   if(!inCourt){pointTo(lastHitter==='player'?'opponent':'player');serving=true;return}
-   ball.position.y=BALL_R;ballVel.y=-ballVel.y*.72;ballVel.x*=.90;ballVel.z*=.93;
-   if(ball.position.z>0){bounceNear++;if(bounceNear>1){pointTo('opponent');serving=true;return}}
-   else{bounceFar++;if(bounceFar>1){pointTo('player');serving=true;return}}
- }
- if(Math.abs(ball.position.x)>9||Math.abs(ball.position.z)>17||ball.position.y<-1){pointTo(lastHitter==='player'?'opponent':'player');serving=true;return}
- updateTrail();
-}
-function updateTrail(){ballTrail.unshift(ball.position.clone());if(ballTrail.length>13)ballTrail.pop();if(ballTrail.length<2)return;trailLine.geometry.dispose();trailLine.geometry=new THREE.BufferGeometry().setFromPoints(ballTrail)}
-
-function animate(){requestAnimationFrame(animate);const dt=Math.min(.033,clock.getDelta());const now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);renderer.render(scene,camera)}
-function onResize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)}
-
-init();
-</script>
-</body>
-</html>
+function buildBall(){let mat=new THREE.MeshStandardMaterial({color:0xdaf23d,roughness:.58,emissive:0x101800,emissiveIntensity:.12});ball=new THREE.Mesh(new THREE.SphereGeometry(BALL_R,32,20),mat);ball.castShadow=true;scene.add(ball);let g=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(),new THREE.Vector3()]);trailLine=new THREE.Line(g,new THREE.LineBasicMaterial({color:0xe9ff62,transparent:true,opacity:.18}));scene.add(trailLine)}
+function createRacket(color){let g=new THREE.Group(),fm=new THREE.MeshStandardMaterial({color,metalness:.55,roughness:.32}),gm=new THREE.MeshStandardMaterial({color:0x151515,roughness:.9});let frame=new THREE.Mesh(new THREE.TorusGeometry(.305,.022,12,56),fm);frame.scale.y=1.27;g.add(frame);let throat=new THREE.Mesh(new THREE.CylinderGeometry(.032,.043,.47,12),fm);throat.position.y=-.51;g.add(throat);let grip=new THREE.Mesh(new THREE.CylinderGeometry(.043,.048,.30,12),gm);grip.position.y=-.86;g.add(grip);let pts=[];for(let i=-4;i<=4;i++){let x=i*.06;pts.push(new THREE.Vector3(x,-.31,0),new THREE.Vector3(x,.31,0));let y=i*.067;pts.push(new THREE.Vector3(-.26,y,0),new THREE.Vector3(.26,y,0))}g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xd8dad8,transparent:true,opacity:.75})));g.scale.setScalar(.80);return g}
+function loadCharacters(){loadOne('human.glb',true,()=>{totalLoaded++;$('loadfill').style.width='55%';finish()});loadOne('man.glb',false,()=>{totalLoaded++;$('loadfill').style.width='90%';finish()})}
+function loadOne(url,isP,done){loader.load(url,gltf=>{let model=gltf.scene;model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material){o.material.side=THREE.FrontSide;if('envMapIntensity'in o.material)o.material.envMapIntensity=.8;o.material.needsUpdate=true}}});let box=new THREE.Box3().setFromObject(model),h=Math.max(.001,box.max.y-box.min.y),s=1.80/h;model.scale.setScalar(s);box=new THREE.Box3().setFromObject(model);model.position.y-=box.min.y;let wrap=new THREE.Group();wrap.add(model);wrap.position.set(0,0,isP?playerZ:opponentZ);wrap.rotation.y=isP?Math.PI:0;scene.add(wrap);if(gltf.animations&&gltf.animations.length){let mix=new THREE.AnimationMixer(model),clip=gltf.animations.find(c=>/run|walk/i.test(c.name))||gltf.animations[0];mix.clipAction(clip).play();if(isP)playerMixer=mix;else opponentMixer=mix}let r=createRacket(isP?0x1b252d:0x8f1821);scene.add(r);if(isP){player=wrap;playerRacket=r}else{opponent=wrap;opponentRacket=r}done()},undefined,e=>{console.log(e);done()})}
+function finish(){if(totalLoaded<2)return;$('loadfill').style.width='100%';setTimeout(()=>{$('loading').style.display='none';$('status').textContent='Hazır • gerçek dünya ölçeği • dinamik kamera';resetPoint()},300)}
+function positionRackets(){if(playerRacket){let a=playerSwingPhase;playerRacket.position.set(playerX+.42,1.12,playerZ-.08);playerRacket.rotation.set(.12+Math.sin(a*Math.PI)*.45,Math.PI,-.25+Math.sin(a*Math.PI)*1.9)}if(opponentRacket){let a=opponentSwingPhase;opponentRacket.position.set(opponentX-.42,1.12,opponentZ+.08);opponentRacket.rotation.set(-.12-Math.sin(a*Math.PI)*.4,0,.25-Math.sin(a*Math.PI)*1.9)}}
+window.setPlayerTilt=v=>{playerTilt=clamp(Number(v)||0,-6,6);targetPlayerX=clamp(playerTilt*.72,-4.15,4.15)};window.nativeSwing=(power,dir,remote)=>{power=clamp(Number(power)||1,.55,2.5);dir=clamp(Number(dir)||0,-1,1);showPower(power);if(remote){pendingRemote={power,dir,t:performance.now()};opponentSwingPhase=.001}else{pendingLocal={power,dir,t:performance.now()};playerSwingPhase=.001;if(serving&&mode!=='controller')serve(power,dir)}};window.controllerSwing=p=>{showPower(p);$('swingText').textContent='VURUŞ!';setTimeout(()=>$('swingText').textContent='',170)};window.controllerConnected=v=>$('ctrlState').textContent=v?'Ana telefona bağlandı • hazır':'Bağlantı kurulamadı';window.calibrationFlash=()=>{let f=$('flash');f.style.opacity='1';setTimeout(()=>f.style.opacity='0',100)};window.androidReady=()=>{};window.setMode=m=>{mode=m||'ai';$('controller').style.display=mode==='controller'?'flex':'none';$('hud').style.display=mode==='controller'?'none':'flex';$('score').style.display=mode==='controller'?'none':'block';$('status').style.display=mode==='controller'?'none':'block';$('powerWrap').style.display=mode==='controller'?'none':'block';if(mode!=='controller')resetPoint()};function showPower(p){$('power').style.width=(clamp((p-.55)/1.95,0,1)*100)+'%';setTimeout(()=>$('power').style.width='0%',300)}
+function serve(power,dir){serving=false;lastHitter='player';bounceNear=bounceFar=0;ball.position.set(playerX+.33,1.20,playerZ-.22);ballVel.set(dir*3.2,4.7+power*1.25,-10.7-power*2.15);$('status').textContent='Ralli • kamera topu takip ediyor'}function resetPoint(){serving=true;pendingLocal=pendingRemote=null;bounceNear=bounceFar=0;ballVel.set(0,0,0);targetPlayerZ=9.55;playerZ=lerp(playerZ,9.55,.5);ballTrail=[];if(ball)ball.position.set(playerX+.34,1.18,playerZ-.15);updateScore()}function pointTo(w){if(w==='player')pointsP++;else pointsO++;if((pointsP>=4||pointsO>=4)&&Math.abs(pointsP-pointsO)>=2){if(pointsP>pointsO)gamesP++;else gamesO++;pointsP=pointsO=0}updateScore();$('status').textContent=(w==='player'?'Sayı senin':'Sayı rakibin')+' • yeni servis';setTimeout(resetPoint,850)}function label(a,b){if(a<=2)return['0','15','30'][a];if(a===3&&b<=3)return'40';if(a>=3&&b>=3){if(a===b)return'40';if(a===b+1)return'AD';return'40'}return'40'}function updateScore(){$('scoreMain').textContent=gamesP+' · '+label(pointsP,pointsO)+' — '+label(pointsO,pointsP)+' · '+gamesO;$('scoreSub').textContent='OYUNCU 1 • GERÇEK TENİS SKORU • '+(mode==='ai'?'AI':'OYUNCU 2')}
+function tryLocal(now){if(!pendingLocal||now-pendingLocal.t>560)return false;let dx=Math.abs(ball.position.x-playerX),dz=Math.abs(ball.position.z-playerZ);if(ballVel.z>0&&dz<2.05&&dx<1.55&&ball.position.y<2.4){let p=pendingLocal.power,d=pendingLocal.dir;ballVel.set(d*5.1+(ball.position.x-playerX)*.65,4.35+p*1.9,-11.7-p*2.9);pendingLocal=null;lastHitter='player';bounceFar=0;playerSwingPhase=.001;flash();return true}return false}function tryOpponent(now){let dx=Math.abs(ball.position.x-opponentX),dz=Math.abs(ball.position.z-opponentZ);if(!(ballVel.z<0&&dz<2.05&&dx<1.7&&ball.position.y<2.5))return false;if(mode==='host'){if(!pendingRemote||now-pendingRemote.t>600)return false;let p=pendingRemote.power,d=pendingRemote.dir;ballVel.set(d*5.0,4.3+p*1.85,11.5+p*2.8);pendingRemote=null}else{let p=.9+Math.random()*.55,target=clamp(playerX+(Math.random()-.5)*3,-4.1,4.1);ballVel.set((target-ball.position.x)*.43,4.5+Math.random()*1.3,12.1+p*1.8)}lastHitter='opponent';bounceNear=0;opponentSwingPhase=.001;flash();return true}function flash(){let f=$('flash');f.style.opacity='.8';setTimeout(()=>f.style.opacity='0',60);try{if(Android&&Android.vibrate)Android.vibrate(16)}catch(e){}}
+function updateCamera(dt){if(mode==='controller')return;let towardPlayer=ball&&ball.position.z>4&&!serving;let proximity=towardPlayer?clamp((ball.position.z-4)/7,0,1):0;let targetFov=46-9*proximity;camera.fov=lerp(camera.fov,targetFov,1-Math.exp(-dt*5));camera.updateProjectionMatrix();let cx=lerp(0,playerX*.18,proximity),cy=lerp(6.7,4.7,proximity),cz=lerp(19.5,16.2,proximity);camera.position.x=lerp(camera.position.x,cx,1-Math.exp(-dt*4));camera.position.y=lerp(camera.position.y,cy,1-Math.exp(-dt*4));camera.position.z=lerp(camera.position.z,cz,1-Math.exp(-dt*4));let lookX=lerp(0,ball?ball.position.x*.35:0,proximity),lookY=lerp(1.0,ball?clamp(ball.position.y,.7,2):1.0,proximity),lookZ=lerp(-1.5,ball?ball.position.z-1.2:-1.5,proximity);camera.lookAt(lookX,lookY,lookZ)}
+function updateGame(dt,now){if(mode==='controller')return;if(!serving){targetPlayerZ=clamp(ball.position.z>0?ball.position.z+1.25:8.7,6.3,10.3)}else targetPlayerZ=9.55;let runSpeed=5.0;playerX+=clamp(targetPlayerX-playerX,-runSpeed*dt,runSpeed*dt);playerZ+=clamp(targetPlayerZ-playerZ,-runSpeed*dt,runSpeed*dt);if(player){player.position.x=playerX;player.position.z=playerZ}if(!serving){let aiX=clamp(ball.position.x,-4.15,4.15),aiZ=clamp(ball.position.z<0?ball.position.z-1.25:-8.7,-10.3,-6.3);opponentX+=clamp(aiX-opponentX,-4.7*dt,4.7*dt);opponentZ+=clamp(aiZ-opponentZ,-4.7*dt,4.7*dt)}if(opponent){opponent.position.x=opponentX;opponent.position.z=opponentZ}positionRackets();if(playerSwingPhase>0){playerSwingPhase+=dt*4.8;if(playerSwingPhase>=1)playerSwingPhase=0}if(opponentSwingPhase>0){opponentSwingPhase+=dt*4.8;if(opponentSwingPhase>=1)opponentSwingPhase=0}if(serving){if(ball)ball.position.set(playerX+.34,1.18+Math.sin(now*.002)*.012,playerZ-.15);return}ballVel.y-=9.81*dt;ballVel.multiplyScalar(Math.pow(.997,dt*60));ball.position.addScaledVector(ballVel,dt);tryLocal(now);tryOpponent(now);if(Math.abs(ball.position.z)<.12&&Math.abs(ball.position.x)<6.4&&ball.position.y<.96&&Math.abs(ballVel.z)>1){ballVel.z*=-.12;ballVel.x*=.55;ballVel.y=Math.min(ballVel.y,.4)}if(ball.position.y<=BALL_R&&ballVel.y<0){let inCourt=Math.abs(ball.position.x)<=HALF_W+.08&&Math.abs(ball.position.z)<=HALF_L+.08;if(!inCourt){pointTo(lastHitter==='player'?'opponent':'player');serving=true;return}ball.position.y=BALL_R;ballVel.y=-ballVel.y*.72;ballVel.x*=.90;ballVel.z*=.93;if(ball.position.z>0){bounceNear++;if(bounceNear>1){pointTo('opponent');serving=true;return}}else{bounceFar++;if(bounceFar>1){pointTo('player');serving=true;return}}}if(Math.abs(ball.position.x)>9||Math.abs(ball.position.z)>17||ball.position.y<-1){pointTo(lastHitter==='player'?'opponent':'player');serving=true;return}ballTrail.unshift(ball.position.clone());if(ballTrail.length>10)ballTrail.pop();if(ballTrail.length>1){trailLine.geometry.dispose();trailLine.geometry=new THREE.BufferGeometry().setFromPoints(ballTrail)}}
+function animate(){requestAnimationFrame(animate);let dt=Math.min(.033,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);updateCamera(dt);renderer.render(scene,camera)}function onResize(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)}init();
+</script></body></html>
