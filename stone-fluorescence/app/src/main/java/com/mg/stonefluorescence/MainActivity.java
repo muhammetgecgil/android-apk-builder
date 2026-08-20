@@ -4,8 +4,12 @@ import android.Manifest;
 import android.app.Activity;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.ColorMatrix;
+import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
 import android.hardware.camera2.CameraAccessException;
@@ -14,17 +18,20 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
+import android.hardware.camera2.params.MeteringRectangle;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.util.Size;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
+import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -34,21 +41,30 @@ import java.util.Locale;
 
 public class MainActivity extends Activity {
     private static final int REQ_CAMERA = 1001;
+
     private TextureView textureView;
     private GlowOverlay overlay;
     private TextView scoreText;
     private TextView detailText;
+    private TextView modeText;
+
     private CameraDevice cameraDevice;
     private CameraCaptureSession captureSession;
     private ImageReader imageReader;
     private HandlerThread cameraThread;
     private Handler cameraHandler;
+    private CaptureRequest.Builder previewBuilder;
+    private CameraCharacteristics cameraCharacteristics;
+    private Rect activeArray;
+
     private double baseBrightness = -1;
     private double baseSaturation = -1;
     private double baseRedGreen = 0;
     private double baseHot = -1;
     private int warmupFrames = 0;
     private long lastUiMs = 0;
+
+    private String currentMode = "NORMAL";
 
     static class Stat {
         double brightness;
@@ -73,6 +89,14 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(Color.BLACK);
 
         textureView = new TextureView(this);
+        textureView.setOnTouchListener((v, e) -> {
+            if (e.getAction() == MotionEvent.ACTION_UP) {
+                focusAt(e.getX(), e.getY());
+                overlay.showFocus(e.getX(), e.getY());
+                return true;
+            }
+            return true;
+        });
         root.addView(textureView, new FrameLayout.LayoutParams(-1, -1));
 
         overlay = new GlowOverlay(this);
@@ -80,49 +104,126 @@ public class MainActivity extends Activity {
 
         LinearLayout top = new LinearLayout(this);
         top.setOrientation(LinearLayout.VERTICAL);
-        top.setPadding(dp(16), dp(18), dp(16), dp(12));
-        top.setBackgroundColor(0x99000000);
+        top.setPadding(dp(14), dp(16), dp(14), dp(10));
+        top.setBackgroundColor(0x88000000);
 
-        TextView title = new TextView(this);
-        title.setText("STONE GLOW ANALYZER • LIVE");
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(21);
-        title.setTypeface(null, android.graphics.Typeface.BOLD);
+        TextView title = label("STONE GLOW ANALYZER • LIVE FILTER", 20, true, Color.WHITE);
         top.addView(title);
 
-        TextView sub = new TextView(this);
-        sub.setText("Taşı merkez çerçevede tut. Kamera canlı olarak renk/parlaklık anomalisi arar.");
-        sub.setTextColor(Color.rgb(210,220,230));
-        sub.setTextSize(13);
-        sub.setPadding(0, dp(5), 0, 0);
-        top.addView(sub);
+        modeText = label("MOD: NORMAL", 13, true, Color.rgb(180, 210, 255));
+        modeText.setPadding(0, dp(4), 0, dp(4));
+        top.addView(modeText);
+
+        TextView helper = label("Taşı merkez çerçevede tut • Netlik için ekrana dokun", 12, false, Color.rgb(215, 220, 228));
+        top.addView(helper);
+
+        HorizontalScrollView scroll = new HorizontalScrollView(this);
+        scroll.setHorizontalScrollBarEnabled(false);
+        LinearLayout filters = new LinearLayout(this);
+        filters.setOrientation(LinearLayout.HORIZONTAL);
+        String[] names = {"NORMAL", "UV+", "FOSFOR", "KONTRAST+", "YEŞİL↔KIRMIZI", "ISI"};
+        for (String n : names) {
+            Button b = new Button(this);
+            b.setText(n);
+            b.setTextSize(11);
+            b.setAllCaps(false);
+            b.setOnClickListener(v -> applyFilter(n));
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(dp(112), dp(46));
+            lp.setMargins(dp(3), dp(4), dp(3), 0);
+            filters.addView(b, lp);
+        }
+        scroll.addView(filters);
+        top.addView(scroll, new LinearLayout.LayoutParams(-1, dp(54)));
 
         FrameLayout.LayoutParams tp = new FrameLayout.LayoutParams(-1, -2, Gravity.TOP);
         root.addView(top, tp);
 
         LinearLayout bottom = new LinearLayout(this);
         bottom.setOrientation(LinearLayout.VERTICAL);
-        bottom.setPadding(dp(16), dp(12), dp(16), dp(18));
+        bottom.setPadding(dp(14), dp(10), dp(14), dp(16));
         bottom.setBackgroundColor(0xB0000000);
 
-        scoreText = new TextView(this);
-        scoreText.setText("Kamera hazırlanıyor…");
-        scoreText.setTextColor(Color.WHITE);
-        scoreText.setTextSize(22);
-        scoreText.setTypeface(null, android.graphics.Typeface.BOLD);
+        scoreText = label("Kamera hazırlanıyor…", 21, true, Color.WHITE);
         scoreText.setGravity(Gravity.CENTER_HORIZONTAL);
         bottom.addView(scoreText);
 
-        detailText = new TextView(this);
-        detailText.setText("Not: Bu uygulama gerçek UV dalga boyunu ölçmez; görünür kameradaki sıra dışı optik davranışı işaretler.");
-        detailText.setTextColor(Color.rgb(220,225,232));
-        detailText.setTextSize(13);
-        detailText.setPadding(0, dp(7), 0, 0);
+        detailText = label("Canlı analiz, görünür kameradaki sıra dışı parlaklık ve renk değişimlerini vurgular.", 12, false, Color.rgb(220,225,232));
+        detailText.setPadding(0, dp(6), 0, 0);
         bottom.addView(detailText);
 
         FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
         root.addView(bottom, bp);
         return root;
+    }
+
+    private TextView label(String text, int sp, boolean bold, int color) {
+        TextView t = new TextView(this);
+        t.setText(text);
+        t.setTextSize(sp);
+        t.setTextColor(color);
+        if (bold) t.setTypeface(null, android.graphics.Typeface.BOLD);
+        return t;
+    }
+
+    private void applyFilter(String mode) {
+        currentMode = mode;
+        modeText.setText("MOD: " + mode);
+        Paint p = new Paint();
+        ColorMatrix m = new ColorMatrix();
+
+        if ("NORMAL".equals(mode)) {
+            textureView.setLayerType(View.LAYER_TYPE_NONE, null);
+            overlay.setTint(0x00000000);
+            return;
+        }
+
+        if ("UV+".equals(mode)) {
+            m.set(new float[]{
+                    0.85f, 0.10f, 0.25f, 0, 0,
+                    0.05f, 1.15f, 0.55f, 0, 0,
+                    0.15f, 0.25f, 1.45f, 0, 10,
+                    0,0,0,1,0
+            });
+            overlay.setTint(0x2A5D2DFF);
+        } else if ("FOSFOR".equals(mode)) {
+            m.set(new float[]{
+                    0.45f, 0.15f, 0.05f, 0, -10,
+                    0.15f, 1.75f, 0.20f, 0, 0,
+                    0.05f, 0.25f, 0.35f, 0, -20,
+                    0,0,0,1,0
+            });
+            overlay.setTint(0x1800FF55);
+        } else if ("KONTRAST+".equals(mode)) {
+            float c = 1.55f;
+            float t = 128f * (1f - c);
+            m.set(new float[]{
+                    c,0,0,0,t,
+                    0,c,0,0,t,
+                    0,0,c,0,t,
+                    0,0,0,1,0
+            });
+            overlay.setTint(0x00000000);
+        } else if ("YEŞİL↔KIRMIZI".equals(mode)) {
+            m.set(new float[]{
+                    1.55f,-0.45f,0,0,0,
+                    -0.40f,1.55f,0,0,0,
+                    0.05f,0.05f,0.70f,0,0,
+                    0,0,0,1,0
+            });
+            overlay.setTint(0x10000000);
+        } else {
+            m.set(new float[]{
+                    1.75f,0.10f,-0.35f,0,0,
+                    -0.20f,1.25f,0.10f,0,0,
+                    -0.70f,0.35f,1.45f,0,0,
+                    0,0,0,1,0
+            });
+            overlay.setTint(0x180000FF);
+        }
+
+        p.setColorFilter(new ColorMatrixColorFilter(m));
+        textureView.setLayerType(View.LAYER_TYPE_HARDWARE, p);
+        textureView.invalidate();
     }
 
     private void startCameraFlow() {
@@ -149,11 +250,20 @@ public class MainActivity extends Activity {
         try {
             String selectedId = null;
             for (String id : manager.getCameraIdList()) {
-                Integer facing = manager.getCameraCharacteristics(id).get(CameraCharacteristics.LENS_FACING);
-                if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) { selectedId = id; break; }
+                CameraCharacteristics cc = manager.getCameraCharacteristics(id);
+                Integer facing = cc.get(CameraCharacteristics.LENS_FACING);
+                if (facing != null && facing == CameraCharacteristics.LENS_FACING_BACK) {
+                    selectedId = id;
+                    cameraCharacteristics = cc;
+                    break;
+                }
             }
-            if (selectedId == null && manager.getCameraIdList().length > 0) selectedId = manager.getCameraIdList()[0];
+            if (selectedId == null && manager.getCameraIdList().length > 0) {
+                selectedId = manager.getCameraIdList()[0];
+                cameraCharacteristics = manager.getCameraCharacteristics(selectedId);
+            }
             if (selectedId == null) throw new CameraAccessException(CameraAccessException.CAMERA_ERROR, "Kamera bulunamadı");
+            activeArray = cameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
 
             imageReader = ImageReader.newInstance(640, 480, android.graphics.ImageFormat.YUV_420_888, 3);
             imageReader.setOnImageAvailableListener(reader -> {
@@ -187,18 +297,18 @@ public class MainActivity extends Activity {
             Surface previewSurface = new Surface(texture);
             Surface analysisSurface = imageReader.getSurface();
 
-            final CaptureRequest.Builder builder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
-            builder.addTarget(previewSurface);
-            builder.addTarget(analysisSurface);
-            builder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
-            builder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
-            builder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO);
+            previewBuilder = cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);
+            previewBuilder.addTarget(previewSurface);
+            previewBuilder.addTarget(analysisSurface);
+            previewBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+            previewBuilder.set(CaptureRequest.CONTROL_AE_MODE, CaptureRequest.CONTROL_AE_MODE_ON);
+            previewBuilder.set(CaptureRequest.CONTROL_AWB_MODE, CaptureRequest.CONTROL_AWB_MODE_AUTO);
 
             cameraDevice.createCaptureSession(Arrays.asList(previewSurface, analysisSurface), new CameraCaptureSession.StateCallback() {
                 @Override public void onConfigured(CameraCaptureSession session) {
                     captureSession = session;
                     try {
-                        session.setRepeatingRequest(builder.build(), null, cameraHandler);
+                        session.setRepeatingRequest(previewBuilder.build(), null, cameraHandler);
                         runOnUiThread(() -> scoreText.setText("CANLI ANALİZ • KALİBRASYON"));
                     } catch (CameraAccessException e) {
                         runOnUiThread(() -> scoreText.setText("Kamera akışı başlatılamadı"));
@@ -211,6 +321,36 @@ public class MainActivity extends Activity {
         } catch (CameraAccessException e) {
             runOnUiThread(() -> scoreText.setText("Kamera yapılandırma hatası"));
         }
+    }
+
+    private void focusAt(float x, float y) {
+        if (captureSession == null || previewBuilder == null) return;
+        try {
+            if (activeArray != null) {
+                float nx = x / Math.max(1f, textureView.getWidth());
+                float ny = y / Math.max(1f, textureView.getHeight());
+                int sx = activeArray.left + (int)(nx * activeArray.width());
+                int sy = activeArray.top + (int)(ny * activeArray.height());
+                int half = Math.max(80, Math.min(activeArray.width(), activeArray.height()) / 18);
+                Rect r = new Rect(
+                        Math.max(activeArray.left, sx - half),
+                        Math.max(activeArray.top, sy - half),
+                        Math.min(activeArray.right, sx + half),
+                        Math.min(activeArray.bottom, sy + half));
+                MeteringRectangle mr = new MeteringRectangle(r, MeteringRectangle.METERING_WEIGHT_MAX);
+                Integer afRegions = cameraCharacteristics.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF);
+                Integer aeRegions = cameraCharacteristics.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE);
+                if (afRegions != null && afRegions > 0) previewBuilder.set(CaptureRequest.CONTROL_AF_REGIONS, new MeteringRectangle[]{mr});
+                if (aeRegions != null && aeRegions > 0) previewBuilder.set(CaptureRequest.CONTROL_AE_REGIONS, new MeteringRectangle[]{mr});
+            }
+            previewBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_AUTO);
+            previewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_START);
+            captureSession.capture(previewBuilder.build(), null, cameraHandler);
+            previewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER, CaptureRequest.CONTROL_AF_TRIGGER_IDLE);
+            previewBuilder.set(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);
+            captureSession.setRepeatingRequest(previewBuilder.build(), null, cameraHandler);
+            runOnUiThread(() -> detailText.setText("Dokunulan noktada otomatik netlik ve pozlama ayarlandı."));
+        } catch (Exception ignored) {}
     }
 
     private void analyzeImage(Image image) {
@@ -271,8 +411,8 @@ public class MainActivity extends Activity {
                 scoreText.setText(String.format(Locale.US, "%s  %.0f/100", finalLabel, finalScore));
                 scoreText.setTextColor(finalLevel >= 2 ? Color.rgb(255,105,95) : (finalLevel == 1 ? Color.rgb(255,215,110) : Color.rgb(120,230,180)));
                 detailText.setText(String.format(Locale.US,
-                        "%s • Parlaklık farkı %.0f%% • Lokal parlama %.0f%%\nTaşı merkez çerçevede sabit tut. Güçlü skor birkaç kare boyunca sürerse daha anlamlıdır.",
-                        finalColorShift, finalB * 100, clamp(finalHot) * 100));
+                        "%s • Parlaklık farkı %.0f%% • Lokal parlama %.0f%% • %s",
+                        finalColorShift, finalB * 100, clamp(finalHot) * 100, currentMode));
                 overlay.setLevel(finalLevel, (float) finalScore);
             });
         }
@@ -338,60 +478,78 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == REQ_CAMERA && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            startCameraFlow();
-        } else {
-            scoreText.setText("Kamera izni gerekli");
-            detailText.setText("Canlı analiz için kamera iznini etkinleştir.");
-        }
+        if (requestCode == REQ_CAMERA && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) startCameraFlow();
     }
 
-    @Override protected void onPause() { super.onPause(); closeCamera(); }
-    @Override protected void onResume() {
-        super.onResume();
-        if (textureView != null && checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED && cameraDevice == null) startCameraFlow();
-    }
-    @Override protected void onDestroy() { super.onDestroy(); closeCamera(); stopBackgroundThread(); }
-
-    private void closeCamera() {
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
         try { if (captureSession != null) captureSession.close(); } catch (Exception ignored) {}
-        captureSession = null;
         try { if (cameraDevice != null) cameraDevice.close(); } catch (Exception ignored) {}
-        cameraDevice = null;
         try { if (imageReader != null) imageReader.close(); } catch (Exception ignored) {}
-        imageReader = null;
-    }
-
-    private void stopBackgroundThread() {
         if (cameraThread != null) {
             cameraThread.quitSafely();
-            try { cameraThread.join(); } catch (InterruptedException ignored) {}
+            cameraThread = null;
+            cameraHandler = null;
         }
-        cameraThread = null;
-        cameraHandler = null;
     }
 
-    public static class GlowOverlay extends View {
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    static class GlowOverlay extends View {
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         private int level = 0;
         private float score = 0;
-        public GlowOverlay(Context context) { super(context); setWillNotDraw(false); }
-        public void setLevel(int level, float score) { this.level = level; this.score = score; invalidate(); }
-        @Override protected void onDraw(android.graphics.Canvas canvas) {
-            super.onDraw(canvas);
+        private int tint = 0x00000000;
+        private float focusX = -1, focusY = -1;
+        private long focusUntil = 0;
+
+        GlowOverlay(Context c) { super(c); setWillNotDraw(false); }
+
+        void setLevel(int l, float s) { level = l; score = s; invalidate(); }
+        void setTint(int c) { tint = c; invalidate(); }
+        void showFocus(float x, float y) { focusX = x; focusY = y; focusUntil = System.currentTimeMillis() + 1200; invalidate(); }
+
+        @Override
+        protected void onDraw(Canvas c) {
+            super.onDraw(c);
+            if ((tint >>> 24) != 0) c.drawColor(tint);
+
             float w = getWidth(), h = getHeight();
-            float rw = w * 0.68f, rh = h * 0.42f;
-            RectF r = new RectF((w-rw)/2f, (h-rh)/2f, (w+rw)/2f, (h+rh)/2f);
-            int c = level >= 2 ? Color.rgb(255,75,75) : (level == 1 ? Color.rgb(255,205,80) : Color.rgb(80,230,150));
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(level >= 2 ? 10f : 5f);
-            paint.setColor(c);
-            paint.setAlpha(level >= 2 ? 245 : 190);
-            canvas.drawRoundRect(r, 28f, 28f, paint);
+            float left = w * 0.18f, right = w * 0.82f, top = h * 0.24f, bottom = h * 0.73f;
+            int color = level >= 2 ? Color.rgb(255,95,90) : (level == 1 ? Color.rgb(255,215,95) : Color.rgb(80,235,145));
+            p.setStyle(Paint.Style.STROKE);
+            p.setStrokeWidth(6f);
+            p.setColor(color);
+            float len = Math.min(w,h) * 0.08f;
+            c.drawLine(left, top, left+len, top, p); c.drawLine(left, top, left, top+len, p);
+            c.drawLine(right, top, right-len, top, p); c.drawLine(right, top, right, top+len, p);
+            c.drawLine(left, bottom, left+len, bottom, p); c.drawLine(left, bottom, left, bottom-len, p);
+            c.drawLine(right, bottom, right-len, bottom, p); c.drawLine(right, bottom, right, bottom-len, p);
+
             if (level >= 2) {
-                paint.setStrokeWidth(24f);
-                paint.setAlpha((int)Math.min(120, 35 + score));
-                canvas.drawRoundRect(r, 28f, 28f, paint);
+                p.setStyle(Paint.Style.FILL);
+                p.setColor(level == 3 ? 0x28FF4040 : 0x20FFD060);
+                c.drawRoundRect(new RectF(left, top, right, bottom), 24, 24, p);
+            }
+
+            p.setStyle(Paint.Style.FILL);
+            p.setColor(0xCC000000);
+            c.drawRoundRect(new RectF(w*0.34f, h*0.75f, w*0.66f, h*0.83f), 20, 20, p);
+            p.setColor(color);
+            p.setTextAlign(Paint.Align.CENTER);
+            p.setTextSize(Math.max(34f, w*0.065f));
+            p.setFakeBoldText(true);
+            c.drawText(String.format(Locale.US, "%.0f/100", score), w/2f, h*0.805f, p);
+
+            if (focusX >= 0 && System.currentTimeMillis() < focusUntil) {
+                p.setStyle(Paint.Style.STROKE);
+                p.setStrokeWidth(4f);
+                p.setColor(Color.WHITE);
+                c.drawCircle(focusX, focusY, 42f, p);
+                c.drawLine(focusX-58, focusY, focusX-20, focusY, p);
+                c.drawLine(focusX+20, focusY, focusX+58, focusY, p);
+                c.drawLine(focusX, focusY-58, focusX, focusY-20, p);
+                c.drawLine(focusX, focusY+20, focusX, focusY+58, p);
+                postInvalidateDelayed(60);
             }
         }
     }
