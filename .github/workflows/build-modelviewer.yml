@@ -64,3 +64,4 @@ jobs:
           git add build-status/MODELVIEWER_V210_LAST_SUCCESS.txt
           git commit -m 'Record successful v2.0.10 build [skip ci]' || exit 0
           git push
+# force rebuild 2026-08-20
