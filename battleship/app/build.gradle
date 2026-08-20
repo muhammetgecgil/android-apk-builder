@@ -6,12 +6,31 @@ android {
     namespace 'com.mg.battleship'
     compileSdk 35
 
+    signingConfigs {
+        persistentDev {
+            storeFile file('../signing/amiral-dev.jks')
+            storePassword 'AmiralDev2026!'
+            keyAlias 'amiral'
+            keyPassword 'AmiralDev2026!'
+        }
+    }
+
     defaultConfig {
         applicationId 'com.mg.battleship'
         minSdk 26
         targetSdk 35
-        versionCode 13
-        versionName '13.0'
+        versionCode 14
+        versionName '14.0'
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.persistentDev
+        }
+        release {
+            signingConfig signingConfigs.persistentDev
+            minifyEnabled false
+        }
     }
 
     sourceSets {
