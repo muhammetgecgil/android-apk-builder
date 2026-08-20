@@ -1,4 +1,4 @@
-name: Build Battleship v4 Side Ships APK
+name: Build Battleship v5 Advanced Ships Audio APK
 
 on:
   push:
@@ -36,6 +36,22 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+      - name: Apply v5 game enhancements
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('battleship/app/src/v4/java/com/mg/battleship/MainActivity.java')
+          s=p.read_text()
+          s=s.replace('margin=dp(18)', 'margin=dp(4)')
+          s=s.replace('if(mine){for(int id=0;id<lengths.length;id++)drawShip(c,left,top,cell,id);}', 'if(mine){for(int id=0;id<lengths.length;id++)AdvancedShipRenderer.draw(c,p,left,top,cell,own,id);}')
+          s=s.replace('"Sıradaki gemi: "+lengths[placed]+" kare — "+(horizontal?"yatay":"dikey")', 'AdvancedShipRenderer.name(placed)+" — "+lengths[placed]+" kare — "+(horizontal?"yatay":"dikey")')
+          s=s.replace('int receiveShot(int r,int c){if(r<0||r>9||c<0||c>9)return 1;hit[r][c]=true;invalidate();return own[r][c]>=0?2:1;}', 'int receiveShot(int r,int c){if(r<0||r>9||c<0||c>9)return 1;hit[r][c]=true;invalidate();int res=own[r][c]>=0?2:1;if(res==2)BattleEffects.hit(MainActivity.this);else BattleEffects.miss(MainActivity.this);return res;}')
+          s=s.replace('int receiveAiShot(int r,int c){aiHit[r][c]=true;return aiFleet[r][c]>=0?2:1;}', 'int receiveAiShot(int r,int c){aiHit[r][c]=true;int res=aiFleet[r][c]>=0?2:1;if(res==2)BattleEffects.hit(MainActivity.this);else BattleEffects.miss(MainActivity.this);return res;}')
+          s=s.replace('gameView.enemyMarks[r][c]=result;gameView.invalidate();status.setText', 'gameView.enemyMarks[r][c]=result;if(result==2)BattleEffects.hit(MainActivity.this);else BattleEffects.miss(MainActivity.this);gameView.invalidate();status.setText')
+          p.write_text(s)
+          assert 'AdvancedShipRenderer.draw' in s
+          assert 'BattleEffects.hit' in s
+          PY
       - name: Build APK
         working-directory: battleship
         run: gradle --no-daemon :app:assembleDebug --stacktrace
@@ -44,23 +60,23 @@ jobs:
           test -s battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.battleship'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='4'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='5'"
       - name: Rename APK
-        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v4.0_Yan_Profil_Gemiler.apk
+        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v5.0_Gelismis_Gemiler_Ses.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Amiral-Batti-v4.0-Yan-Profil-Gemiler-APK
-          path: Amiral_Batti_v4.0_Yan_Profil_Gemiler.apk
+          name: Amiral-Batti-v5.0-Gelismis-Gemiler-Ses-APK
+          path: Amiral_Batti_v5.0_Gelismis_Gemiler_Ses.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish stable APK release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="amiral-batti-v4-side-ships"
+          TAG="amiral-batti-v5-advanced-audio"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Amiral_Batti_v4.0_Yan_Profil_Gemiler.apk --clobber
+            gh release upload "$TAG" Amiral_Batti_v5.0_Gelismis_Gemiler_Ses.apk --clobber
           else
-            gh release create "$TAG" Amiral_Batti_v4.0_Yan_Profil_Gemiler.apk --title "Amiral Battı v4.0 - Yan Profil Gemiler" --notes "Uçak gemisi, savaş gemisi, kruvazör, destroyer ve denizaltı için ayrı yan profil çizimleri; tek oyuncu ve Bluetooth modu."
+            gh release create "$TAG" Amiral_Batti_v5.0_Gelismis_Gemiler_Ses.apk --title "Amiral Battı v5.0 - Gelişmiş Gemiler ve Ses" --notes "Daha büyük oyun alanı, sınıfa özgü detaylı yan profil gemiler, patlama ve su sıçrama sesleri, titreşim, tek oyuncu ve Bluetooth modu."
           fi
