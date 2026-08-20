@@ -14,7 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,6 +28,23 @@ jobs:
           git add build-status/mg-tennis-tv-run.txt
           git commit -m "Record MG Tennis TV run $GITHUB_RUN_ID" || true
           git push
+
+      - name: Prepare realistic 3D runtime assets
+        run: |
+          set -euo pipefail
+          ASSETS="mg-tennis-tv/app/src/main/assets"
+          mkdir -p "$ASSETS"
+          curl --retry 4 --retry-delay 2 -fL "https://unpkg.com/three@0.128.0/build/three.min.js" -o "$ASSETS/three.min.js"
+          curl --retry 4 --retry-delay 2 -fL "https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js" -o "$ASSETS/GLTFLoader.js"
+          curl --retry 4 --retry-delay 2 -fL "https://raw.githubusercontent.com/kunalkushwaha/vsim/main/packages/assets/library/human.glb" -o "$ASSETS/human.glb"
+          curl --retry 4 --retry-delay 2 -fL "https://raw.githubusercontent.com/kunalkushwaha/vsim/main/packages/assets/library/man.glb" -o "$ASSETS/man.glb"
+          curl --retry 4 --retry-delay 2 -fL "https://raw.githubusercontent.com/kunalkushwaha/vsim/main/packages/assets/library/CREDITS.md" -o "$ASSETS/THIRD_PARTY_ASSET_CREDITS.md"
+          test $(stat -c%s "$ASSETS/human.glb") -gt 1000000
+          test $(stat -c%s "$ASSETS/man.glb") -gt 1000000
+          test $(stat -c%s "$ASSETS/three.min.js") -gt 100000
+          echo "Bundled 3D assets:"
+          du -h "$ASSETS"/*
+          sha256sum "$ASSETS/human.glb" "$ASSETS/man.glb"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -47,15 +64,19 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Verify APK
         run: |
-          test -s mg-tennis-tv/app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs mg-tennis-tv/app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging mg-tennis-tv/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.tennistv'"
+          APK="mg-tennis-tv/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.tennistv'"
+          unzip -l "$APK" | grep 'assets/human.glb'
+          unzip -l "$APK" | grep 'assets/man.glb'
+          unzip -l "$APK" | grep 'assets/index.html'
       - name: Rename APK
-        run: cp mg-tennis-tv/app/build/outputs/apk/debug/app-debug.apk MG_Tennis_TV_v0.1.apk
+        run: cp mg-tennis-tv/app/build/outputs/apk/debug/app-debug.apk MG_Tennis_TV_Realistic_v0.3.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v0.1-APK
-          path: MG_Tennis_TV_v0.1.apk
+          name: MG-Tennis-TV-Realistic-v0.3-APK
+          path: MG_Tennis_TV_Realistic_v0.3.apk
           if-no-files-found: error
           retention-days: 30
