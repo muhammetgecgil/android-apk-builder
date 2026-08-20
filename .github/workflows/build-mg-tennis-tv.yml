@@ -34,20 +34,19 @@ jobs:
           base64 -d mg-tennis-tv/signing/mg-tennis-update.jks.b64 > mg-tennis-tv/signing/mg-tennis-update.jks
           test -s mg-tennis-tv/signing/mg-tennis-update.jks
 
-      - name: Prepare offline 3D and human assets
+      - name: Prepare offline 3D runtime and realistic opponent
         run: |
           set -euo pipefail
           A=mg-tennis-tv/app/src/main/assets
           curl --retry 4 -fL https://unpkg.com/three@0.128.0/build/three.min.js -o $A/three.min.js
           curl --retry 4 -fL https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js -o $A/GLTFLoader.js
-          curl --retry 4 -fL https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Soldier.glb -o $A/opponent.glb
-          curl --retry 4 -fL https://raw.githubusercontent.com/UMRAM-Bilkent/supine-human-model/main/assets/human_posed.glb -o $A/spectator.glb
+          curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/realistic-male.glb -o $A/opponent.glb
           curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/parametric-base.glb -o $A/tennis-player.glb
-          test $(stat -c%s $A/opponent.glb) -gt 1500000
-          test $(stat -c%s $A/spectator.glb) -gt 100000
+          rm -f $A/spectator.glb
+          test $(stat -c%s $A/opponent.glb) -gt 1000000
           test -s $A/v12-human-patch.js
 
-      - name: Inject v1.3 display and racket UI
+      - name: Inject v1.4 empty stands and realistic opponent
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -90,16 +89,16 @@ jobs:
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='13'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='14'"
           unzip -l $APK | grep -q assets/opponent.glb
-          unzip -l $APK | grep -q assets/spectator.glb
           unzip -l $APK | grep -q assets/v12-human-patch.js
           unzip -l $APK | grep -q classes.dex
-          cp $APK MG_Tennis_TV_v1.3_AI_Racket_TV.apk
+          ! unzip -l $APK | grep -q assets/spectator.glb
+          cp $APK MG_Tennis_TV_v1.4_RealOpponent_EmptyStands.apk
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v1.3-AI-Racket-TV-APK
-          path: MG_Tennis_TV_v1.3_AI_Racket_TV.apk
+          name: MG-Tennis-TV-v1.4-RealOpponent-APK
+          path: MG_Tennis_TV_v1.4_RealOpponent_EmptyStands.apk
           retention-days: 30
