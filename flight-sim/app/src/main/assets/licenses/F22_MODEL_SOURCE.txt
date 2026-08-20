@@ -1,0 +1,8 @@
+F-22 3D MODEL SOURCE
+
+Source repository: https://github.com/SamJD261/F-22-Raptor
+Pinned source revision: 1f02edee712b1263497428d28b3a5893dd12c264
+Source model: Models/F-22.ac
+License: GNU General Public License v3.0 (see F22_MODEL_LICENSE.md packaged with this app)
+
+The Android build converts the original AC3D geometry into a compact runtime triangle mesh. The source model remains available at the repository and pinned revision above.
