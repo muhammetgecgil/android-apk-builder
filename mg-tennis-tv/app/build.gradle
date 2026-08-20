@@ -17,9 +17,9 @@ android {
     signingConfigs {
         release {
             storeFile file('../signing/mg-tennis-update.jks')
-            storePassword 'MgTennisUpdate2026!'
+            storePassword 'MGtennis2026!'
             keyAlias 'mgtennis'
-            keyPassword 'MgTennisUpdate2026!'
+            keyPassword 'MGtennis2026!'
         }
     }
 
