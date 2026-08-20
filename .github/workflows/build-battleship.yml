@@ -1,4 +1,4 @@
-name: Build Battleship v6 Rotate Realistic Audio APK
+name: Build Battleship v7 Next Generation APK
 
 on:
   push:
@@ -36,28 +36,6 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Apply v6 game enhancements
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          p=Path('battleship/app/src/v4/java/com/mg/battleship/MainActivity.java')
-          s=p.read_text()
-          old=s
-          s=s.replace('margin=dp(18)', 'margin=dp(4)')
-          s=s.replace('if(mine)for(int id=0;id<lengths.length;id++)drawShipSide(c,left,top,cell,id);', 'if(mine)for(int id=0;id<lengths.length;id++)AdvancedShipRenderer.draw(c,p,left,top,cell,own,id);')
-          s=s.replace('rotateButton=button("Döndür"); randomButton=button("Rastgele"); readyButton=button("Hazır");', 'rotateButton=button("Yön: Yatay"); randomButton=button("Rastgele"); readyButton=button("Hazır");')
-          s=s.replace('rotateButton.setOnClickListener(v->{ if(!localReady){ gameView.horizontal=!gameView.horizontal; gameView.invalidate(); }});', 'rotateButton.setOnClickListener(v->{ if(!localReady && !gameView.playing){ gameView.horizontal=!gameView.horizontal; rotateButton.setText(gameView.horizontal?"Yön: Yatay":"Yön: Dikey"); status.setText("Sıradaki gemi "+(gameView.horizontal?"yatay":"dikey")+" yerleştirilecek."); gameView.invalidate(); }});')
-          s=s.replace('randomButton.setOnClickListener(v->{ if(!localReady){ gameView.randomizeFleet(); status.setText("Filo hazır. İstersen yerleşimi değiştir."); }});', 'randomButton.setOnClickListener(v->{ if(!localReady){ gameView.randomizeFleet(); rotateButton.setText("Yön: Yatay"); status.setText("Filo hazır. İstersen yerleşimi değiştir."); }});')
-          s=s.replace('readyButton.setEnabled(true); rotateButton.setEnabled(true); randomButton.setEnabled(true);', 'readyButton.setEnabled(true); rotateButton.setEnabled(true); randomButton.setEnabled(true); rotateButton.setText("Yön: Yatay");')
-          s=s.replace('int receiveShot(int r,int c){hit[r][c]=true;return own[r][c]>=0?2:1;}', 'int receiveShot(int r,int c){hit[r][c]=true;int res=own[r][c]>=0?2:1;if(res==2)BattleEffects.hit(MainActivity.this);else BattleEffects.miss(MainActivity.this);return res;}')
-          s=s.replace('int receiveAiShot(int r,int c){aiHit[r][c]=true;return aiFleet[r][c]>=0?2:1;}', 'int receiveAiShot(int r,int c){aiHit[r][c]=true;int res=aiFleet[r][c]>=0?2:1;if(res==2)BattleEffects.hit(MainActivity.this);else BattleEffects.miss(MainActivity.this);return res;}')
-          s=s.replace('gameView.enemyMarks[r][c]=res; gameView.invalidate();', 'gameView.enemyMarks[r][c]=res; if(res==2)BattleEffects.hit(MainActivity.this);else BattleEffects.miss(MainActivity.this); gameView.invalidate();')
-          p.write_text(s)
-          assert 'AdvancedShipRenderer.draw' in s, 'renderer patch missing'
-          assert 'Yön: Yatay' in s and 'Yön: Dikey' in s, 'rotate UI patch missing'
-          assert s.count('BattleEffects.hit') >= 3, 'audio patches missing'
-          assert s != old, 'no source changes applied'
-          PY
       - name: Build APK
         working-directory: battleship
         run: gradle --no-daemon :app:assembleDebug --stacktrace
@@ -66,23 +44,23 @@ jobs:
           test -s battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.battleship'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='6'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='7'"
       - name: Rename APK
-        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v6.0_Aktif_Dondur_Gercekci_Ses.apk
+        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v7.0_Next_Generation.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Amiral-Batti-v6.0-Aktif-Dondur-Gercekci-Ses-APK
-          path: Amiral_Batti_v6.0_Aktif_Dondur_Gercekci_Ses.apk
+          name: Amiral-Batti-v7.0-Next-Generation-APK
+          path: Amiral_Batti_v7.0_Next_Generation.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish stable APK release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="amiral-batti-v6-rotate-realistic-audio"
+          TAG="amiral-batti-v7-next-generation"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Amiral_Batti_v6.0_Aktif_Dondur_Gercekci_Ses.apk --clobber
+            gh release upload "$TAG" Amiral_Batti_v7.0_Next_Generation.apk --clobber
           else
-            gh release create "$TAG" Amiral_Batti_v6.0_Aktif_Dondur_Gercekci_Ses.apk --title "Amiral Battı v6.0 - Aktif Döndür ve Gerçekçi Ses" --notes "Döndür butonu aktif yön göstergesi; ıskalamada yalnızca su sıçrama, vuruşta tok patlama ve metal gövde darbesi; silah ateş sesi kaldırıldı."
+            gh release create "$TAG" Amiral_Batti_v7.0_Next_Generation.apk --title "Amiral Battı v7.0 - Next Generation" --notes "Yeni ana menü, kariyer bölgeleri, rütbe ve XP, muharebe kaydı, filo ekranı, 5 AI seviyesi, gelişmiş hedefleme, Bluetooth savaşı, büyük oyun alanı, yan profil gemiler ve sinematik ses/geri bildirim."
           fi
