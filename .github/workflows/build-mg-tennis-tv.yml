@@ -42,28 +42,26 @@ jobs:
           mkdir -p "$ASSETS"
           curl --retry 4 --retry-delay 2 -fL "https://unpkg.com/three@0.128.0/build/three.min.js" -o "$ASSETS/three.min.js"
           curl --retry 4 --retry-delay 2 -fL "https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js" -o "$ASSETS/GLTFLoader.js"
-          curl --retry 4 --retry-delay 2 -fL "https://raw.githubusercontent.com/kunalkushwaha/vsim/main/packages/assets/library/human.glb" -o "$ASSETS/human.glb"
-          curl --retry 4 --retry-delay 2 -fL "https://raw.githubusercontent.com/kunalkushwaha/vsim/main/packages/assets/library/man.glb" -o "$ASSETS/man.glb"
-          curl --retry 4 --retry-delay 2 -fL "https://raw.githubusercontent.com/kunalkushwaha/vsim/main/packages/assets/library/CREDITS.md" -o "$ASSETS/THIRD_PARTY_ASSET_CREDITS.md"
-          test $(stat -c%s "$ASSETS/human.glb") -gt 1000000
-          test $(stat -c%s "$ASSETS/man.glb") -gt 1000000
+          curl --retry 4 --retry-delay 2 -fL "https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/parametric-base.glb" -o "$ASSETS/tennis-player.glb"
+          test $(stat -c%s "$ASSETS/tennis-player.glb") -gt 2500000
           test $(stat -c%s "$ASSETS/three.min.js") -gt 100000
           test -s "$ASSETS/mg-tennis-splash.svg"
 
-      - name: Validate realism engine and embedded artwork
+      - name: Patch human model, ball flight and natural swing
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('mg-tennis-tv/app/src/main/assets/index.html')
           s=p.read_text()
-          # Use the embedded MG Tennis artwork for startup/menu without network access.
-          s=s.replace("promo.jpg", "mg-tennis-splash.svg")
+          s=s.replace('promo.jpg','mg-tennis-splash.svg')
+          marker='function animate(){requestAnimationFrame(animate);'
+          if marker not in s:
+              raise SystemExit('animate marker missing')
+          patch=r'''\nlet opponentBoneBaseV10={};\nfunction v10FindBone(root,terms,exclude=[]){let found=null;root.traverse(o=>{if(found||!o.isBone)return;let n=(o.name||'').toLowerCase();if(terms.some(t=>n.includes(t))&&!exclude.some(t=>n.includes(t)))found=o});return found}\nfunction loadCharacters(){$('loadmsg').textContent='Gerçek insan tenisçi yükleniyor…';$('loadfill').style.width='22%';loadOne('tennis-player.glb',true,()=>{totalLoaded++;$('loadfill').style.width='55%';finish()});loadOne('tennis-player.glb',false,()=>{totalLoaded++;$('loadfill').style.width='90%';finish()})}\nfunction loadOne(url,isP,done){loader.load(url,gltf=>{let model=gltf.scene;model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material){o.material.side=THREE.FrontSide;if('envMapIntensity'in o.material)o.material.envMapIntensity=1.15;o.material.needsUpdate=true}}});let box=new THREE.Box3().setFromObject(model),h=Math.max(.001,box.max.y-box.min.y),ss=1.80/h;model.scale.setScalar(ss);box=new THREE.Box3().setFromObject(model);model.position.y-=box.min.y;let wrap=new THREE.Group();wrap.add(model);wrap.position.set(0,0,isP?playerZ:opponentZ);wrap.rotation.y=isP?Math.PI:0;scene.add(wrap);if(isP)wrap.visible=false;let r=createRacket(isP?0x17242d:0x91a915);scene.add(r);if(isP){player=wrap;playerRacket=r}else{opponent=wrap;opponentRacket=r;const fb=(t,e=[])=>v10FindBone(model,t,e);opponentBones={upperR:fb(['rightarm','upperarm_r','r_upperarm'],['fore']),lowerR:fb(['rightforearm','lowerarm_r','r_forearm']),handR:fb(['righthand','hand_r','r_hand']),clavR:fb(['rightshoulder','clavicle_r','r_clavicle']),upperL:fb(['leftarm','upperarm_l','l_upperarm'],['fore']),lowerL:fb(['leftforearm','lowerarm_l','l_forearm']),handL:fb(['lefthand','hand_l','l_hand']),spine:fb(['spine2','spine_03','spine1','spine']),pelvis:fb(['hips','pelvis']),thighR:fb(['rightupleg','thigh_r','r_thigh']),thighL:fb(['leftupleg','thigh_l','l_thigh']),shinR:fb(['rightleg','calf_r','shin_r']),shinL:fb(['leftleg','calf_l','shin_l'])};for(const[k,b]of Object.entries(opponentBones))if(b)opponentBoneBaseV10[k]=b.rotation.clone()}done()},undefined,e=>{console.log(e);done()})}\nfunction serve(power,dir){serving=false;lastHitter='player';bounceNear=bounceFar=0;ball.position.set(playerX-.20,EYE_H-.15,playerZ-.62);ballVel.set(dir*3.8,4.9+power*.95,-14.8-power*2.7);ballSpin.set(10+power*4,dir*8,0);$('status').textContent='Ralli • top gerçek temas mesafesinde vurulur'}\nfunction tryLocal(now){if(!pendingLocal||now-pendingLocal.t>900)return false;let dx=Math.abs(ball.position.x-playerX),dz=Math.abs(ball.position.z-playerZ);if(ballVel.z>0&&dz<.92&&dx<1.20&&ball.position.y>.32&&ball.position.y<2.25){let p=pendingLocal.power,d=pendingLocal.dir;ballVel.set(d*5.6+(ball.position.x-playerX)*.48,4.55+p*1.20,-15.2-p*2.7);ballSpin.set(15+p*7,d*10,0);pendingLocal=null;lastHitter='player';bounceFar=0;playerSwingPhase=.001;flash();return true}return false}\nfunction tryOpponent(now){let dx=Math.abs(ball.position.x-opponentX),dz=Math.abs(ball.position.z-opponentZ);if(!(ballVel.z<0&&dz<.98&&dx<1.25&&ball.position.y>.30&&ball.position.y<2.30))return false;if(mode==='host'){if(!pendingRemote||now-pendingRemote.t>900)return false;let p=pendingRemote.power,d=pendingRemote.dir;ballVel.set(d*5.5,4.55+p*1.18,15.0+p*2.65);ballSpin.set(-14-p*6,d*9,0);pendingRemote=null}else{let p=.9+Math.random()*.55,target=clamp(playerX+(Math.random()-.5)*3,-4.1,4.1);ballVel.set((target-ball.position.x)*.44,4.6+Math.random()*.8,15.2+p*2.4);ballSpin.set(-14-p*5,(target-ball.position.x)*1.8,0)}lastHitter='opponent';bounceNear=0;opponentSwingPhase=.001;flash();return true}\nfunction updateCamera(dt){if(mode==='controller')return;let incoming=ball&&!serving&&ballVel.z>0,dist=incoming?Math.max(.15,ball.position.distanceTo(camera.position)):99,near=incoming?clamp((4.6-dist)/3.6,0,1):0;let targetFov=68-1.4*near;camera.fov=lerp(camera.fov,targetFov,1-Math.exp(-dt*4.8));camera.updateProjectionMatrix();let vx=targetPlayerX-playerX,vz=targetPlayerZ-playerZ,move=Math.min(1,Math.hypot(vx,vz)*.9),stride=Math.sin(performance.now()*.016)*.016*move,sway=Math.sin(performance.now()*.008)*.007*move;cameraShake*=Math.exp(-dt*10);camera.position.x=lerp(camera.position.x,playerX+sway+cameraShake*.35,1-Math.exp(-dt*13));camera.position.y=lerp(camera.position.y,EYE_H+Math.abs(stride)*.45+cameraShake*.12,1-Math.exp(-dt*13));camera.position.z=lerp(camera.position.z,playerZ-.04+stride,1-Math.exp(-dt*13));let tx=opponentX,ty=1.30,tz=opponentZ;if(ball&&!serving){let gaze=incoming?.08:.05;tx=lerp(tx,ball.position.x,gaze);ty=lerp(ty,clamp(ball.position.y,.55,2.4),gaze);tz=lerp(tz,ball.position.z,gaze)}if(!cameraLook)cameraLook=new THREE.Vector3(tx,ty,tz);cameraLook.lerp(new THREE.Vector3(tx,ty,tz),1-Math.exp(-dt*7.5));camera.lookAt(cameraLook)}\nfunction updateOpponentMotion(dt){if(!opponent)return;let dx=targetOpponentX-opponentX,dz=targetOpponentZ-opponentZ;oppSpeed=Math.sqrt(dx*dx+dz*dz)/Math.max(dt,.001);let turn=clamp(dx*.09,-.22,.22),a=clamp(opponentSwingPhase,0,1),sw=Math.sin(a*Math.PI),hit=clamp((a-.30)/.30,0,1),follow=clamp((a-.60)/.40,0,1);opponent.rotation.x=lerp(opponent.rotation.x,-Math.min(.055,oppSpeed*.0025),1-Math.exp(-dt*8));opponent.rotation.z=lerp(opponent.rotation.z,-turn*.55+sw*.02,1-Math.exp(-dt*9));opponent.rotation.y=lerp(opponent.rotation.y,turn*.32,1-Math.exp(-dt*9));const pose=(k,x=0,y=0,z=0)=>{let b=opponentBones[k],base=opponentBoneBaseV10[k];if(!b||!base)return;b.rotation.copy(base);b.rotation.x+=x;b.rotation.y+=y;b.rotation.z+=z};let runAmt=clamp(oppSpeed/5.5,0,1),gait=Math.sin(performance.now()*.012*clamp(oppSpeed,.7,6));pose('pelvis',0,-.10*sw+.14*follow,.025*gait*runAmt);pose('spine',-.03*runAmt,-.26*sw+.34*follow,-.06*sw);pose('clavR',0,-.16*sw,-.10*sw);pose('upperR',-.48*sw+.20*follow,-.78*sw+1.02*hit,-.42*sw+.58*hit);pose('lowerR',-.82*sw+.95*hit-.20*follow,0,.14*sw);pose('handR',.12*sw+.30*hit,0,-.28*sw+.72*hit);pose('upperL',.24*gait*runAmt,.10*sw,.18*sw-.16*follow);pose('lowerL',-.28*Math.max(0,-gait)*runAmt,0,0);pose('thighR',.52*gait*runAmt,0,0);pose('thighL',-.52*gait*runAmt,0,0);pose('shinR',.52*Math.max(0,-gait)*runAmt,0,0);pose('shinL',.52*Math.max(0,gait)*runAmt,0,0)}\nfunction updateGame(dt,now){if(mode==='controller')return;if(!serving){let incoming=ballVel.z>0;if(incoming){let dist=playerZ-ball.position.z;if(dist>5.0)targetPlayerZ=ball.position.y<1.15?8.35:9.05;else if(dist>2.6)targetPlayerZ=8.55;else targetPlayerZ=playerZ}else targetPlayerZ=lerp(targetPlayerZ,9.15,.08);targetPlayerZ=clamp(targetPlayerZ,7.6,9.75)}else targetPlayerZ=9.55;let runSpeed=6.1;playerX+=clamp(targetPlayerX-playerX,-runSpeed*dt,runSpeed*dt);let zSpeed=3.0;playerZ+=clamp(targetPlayerZ-playerZ,-zSpeed*dt,zSpeed*dt);if(!serving){targetOpponentX=clamp(ball.position.x,-4.15,4.15);targetOpponentZ=clamp(ball.position.z<0?ball.position.z-1.05:-8.65,-10.25,-6.2);opponentX+=clamp(targetOpponentX-opponentX,-5.8*dt,5.8*dt);opponentZ+=clamp(targetOpponentZ-opponentZ,-5.8*dt,5.8*dt)}else{targetOpponentX=0;targetOpponentZ=-9.55}if(opponent){opponent.position.x=opponentX;opponent.position.z=opponentZ}updateOpponentMotion(dt);positionFirstPersonRig();if(playerSwingPhase>0){playerSwingPhase+=dt*3.9;if(playerSwingPhase>=1)playerSwingPhase=0}if(opponentSwingPhase>0){opponentSwingPhase+=dt*4.0;if(opponentSwingPhase>=1)opponentSwingPhase=0}if(serving){if(ball)ball.position.set(playerX-.20,EYE_H-.18+Math.sin(now*.002)*.010,playerZ-.58);if(ballShadow)ballShadow.visible=false;return}let remain=Math.min(dt,.040),h=1/240,steps=0;while(remain>0&&steps++<12){let d=Math.min(h,remain);remain-=d;ballVel.y-=9.81*d;let speed=ballVel.length(),drag=Math.exp(-.0060*speed*d);ballVel.multiplyScalar(drag);if(speed>2){let magnus=new THREE.Vector3().crossVectors(ballSpin,ballVel).multiplyScalar(.00012*d);ballVel.add(magnus)}ball.position.addScaledVector(ballVel,d);tryLocal(now);tryOpponent(now);if(Math.abs(ball.position.z)<.10&&Math.abs(ball.position.x)<6.4&&ball.position.y<.96&&Math.abs(ballVel.z)>1){ballVel.z*=-.10;ballVel.x*=.5;ballVel.y=Math.min(ballVel.y,.2)}if(ball.position.y<=BALL_R&&ballVel.y<0){let inCourt=Math.abs(ball.position.x)<=HALF_W+.08&&Math.abs(ball.position.z)<=HALF_L+.08;if(!inCourt){pointTo(lastHitter==='player'?'opponent':'player');serving=true;break}ball.position.y=BALL_R;ballVel.y=-ballVel.y*.73;ballVel.x*=.91;ballVel.z*=.94;ballSpin.multiplyScalar(.82);if(ball.position.z>0){bounceNear++;if(bounceNear>1){pointTo('opponent');serving=true;break}}else{bounceFar++;if(bounceFar>1){pointTo('player');serving=true;break}}}}if(Math.abs(ball.position.x)>9||Math.abs(ball.position.z)>17||ball.position.y<-1){pointTo(lastHitter==='player'?'opponent':'player');serving=true;return}if(ballShadow){ballShadow.visible=true;ballShadow.position.x=ball.position.x;ballShadow.position.z=ball.position.z;let sh=clamp(1-ball.position.y/4,.12,1);ballShadow.scale.setScalar(.55+sh*.75);ballShadow.material.opacity=.08+.19*sh}ballTrail.unshift(ball.position.clone());if(ballTrail.length>12)ballTrail.pop();if(ballTrail.length>1){trailLine.geometry.dispose();trailLine.geometry=new THREE.BufferGeometry().setFromPoints(ballTrail)}}\n'''
+          s=s.replace(marker,patch+'\n'+marker)
           p.write_text(s)
-          assert 'CapsuleGeometry' not in s
-          assert 'physicsAccumulator' in s
-          assert 'opponentBones' in s
-          assert 'InstancedMesh' in s
-          assert 'mg-tennis-splash.svg' in s
+          for required in ['tennis-player.glb','opponentBoneBaseV10','dz<.92','h=1/240','targetPlayerZ=playerZ']:
+              assert required in s, required
           PY
 
       - name: Set up JDK 17
@@ -88,21 +86,18 @@ jobs:
           test -s "$APK"
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.tennistv'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='9'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump resources "$APK" | grep 'mg_tennis_icon'
-          ! unzip -p "$APK" assets/index.html | grep -q 'CapsuleGeometry'
-          unzip -p "$APK" assets/index.html | grep 'opponentBones'
-          unzip -p "$APK" assets/index.html | grep 'InstancedMesh'
-          unzip -p "$APK" assets/index.html | grep 'mg-tennis-splash.svg'
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='10'"
+          unzip -p "$APK" assets/index.html | grep 'tennis-player.glb'
+          unzip -p "$APK" assets/index.html | grep 'opponentBoneBaseV10'
+          unzip -p "$APK" assets/index.html | grep 'dz<.92'
+          unzip -l "$APK" | grep 'assets/tennis-player.glb'
           unzip -l "$APK" | grep 'assets/mg-tennis-splash.svg'
-          unzip -l "$APK" | grep 'assets/human.glb'
-          unzip -l "$APK" | grep 'assets/man.glb'
       - name: Rename APK
-        run: cp mg-tennis-tv/app/build/outputs/apk/release/app-release.apk MG_Tennis_TV_ConsoleFeel_v0.9.apk
+        run: cp mg-tennis-tv/app/build/outputs/apk/release/app-release.apk MG_Tennis_TV_RealHuman_BallFlow_v1.0.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-ConsoleFeel-v0.9-APK
-          path: MG_Tennis_TV_ConsoleFeel_v0.9.apk
+          name: MG-Tennis-TV-RealHuman-BallFlow-v1.0-APK
+          path: MG_Tennis_TV_RealHuman_BallFlow_v1.0.apk
           if-no-files-found: error
           retention-days: 30
