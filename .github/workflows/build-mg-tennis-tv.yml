@@ -25,25 +25,45 @@ jobs:
         run: |
           base64 -d mg-tennis-tv/signing/mg-tennis-update.jks.b64 > mg-tennis-tv/signing/mg-tennis-update.jks
           test -s mg-tennis-tv/signing/mg-tennis-update.jks
-      - name: Prepare offline 3D runtime
+      - name: Prepare real human runtime assets
         run: |
           set -euo pipefail
           A=mg-tennis-tv/app/src/main/assets
           curl --retry 4 -fL https://unpkg.com/three@0.128.0/build/three.min.js -o $A/three.min.js
           curl --retry 4 -fL https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js -o $A/GLTFLoader.js
+          curl --retry 4 -fL https://raw.githubusercontent.com/mrdoob/three.js/dev/examples/models/gltf/Soldier.glb -o $A/opponent.glb
+          curl --retry 4 -fL https://raw.githubusercontent.com/UMRAM-Bilkent/supine-human-model/main/assets/human_posed.glb -o $A/spectator.glb
           curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/parametric-base.glb -o $A/tennis-player.glb
-      - name: Fix startup freeze and mobile load
+          test $(stat -c%s $A/opponent.glb) -gt 1500000
+          test $(stat -c%s $A/spectator.glb) -gt 100000
+      - name: Patch real human opponent and crowd
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p=Path('mg-tennis-tv/app/src/main/assets/index.html')
           s=p.read_text()
           s=s.replace('promo.jpg','mg-tennis-splash.svg')
           s=s.replace('c.width=c.height=1024','c.width=c.height=256')
           s=s.replace('sun.shadow.mapSize.set(4096,4096)','sun.shadow.mapSize.set(2048,2048)')
-          s=s.replace("function init(){scene=new THREE.Scene();", "function init(){$('loadmsg').textContent='3D sahne hazırlanıyor…';$('loadfill').style.width='15%';scene=new THREE.Scene();")
-          s=s.replace("'use strict';", "'use strict';setTimeout(()=>{const l=document.getElementById('loading');if(l&&l.style.display!=='none'){document.getElementById('loadmsg').textContent='Sahne güvenli modda açılıyor…';l.style.display='none';}},9000);")
+          s=re.sub(r"const bodyGeom=new THREE\.CylinderGeometry[\s\S]*?(?=const adMat=)","/* v1.2 real crowd: primitive cylinder-head people removed */\n",s,count=1)
+          marker='function animate(){requestAnimationFrame(animate);'
+          if marker not in s: raise SystemExit('animate marker missing')
+          patch=r'''
+let opponentBoneBaseV12={},opponentActions={},opponentCurrentAction=null,crowdHumans=[];
+function v12FindBone(root,terms,exclude=[]){let found=null;root.traverse(o=>{if(found||!o.isBone)return;let n=(o.name||'').toLowerCase();if(terms.some(t=>n.includes(t))&&!exclude.some(t=>n.includes(t)))found=o});return found}
+function setOpponentAction(name,fade=.18){let next=opponentActions[name];if(!next||next===opponentCurrentAction)return;if(opponentCurrentAction)opponentCurrentAction.fadeOut(fade);next.reset().fadeIn(fade).play();opponentCurrentAction=next}
+function loadCharacters(){$('loadmsg').textContent='Gerçek rakip tenisçi yükleniyor…';$('loadfill').style.width='28%';loadOpponentV12(()=>{$('loadfill').style.width='100%';setTimeout(()=>{$('loading').style.display='none';$('status').textContent='Hazır • gerçek rigged rakip';resetPoint();loadRealCrowdV12()},180)})}
+function loadOpponentV12(done){loader.load('opponent.glb',gltf=>{let model=gltf.scene;model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material){o.material=o.material.clone();o.material.side=THREE.FrontSide;o.material.roughness=Math.min(.76,o.material.roughness??.6);o.material.needsUpdate=true}}});let box=new THREE.Box3().setFromObject(model),h=Math.max(.001,box.max.y-box.min.y),ss=1.82/h;model.scale.setScalar(ss);box=new THREE.Box3().setFromObject(model);model.position.y-=box.min.y;let wrap=new THREE.Group();wrap.add(model);wrap.position.set(0,0,opponentZ);scene.add(wrap);opponent=wrap;opponentMixer=new THREE.AnimationMixer(model);for(const clip of gltf.animations||[])opponentActions[clip.name]=opponentMixer.clipAction(clip);setOpponentAction(opponentActions.Idle?'Idle':Object.keys(opponentActions)[0],0);const fb=(t,e=[])=>v12FindBone(model,t,e);opponentBones={upperR:fb(['rightarm','upperarm_r','r_upperarm'],['fore']),lowerR:fb(['rightforearm','lowerarm_r','r_forearm']),handR:fb(['righthand','hand_r','r_hand']),clavR:fb(['rightshoulder','clavicle_r','r_clavicle']),upperL:fb(['leftarm','upperarm_l','l_upperarm'],['fore']),lowerL:fb(['leftforearm','lowerarm_l','l_forearm']),handL:fb(['lefthand','hand_l','l_hand']),spine:fb(['spine2','spine_03','spine1','spine']),pelvis:fb(['hips','pelvis']),thighR:fb(['rightupleg','thigh_r','r_thigh']),thighL:fb(['leftupleg','thigh_l','l_thigh']),shinR:fb(['rightleg','calf_r','shin_r']),shinL:fb(['leftleg','calf_l','shin_l'])};for(const[k,b]of Object.entries(opponentBones))if(b)opponentBoneBaseV12[k]=b.rotation.clone();opponentRacket=createRacket(0x91a915);scene.add(opponentRacket);done()},xhr=>{if(xhr&&xhr.total)$('loadfill').style.width=Math.min(88,28+Math.round(xhr.loaded/xhr.total*58))+'%'},e=>{console.error(e);$('loadmsg').textContent='Yedek insan modeli açılıyor…';loader.load('tennis-player.glb',g=>{let m=g.scene,b=new THREE.Box3().setFromObject(m),h=Math.max(.001,b.max.y-b.min.y);m.scale.setScalar(1.82/h);b=new THREE.Box3().setFromObject(m);m.position.y-=b.min.y;opponent=new THREE.Group();opponent.add(m);opponent.position.set(0,0,opponentZ);scene.add(opponent);opponentRacket=createRacket(0x91a915);scene.add(opponentRacket);done()},undefined,()=>done())})}
+function loadRealCrowdV12(){loader.load('spectator.glb',gltf=>{let base=gltf.scene;base.traverse(o=>{if(o.isMesh){o.castShadow=false;o.receiveShadow=true;if(o.material)o.material=o.material.clone()}});let palette=[0xffffff,0xe5efff,0xffeadb,0xe0f1dc,0xe9e1ff];let n=0;for(let side=-1;side<=1;side+=2)for(let row=0;row<4;row++)for(let i=0;i<10;i++){let c=base.clone(true),b=new THREE.Box3().setFromObject(c),h=Math.max(.001,b.max.y-b.min.y),target=1.62+(n%5)*.035;c.scale.setScalar(target/h);c.traverse(o=>{if(o.isMesh&&o.material){o.material=o.material.clone();o.material.color.multiplyScalar(.92+(n%4)*.025)}});b=new THREE.Box3().setFromObject(c);c.position.y-=b.min.y;let g=new THREE.Group();g.add(c);g.position.set(side*(7.4+row*.72),row*.38,-10.5+i*2.25);g.rotation.y=side>0?-Math.PI/2:Math.PI/2;g.rotation.z=((n%3)-1)*.02;scene.add(g);crowdHumans.push(g);n++}$('status').textContent='Hazır • gerçek rakip • gerçek insan seyirciler'},undefined,e=>console.warn('crowd model',e))}
+function finish(){}
+function updateOpponentMotion(dt){if(!opponent)return;let dx=targetOpponentX-opponentX,dz=targetOpponentZ-opponentZ;oppSpeed=Math.sqrt(dx*dx+dz*dz)/Math.max(dt,.001);if(oppSpeed>3.2&&opponentActions.Run)setOpponentAction('Run');else if(oppSpeed>.45&&opponentActions.Walk)setOpponentAction('Walk');else if(opponentActions.Idle)setOpponentAction('Idle');if(opponentCurrentAction)opponentCurrentAction.timeScale=clamp(.7+oppSpeed*.11,.72,1.55);let turn=clamp(dx*.09,-.20,.20);opponent.rotation.x=lerp(opponent.rotation.x,-Math.min(.045,oppSpeed*.002),1-Math.exp(-dt*7));opponent.rotation.z=lerp(opponent.rotation.z,-turn*.35,1-Math.exp(-dt*8));opponent.rotation.y=lerp(opponent.rotation.y,turn*.20,1-Math.exp(-dt*8));let a=clamp(opponentSwingPhase,0,1),sw=Math.sin(a*Math.PI),hit=clamp((a-.30)/.28,0,1),follow=clamp((a-.58)/.42,0,1);const pose=(k,x=0,y=0,z=0)=>{let b=opponentBones&&opponentBones[k];if(!b)return;b.rotation.x+=x;b.rotation.y+=y;b.rotation.z+=z};pose('spine',-.04*sw,-.18*sw+.22*follow,-.04*sw);pose('clavR',0,-.12*sw,-.08*sw);pose('upperR',-.34*sw+.10*follow,-.68*sw+.92*hit,-.34*sw+.50*hit);pose('lowerR',-.58*sw+.78*hit-.14*follow,0,.10*sw);pose('handR',.08*sw+.24*hit,0,-.20*sw+.54*hit)}
+'''
+          s=s.replace(marker,patch+'\n'+marker)
+          s=s.replace("'use strict';", "'use strict';setTimeout(()=>{const l=document.getElementById('loading');if(l&&l.style.display!=='none'){document.getElementById('loadmsg').textContent='Model yükleme gecikti • sahne açılıyor';l.style.display='none';}},12000);")
           p.write_text(s)
+          for q in ['opponent.glb','spectator.glb','real crowd','setOpponentAction']:
+              assert q in s,q
           PY
       - uses: actions/setup-java@v4
         with:
@@ -63,12 +83,13 @@ jobs:
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='11'"
-          unzip -l $APK | grep -q assets/three.min.js
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='12'"
+          unzip -l $APK | grep -q assets/opponent.glb
+          unzip -l $APK | grep -q assets/spectator.glb
           unzip -l $APK | grep -q assets/tennis-player.glb
-          cp $APK MG_Tennis_TV_v1.1_StartupFix.apk
+          cp $APK MG_Tennis_TV_v1.2_RealHumans.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v1.1-StartupFix-APK
-          path: MG_Tennis_TV_v1.1_StartupFix.apk
+          name: MG-Tennis-TV-v1.2-RealHumans-APK
+          path: MG_Tennis_TV_v1.2_RealHumans.apk
           retention-days: 30
