@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -18,6 +18,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Publish run id
+        run: |
+          mkdir -p build-status
+          echo "$GITHUB_RUN_ID" > build-status/mg-tennis-tv-run.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add build-status/mg-tennis-tv-run.txt
+          git commit -m "Record MG Tennis TV run $GITHUB_RUN_ID" || true
+          git push
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
