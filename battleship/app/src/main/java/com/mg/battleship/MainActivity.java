@@ -37,17 +37,16 @@ public class MainActivity extends Activity {
     private final Random random = new Random();
     private TextView status;
     private GameView gameView;
-    private Button rotateButton, randomButton, readyButton;
+    private Button rotateButton, randomButton, readyButton, soloButton, bluetoothButton;
     private BluetoothLink link;
-    private boolean localReady = false, remoteReady = false, myTurn = false, connected = false;
+    private boolean localReady = false, remoteReady = false, myTurn = false, connected = false, soloMode = false;
     private long localNonce = Math.abs(new Random().nextLong()), remoteNonce = -1;
+    private final List<int[]> aiTargets = new ArrayList<>();
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
         buildUi();
-        if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 42);
-        } else startBluetooth();
+        ensureBluetoothPermissionAndStart();
     }
 
     private void buildUi() {
@@ -64,8 +63,16 @@ public class MainActivity extends Activity {
         title.setPadding(0,8,0,4);
         root.addView(title, new LinearLayout.LayoutParams(-1,-2));
 
+        LinearLayout modes = new LinearLayout(this);
+        modes.setOrientation(LinearLayout.HORIZONTAL);
+        soloButton = makeButton("Tek Oyuncu");
+        bluetoothButton = makeButton("Bluetooth Rakip");
+        modes.addView(soloButton, new LinearLayout.LayoutParams(0,-2,1));
+        modes.addView(bluetoothButton, new LinearLayout.LayoutParams(0,-2,1));
+        root.addView(modes, new LinearLayout.LayoutParams(-1,-2));
+
         status = new TextView(this);
-        status.setText("Bluetooth hazırlanıyor…");
+        status.setText("Bluetooth rakip aranıyor… veya Tek Oyuncu'yu seç.");
         status.setTextColor(Color.rgb(0,194,255));
         status.setTextSize(15);
         status.setGravity(Gravity.CENTER);
@@ -87,7 +94,9 @@ public class MainActivity extends Activity {
         root.addView(controls, new LinearLayout.LayoutParams(-1,-2));
         setContentView(root);
 
-        rotateButton.setOnClickListener(v -> { gameView.horizontal = !gameView.horizontal; gameView.invalidate(); });
+        soloButton.setOnClickListener(v -> startSoloMode());
+        bluetoothButton.setOnClickListener(v -> startBluetoothMode());
+        rotateButton.setOnClickListener(v -> { if(!localReady){ gameView.horizontal = !gameView.horizontal; gameView.invalidate(); } });
         randomButton.setOnClickListener(v -> { if (!localReady) { gameView.randomizeFleet(); status.setText("Filo hazır. İstersen yerleşimi değiştir."); } });
         readyButton.setOnClickListener(v -> setReady());
     }
@@ -100,45 +109,91 @@ public class MainActivity extends Activity {
         return b;
     }
 
+    private void resetForMode() {
+        localReady = remoteReady = myTurn = false;
+        gameView.playing = false;
+        gameView.gameOver = false;
+        gameView.resetBoard();
+        readyButton.setEnabled(true);
+        rotateButton.setEnabled(true);
+        randomButton.setEnabled(true);
+        aiTargets.clear();
+    }
+
+    private void startSoloMode() {
+        soloMode = true;
+        if (link != null) { link.close(); link = null; }
+        connected = false;
+        resetForMode();
+        gameView.randomizeAiFleet();
+        status.setText("TEK OYUNCU — Gemilerini yerleştir. Hazır olunca başla.");
+    }
+
+    private void startBluetoothMode() {
+        soloMode = false;
+        resetForMode();
+        status.setText("Bluetooth rakip aranıyor…");
+        ensureBluetoothPermissionAndStart();
+    }
+
+    private void ensureBluetoothPermissionAndStart() {
+        if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT}, 42);
+        } else startBluetooth();
+    }
+
     @Override public void onRequestPermissionsResult(int req, String[] p, int[] g) {
         super.onRequestPermissionsResult(req,p,g);
-        if (req == 42 && g.length > 0 && g[0] == PackageManager.PERMISSION_GRANTED) startBluetooth();
-        else status.setText("Bluetooth izni gerekli.");
+        if (req == 42 && g.length > 0 && g[0] == PackageManager.PERMISSION_GRANTED) {
+            if(!soloMode) startBluetooth();
+        } else status.setText("Bluetooth izni verilmedi. Tek Oyuncu modu kullanılabilir.");
     }
 
     private void startBluetooth() {
+        if (soloMode) return;
+        if(link != null) link.close();
         BluetoothAdapter adapter = BluetoothAdapter.getDefaultAdapter();
-        if (adapter == null) { status.setText("Bu cihaz Bluetooth desteklemiyor."); return; }
-        if (!adapter.isEnabled()) { status.setText("Bluetooth kapalı. Telefon ayarlarından aç."); return; }
+        if (adapter == null) { status.setText("Bluetooth yok. Tek Oyuncu kullanılabilir."); return; }
+        if (!adapter.isEnabled()) { status.setText("Bluetooth kapalı. Tek Oyuncu kullanılabilir."); return; }
         status.setText("Rakip aranıyor… Aynı APK diğer telefonda açık olsun.");
         link = new BluetoothLink(adapter, new BluetoothLink.Listener() {
             @Override public void onConnected(String name) { main.post(() -> {
+                if(soloMode) return;
                 connected = true;
                 status.setText(name + " bağlandı. Gemilerini yerleştir.");
                 link.send("HELLO|" + localNonce);
             }); }
-            @Override public void onMessage(String msg) { main.post(() -> handleMessage(msg)); }
+            @Override public void onMessage(String msg) { main.post(() -> { if(!soloMode) handleMessage(msg); }); }
             @Override public void onLost() { main.post(() -> {
+                if(soloMode) return;
                 connected = false; localReady = remoteReady = false; myTurn = false;
                 status.setText("Bağlantı koptu. Rakip yeniden aranıyor…");
                 readyButton.setEnabled(true); rotateButton.setEnabled(true); randomButton.setEnabled(true);
                 startBluetooth();
             }); }
-            @Override public void onInfo(String s) { main.post(() -> { if (!connected) status.setText(s); }); }
+            @Override public void onInfo(String s) { main.post(() -> { if (!connected && !soloMode) status.setText(s); }); }
         });
         link.start();
     }
 
     private void setReady() {
-        if (!connected) { status.setText("Önce Bluetooth rakibi bağlansın."); return; }
         if (!gameView.hasCompleteFleet()) { status.setText("Önce tüm gemileri yerleştir veya Rastgele'ye bas."); return; }
         localReady = true;
         readyButton.setEnabled(false); rotateButton.setEnabled(false); randomButton.setEnabled(false);
+        if(soloMode) {
+            gameView.playing = true;
+            gameView.gameOver = false;
+            myTurn = true;
+            gameView.invalidate();
+            status.setText("Sıra sende — yapay zekâ filosuna ateş et.");
+            return;
+        }
+        if (!connected) { localReady=false; readyButton.setEnabled(true); rotateButton.setEnabled(true); randomButton.setEnabled(true); status.setText("Bluetooth rakip henüz bağlanmadı."); return; }
         link.send("READY");
-        if (remoteReady) beginGame(); else status.setText("Hazırsın. Rakip bekleniyor…");
+        if (remoteReady) beginBluetoothGame(); else status.setText("Hazırsın. Rakip bekleniyor…");
     }
 
-    private void beginGame() {
+    private void beginBluetoothGame() {
         myTurn = localNonce > remoteNonce;
         gameView.playing = true;
         gameView.invalidate();
@@ -151,11 +206,11 @@ public class MainActivity extends Activity {
         switch (a[0]) {
             case "HELLO":
                 if (a.length > 1) try { remoteNonce = Long.parseLong(a[1]); } catch (Exception ignored) {}
-                if (localReady && remoteReady) beginGame();
+                if (localReady && remoteReady) beginBluetoothGame();
                 break;
             case "READY":
                 remoteReady = true;
-                if (localReady) beginGame(); else status.setText("Rakip hazır. Gemilerini yerleştir.");
+                if (localReady) beginBluetoothGame(); else status.setText("Rakip hazır. Gemilerini yerleştir.");
                 break;
             case "SHOT":
                 if (a.length >= 3) {
@@ -166,6 +221,7 @@ public class MainActivity extends Activity {
                         link.send("GAMEOVER");
                         status.setText("Tüm gemilerin battı.");
                         myTurn = false;
+                        gameView.gameOver = true;
                     } else {
                         myTurn = true;
                         status.setText("Sıra sende — ateş et.");
@@ -189,52 +245,127 @@ public class MainActivity extends Activity {
         }
     }
 
+    private void soloPlayerShot(int r, int c) {
+        if(gameView.enemyMarks[r][c] != 0) { status.setText("Bu kareye zaten ateş ettin."); return; }
+        int result = gameView.receiveAiShot(r,c);
+        gameView.enemyMarks[r][c] = result;
+        gameView.invalidate();
+        if(gameView.allAiShipsSunk()) {
+            myTurn = false;
+            gameView.gameOver = true;
+            status.setText("KAZANDIN! Yapay zekânın tüm gemileri battı.");
+            return;
+        }
+        myTurn = false;
+        status.setText(result == 2 ? "VURDUN! Yapay zekâ hedef alıyor…" : "Iskaladın. Yapay zekâ hedef alıyor…");
+        main.postDelayed(this::performAiShot, 650);
+    }
+
+    private void performAiShot() {
+        if(!soloMode || gameView.gameOver) return;
+        int[] shot = pickAiShot();
+        if(shot == null) return;
+        int r=shot[0], c=shot[1];
+        int result=gameView.receiveShot(r,c);
+        if(result==2) addAiNeighbors(r,c);
+        if(gameView.allShipsSunk()) {
+            gameView.gameOver=true;
+            myTurn=false;
+            status.setText("YAPAY ZEKÂ KAZANDI — Tüm gemilerin battı.");
+        } else {
+            myTurn=true;
+            status.setText(result==2 ? "Yapay zekâ gemini VURDU! Sıra sende." : "Yapay zekâ ıskaladı. Sıra sende.");
+        }
+        gameView.invalidate();
+    }
+
+    private int[] pickAiShot() {
+        while(!aiTargets.isEmpty()) {
+            int[] p=aiTargets.remove(0);
+            if(p[0]>=0&&p[0]<10&&p[1]>=0&&p[1]<10&&!gameView.hit[p[0]][p[1]]) return p;
+        }
+        List<int[]> free=new ArrayList<>();
+        for(int r=0;r<10;r++) for(int c=0;c<10;c++) if(!gameView.hit[r][c]) free.add(new int[]{r,c});
+        return free.isEmpty()?null:free.get(random.nextInt(free.size()));
+    }
+
+    private void addAiNeighbors(int r,int c) {
+        int[][] d={{-1,0},{1,0},{0,-1},{0,1}};
+        for(int[] x:d){ int nr=r+x[0], nc=c+x[1]; if(nr>=0&&nr<10&&nc>=0&&nc<10&&!gameView.hit[nr][nc]) aiTargets.add(new int[]{nr,nc}); }
+    }
+
     private class GameView extends View {
         final int[] lengths = {5,4,3,3,2};
         final int[][] own = new int[10][10];
+        final int[][] aiFleet = new int[10][10];
         final int[][] enemyMarks = new int[10][10];
         final boolean[][] hit = new boolean[10][10];
+        final boolean[][] aiHit = new boolean[10][10];
         final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
         int placed = 0;
         boolean horizontal = true, playing = false, gameOver = false;
 
         GameView() { super(MainActivity.this); resetBoard(); setBackgroundColor(Color.rgb(7,19,31)); }
 
-        void resetBoard() { for (int r=0;r<10;r++) for(int c=0;c<10;c++){ own[r][c]=-1; enemyMarks[r][c]=0; hit[r][c]=false; } placed=0; invalidate(); }
+        void resetBoard() {
+            for (int r=0;r<10;r++) for(int c=0;c<10;c++){
+                own[r][c]=-1; aiFleet[r][c]=-1; enemyMarks[r][c]=0; hit[r][c]=false; aiHit[r][c]=false;
+            }
+            placed=0; invalidate();
+        }
         boolean hasCompleteFleet() { return placed == lengths.length; }
 
         void randomizeFleet() {
-            resetBoard();
+            for (int r=0;r<10;r++) for(int c=0;c<10;c++){ own[r][c]=-1; hit[r][c]=false; enemyMarks[r][c]=0; }
+            placed=0;
             for (int id=0; id<lengths.length; id++) {
                 boolean ok=false;
                 for (int tries=0; tries<500 && !ok; tries++) {
-                    horizontal = random.nextBoolean();
+                    boolean h = random.nextBoolean();
                     int r=random.nextInt(10), c=random.nextInt(10);
-                    if (canPlace(r,c,lengths[id],horizontal)) { place(r,c,lengths[id],horizontal,id); ok=true; }
+                    if (canPlace(own,r,c,lengths[id],h)) { place(own,r,c,lengths[id],h,id); ok=true; }
                 }
             }
-            horizontal = true;
+            horizontal = true; invalidate();
+        }
+
+        void randomizeAiFleet() {
+            for(int r=0;r<10;r++) for(int c=0;c<10;c++){ aiFleet[r][c]=-1; aiHit[r][c]=false; enemyMarks[r][c]=0; }
+            for(int id=0;id<lengths.length;id++){
+                boolean ok=false;
+                for(int tries=0;tries<500&&!ok;tries++){
+                    boolean h=random.nextBoolean(); int r=random.nextInt(10), c=random.nextInt(10);
+                    if(canPlace(aiFleet,r,c,lengths[id],h)){ placeRaw(aiFleet,r,c,lengths[id],h,id); ok=true; }
+                }
+            }
             invalidate();
         }
 
-        boolean canPlace(int r,int c,int len,boolean h) {
+        boolean canPlace(int[][] board,int r,int c,int len,boolean h) {
             if (h && c+len>10) return false; if (!h && r+len>10) return false;
-            for(int i=0;i<len;i++) if(own[r+(h?0:i)][c+(h?i:0)]!=-1) return false;
+            for(int i=0;i<len;i++) if(board[r+(h?0:i)][c+(h?i:0)]!=-1) return false;
             return true;
         }
-        void place(int r,int c,int len,boolean h,int id) {
-            for(int i=0;i<len;i++) own[r+(h?0:i)][c+(h?i:0)] = id;
-            placed = Math.max(placed,id+1);
+        void place(int[][] board,int r,int c,int len,boolean h,int id) {
+            placeRaw(board,r,c,len,h,id); placed=Math.max(placed,id+1);
+        }
+        void placeRaw(int[][] board,int r,int c,int len,boolean h,int id) {
+            for(int i=0;i<len;i++) board[r+(h?0:i)][c+(h?i:0)] = id;
         }
 
         int receiveShot(int r,int c) {
             if (r<0||r>9||c<0||c>9) return 1;
-            hit[r][c]=true;
-            invalidate();
-            return own[r][c] >= 0 ? 2 : 1;
+            hit[r][c]=true; invalidate(); return own[r][c] >= 0 ? 2 : 1;
+        }
+        int receiveAiShot(int r,int c) {
+            aiHit[r][c]=true; return aiFleet[r][c]>=0 ? 2 : 1;
         }
         boolean allShipsSunk() {
             for(int r=0;r<10;r++) for(int c=0;c<10;c++) if(own[r][c]>=0 && !hit[r][c]) return false;
+            return true;
+        }
+        boolean allAiShipsSunk() {
+            for(int r=0;r<10;r++) for(int c=0;c<10;c++) if(aiFleet[r][c]>=0 && !aiHit[r][c]) return false;
             return true;
         }
 
@@ -253,7 +384,7 @@ public class MainActivity extends Activity {
             drawGrid(c,left,top1,cell,true);
             if (playing) {
                 p.setTextSize(28); p.setColor(Color.WHITE);
-                c.drawText("RAKİP DENİZİ",w/2,top2-18,p);
+                c.drawText(soloMode?"YAPAY ZEKÂ DENİZİ":"RAKİP DENİZİ",w/2,top2-18,p);
                 drawGrid(c,left,top2,cell,false);
             } else {
                 p.setTextSize(23); p.setColor(Color.rgb(120,210,255));
@@ -287,16 +418,18 @@ public class MainActivity extends Activity {
             if (!playing) {
                 int col=(int)((x-left)/cell), r=(int)((y-top1)/cell);
                 if(r>=0&&r<10&&col>=0&&col<10&&placed<lengths.length) {
-                    if(canPlace(r,col,lengths[placed],horizontal)) { place(r,col,lengths[placed],horizontal,placed); invalidate(); }
+                    if(canPlace(own,r,col,lengths[placed],horizontal)) { place(own,r,col,lengths[placed],horizontal,placed); invalidate(); }
                     else status.setText("Bu konuma gemi sığmıyor.");
                 }
             } else if (!gameOver && myTurn) {
                 int col=(int)((x-left)/cell), r=(int)((y-top2)/cell);
                 if(r>=0&&r<10&&col>=0&&col<10) {
                     if(enemyMarks[r][col]!=0) { status.setText("Bu kareye zaten ateş ettin."); return true; }
-                    myTurn=false;
-                    status.setText("Atış gönderildi…");
-                    link.send("SHOT|"+r+"|"+col);
+                    if(soloMode) soloPlayerShot(r,col);
+                    else {
+                        myTurn=false; status.setText("Atış gönderildi…");
+                        if(link!=null) link.send("SHOT|"+r+"|"+col);
+                    }
                 }
             }
             return true;
@@ -311,16 +444,11 @@ public class MainActivity extends Activity {
         private volatile BluetoothSocket socket; private volatile PrintWriter out; private volatile boolean closed=false;
         BluetoothLink(BluetoothAdapter a, Listener l){ adapter=a; listener=l; }
 
-        void start(){
-            io.execute(this::listenServer);
-            io.execute(this::connectBonded);
-        }
+        void start(){ io.execute(this::listenServer); io.execute(this::connectBonded); }
         private void listenServer(){
             try {
                 BluetoothServerSocket server = adapter.listenUsingRfcommWithServiceRecord("MG Battleship",UUID_GAME);
-                BluetoothSocket s = server.accept();
-                server.close();
-                attach(s);
+                BluetoothSocket s = server.accept(); server.close(); attach(s);
             } catch(Exception ignored) { }
         }
         private void connectBonded(){
