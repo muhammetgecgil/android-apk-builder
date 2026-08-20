@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#05090d"/><stop offset="1" stop-color="#0b151d"/></linearGradient>
+  <linearGradient id="court" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#254867"/><stop offset="1" stop-color="#142f49"/></linearGradient>
+  <radialGradient id="ball"><stop offset="0" stop-color="#f2ff64"/><stop offset="0.65" stop-color="#cce936"/><stop offset="1" stop-color="#7f9c10"/></radialGradient>
+  <filter id="glow"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1280" height="720" fill="url(#bg)"/>
+<g opacity=".45"><circle cx="90" cy="70" r="3" fill="#fff"/><circle cx="190" cy="45" r="2" fill="#fff"/><circle cx="1050" cy="70" r="3" fill="#fff"/><circle cx="1160" cy="50" r="2" fill="#fff"/></g>
+<path d="M235 645 L1045 645 L865 210 L415 210 Z" fill="url(#court)" stroke="#dfe8ef" stroke-width="5"/>
+<path d="M415 210 L1045 645 M865 210 L235 645" stroke="#dfe8ef" stroke-width="3" opacity=".9"/>
+<path d="M640 210 L640 645" stroke="#dfe8ef" stroke-width="3" opacity=".85"/>
+<path d="M350 475 L930 475" stroke="#dfe8ef" stroke-width="3" opacity=".85"/>
+<path d="M505 330 L775 330" stroke="#dfe8ef" stroke-width="3" opacity=".85"/>
+<rect x="310" y="342" width="660" height="10" fill="#11171c"/><line x1="310" y1="342" x2="970" y2="342" stroke="#f0f4f5" stroke-width="5"/>
+<g transform="translate(945 450) rotate(-18)"><ellipse cx="0" cy="0" rx="82" ry="110" fill="none" stroke="#cbe83b" stroke-width="15"/><ellipse cx="0" cy="0" rx="62" ry="88" fill="none" stroke="#e6edf1" stroke-width="2" opacity=".8"/><line x1="0" y1="110" x2="0" y2="250" stroke="#cbe83b" stroke-width="18"/><rect x="-13" y="225" width="26" height="90" rx="10" fill="#151a1e"/></g>
+<circle cx="740" cy="290" r="33" fill="url(#ball)" filter="url(#glow)"/><path d="M720 274 C742 286 748 308 756 319" fill="none" stroke="#f5f8c2" stroke-width="3"/><path d="M755 263 C738 275 730 294 725 311" fill="none" stroke="#f5f8c2" stroke-width="3"/>
+<g fill="#fff"><text x="70" y="105" font-family="Arial,Helvetica,sans-serif" font-size="66" font-weight="800">MG TENNIS TV</text><text x="73" y="158" font-family="Arial,Helvetica,sans-serif" font-size="31" font-weight="700" fill="#d8f33a">FIRST PERSON</text><text x="73" y="203" font-family="Arial,Helvetica,sans-serif" font-size="23" fill="#dce5ea">Gerçek kort • Gerçek rakip • Sensörlü raket</text></g>
+<g transform="translate(105 590)"><rect width="390" height="72" rx="20" fill="#101920" stroke="#35434d"/><circle cx="45" cy="36" r="13" fill="#d8f33a"/><text x="75" y="44" font-family="Arial,Helvetica,sans-serif" font-size="24" font-weight="700" fill="#fff">3D motor hazırlanıyor</text></g>
+</svg>
