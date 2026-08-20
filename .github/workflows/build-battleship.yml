@@ -6,6 +6,11 @@ on:
     paths:
       - 'battleship/**'
       - '.github/workflows/build-battleship.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'battleship/**'
+      - '.github/workflows/build-battleship.yml'
   workflow_dispatch:
 
 permissions:
