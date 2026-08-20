@@ -5,17 +5,17 @@ import android.graphics.*;
 import android.view.*;
 import android.widget.FrameLayout;
 
-/** V11 visual wrapper: poster-inspired wide-body fighter over moving mountain world. */
+/** V13 visual wrapper: F-22-proportioned fighter over moving mountain world. */
 public final class JetWingStoreView extends FrameLayout {
     private final MountainWorldView world;
-    private final Jet3DViewV11 jet;
+    private final Jet3DViewV13 jet;
     private final StoresOverlay overlay;
 
     public JetWingStoreView(Context c){
         super(c);
         setBackgroundColor(Color.rgb(5,20,42));
         world=new MountainWorldView(c);
-        jet=new Jet3DViewV11(c);
+        jet=new Jet3DViewV13(c);
         overlay=new StoresOverlay(c);
         addView(world,new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
         addView(jet,new LayoutParams(LayoutParams.MATCH_PARENT,LayoutParams.MATCH_PARENT));
