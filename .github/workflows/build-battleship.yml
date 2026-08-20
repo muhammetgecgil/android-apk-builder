@@ -1,4 +1,4 @@
-name: Build Battleship v3.1 Icon APK
+name: Build Battleship v4 Side Ships APK
 
 on:
   push:
@@ -44,23 +44,23 @@ jobs:
           test -s battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.battleship'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='3'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='4'"
       - name: Rename APK
-        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v3.1_Ozel_Icon.apk
+        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v4.0_Yan_Profil_Gemiler.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Amiral-Batti-v3.1-Ozel-Icon-APK
-          path: Amiral_Batti_v3.1_Ozel_Icon.apk
+          name: Amiral-Batti-v4.0-Yan-Profil-Gemiler-APK
+          path: Amiral_Batti_v4.0_Yan_Profil_Gemiler.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish stable APK release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="amiral-batti-v3.1-icon"
+          TAG="amiral-batti-v4-side-ships"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Amiral_Batti_v3.1_Ozel_Icon.apk --clobber
+            gh release upload "$TAG" Amiral_Batti_v4.0_Yan_Profil_Gemiler.apk --clobber
           else
-            gh release create "$TAG" Amiral_Batti_v3.1_Ozel_Icon.apk --title "Amiral Battı v3.1 - Özel İkon" --notes "Özgün launcher ikonu, 2D gemiler, tek oyuncu ve Bluetooth modu."
+            gh release create "$TAG" Amiral_Batti_v4.0_Yan_Profil_Gemiler.apk --title "Amiral Battı v4.0 - Yan Profil Gemiler" --notes "Uçak gemisi, savaş gemisi, kruvazör, destroyer ve denizaltı için ayrı yan profil çizimleri; tek oyuncu ve Bluetooth modu."
           fi
