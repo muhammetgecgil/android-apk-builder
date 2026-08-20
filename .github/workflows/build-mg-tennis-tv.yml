@@ -72,11 +72,11 @@ jobs:
           unzip -l "$APK" | grep 'assets/man.glb'
           unzip -l "$APK" | grep 'assets/index.html'
       - name: Rename APK
-        run: cp mg-tennis-tv/app/build/outputs/apk/debug/app-debug.apk MG_Tennis_TV_Realistic_v0.3.apk
+        run: cp mg-tennis-tv/app/build/outputs/apk/debug/app-debug.apk MG_Tennis_TV_FirstPerson_v0.5.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-Realistic-v0.3-APK
-          path: MG_Tennis_TV_Realistic_v0.3.apk
+          name: MG-Tennis-TV-FirstPerson-v0.5-APK
+          path: MG_Tennis_TV_FirstPerson_v0.5.apk
           if-no-files-found: error
           retention-days: 30
