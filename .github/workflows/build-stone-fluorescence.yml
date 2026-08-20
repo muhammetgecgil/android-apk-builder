@@ -2,7 +2,7 @@ name: Build Stone Glow Analyzer
 
 on:
   push:
-    branches: ["main", "agent/stone-glow-live-v11"]
+    branches: ["main", "agent/stone-glow-icon-v13", "agent/stone-glow-build-verify"]
     paths:
       - "stone-fluorescence/**"
       - ".github/workflows/build-stone-fluorescence.yml"
@@ -25,16 +25,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
+      - name: Restore fixed dev update key
+        working-directory: stone-fluorescence
+        run: |
+          echo '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' | base64 -d > dev-update.jks
       - name: Build APK
         working-directory: stone-fluorescence
         run: gradle --no-daemon :app:assembleDebug
       - name: Stage APK
         run: |
           mkdir -p out
-          cp stone-fluorescence/app/build/outputs/apk/debug/app-debug.apk out/Stone-Glow-Analyzer-v1.2-Filters.apk
-          sha256sum out/Stone-Glow-Analyzer-v1.2-Filters.apk > out/SHA256SUMS.txt
+          cp stone-fluorescence/app/build/outputs/apk/debug/app-debug.apk out/Stone-Glow-Analyzer-v1.3-Icon-Update.apk
+          sha256sum out/Stone-Glow-Analyzer-v1.3-Icon-Update.apk > out/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Stone-Glow-Analyzer-v1.2-Filters
+          name: Stone-Glow-Analyzer-v1.3-Icon-Update
           path: out/*
           if-no-files-found: error
