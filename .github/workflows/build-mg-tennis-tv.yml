@@ -34,7 +34,6 @@ jobs:
           set -euo pipefail
           base64 -d mg-tennis-tv/signing/mg-tennis-update.jks.b64 > mg-tennis-tv/signing/mg-tennis-update.jks
           test -s mg-tennis-tv/signing/mg-tennis-update.jks
-          sha256sum mg-tennis-tv/signing/mg-tennis-update.jks
 
       - name: Prepare realistic 3D runtime assets
         run: |
@@ -49,9 +48,23 @@ jobs:
           test $(stat -c%s "$ASSETS/human.glb") -gt 1000000
           test $(stat -c%s "$ASSETS/man.glb") -gt 1000000
           test $(stat -c%s "$ASSETS/three.min.js") -gt 100000
-          echo "Bundled 3D assets:"
-          du -h "$ASSETS"/*
-          sha256sum "$ASSETS/human.glb" "$ASSETS/man.glb"
+
+      - name: Fix WebGL startup compatibility
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('mg-tennis-tv/app/src/main/assets/index.html')
+          s=p.read_text()
+          old="function buildFirstPersonArm(){const skin=new THREE.MeshStandardMaterial({color:0xb97d5d,roughness:.68});fpForearm=new THREE.Mesh(new THREE.CapsuleGeometry(.055,.38,8,12),skin);fpForearm.castShadow=true;fpHand=new THREE.Mesh(new THREE.CapsuleGeometry(.07,.12,8,12),skin);fpHand.castShadow=true;scene.add(fpForearm,fpHand)}"
+          new="function buildFirstPersonArm(){const skin=new THREE.MeshStandardMaterial({color:0xb97d5d,roughness:.68});fpForearm=new THREE.Mesh(new THREE.CylinderGeometry(.055,.065,.48,16),skin);fpForearm.castShadow=true;fpHand=new THREE.Mesh(new THREE.SphereGeometry(.075,16,12),skin);fpHand.scale.set(1,.75,1.25);fpHand.castShadow=true;scene.add(fpForearm,fpHand)}"
+          if old not in s:
+              raise SystemExit('Expected incompatible CapsuleGeometry code not found')
+          s=s.replace(old,new)
+          s=s.replace("<p>Gerçek kort, salon ve rakip hazırlanıyor…</p>","<p id=\"loadmsg\">3D motor başlatılıyor…</p>")
+          s=s.replace("function loadCharacters(){loadOne('human.glb',true,()=>{totalLoaded++;$('loadfill').style.width='55%';finish()});loadOne('man.glb',false,()=>{totalLoaded++;$('loadfill').style.width='90%';finish()})}","function loadCharacters(){$('loadmsg').textContent='Oyuncu modelleri yükleniyor…';$('loadfill').style.width='22%';loadOne('human.glb',true,()=>{totalLoaded++;$('loadfill').style.width='55%';finish()});loadOne('man.glb',false,()=>{totalLoaded++;$('loadfill').style.width='90%';finish()})}")
+          p.write_text(s)
+          assert 'CapsuleGeometry' not in s
+          PY
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -75,16 +88,17 @@ jobs:
           test -s "$APK"
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.tennistv'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='6'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='7'"
+          unzip -p "$APK" assets/index.html | grep 'CylinderGeometry'
+          ! unzip -p "$APK" assets/index.html | grep -q 'CapsuleGeometry'
           unzip -l "$APK" | grep 'assets/human.glb'
           unzip -l "$APK" | grep 'assets/man.glb'
-          unzip -l "$APK" | grep 'assets/index.html'
       - name: Rename APK
-        run: cp mg-tennis-tv/app/build/outputs/apk/release/app-release.apk MG_Tennis_TV_FirstPerson_v0.6_Update.apk
+        run: cp mg-tennis-tv/app/build/outputs/apk/release/app-release.apk MG_Tennis_TV_FirstPerson_v0.7_StartupFix.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-FirstPerson-v0.6-Update-APK
-          path: MG_Tennis_TV_FirstPerson_v0.6_Update.apk
+          name: MG-Tennis-TV-FirstPerson-v0.7-StartupFix-APK
+          path: MG_Tennis_TV_FirstPerson_v0.7_StartupFix.apk
           if-no-files-found: error
           retention-days: 30
