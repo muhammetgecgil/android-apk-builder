@@ -6,6 +6,11 @@ on:
     paths:
       - "stone-fluorescence/**"
       - ".github/workflows/build-stone-fluorescence.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "stone-fluorescence/**"
+      - ".github/workflows/build-stone-fluorescence.yml"
   workflow_dispatch:
 
 jobs:
