@@ -47,7 +47,7 @@ jobs:
           test $(stat -c%s $A/spectator.glb) -gt 100000
           test -s $A/v12-human-patch.js
 
-      - name: Inject v1.2 human system and startup fixes
+      - name: Inject v1.3 display and racket UI
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -56,6 +56,8 @@ jobs:
           s=s.replace('promo.jpg','mg-tennis-splash.svg')
           s=s.replace('c.width=c.height=1024','c.width=c.height=256')
           s=s.replace('sun.shadow.mapSize.set(4096,4096)','sun.shadow.mapSize.set(2048,2048)')
+          s=s.replace('2 TELEFON HOST','AI + RAKET EKRAN')
+          s=s.replace('KONTROLCÜ','RAKET TELEFON')
           if 'v12-human-patch.js' not in s:
               s=s.replace('</body>','<script src="v12-human-patch.js"></script></body>')
           p.write_text(s)
@@ -88,15 +90,16 @@ jobs:
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='12'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='13'"
           unzip -l $APK | grep -q assets/opponent.glb
           unzip -l $APK | grep -q assets/spectator.glb
           unzip -l $APK | grep -q assets/v12-human-patch.js
-          cp $APK MG_Tennis_TV_v1.2_RealHumans.apk
+          unzip -l $APK | grep -q 'RacketService.class'
+          cp $APK MG_Tennis_TV_v1.3_AI_Racket_TV.apk
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v1.2-RealHumans-APK
-          path: MG_Tennis_TV_v1.2_RealHumans.apk
+          name: MG-Tennis-TV-v1.3-AI-Racket-TV-APK
+          path: MG_Tennis_TV_v1.3_AI_Racket_TV.apk
           retention-days: 30
