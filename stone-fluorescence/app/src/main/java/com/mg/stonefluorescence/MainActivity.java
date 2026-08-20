@@ -7,7 +7,6 @@ import android.graphics.Color;
 import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -199,10 +198,11 @@ public class MainActivity extends Activity {
                         persistence*100,
                         explain(bestScore, maxHueShift, maxColorFlip, persistence));
                 Bitmap finalBest = best;
+                double finalScore = bestScore;
                 runOnUiThread(() -> {
                     preview.setImageBitmap(finalBest);
                     result.setText(level);
-                    result.setTextColor(bestScore >= 45 ? Color.rgb(255,105,95) : Color.rgb(120,230,180));
+                    result.setTextColor(finalScore >= 45 ? Color.rgb(255,105,95) : Color.rgb(120,230,180));
                     detail.setText(interpretation);
                     progress.setVisibility(View.GONE);
                     pick.setEnabled(true);
