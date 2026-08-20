@@ -1,4 +1,4 @@
-name: Build Battleship v13 Combat Command APK
+name: Build Battleship v14 Persistent Update APK
 
 on:
   push:
@@ -62,23 +62,23 @@ jobs:
           test -s battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.battleship'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='13'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='14'"
       - name: Rename APK
-        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v13.0_Combat_Command.apk
+        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v14.0_Kalici_Guncelleme.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Amiral-Batti-v13.0-Combat-Command-APK
-          path: Amiral_Batti_v13.0_Combat_Command.apk
+          name: Amiral-Batti-v14.0-Kalici-Guncelleme-APK
+          path: Amiral_Batti_v14.0_Kalici_Guncelleme.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish stable APK release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="amiral-batti-v13-combat-command"
+          TAG="amiral-batti-v14-persistent-update"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Amiral_Batti_v13.0_Combat_Command.apk --clobber
+            gh release upload "$TAG" Amiral_Batti_v14.0_Kalici_Guncelleme.apk --clobber
           else
-            gh release create "$TAG" Amiral_Batti_v13.0_Combat_Command.apk --title "Amiral Battı v13.0 - Combat Command" --notes "HUD iki satırlı ve taşma yapmayacak şekilde yeniden tasarlandı; gereksiz HUD kutusu kaldırıldı. Düşman filosu başlığı A-J koordinatlarından ayrıldı. Her üçüncü ardışık isabette ek atış sağlayan kritik taktik üstünlük, son düşman atış yönünü gösteren tehdit vektörü, hasara göre alarm seviyesi ve yüksek seviyelerde daha adaptif AI hedefleme eklendi. v12 Taktik Mod, sonar, keşif, görevler, başarımlar, kariyer, Bluetooth ve sinematik batış sistemi korunur."
+            gh release create "$TAG" Amiral_Batti_v14.0_Kalici_Guncelleme.apk --title "Amiral Battı v14.0 - Kalıcı Güncelleme Zinciri" --notes "Amiral Battı için sabit geliştirme imzası kullanılır. Paket adı com.mg.battleship olarak korunur ve versionCode 14'tür. Bu sürümden sonraki aynı imzalı APK'lar doğrudan Android güncellemesi olarak kurulabilir. v13 Combat Command özellikleri korunur."
           fi
