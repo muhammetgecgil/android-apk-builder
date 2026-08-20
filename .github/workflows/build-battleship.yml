@@ -1,4 +1,4 @@
-name: Build Battleship v7 Next Generation APK
+name: Build Battleship v8 Combat Effects APK
 
 on:
   push:
@@ -36,6 +36,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+      - name: Apply v8 combat patch
+        working-directory: battleship
+        run: python3 patch_v8.py
       - name: Build APK
         working-directory: battleship
         run: gradle --no-daemon :app:assembleDebug --stacktrace
@@ -44,23 +47,23 @@ jobs:
           test -s battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.battleship'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='7'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='8'"
       - name: Rename APK
-        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v7.0_Next_Generation.apk
+        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v8.0_Savas_Efektleri.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Amiral-Batti-v7.0-Next-Generation-APK
-          path: Amiral_Batti_v7.0_Next_Generation.apk
+          name: Amiral-Batti-v8.0-Savas-Efektleri-APK
+          path: Amiral_Batti_v8.0_Savas_Efektleri.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish stable APK release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="amiral-batti-v7-next-generation"
+          TAG="amiral-batti-v8-combat-effects"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Amiral_Batti_v7.0_Next_Generation.apk --clobber
+            gh release upload "$TAG" Amiral_Batti_v8.0_Savas_Efektleri.apk --clobber
           else
-            gh release create "$TAG" Amiral_Batti_v7.0_Next_Generation.apk --title "Amiral Battı v7.0 - Next Generation" --notes "Yeni ana menü, kariyer bölgeleri, rütbe ve XP, muharebe kaydı, filo ekranı, 5 AI seviyesi, gelişmiş hedefleme, Bluetooth savaşı, büyük oyun alanı, yan profil gemiler ve sinematik ses/geri bildirim."
+            gh release create "$TAG" Amiral_Batti_v8.0_Savas_Efektleri.apk --title "Amiral Battı v8.0 - Savaş Efektleri" --notes "Sıra kilitlenmesi düzeltildi. Daha önce vurulan kare sırayı tüketmez. Canlı savaş HUD, AI turn watchdog, gemi sınıfına göre BATIRILDI bildirimi, duman/alev/suya gömülme batış animasyonu, batış sesi ve titreşim, savaş başlayınca yerleşim kontrollerinin gizlenmesi, tek oyuncu ve Bluetooth iyileştirmeleri eklendi."
           fi
