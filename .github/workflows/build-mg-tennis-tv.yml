@@ -62,7 +62,8 @@ jobs:
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
-          apksigner verify --verbose $APK
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='11'"
           unzip -l $APK | grep -q assets/three.min.js
           unzip -l $APK | grep -q assets/tennis-player.glb
           cp $APK MG_Tennis_TV_v1.1_StartupFix.apk
