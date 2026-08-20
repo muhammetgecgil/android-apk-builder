@@ -1,4 +1,4 @@
-name: Build Battleship Bluetooth + Solo APK
+name: Build Battleship v3.1 Icon APK
 
 on:
   push:
@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -46,11 +46,21 @@ jobs:
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.battleship'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='3'"
       - name: Rename APK
-        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v3.0_2D_Gemiler.apk
-      - name: Upload APK
+        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v3.1_Ozel_Icon.apk
+      - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Amiral-Batti-v3.0-2D-Gemiler-APK
-          path: Amiral_Batti_v3.0_2D_Gemiler.apk
+          name: Amiral-Batti-v3.1-Ozel-Icon-APK
+          path: Amiral_Batti_v3.1_Ozel_Icon.apk
           if-no-files-found: error
           retention-days: 30
+      - name: Publish stable APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="amiral-batti-v3.1-icon"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" Amiral_Batti_v3.1_Ozel_Icon.apk --clobber
+          else
+            gh release create "$TAG" Amiral_Batti_v3.1_Ozel_Icon.apk --title "Amiral Battı v3.1 - Özel İkon" --notes "Özgün launcher ikonu, 2D gemiler, tek oyuncu ve Bluetooth modu."
+          fi
