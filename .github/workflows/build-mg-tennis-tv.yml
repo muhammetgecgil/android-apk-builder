@@ -48,8 +48,9 @@ jobs:
           test $(stat -c%s "$ASSETS/human.glb") -gt 1000000
           test $(stat -c%s "$ASSETS/man.glb") -gt 1000000
           test $(stat -c%s "$ASSETS/three.min.js") -gt 100000
+          test -s "$ASSETS/mg-tennis-splash.svg"
 
-      - name: Fix WebGL startup compatibility
+      - name: Fix WebGL startup and embed splash image
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -57,13 +58,15 @@ jobs:
           s=p.read_text()
           old="function buildFirstPersonArm(){const skin=new THREE.MeshStandardMaterial({color:0xb97d5d,roughness:.68});fpForearm=new THREE.Mesh(new THREE.CapsuleGeometry(.055,.38,8,12),skin);fpForearm.castShadow=true;fpHand=new THREE.Mesh(new THREE.CapsuleGeometry(.07,.12,8,12),skin);fpHand.castShadow=true;scene.add(fpForearm,fpHand)}"
           new="function buildFirstPersonArm(){const skin=new THREE.MeshStandardMaterial({color:0xb97d5d,roughness:.68});fpForearm=new THREE.Mesh(new THREE.CylinderGeometry(.055,.065,.48,16),skin);fpForearm.castShadow=true;fpHand=new THREE.Mesh(new THREE.SphereGeometry(.075,16,12),skin);fpHand.scale.set(1,.75,1.25);fpHand.castShadow=true;scene.add(fpForearm,fpHand)}"
-          if old not in s:
-              raise SystemExit('Expected incompatible CapsuleGeometry code not found')
-          s=s.replace(old,new)
+          if old in s:
+              s=s.replace(old,new)
           s=s.replace("<p>Gerçek kort, salon ve rakip hazırlanıyor…</p>","<p id=\"loadmsg\">3D motor başlatılıyor…</p>")
           s=s.replace("function loadCharacters(){loadOne('human.glb',true,()=>{totalLoaded++;$('loadfill').style.width='55%';finish()});loadOne('man.glb',false,()=>{totalLoaded++;$('loadfill').style.width='90%';finish()})}","function loadCharacters(){$('loadmsg').textContent='Oyuncu modelleri yükleniyor…';$('loadfill').style.width='22%';loadOne('human.glb',true,()=>{totalLoaded++;$('loadfill').style.width='55%';finish()});loadOne('man.glb',false,()=>{totalLoaded++;$('loadfill').style.width='90%';finish()})}")
+          s=s.replace("#loading .box{width:min(520px,82vw)}", "#loading .box{width:min(760px,90vw)}#splashArt{width:min(680px,88vw);max-height:48vh;object-fit:contain;border-radius:18px;display:block;margin:0 auto 14px;box-shadow:0 18px 55px rgba(0,0,0,.45)}")
+          s=s.replace('<div id="loading"><div class="box"><h2>FIRST PERSON TENNIS</h2>', '<div id="loading"><div class="box"><img id="splashArt" src="mg-tennis-splash.svg" alt="MG Tennis TV"><h2>FIRST PERSON TENNIS</h2>')
           p.write_text(s)
           assert 'CapsuleGeometry' not in s
+          assert 'mg-tennis-splash.svg' in s
           PY
 
       - name: Set up JDK 17
@@ -88,17 +91,19 @@ jobs:
           test -s "$APK"
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.tennistv'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='7'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='8'"
           unzip -p "$APK" assets/index.html | grep 'CylinderGeometry'
           ! unzip -p "$APK" assets/index.html | grep -q 'CapsuleGeometry'
+          unzip -l "$APK" | grep 'assets/mg-tennis-splash.svg'
+          unzip -p "$APK" assets/index.html | grep 'mg-tennis-splash.svg'
           unzip -l "$APK" | grep 'assets/human.glb'
           unzip -l "$APK" | grep 'assets/man.glb'
       - name: Rename APK
-        run: cp mg-tennis-tv/app/build/outputs/apk/release/app-release.apk MG_Tennis_TV_FirstPerson_v0.7_StartupFix.apk
+        run: cp mg-tennis-tv/app/build/outputs/apk/release/app-release.apk MG_Tennis_TV_FirstPerson_v0.8_EmbeddedImage_Update.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-FirstPerson-v0.7-StartupFix-APK
-          path: MG_Tennis_TV_FirstPerson_v0.7_StartupFix.apk
+          name: MG-Tennis-TV-FirstPerson-v0.8-EmbeddedImage-Update-APK
+          path: MG_Tennis_TV_FirstPerson_v0.8_EmbeddedImage_Update.apk
           if-no-files-found: error
           retention-days: 30
