@@ -42,15 +42,16 @@ jobs:
           from pathlib import Path
           p=Path('battleship/app/src/v4/java/com/mg/battleship/MainActivity.java')
           s=p.read_text()
+          old=s
           s=s.replace('margin=dp(18)', 'margin=dp(4)')
-          s=s.replace('if(mine){for(int id=0;id<lengths.length;id++)drawShip(c,left,top,cell,id);}', 'if(mine){for(int id=0;id<lengths.length;id++)AdvancedShipRenderer.draw(c,p,left,top,cell,own,id);}')
-          s=s.replace('"Sıradaki gemi: "+lengths[placed]+" kare — "+(horizontal?"yatay":"dikey")', 'AdvancedShipRenderer.name(placed)+" — "+lengths[placed]+" kare — "+(horizontal?"yatay":"dikey")')
-          s=s.replace('int receiveShot(int r,int c){if(r<0||r>9||c<0||c>9)return 1;hit[r][c]=true;invalidate();return own[r][c]>=0?2:1;}', 'int receiveShot(int r,int c){if(r<0||r>9||c<0||c>9)return 1;hit[r][c]=true;invalidate();int res=own[r][c]>=0?2:1;if(res==2)BattleEffects.hit(MainActivity.this);else BattleEffects.miss(MainActivity.this);return res;}')
+          s=s.replace('if(mine)for(int id=0;id<lengths.length;id++)drawShipSide(c,left,top,cell,id);', 'if(mine)for(int id=0;id<lengths.length;id++)AdvancedShipRenderer.draw(c,p,left,top,cell,own,id);')
+          s=s.replace('int receiveShot(int r,int c){hit[r][c]=true;return own[r][c]>=0?2:1;}', 'int receiveShot(int r,int c){hit[r][c]=true;int res=own[r][c]>=0?2:1;if(res==2)BattleEffects.hit(MainActivity.this);else BattleEffects.miss(MainActivity.this);return res;}')
           s=s.replace('int receiveAiShot(int r,int c){aiHit[r][c]=true;return aiFleet[r][c]>=0?2:1;}', 'int receiveAiShot(int r,int c){aiHit[r][c]=true;int res=aiFleet[r][c]>=0?2:1;if(res==2)BattleEffects.hit(MainActivity.this);else BattleEffects.miss(MainActivity.this);return res;}')
-          s=s.replace('gameView.enemyMarks[r][c]=result;gameView.invalidate();status.setText', 'gameView.enemyMarks[r][c]=result;if(result==2)BattleEffects.hit(MainActivity.this);else BattleEffects.miss(MainActivity.this);gameView.invalidate();status.setText')
+          s=s.replace('gameView.enemyMarks[r][c]=res; gameView.invalidate();', 'gameView.enemyMarks[r][c]=res; if(res==2)BattleEffects.hit(MainActivity.this);else BattleEffects.miss(MainActivity.this); gameView.invalidate();')
           p.write_text(s)
-          assert 'AdvancedShipRenderer.draw' in s
-          assert 'BattleEffects.hit' in s
+          assert 'AdvancedShipRenderer.draw' in s, 'renderer patch missing'
+          assert s.count('BattleEffects.hit') >= 3, 'audio patches missing'
+          assert s != old, 'no source changes applied'
           PY
       - name: Build APK
         working-directory: battleship
