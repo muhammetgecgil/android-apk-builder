@@ -1,4 +1,4 @@
-name: Build Battleship v10 Tactical Damage APK
+name: Build Battleship v11 Naval Command UI APK
 
 on:
   push:
@@ -45,6 +45,9 @@ jobs:
       - name: Apply v10 tactical damage patch
         working-directory: battleship
         run: python3 patch_v10.py
+      - name: Apply v11 Naval Command UI patch
+        working-directory: battleship
+        run: python3 patch_v11.py
       - name: Build APK
         working-directory: battleship
         run: gradle --no-daemon :app:assembleDebug --stacktrace
@@ -53,23 +56,23 @@ jobs:
           test -s battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.battleship'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='10'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='11'"
       - name: Rename APK
-        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v10.0_Tactical_Damage.apk
+        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v11.0_Naval_Command_UI.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Amiral-Batti-v10.0-Tactical-Damage-APK
-          path: Amiral_Batti_v10.0_Tactical_Damage.apk
+          name: Amiral-Batti-v11.0-Naval-Command-UI-APK
+          path: Amiral_Batti_v11.0_Naval_Command_UI.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish stable APK release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="amiral-batti-v10-tactical-damage"
+          TAG="amiral-batti-v11-naval-command-ui"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Amiral_Batti_v10.0_Tactical_Damage.apk --clobber
+            gh release upload "$TAG" Amiral_Batti_v11.0_Naval_Command_UI.apk --clobber
           else
-            gh release create "$TAG" Amiral_Batti_v10.0_Tactical_Damage.apk --title "Amiral Battı v10.0 - Tactical Damage" --notes "v9 sinematik savaş korunur. Canlı filo hasar yüzdesi, vurulan gemilerde animasyonlu duman/alev, kritik isabet serileri ve ayrıntılı muharebe sonu raporu eklendi. Sıra kilitlenmesi koruması, gelişmiş AI, batış efektleri, Bluetooth ve kariyer sistemi korunur."
+            gh release create "$TAG" Amiral_Batti_v11.0_Naval_Command_UI.apk --title "Amiral Battı v11.0 - Naval Command UI" --notes "Yeni koyu CIC/komuta merkezi tasarımı, cam panel HUD, kart tipi menüler, premium tipografi, A-J / 1-10 koordinatlı taktik ızgara, derinlik gradyanlı deniz ve radar parlaması eklendi. v10 oynanış, AI, hasar, batış, Bluetooth ve kariyer özellikleri korunur."
           fi
