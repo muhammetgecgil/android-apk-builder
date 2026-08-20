@@ -1,6 +1,7 @@
 package com.mg.tennistv;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.*;
 import android.os.*;
 import android.content.*;
@@ -9,16 +10,19 @@ import android.graphics.Color;
 import android.hardware.*;
 import android.bluetooth.*;
 import android.view.*;
-import android.widget.*;
+import android.webkit.*;
+import android.widget.Toast;
 import java.io.*;
 import java.util.*;
 
 public class MainActivity extends Activity implements SensorEventListener {
     private SensorManager sensorManager;
-    private Sensor accel, gyro;
+    private Sensor accel, gyro, rotation;
     private float gyroMag = 0f, tilt = 0f;
-    private long lastSwing = 0L;
-    private Tennis3DView game;
+    private long lastSwing = 0L, lastTiltPush = 0L;
+    private WebView web;
+    private volatile boolean pageReady = false;
+
     private BluetoothAdapter bt;
     private BluetoothSocket btSocket;
     private BluetoothServerSocket serverSocket;
@@ -26,127 +30,170 @@ public class MainActivity extends Activity implements SensorEventListener {
     private volatile boolean controllerMode = false;
     private static final UUID UUID_GAME = UUID.fromString("6f4f4d30-9c4e-4f99-9e96-1e2ac4c1a501");
 
+    @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        getWindow().setStatusBarColor(Color.BLACK);
         getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
                 View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
 
-        FrameLayout root = new FrameLayout(this);
-        game = new Tennis3DView(this);
-        root.addView(game, new FrameLayout.LayoutParams(-1, -1));
-
-        LinearLayout menu = new LinearLayout(this);
-        menu.setOrientation(LinearLayout.HORIZONTAL);
-        menu.setPadding(dp(10), dp(8), dp(10), dp(8));
-        menu.setBackgroundColor(Color.argb(150, 8, 12, 18));
-        menu.addView(button("AI", v -> startAi()));
-        menu.addView(button("2 TEL HOST", v -> startHost()));
-        menu.addView(button("KONTROLCU", v -> startController()));
-        menu.addView(button("KALIBRE", v -> calibrate()));
-        FrameLayout.LayoutParams mp = new FrameLayout.LayoutParams(-2, dp(56), Gravity.TOP | Gravity.LEFT);
-        mp.setMargins(dp(8), dp(6), 0, 0);
-        root.addView(menu, mp);
-
-        TextView badge = new TextView(this);
-        badge.setText("MG TENNIS 3D PRO");
-        badge.setTextColor(Color.WHITE);
-        badge.setTextSize(15);
-        badge.setGravity(Gravity.CENTER);
-        badge.setBackgroundColor(Color.argb(135, 0, 0, 0));
-        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(dp(170), dp(38), Gravity.TOP | Gravity.RIGHT);
-        bp.setMargins(0, dp(8), dp(10), 0);
-        root.addView(badge, bp);
-
-        setContentView(root);
+        web = new WebView(this);
+        web.setBackgroundColor(Color.BLACK);
+        web.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+        WebSettings s = web.getSettings();
+        s.setJavaScriptEnabled(true);
+        s.setDomStorageEnabled(true);
+        s.setAllowFileAccess(true);
+        s.setAllowContentAccess(true);
+        s.setLoadWithOverviewMode(true);
+        s.setUseWideViewPort(true);
+        s.setMediaPlaybackRequiresUserGesture(false);
+        if (Build.VERSION.SDK_INT >= 16) {
+            s.setAllowFileAccessFromFileURLs(true);
+            s.setAllowUniversalAccessFromFileURLs(true);
+        }
+        web.addJavascriptInterface(new Bridge(), "Android");
+        web.setWebChromeClient(new WebChromeClient());
+        web.setWebViewClient(new WebViewClient() {
+            @Override public void onPageFinished(WebView view, String url) {
+                pageReady = true;
+                eval("window.androidReady && window.androidReady()");
+            }
+        });
+        setContentView(web);
+        web.loadUrl("file:///android_asset/index.html");
 
         sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
         accel = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
         if (accel == null) accel = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         gyro = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        rotation = sensorManager.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
+        if (rotation == null) rotation = sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
         bt = BluetoothAdapter.getDefaultAdapter();
         askBluetoothPermission();
     }
 
-    private Button button(String s, View.OnClickListener l) {
-        Button b = new Button(this);
-        b.setText(s);
-        b.setTextSize(11);
-        b.setTextColor(Color.WHITE);
-        b.setAllCaps(false);
-        b.setBackgroundColor(Color.argb(190, 28, 34, 42));
-        b.setOnClickListener(l);
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(dp(112), -1);
-        p.setMargins(0, 0, dp(5), 0);
-        b.setLayoutParams(p);
-        return b;
-    }
-
-    private int dp(int v) { return (int)(v * getResources().getDisplayMetrics().density + .5f); }
-
     private void askBluetoothPermission() {
-        if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN}, 7);
+        if (Build.VERSION.SDK_INT >= 31) {
+            ArrayList<String> req = new ArrayList<>();
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED)
+                req.add(Manifest.permission.BLUETOOTH_CONNECT);
+            if (checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED)
+                req.add(Manifest.permission.BLUETOOTH_SCAN);
+            if (!req.isEmpty()) requestPermissions(req.toArray(new String[0]), 7);
         }
     }
 
     @Override protected void onResume() {
         super.onResume();
-        game.onResume();
+        if (web != null) web.onResume();
         if (accel != null) sensorManager.registerListener(this, accel, SensorManager.SENSOR_DELAY_GAME);
         if (gyro != null) sensorManager.registerListener(this, gyro, SensorManager.SENSOR_DELAY_GAME);
+        if (rotation != null) sensorManager.registerListener(this, rotation, SensorManager.SENSOR_DELAY_GAME);
     }
 
     @Override protected void onPause() {
         sensorManager.unregisterListener(this);
-        game.onPause();
+        if (web != null) web.onPause();
         super.onPause();
     }
 
-    @Override public void onAccuracyChanged(Sensor s, int a) {}
+    @Override public void onAccuracyChanged(Sensor sensor, int accuracy) {}
 
     @Override public void onSensorChanged(SensorEvent e) {
-        if (e.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
+        final int type = e.sensor.getType();
+        if (type == Sensor.TYPE_GYROSCOPE) {
             gyroMag = (float)Math.sqrt(e.values[0]*e.values[0] + e.values[1]*e.values[1] + e.values[2]*e.values[2]);
             return;
         }
+        if (type == Sensor.TYPE_GAME_ROTATION_VECTOR || type == Sensor.TYPE_ROTATION_VECTOR) {
+            float[] rm = new float[9];
+            float[] rr = new float[9];
+            float[] ori = new float[3];
+            SensorManager.getRotationMatrixFromVector(rm, e.values);
+            SensorManager.remapCoordinateSystem(rm, SensorManager.AXIS_Y, SensorManager.AXIS_MINUS_X, rr);
+            SensorManager.getOrientation(rr, ori);
+            float roll = (float)Math.toDegrees(ori[2]);
+            tilt = clamp(tilt * 0.82f + clamp(roll / 8.0f, -6f, 6f) * 0.18f, -6f, 6f);
+            pushTilt();
+            return;
+        }
         if (e.values.length < 3) return;
-        tilt = clamp(tilt * 0.86f + (-e.values[0]) * 0.14f, -6f, 6f);
-        game.setPlayerTilt(tilt);
+        if (rotation == null) {
+            tilt = clamp(tilt * 0.86f + (-e.values[0]) * 0.14f, -6f, 6f);
+            pushTilt();
+        }
+
         float a = (float)Math.sqrt(e.values[0]*e.values[0] + e.values[1]*e.values[1] + e.values[2]*e.values[2]);
         long now = System.currentTimeMillis();
-        float threshold = e.sensor.getType() == Sensor.TYPE_LINEAR_ACCELERATION ? 8.0f : 15.0f;
-        if (a > threshold && gyroMag > 1.5f && now - lastSwing > 300) {
+        float threshold = type == Sensor.TYPE_LINEAR_ACCELERATION ? 7.5f : 14.5f;
+        if (a > threshold && gyroMag > 1.35f && now - lastSwing > 285) {
             lastSwing = now;
-            float power = clamp((a/threshold)*0.56f + (gyroMag/4f)*0.44f, 0.72f, 2.35f);
+            float power = clamp((a/threshold)*0.54f + (gyroMag/4f)*0.46f, 0.68f, 2.45f);
             float direction = clamp(e.values[0] / Math.max(5f, a), -1f, 1f);
+            haptic(22);
             if (controllerMode) sendSwing(power, direction);
-            else game.localSwing(power, direction);
+            else localSwing(power, direction);
         }
+    }
+
+    private void pushTilt() {
+        long n = System.nanoTime();
+        if (n - lastTiltPush < 16_000_000L) return;
+        lastTiltPush = n;
+        eval(String.format(Locale.US, "window.setPlayerTilt && window.setPlayerTilt(%.4f)", tilt));
+    }
+
+    private void localSwing(float p, float d) {
+        eval(String.format(Locale.US, "window.nativeSwing && window.nativeSwing(%.4f,%.4f,false)", p, d));
+    }
+
+    private void remoteSwing(float p, float d) {
+        eval(String.format(Locale.US, "window.nativeSwing && window.nativeSwing(%.4f,%.4f,true)", p, d));
+    }
+
+    private void eval(String js) {
+        WebView w = web;
+        if (w == null || !pageReady) return;
+        w.post(() -> w.evaluateJavascript(js, null));
     }
 
     private static float clamp(float v, float lo, float hi) { return Math.max(lo, Math.min(hi, v)); }
 
+    private void haptic(int ms) {
+        try {
+            Vibrator v = (Vibrator)getSystemService(VIBRATOR_SERVICE);
+            if (v == null) return;
+            if (Build.VERSION.SDK_INT >= 26) v.vibrate(VibrationEffect.createOneShot(ms, VibrationEffect.DEFAULT_AMPLITUDE));
+            else v.vibrate(ms);
+        } catch (Exception ignored) {}
+    }
+
     public void calibrate() {
         tilt = 0f;
-        game.setPlayerTilt(0f);
+        pushTilt();
+        eval("window.calibrationFlash && window.calibrationFlash()");
         Toast.makeText(this, "Raket merkezi kalibre edildi", Toast.LENGTH_SHORT).show();
     }
 
     public void startAi() {
         controllerMode = false;
         closeBt();
-        game.setMode(Tennis3DView.MODE_AI);
-        Toast.makeText(this, "3D maç: Telefon vs AI", Toast.LENGTH_SHORT).show();
+        eval("window.setMode && window.setMode('ai')");
+        Toast.makeText(this, "Telefon vs AI", Toast.LENGTH_SHORT).show();
     }
 
     public void startHost() {
         controllerMode = false;
-        game.setMode(Tennis3DView.MODE_HOST);
+        eval("window.setMode && window.setMode('host')");
         if (bt == null) { Toast.makeText(this, "Bluetooth desteklenmiyor", Toast.LENGTH_LONG).show(); return; }
-        if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) { askBluetoothPermission(); return; }
+        if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            askBluetoothPermission(); return;
+        }
+        closeBt();
         new Thread(() -> {
             try {
                 serverSocket = bt.listenUsingRfcommWithServiceRecord("MG Tennis TV", UUID_GAME);
@@ -157,14 +204,16 @@ public class MainActivity extends Activity implements SensorEventListener {
             } catch (Exception ex) {
                 runOnUiThread(() -> Toast.makeText(this, "Host bağlantısı: " + ex.getMessage(), Toast.LENGTH_LONG).show());
             }
-        }).start();
+        }, "MG-Tennis-Host").start();
     }
 
     public void startController() {
         controllerMode = true;
-        game.setMode(Tennis3DView.MODE_CONTROLLER);
+        eval("window.setMode && window.setMode('controller')");
         if (bt == null) { Toast.makeText(this, "Bluetooth desteklenmiyor", Toast.LENGTH_LONG).show(); return; }
-        if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) { askBluetoothPermission(); return; }
+        if (Build.VERSION.SDK_INT >= 31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            askBluetoothPermission(); return;
+        }
         Set<BluetoothDevice> bonded = bt.getBondedDevices();
         if (bonded == null || bonded.isEmpty()) {
             Toast.makeText(this, "Önce iki telefonu Android Bluetooth ayarından eşleştir", Toast.LENGTH_LONG).show();
@@ -172,28 +221,35 @@ public class MainActivity extends Activity implements SensorEventListener {
         }
         final ArrayList<BluetoothDevice> devices = new ArrayList<>(bonded);
         String[] names = new String[devices.size()];
-        for (int i=0;i<devices.size();i++) names[i] = devices.get(i).getName() + "\n" + devices.get(i).getAddress();
+        for (int i=0;i<devices.size();i++) {
+            String name = devices.get(i).getName();
+            names[i] = (name == null ? "Bluetooth cihazı" : name) + "\n" + devices.get(i).getAddress();
+        }
         new AlertDialog.Builder(this).setTitle("Ana telefonu seç").setItems(names, (d, which) -> connectController(devices.get(which))).show();
     }
 
     private void connectController(BluetoothDevice dev) {
         new Thread(() -> {
             try {
-                if (bt.isDiscovering()) bt.cancelDiscovery();
+                if (Build.VERSION.SDK_INT < 31 || checkSelfPermission(Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
+                    if (bt.isDiscovering()) bt.cancelDiscovery();
+                }
                 btSocket = dev.createRfcommSocketToServiceRecord(UUID_GAME);
                 btSocket.connect();
                 btOut = new PrintWriter(new OutputStreamWriter(btSocket.getOutputStream()), true);
                 runOnUiThread(() -> Toast.makeText(this, "Kontrolcü bağlandı", Toast.LENGTH_SHORT).show());
+                eval("window.controllerConnected && window.controllerConnected(true)");
             } catch (Exception ex) {
                 runOnUiThread(() -> Toast.makeText(this, "Bağlantı olmadı: " + ex.getMessage(), Toast.LENGTH_LONG).show());
+                eval("window.controllerConnected && window.controllerConnected(false)");
             }
-        }).start();
+        }, "MG-Tennis-Controller").start();
     }
 
     private void sendSwing(float p, float d) {
         PrintWriter out = btOut;
-        if (out != null) out.println("SWING," + p + "," + d);
-        game.flashSwing(p);
+        if (out != null) out.println(String.format(Locale.US, "SWING,%.4f,%.4f", p, d));
+        eval(String.format(Locale.US, "window.controllerSwing && window.controllerSwing(%.4f)", p));
     }
 
     private void readRemote(BluetoothSocket s) throws IOException {
@@ -203,9 +259,11 @@ public class MainActivity extends Activity implements SensorEventListener {
             if (line.startsWith("SWING,")) {
                 String[] q = line.split(",");
                 if (q.length >= 3) {
-                    final float p = Float.parseFloat(q[1]);
-                    final float d = Float.parseFloat(q[2]);
-                    runOnUiThread(() -> game.remoteSwing(p, d));
+                    try {
+                        float p = Float.parseFloat(q[1]);
+                        float d = Float.parseFloat(q[2]);
+                        remoteSwing(p, d);
+                    } catch (NumberFormatException ignored) {}
                 }
             }
         }
@@ -217,5 +275,31 @@ public class MainActivity extends Activity implements SensorEventListener {
         btSocket = null; serverSocket = null; btOut = null;
     }
 
-    @Override protected void onDestroy() { closeBt(); super.onDestroy(); }
+    public class Bridge {
+        @JavascriptInterface public void startAi() { runOnUiThread(MainActivity.this::startAi); }
+        @JavascriptInterface public void startHost() { runOnUiThread(MainActivity.this::startHost); }
+        @JavascriptInterface public void startController() { runOnUiThread(MainActivity.this::startController); }
+        @JavascriptInterface public void calibrate() { runOnUiThread(MainActivity.this::calibrate); }
+        @JavascriptInterface public void vibrate(int ms) { haptic(Math.max(5, Math.min(ms, 80))); }
+    }
+
+    @Override public void onBackPressed() {
+        if (controllerMode) {
+            controllerMode = false;
+            closeBt();
+            eval("window.setMode && window.setMode('ai')");
+            return;
+        }
+        super.onBackPressed();
+    }
+
+    @Override protected void onDestroy() {
+        closeBt();
+        if (web != null) {
+            web.removeJavascriptInterface("Android");
+            web.destroy();
+            web = null;
+        }
+        super.onDestroy();
+    }
 }
