@@ -29,6 +29,13 @@ jobs:
           git commit -m "Record MG Tennis TV run $GITHUB_RUN_ID" || true
           git push
 
+      - name: Restore stable signing keystore
+        run: |
+          set -euo pipefail
+          base64 -d mg-tennis-tv/signing/mg-tennis-update.jks.b64 > mg-tennis-tv/signing/mg-tennis-update.jks
+          test -s mg-tennis-tv/signing/mg-tennis-update.jks
+          sha256sum mg-tennis-tv/signing/mg-tennis-update.jks
+
       - name: Prepare realistic 3D runtime assets
         run: |
           set -euo pipefail
@@ -59,24 +66,25 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Build APK
+      - name: Build update-compatible APK
         working-directory: mg-tennis-tv
-        run: gradle --no-daemon :app:assembleDebug --stacktrace
-      - name: Verify APK
+        run: gradle --no-daemon :app:assembleRelease --stacktrace
+      - name: Verify APK and stable signature
         run: |
-          APK="mg-tennis-tv/app/build/outputs/apk/debug/app-debug.apk"
+          APK="mg-tennis-tv/app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.tennistv'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='6'"
           unzip -l "$APK" | grep 'assets/human.glb'
           unzip -l "$APK" | grep 'assets/man.glb'
           unzip -l "$APK" | grep 'assets/index.html'
       - name: Rename APK
-        run: cp mg-tennis-tv/app/build/outputs/apk/debug/app-debug.apk MG_Tennis_TV_FirstPerson_v0.5.apk
+        run: cp mg-tennis-tv/app/build/outputs/apk/release/app-release.apk MG_Tennis_TV_FirstPerson_v0.6_Update.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-FirstPerson-v0.5-APK
-          path: MG_Tennis_TV_FirstPerson_v0.5.apk
+          name: MG-Tennis-TV-FirstPerson-v0.6-Update-APK
+          path: MG_Tennis_TV_FirstPerson_v0.6_Update.apk
           if-no-files-found: error
           retention-days: 30
