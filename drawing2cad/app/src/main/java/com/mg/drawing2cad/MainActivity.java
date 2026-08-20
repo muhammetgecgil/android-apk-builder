@@ -3,95 +3,134 @@ package com.mg.drawing2cad;
 import android.app.*;
 import android.os.*;
 import android.content.*;
-import android.database.Cursor;
 import android.graphics.*;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.pdf.PdfRenderer;
 import android.net.Uri;
-import android.provider.OpenableColumns;
 import android.view.*;
 import android.widget.*;
-import java.io.*;
-import java.util.*;
-import java.util.zip.*;
 
 public class MainActivity extends Activity {
-  static final int PICK=10,SAVE=11;
-  final int BG=Color.rgb(7,12,22),PANEL=Color.rgb(15,23,42),PANEL2=Color.rgb(22,32,52),TEXT=Color.rgb(226,232,240),MUTED=Color.rgb(148,163,184),ACC=Color.rgb(34,211,238);
-  Bitmap source; CadView view; TextView status,fileInfo; Uri archiveUri; ArrayList<String> entries=new ArrayList<>(); boolean[][][] voxels; String pendingStl; boolean highQuality=true;
+    static final int PICK_FILE=101;
+    final int BG=Color.rgb(3,12,22), PANEL=Color.rgb(5,20,35), PANEL2=Color.rgb(8,29,48), TEXT=Color.rgb(235,244,252), MUTED=Color.rgb(158,177,193), CYAN=Color.rgb(58,205,255), BLUE=Color.rgb(0,117,255), GRASS=Color.rgb(64,214,38);
+    CadSurface cad;
+    TextView modelState, explodeValue, sectionValue;
+    Button penButton, minusButton, plusButton;
+    SeekBar explodeSeek, sectionSeek;
+    Uri currentPdf;
+    boolean penActive=false;
+    int sectionPercent=50;
 
-  @Override public void onCreate(Bundle b){super.onCreate(b);getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);buildUi();}
+    @Override public void onCreate(Bundle b){
+        super.onCreate(b);
+        getWindow().setStatusBarColor(BG);
+        getWindow().setNavigationBarColor(BG);
+        buildUi();
+    }
 
-  void buildUi(){
-    LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(BG);
-    LinearLayout head=new LinearLayout(this);head.setPadding(dp(14),dp(9),dp(10),dp(8));head.setGravity(Gravity.CENTER_VERTICAL);head.setBackgroundColor(PANEL);
-    LinearLayout tt=new LinearLayout(this);tt.setOrientation(LinearLayout.VERTICAL);tt.addView(txt("MG Drawing2CAD",21,TEXT,true));tt.addView(txt("PRO 3D CAD VIEWER • v1.6",10,MUTED,false));head.addView(tt,new LinearLayout.LayoutParams(0,-2,1));head.addView(txt("● HQ SURFACE",9,ACC,true));root.addView(head);
+    void buildUi(){
+        LinearLayout root=new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setBackgroundColor(BG);
 
-    HorizontalScrollView hs=new HorizontalScrollView(this);hs.setHorizontalScrollBarEnabled(false);LinearLayout bar=new LinearLayout(this);bar.setPadding(dp(6),dp(6),dp(6),dp(6));
-    Button open=tool("AÇ"),make=tool("3D"),save=tool("STL"),iso=tool("ISO"),front=tool("ÖN"),back=tool("ARKA"),left=tool("SOL"),right=tool("SAĞ"),top=tool("ÜST"),bottom=tool("ALT"),fit=tool("FIT"),reset=tool("RESET"),auto=tool("AUTO"),wire=tool("WIRE"),edges=tool("EDGE"),smooth=tool("SMOOTH"),secX=tool("X KESİT"),secY=tool("Y KESİT"),secZ=tool("Z KESİT"),measure=tool("ÖLÇÜ"),hq=tool("HQ");
-    Button[] buttons={open,make,save,iso,front,back,left,right,top,bottom,fit,reset,auto,wire,edges,smooth,secX,secY,secZ,measure,hq};for(Button x:buttons)bar.addView(x);hs.addView(bar);root.addView(hs);
+        root.addView(buildHeader(),new LinearLayout.LayoutParams(-1,dp(58)));
 
-    fileInfo=txt("DOSYA: — | FRONT sol-üst • RIGHT sağ-üst • TOP sol-alt • ISO sağ-alt",10,MUTED,false);fileInfo.setPadding(dp(10),dp(6),dp(10),dp(6));fileInfo.setBackgroundColor(PANEL2);root.addView(fileInfo);
-    FrameLayout stage=new FrameLayout(this);view=new CadView(this);stage.addView(view,new FrameLayout.LayoutParams(-1,-1));root.addView(stage,new LinearLayout.LayoutParams(-1,0,1));
-    status=txt("Çok görünüşlü teknik resmi aç. HQ yüzey + profesyonel 3D kullanım araçları hazır.",10,MUTED,false);status.setPadding(dp(10),dp(8),dp(10),dp(9));status.setBackgroundColor(PANEL);root.addView(status);setContentView(root);
+        LinearLayout body=new LinearLayout(this);
+        body.setOrientation(LinearLayout.HORIZONTAL);
+        FrameLayout stage=new FrameLayout(this);
+        cad=new CadSurface(this);
+        stage.addView(cad,new FrameLayout.LayoutParams(-1,-1));
+        addPenAndCoords(stage);
+        addAnalysisPanel(stage);
+        addMeasureButtons(stage);
+        body.addView(stage,new LinearLayout.LayoutParams(0,-1,1f));
+        body.addView(buildRightPanel(),new LinearLayout.LayoutParams(dp(355),-1));
+        root.addView(body,new LinearLayout.LayoutParams(-1,0,1f));
+        root.addView(buildBottomBar(),new LinearLayout.LayoutParams(-1,dp(84)));
+        setContentView(root);
+    }
 
-    open.setOnClickListener(v->pick());make.setOnClickListener(v->make3d());save.setOnClickListener(v->save());
-    iso.setOnClickListener(v->view.setPreset(0));front.setOnClickListener(v->view.setPreset(1));back.setOnClickListener(v->view.setPreset(2));left.setOnClickListener(v->view.setPreset(3));right.setOnClickListener(v->view.setPreset(4));top.setOnClickListener(v->view.setPreset(5));bottom.setOnClickListener(v->view.setPreset(6));
-    fit.setOnClickListener(v->view.fit());reset.setOnClickListener(v->view.reset());auto.setOnClickListener(v->{view.autoRotate=!view.autoRotate;view.invalidate();status.setText("Otomatik döndürme: "+(view.autoRotate?"AÇIK":"KAPALI"));});
-    wire.setOnClickListener(v->{view.wire=!view.wire;view.invalidate();});edges.setOnClickListener(v->{view.showEdges=!view.showEdges;view.invalidate();});smooth.setOnClickListener(v->{view.smoothShade=!view.smoothShade;view.invalidate();});
-    secX.setOnClickListener(v->{view.cycleSection(1);});secY.setOnClickListener(v->{view.cycleSection(2);});secZ.setOnClickListener(v->{view.cycleSection(3);});
-    measure.setOnClickListener(v->showMeasurements());hq.setOnClickListener(v->{highQuality=!highQuality;status.setText("Rekonstrüksiyon kalitesi: "+(highQuality?"HQ 96":"FAST 64"));});
-  }
+    View buildHeader(){
+        LinearLayout h=new LinearLayout(this);h.setGravity(Gravity.CENTER_VERTICAL);h.setPadding(dp(15),dp(6),dp(10),dp(6));
+        TextView brand=txt("MG CAD PRO",22,CYAN,true);h.addView(brand);
+        modelState=txt("  Model seçilmedi",19,TEXT,true);h.addView(modelState,new LinearLayout.LayoutParams(0,-2,1f));
+        String[] labels={"GERİ AL (1)","DOSYA AÇ","SIĞDIR","ISO","ÖN","ÜST","SAĞ","III⌄"};
+        for(String s:labels){Button b=topButton(s);h.addView(b);if(s.equals("DOSYA AÇ"))b.setOnClickListener(v->pickFile());}
+        return h;
+    }
 
-  TextView txt(String s,int z,int c,boolean b){TextView t=new TextView(this);t.setText(s);t.setTextSize(z);t.setTextColor(c);if(b)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
-  Button tool(String s){Button b=new Button(this);b.setText(s);b.setTextColor(TEXT);b.setTextSize(8);b.setAllCaps(false);b.setMinHeight(0);b.setMinimumHeight(0);b.setPadding(dp(10),dp(6),dp(10),dp(6));GradientDrawable g=new GradientDrawable();g.setColor(PANEL2);g.setCornerRadius(dp(8));g.setStroke(1,Color.rgb(51,65,85));b.setBackground(g);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,dp(38));lp.setMargins(dp(3),0,dp(3),0);b.setLayoutParams(lp);return b;}
-  int dp(int v){return (int)(v*getResources().getDisplayMetrics().density+.5f);}
+    void addPenAndCoords(FrameLayout stage){
+        LinearLayout left=new LinearLayout(this);left.setOrientation(LinearLayout.VERTICAL);left.setGravity(Gravity.CENTER_HORIZONTAL);
+        penButton=new Button(this);penButton.setText("✎");penButton.setTextSize(30);penButton.setTextColor(TEXT);penButton.setPadding(0,0,0,0);round(penButton,PANEL2,CYAN,999);
+        penButton.setOnClickListener(v->{penActive=!penActive;penButton.setTextColor(penActive?GRASS:TEXT);round(penButton,PANEL2,penActive?GRASS:CYAN,999);cad.penActive=penActive;cad.invalidate();});
+        left.addView(penButton,new LinearLayout.LayoutParams(dp(76),dp(76)));
+        LinearLayout coords=new LinearLayout(this);coords.setPadding(dp(12),0,dp(12),0);coords.setGravity(Gravity.CENTER_VERTICAL);round(coords,PANEL,Color.rgb(21,67,99),12);
+        TextView x=txt("X",17,Color.rgb(255,55,70),true), xr=txt(" kırmızı",16,MUTED,true), z=txt("   Z",17,Color.rgb(25,130,255),true), zr=txt(" mavi",16,MUTED,true);
+        coords.addView(x);coords.addView(xr);coords.addView(z);coords.addView(zr);
+        left.addView(coords,new LinearLayout.LayoutParams(dp(220),dp(52)));
+        FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(240),dp(140),Gravity.TOP|Gravity.LEFT);lp.setMargins(dp(18),dp(18),0,0);stage.addView(left,lp);
+    }
 
-  void pick(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");i.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"image/*","application/pdf","application/zip","application/x-zip-compressed","application/octet-stream"});startActivityForResult(i,PICK);}
-  @Override protected void onActivityResult(int r,int c,Intent d){super.onActivityResult(r,c,d);if(c!=RESULT_OK||d==null)return;try{if(r==PICK){Uri u=d.getData();String n=fileName(u),l=n.toLowerCase(Locale.ROOT);if(l.endsWith(".zip")||l.endsWith(".cbz")||l.endsWith(".jar")){archiveUri=u;listArchive(u);}else if(l.endsWith(".pdf")){source=renderPdf(u);loaded(n,"PDF");}else{try(InputStream in=getContentResolver().openInputStream(u)){source=BitmapFactory.decodeStream(in);}loaded(n,"IMAGE");}}else if(r==SAVE&&pendingStl!=null){try(OutputStream o=getContentResolver().openOutputStream(d.getData())){o.write(pendingStl.getBytes("UTF-8"));}status.setText("✓ STL kaydedildi.");}}catch(Exception e){status.setText("Hata: "+e.getMessage());}}
-  void loaded(String n,String type)throws Exception{if(source==null)throw new IOException("Dosya görüntüye çevrilemedi");voxels=null;view.setBitmap(source);fileInfo.setText("DOSYA: "+n+" | "+type+" | MultiView");status.setText("✓ Yüklendi. 3D butonuna bas.");}
-  String fileName(Uri u){String n="dosya";Cursor c=null;try{c=getContentResolver().query(u,null,null,null,null);if(c!=null&&c.moveToFirst()){int i=c.getColumnIndex(OpenableColumns.DISPLAY_NAME);if(i>=0)n=c.getString(i);}}catch(Exception ignored){}finally{if(c!=null)c.close();}return n==null?"dosya":n;}
+    void addAnalysisPanel(FrameLayout stage){
+        LinearLayout p=new LinearLayout(this);p.setOrientation(LinearLayout.VERTICAL);p.setPadding(dp(24),dp(18),dp(18),dp(14));round(p,Color.argb(220,3,16,28),Color.rgb(16,66,98),14);
+        LinearLayout titleRow=new LinearLayout(this);titleRow.setGravity(Gravity.CENTER_VERTICAL);TextView t=txt("MODEL ANALİZİ",23,CYAN,true);titleRow.addView(t,new LinearLayout.LayoutParams(0,-2,1));Button a=smallButton("ANALİZ ◀");titleRow.addView(a,new LinearLayout.LayoutParams(dp(146),dp(48)));p.addView(titleRow);
+        p.addView(txt("CAD ÇALIŞMA ALANI",15,TEXT,true));p.addView(txt("Model yüklenmedi",14,MUTED,false));
+        TextView formats=txt("DOSYA AÇ • ZIP • STEP/STP • IGES/IGS • BREP • OBJ\nPLY • GLTF/GLB • 3MF • DAE • FBX • DXF • X3D • OFF",12,CYAN,false);formats.setPadding(0,dp(8),0,0);p.addView(formats);
+        FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(565),dp(190),Gravity.BOTTOM|Gravity.LEFT);lp.setMargins(dp(18),0,0,dp(18));stage.addView(p,lp);
+    }
 
-  void listArchive(Uri u)throws Exception{entries.clear();try(InputStream in=getContentResolver().openInputStream(u);ZipInputStream z=new ZipInputStream(new BufferedInputStream(in))){ZipEntry e;while((e=z.getNextEntry())!=null){if(e.isDirectory())continue;String l=e.getName().toLowerCase(Locale.ROOT);if(l.endsWith(".pdf")||l.endsWith(".png")||l.endsWith(".jpg")||l.endsWith(".jpeg")||l.endsWith(".webp"))entries.add(e.getName());}}if(entries.isEmpty())throw new IOException("ZIP içinde desteklenen çizim yok");String[] a=entries.toArray(new String[0]);new AlertDialog.Builder(this).setTitle("ZIP içinden teknik resim seç").setItems(a,(q,w)->{try{loadEntry(a[w]);}catch(Exception ex){status.setText("ZIP hatası: "+ex.getMessage());}}).setNegativeButton("İptal",null).show();}
-  void loadEntry(String wanted)throws Exception{File f=new File(getCacheDir(),"d2c16_"+Math.abs(wanted.hashCode())+(wanted.toLowerCase(Locale.ROOT).endsWith(".pdf")?".pdf":".img"));boolean found=false;try(InputStream in=getContentResolver().openInputStream(archiveUri);ZipInputStream z=new ZipInputStream(new BufferedInputStream(in))){ZipEntry e;while((e=z.getNextEntry())!=null)if(e.getName().equals(wanted)){try(FileOutputStream o=new FileOutputStream(f)){byte[] b=new byte[16384];int n;long total=0;while((n=z.read(b))>0){total+=n;if(total>80L*1024*1024)throw new IOException("ZIP girdisi çok büyük");o.write(b,0,n);}}found=true;break;}}if(!found)throw new IOException("ZIP girdisi bulunamadı");if(wanted.toLowerCase(Locale.ROOT).endsWith(".pdf"))source=renderPdfFile(f);else try(InputStream in=new FileInputStream(f)){source=BitmapFactory.decodeStream(in);}loaded(wanted,"ZIP");}
-  Bitmap renderPdf(Uri u)throws Exception{File f=new File(getCacheDir(),"mv16.pdf");try(InputStream in=getContentResolver().openInputStream(u);FileOutputStream o=new FileOutputStream(f)){byte[] b=new byte[16384];int n;while((n=in.read(b))>0)o.write(b,0,n);}return renderPdfFile(f);}
-  Bitmap renderPdfFile(File f)throws Exception{ParcelFileDescriptor pfd=ParcelFileDescriptor.open(f,ParcelFileDescriptor.MODE_READ_ONLY);PdfRenderer r=new PdfRenderer(pfd);if(r.getPageCount()<1)throw new IOException("PDF boş");PdfRenderer.Page p=r.openPage(0);float k=Math.min(3f,2400f/Math.max(p.getWidth(),p.getHeight()));Bitmap b=Bitmap.createBitmap(Math.max(1,(int)(p.getWidth()*k)),Math.max(1,(int)(p.getHeight()*k)),Bitmap.Config.ARGB_8888);b.eraseColor(Color.WHITE);p.render(b,null,null,PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);p.close();r.close();pfd.close();return b;}
+    void addMeasureButtons(FrameLayout stage){
+        LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL|Gravity.RIGHT);
+        Button b1=actionButton("ÖLÇÜLERİ KAPAT"),b2=actionButton("ÖLÇÜ KAPAT");row.addView(b1,new LinearLayout.LayoutParams(dp(230),dp(50)));row.addView(space(12));row.addView(b2,new LinearLayout.LayoutParams(dp(180),dp(50)));
+        FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(dp(440),dp(58),Gravity.BOTTOM|Gravity.RIGHT);lp.setMargins(0,0,dp(24),dp(22));stage.addView(row,lp);
+    }
 
-  void make3d(){if(source==null){status.setText("Önce teknik resim aç.");return;}status.setText("MultiView analiz • HQ silüet • yüzey yumuşatma • 3D hacim oluşturuluyor...");new Thread(()->{try{MVResult r=reconstruct(source);voxels=r.v;runOnUiThread(()->{view.setVoxels(r.v);view.setPreset(0);status.setText("✓ 3D HAZIR • "+r.nx+"×"+r.ny+"×"+r.nz+" • "+count3(r.v)+" hücre • HQ yüzey");});}catch(Exception e){runOnUiThread(()->status.setText("Analiz hatası: "+e.getMessage()));}}).start();}
+    View buildRightPanel(){
+        LinearLayout p=new LinearLayout(this);p.setOrientation(LinearLayout.VERTICAL);p.setPadding(dp(18),dp(16),dp(18),dp(12));round(p,Color.rgb(3,17,29),Color.rgb(18,66,97),18);
+        LinearLayout r1=new LinearLayout(this);Button hide=sideButton("GİZLE"),cadB=sideButton("CAD ▶");r1.addView(hide,new LinearLayout.LayoutParams(0,dp(54),1));r1.addView(space(12));r1.addView(cadB,new LinearLayout.LayoutParams(0,dp(54),1));p.addView(r1);
+        Button all=sideButton("TÜMÜ");LinearLayout.LayoutParams alp=new LinearLayout.LayoutParams(dp(160),dp(54));alp.setMargins(0,dp(8),0,0);p.addView(all,alp);
+        divider(p);
+        p.addView(txt("PATLATILMIŞ GÖRÜNÜM",20,CYAN,true));explodeValue=txt("0%",18,CYAN,true);p.addView(explodeValue);
+        explodeSeek=new SeekBar(this);explodeSeek.setMax(100);explodeSeek.setProgress(0);explodeSeek.setProgressTintList(android.content.res.ColorStateList.valueOf(BLUE));explodeSeek.setThumbTintList(android.content.res.ColorStateList.valueOf(BLUE));p.addView(explodeSeek,new LinearLayout.LayoutParams(-1,dp(54)));explodeSeek.setOnSeekBarChangeListener(simpleSeek(v->{explodeValue.setText(v+"%");cad.explode=v;cad.invalidate();}));
+        divider(p);
+        p.addView(txt("KESİT",20,CYAN,true));
+        LinearLayout secRow=new LinearLayout(this);secRow.setGravity(Gravity.CENTER_VERTICAL);Spinner spinner=new Spinner(this);String[] axes={"X","Y","Z"};spinner.setAdapter(new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,axes));secRow.addView(spinner,new LinearLayout.LayoutParams(0,dp(54),1));secRow.addView(space(10));
+        minusButton=miniButton("−");plusButton=miniButton("+");secRow.addView(minusButton,new LinearLayout.LayoutParams(dp(64),dp(54)));secRow.addView(space(8));secRow.addView(plusButton,new LinearLayout.LayoutParams(dp(46),dp(46)));p.addView(secRow);
+        sectionSeek=new SeekBar(this);sectionSeek.setMax(100);sectionSeek.setProgress(sectionPercent);sectionSeek.setProgressTintList(android.content.res.ColorStateList.valueOf(BLUE));sectionSeek.setThumbTintList(android.content.res.ColorStateList.valueOf(BLUE));p.addView(sectionSeek,new LinearLayout.LayoutParams(-1,dp(54)));
+        sectionValue=txt("Kesit: 50%",12,MUTED,false);p.addView(sectionValue);
+        View.OnClickListener adjust=v->{sectionPercent+=v==plusButton?5:-5;sectionPercent=Math.max(0,Math.min(100,sectionPercent));sectionSeek.setProgress(sectionPercent);};minusButton.setOnClickListener(adjust);plusButton.setOnClickListener(adjust);sectionSeek.setOnSeekBarChangeListener(simpleSeek(v->{sectionPercent=v;sectionValue.setText("Kesit: "+v+"%");cad.section=v;cad.invalidate();}));
+        divider(p);p.addView(txt("ÖLÇÜM",20,CYAN,true));
+        return p;
+    }
 
-  static class MVResult{boolean[][][] v;int nx,ny,nz;MVResult(boolean[][][] a,int x,int y,int z){v=a;nx=x;ny=y;nz=z;}}
-  static class Box{int x0,y0,x1,y1;Box(int a,int b,int c,int d){x0=a;y0=b;x1=c;y1=d;}int w(){return x1-x0+1;}int h(){return y1-y0+1;}}
-  MVResult reconstruct(Bitmap bm)throws Exception{int W=bm.getWidth(),H=bm.getHeight();int topCut=(int)(H*.08f),bottomCut=(int)(H*.08f),usableH=H-topCut-bottomCut,midY=topCut+usableH/2,midX=W/2;Bitmap front=Bitmap.createBitmap(bm,0,topCut,midX,usableH/2),right=Bitmap.createBitmap(bm,midX,topCut,W-midX,usableH/2),top=Bitmap.createBitmap(bm,0,midY,midX,H-bottomCut-midY);Box bf=findGeometry(front),br=findGeometry(right),bt=findGeometry(top);if(bf==null||br==null||bt==null)throw new IOException("FRONT / RIGHT / TOP görünüşü bulunamadı");int nx=highQuality?96:64;int nz=Math.max(20,Math.min(84,Math.round(nx*(bf.h()/(float)bf.w()))));int ny=Math.max(20,Math.min(78,Math.round(nx*(bt.h()/(float)bt.w()))));boolean[][] fm=profileMask(front,bf,nx,nz),tm=profileMask(top,bt,nx,ny),rm=profileMask(right,br,ny,nz);boolean[][][] v=new boolean[nx][ny][nz];for(int x=0;x<nx;x++)for(int y=0;y<ny;y++)for(int z=0;z<nz;z++)v[x][y][z]=fm[nz-1-z][x]&&tm[ny-1-y][x]&&rm[nz-1-z][y];v=largest3(v);if(highQuality)v=smooth3(v);if(count3(v)<100)throw new IOException("3 görünüş yeterince kesişmedi");return new MVResult(v,nx,ny,nz);}
-  Box findGeometry(Bitmap b){int w=b.getWidth(),h=b.getHeight();int minX=w,minY=h,maxX=-1,maxY=-1,step=Math.max(1,Math.max(w,h)/1400);for(int y=0;y<h;y+=step)for(int x=0;x<w;x+=step)if(gray(b.getPixel(x,y))<92){minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);}if(maxX<0)return null;int mx=Math.max(4,(maxX-minX)/90),my=Math.max(4,(maxY-minY)/90);return new Box(Math.max(0,minX-mx),Math.max(0,minY-my),Math.min(w-1,maxX+mx),Math.min(h-1,maxY+my));}
-  boolean[][] profileMask(Bitmap src,Box b,int ow,int oh){Bitmap crop=Bitmap.createBitmap(src,b.x0,b.y0,b.w(),b.h()),s=Bitmap.createScaledBitmap(crop,ow,oh,true);boolean[][] wall=new boolean[oh][ow];for(int y=0;y<oh;y++)for(int x=0;x<ow;x++)wall[y][x]=gray(s.getPixel(x,y))<108;wall=dilate(wall,1);boolean[][] outside=floodOutside(wall),solid=new boolean[oh][ow];for(int y=0;y<oh;y++)for(int x=0;x<ow;x++)solid[y][x]=wall[y][x]||!outside[y][x];return solid;}
-  int gray(int c){return (Color.red(c)*30+Color.green(c)*59+Color.blue(c)*11)/100;}
-  boolean[][] dilate(boolean[][] a,int r){int h=a.length,w=a[0].length;boolean[][] o=new boolean[h][w];for(int y=0;y<h;y++)for(int x=0;x<w;x++)if(a[y][x])for(int yy=Math.max(0,y-r);yy<=Math.min(h-1,y+r);yy++)for(int xx=Math.max(0,x-r);xx<=Math.min(w-1,x+r);xx++)o[yy][xx]=true;return o;}
-  boolean[][] floodOutside(boolean[][] wall){int h=wall.length,w=wall[0].length;boolean[][] o=new boolean[h][w];ArrayDeque<int[]> q=new ArrayDeque<>();for(int x=0;x<w;x++){seed2(x,0,wall,o,q);seed2(x,h-1,wall,o,q);}for(int y=0;y<h;y++){seed2(0,y,wall,o,q);seed2(w-1,y,wall,o,q);}int[][] d={{1,0},{-1,0},{0,1},{0,-1}};while(!q.isEmpty()){int[] p=q.removeFirst();for(int[] dd:d){int x=p[0]+dd[0],y=p[1]+dd[1];if(x>=0&&x<w&&y>=0&&y<h&&!wall[y][x]&&!o[y][x]){o[y][x]=true;q.add(new int[]{x,y});}}}return o;}
-  void seed2(int x,int y,boolean[][] w,boolean[][] o,ArrayDeque<int[]> q){if(!w[y][x]&&!o[y][x]){o[y][x]=true;q.add(new int[]{x,y});}}
-  boolean[][][] smooth3(boolean[][][] a){int nx=a.length,ny=a[0].length,nz=a[0][0].length;boolean[][][] o=new boolean[nx][ny][nz];for(int x=0;x<nx;x++)for(int y=0;y<ny;y++)for(int z=0;z<nz;z++){int n=0,t=0;for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++)for(int dz=-1;dz<=1;dz++){int xx=x+dx,yy=y+dy,zz=z+dz;if(xx>=0&&xx<nx&&yy>=0&&yy<ny&&zz>=0&&zz<nz){t++;if(a[xx][yy][zz])n++;}}o[x][y][z]=a[x][y][z]?n>=5:n>=19;}return largest3(o);}
-  boolean[][][] largest3(boolean[][][] a){int nx=a.length,ny=a[0].length,nz=a[0][0].length;boolean[][][] seen=new boolean[nx][ny][nz],best=null;int bestN=0;int[][] d={{1,0,0},{-1,0,0},{0,1,0},{0,-1,0},{0,0,1},{0,0,-1}};for(int x=0;x<nx;x++)for(int y=0;y<ny;y++)for(int z=0;z<nz;z++)if(a[x][y][z]&&!seen[x][y][z]){ArrayList<int[]> pts=new ArrayList<>();ArrayDeque<int[]> q=new ArrayDeque<>();q.add(new int[]{x,y,z});seen[x][y][z]=true;while(!q.isEmpty()){int[] p=q.removeFirst();pts.add(p);for(int[] dd:d){int xx=p[0]+dd[0],yy=p[1]+dd[1],zz=p[2]+dd[2];if(xx>=0&&xx<nx&&yy>=0&&yy<ny&&zz>=0&&zz<nz&&a[xx][yy][zz]&&!seen[xx][yy][zz]){seen[xx][yy][zz]=true;q.add(new int[]{xx,yy,zz});}}}if(pts.size()>bestN){bestN=pts.size();best=new boolean[nx][ny][nz];for(int[] p:pts)best[p[0]][p[1]][p[2]]=true;}}return best==null?a:best;}
-  int count3(boolean[][][] a){if(a==null)return 0;int n=0;for(int x=0;x<a.length;x++)for(int y=0;y<a[0].length;y++)for(int z=0;z<a[0][0].length;z++)if(a[x][y][z])n++;return n;}
+    View buildBottomBar(){
+        HorizontalScrollView hs=new HorizontalScrollView(this);hs.setHorizontalScrollBarEnabled(false);LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(dp(4),dp(4),dp(4),dp(4));
+        String[] a={"▧\nPDF\nTEKNİK RESİM","◇\n3D GÖRÜNÜM","✹\nPATLAT","↔\nÖLÇÜLENDİR","⌖\nKESİT AL","▱\nMALZEME","▥\nANALİZ","▤\nNOT EKLE","⚙\nAYARLAR","?\nYARDIM"};
+        for(int i=0;i<a.length;i++){Button b=bottomButton(a[i]);row.addView(b,new LinearLayout.LayoutParams(dp(155),dp(74)));if(i==0)b.setOnClickListener(v->openTechnicalDrawingPdf());if(i==1)b.setOnClickListener(v->{cad.mode3d=!cad.mode3d;cad.invalidate();});if(i==2)b.setOnClickListener(v->{explodeSeek.setProgress(Math.min(100,explodeSeek.getProgress()+20));});}
+        hs.addView(row);return hs;
+    }
 
-  void showMeasurements(){if(voxels==null){status.setText("Önce model oluştur.");return;}int minX=voxels.length,minY=voxels[0].length,minZ=voxels[0][0].length,maxX=-1,maxY=-1,maxZ=-1;for(int x=0;x<voxels.length;x++)for(int y=0;y<voxels[0].length;y++)for(int z=0;z<voxels[0][0].length;z++)if(voxels[x][y][z]){minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y);minZ=Math.min(minZ,z);maxZ=Math.max(maxZ,z);}String m="Model grid ölçüsü\nX: "+(maxX-minX+1)+"\nY: "+(maxY-minY+1)+"\nZ: "+(maxZ-minZ+1)+"\nDolu voxel: "+count3(voxels);new AlertDialog.Builder(this).setTitle("3D ÖLÇÜ / ANALİZ").setMessage(m).setPositiveButton("Kapat",null).show();}
-  void save(){if(voxels==null){status.setText("Önce 3D model oluştur.");return;}pendingStl=toStl(voxels);Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("model/stl");i.putExtra(Intent.EXTRA_TITLE,"MG_Drawing2CAD_Pro3D_v16.stl");startActivityForResult(i,SAVE);}
-  String toStl(boolean[][][] a){StringBuilder s=new StringBuilder("solid MG_Drawing2CAD_Pro3D\n");int nx=a.length,ny=a[0].length,nz=a[0][0].length;for(int x=0;x<nx;x++)for(int y=0;y<ny;y++)for(int z=0;z<nz;z++)if(a[x][y][z]){if(x==0||!a[x-1][y][z])quad(s,x,y,z,x,y+1,z,x,y+1,z+1,x,y,z+1);if(x==nx-1||!a[x+1][y][z])quad(s,x+1,y,z,x+1,y,z+1,x+1,y+1,z+1,x+1,y+1,z);if(y==0||!a[x][y-1][z])quad(s,x,y,z,x,y,z+1,x+1,y,z+1,x+1,y,z);if(y==ny-1||!a[x][y+1][z])quad(s,x,y+1,z,x+1,y+1,z,x+1,y+1,z+1,x,y+1,z+1);if(z==0||!a[x][y][z-1])quad(s,x,y,z,x+1,y,z,x+1,y+1,z,x,y+1,z);if(z==nz-1||!a[x][y][z+1])quad(s,x,y,z+1,x,y+1,z+1,x+1,y+1,z+1,x+1,y,z+1);}return s.append("endsolid MG_Drawing2CAD_Pro3D\n").toString();}
-  void quad(StringBuilder s,float ax,float ay,float az,float bx,float by,float bz,float cx,float cy,float cz,float dx,float dy,float dz){tri(s,ax,ay,az,bx,by,bz,cx,cy,cz);tri(s,ax,ay,az,cx,cy,cz,dx,dy,dz);}void tri(StringBuilder s,float ax,float ay,float az,float bx,float by,float bz,float cx,float cy,float cz){s.append("facet normal 0 0 0\n outer loop\n");vtx(s,ax,ay,az);vtx(s,bx,by,bz);vtx(s,cx,cy,cz);s.append(" endloop\nendfacet\n");}void vtx(StringBuilder s,float x,float y,float z){s.append("  vertex ").append(x).append(' ').append(y).append(' ').append(z).append('\n');}
+    void pickFile(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,PICK_FILE);}
+    void openTechnicalDrawingPdf(){
+        if(currentPdf==null){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/pdf");i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);startActivityForResult(i,PICK_FILE);return;}
+        try{Intent v=new Intent(Intent.ACTION_VIEW);v.setDataAndType(currentPdf,"application/pdf");v.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(v);}catch(Exception e){Toast.makeText(this,"PDF görüntüleyici bulunamadı",Toast.LENGTH_SHORT).show();}
+    }
 
-  class CadView extends View{
-    Paint fill=new Paint(3),edge=new Paint(3),grid=new Paint(3);Bitmap bm;boolean[][][] v;float zoom=5.5f,yaw=.72f,pitch=.48f,panX=0,panY=0,lastX,lastY,lastD,lastMX,lastMY;boolean dragging=false,panning=false,autoRotate=false,wire=false,showEdges=true,smoothShade=true;int sectionAxis=0,sectionPos=-1;Handler h=new Handler();
-    Runnable spin=new Runnable(){public void run(){if(autoRotate&&v!=null){yaw+=.012f;invalidate();}h.postDelayed(this,16);}};
-    CadView(Context c){super(c);edge.setStyle(Paint.Style.STROKE);edge.setStrokeWidth(1.2f);edge.setColor(Color.rgb(13,78,99));grid.setColor(Color.rgb(15,28,45));grid.setStrokeWidth(1);setBackgroundColor(BG);h.post(spin);}
-    void setBitmap(Bitmap b){bm=b;v=null;invalidate();}void setVoxels(boolean[][][] a){v=a;bm=null;sectionAxis=0;fit();}
-    void setPreset(int m){if(m==0){yaw=.72f;pitch=.48f;}else if(m==1){yaw=0;pitch=0;}else if(m==2){yaw=(float)Math.PI;pitch=0;}else if(m==3){yaw=-(float)Math.PI/2;pitch=0;}else if(m==4){yaw=(float)Math.PI/2;pitch=0;}else if(m==5){yaw=0;pitch=(float)-Math.PI/2;}else{yaw=0;pitch=(float)Math.PI/2;}invalidate();}
-    void reset(){yaw=.72f;pitch=.48f;panX=panY=0;sectionAxis=0;fit();}
-    void fit(){if(v!=null){int m=Math.max(v.length,Math.max(v[0].length,v[0][0].length));zoom=Math.max(2.2f,Math.min(8f,Math.min(Math.max(1,getWidth()),Math.max(1,getHeight()))/(m*2.2f)));}invalidate();}
-    void cycleSection(int axis){if(v==null)return;if(sectionAxis!=axis){sectionAxis=axis;sectionPos=axis==1?v.length*3/4:axis==2?v[0].length*3/4:v[0][0].length*3/4;}else{int max=axis==1?v.length:axis==2?v[0].length:v[0][0].length;sectionPos-=Math.max(1,max/5);if(sectionPos<=0)sectionAxis=0;}invalidate();}
-    boolean visible(int x,int y,int z){if(sectionAxis==1&&x>sectionPos)return false;if(sectionAxis==2&&y>sectionPos)return false;if(sectionAxis==3&&z>sectionPos)return false;return true;}
-    @Override protected void onDraw(Canvas c){super.onDraw(c);for(int x=0;x<getWidth();x+=dp(24))c.drawLine(x,0,x,getHeight(),grid);for(int y=0;y<getHeight();y+=dp(24))c.drawLine(0,y,getWidth(),y,grid);if(bm!=null){RectF d=fitRect(bm,getWidth(),getHeight());c.drawBitmap(bm,null,d,fill);return;}if(v==null)return;drawModel(c);}
-    RectF fitRect(Bitmap b,int W,int H){float k=Math.min(W/(float)b.getWidth(),H/(float)b.getHeight());float w=b.getWidth()*k,h=b.getHeight()*k;return new RectF((W-w)/2,(H-h)/2,(W+w)/2,(H+h)/2);}
-    PointF proj(float x,float y,float z){float nx=v.length/2f,ny=v[0].length/2f,nz=v[0][0].length/2f;x-=nx;y-=ny;z-=nz;float cy=(float)Math.cos(yaw),sy=(float)Math.sin(yaw),cp=(float)Math.cos(pitch),sp=(float)Math.sin(pitch);float x1=x*cy-y*sy,y1=x*sy+y*cy,z1=z;float y2=y1*cp-z1*sp,z2=y1*sp+z1*cp;return new PointF(getWidth()/2f+panX+x1*zoom,getHeight()/2f+panY+y2*zoom-z2*zoom*.22f);}
-    void drawModel(Canvas c){int nx=v.length,ny=v[0].length,nz=v[0][0].length;ArrayList<Face> faces=new ArrayList<>();for(int x=0;x<nx;x++)for(int y=0;y<ny;y++)for(int z=0;z<nz;z++)if(v[x][y][z]&&visible(x,y,z)){if(z==nz-1||!v[x][y][z+1]||!visible(x,y,z+1))faces.add(new Face(x,y,z,0));if(x==nx-1||!v[x+1][y][z]||!visible(x+1,y,z))faces.add(new Face(x,y,z,1));if(y==0||!v[x][y-1][z]||!visible(x,y-1,z))faces.add(new Face(x,y,z,2));if(x==0||!v[x-1][y][z]||!visible(x-1,y,z))faces.add(new Face(x,y,z,3));if(y==ny-1||!v[x][y+1][z]||!visible(x,y+1,z))faces.add(new Face(x,y,z,4));if(z==0||!v[x][y][z-1]||!visible(x,y,z-1))faces.add(new Face(x,y,z,5));}Collections.sort(faces,(a,b)->Float.compare(a.depth(),b.depth()));for(Face f:faces)f.draw(c);}
-    class Face{int x,y,z,t;Face(int a,int b,int d,int e){x=a;y=b;z=d;t=e;}float depth(){float cx=x+.5f-v.length/2f,cy=y+.5f-v[0].length/2f,cz=z+.5f-v[0][0].length/2f;return (float)(cx*Math.sin(yaw)+cy*Math.cos(yaw)+cz*Math.sin(pitch));}void draw(Canvas c){float[][] q;if(t==0)q=new float[][]{{x,y,z+1},{x+1,y,z+1},{x+1,y+1,z+1},{x,y+1,z+1}};else if(t==1)q=new float[][]{{x+1,y,z},{x+1,y+1,z},{x+1,y+1,z+1},{x+1,y,z+1}};else if(t==2)q=new float[][]{{x,y,z},{x+1,y,z},{x+1,y,z+1},{x,y,z+1}};else if(t==3)q=new float[][]{{x,y,z},{x,y,z+1},{x,y+1,z+1},{x,y+1,z}};else if(t==4)q=new float[][]{{x,y+1,z},{x,y+1,z+1},{x+1,y+1,z+1},{x+1,y+1,z}};else q=new float[][]{{x,y,z},{x,y+1,z},{x+1,y+1,z},{x+1,y,z}};Path path=new Path();for(int i=0;i<4;i++){PointF p=proj(q[i][0],q[i][1],q[i][2]);if(i==0)path.moveTo(p.x,p.y);else path.lineTo(p.x,p.y);}path.close();int col=t==0?Color.rgb(112,221,236):t==1?Color.rgb(63,183,211):t==2?Color.rgb(45,146,181):t==3?Color.rgb(37,119,151):t==4?Color.rgb(54,159,190):Color.rgb(31,93,119);if(sectionAxis!=0&&(t==1||t==3||t==2||t==4||t==0||t==5))col=Color.rgb(Color.red(col)+Math.min(25,255-Color.red(col)),Color.green(col),Color.blue(col));fill.setStyle(wire?Paint.Style.STROKE:Paint.Style.FILL);fill.setStrokeWidth(wire?1.2f:0);fill.setColor(col);c.drawPath(path,fill);if(showEdges&&!smoothShade){c.drawPath(path,edge);}}}
-    @Override public boolean onTouchEvent(MotionEvent e){if(e.getPointerCount()>=2){float x0=e.getX(0),y0=e.getY(0),x1=e.getX(1),y1=e.getY(1),d=(float)Math.hypot(x0-x1,y0-y1),mx=(x0+x1)/2,my=(y0+y1)/2;if(e.getActionMasked()==MotionEvent.ACTION_POINTER_DOWN||lastD==0){lastD=d;lastMX=mx;lastMY=my;return true;}if(e.getActionMasked()==MotionEvent.ACTION_MOVE){zoom*=d/lastD;zoom=Math.max(1.2f,Math.min(18f,zoom));panX+=mx-lastMX;panY+=my-lastMY;lastD=d;lastMX=mx;lastMY=my;invalidate();return true;}}else lastD=0;if(e.getAction()==MotionEvent.ACTION_DOWN){lastX=e.getX();lastY=e.getY();dragging=true;return true;}if(e.getAction()==MotionEvent.ACTION_MOVE&&dragging){yaw+=(e.getX()-lastX)*.012f;pitch+=(e.getY()-lastY)*.012f;pitch=Math.max(-1.5f,Math.min(1.5f,pitch));lastX=e.getX();lastY=e.getY();invalidate();return true;}if(e.getAction()==MotionEvent.ACTION_UP)dragging=false;return true;}
-  }
+    @Override protected void onActivityResult(int req,int res,Intent data){super.onActivityResult(req,res,data);if(req!=PICK_FILE||res!=RESULT_OK||data==null)return;Uri u=data.getData();if(u==null)return;try{getContentResolver().takePersistableUriPermission(u,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}String type=getContentResolver().getType(u);String s=u.toString().toLowerCase();if("application/pdf".equals(type)||s.endsWith(".pdf")){currentPdf=u;modelState.setText("  Teknik resim yüklendi");Toast.makeText(this,"PDF yüklendi. TEKNİK RESİM/PDF ile açabilirsiniz.",Toast.LENGTH_SHORT).show();}else{modelState.setText("  Model seçildi");}}
+
+    interface IntAction{void run(int v);} SeekBar.OnSeekBarChangeListener simpleSeek(IntAction a){return new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int p,boolean f){a.run(p);}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}};}
+
+    TextView txt(String s,int z,int c,boolean bold){TextView t=new TextView(this);t.setText(s);t.setTextColor(c);t.setTextSize(z);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);t.setGravity(Gravity.CENTER_VERTICAL);return t;}
+    Button topButton(String s){Button b=baseButton(s,13);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,dp(46));lp.setMargins(dp(4),0,dp(4),0);b.setLayoutParams(lp);return b;}
+    Button smallButton(String s){return baseButton(s,14);} Button sideButton(String s){return baseButton(s,14);} Button actionButton(String s){Button b=baseButton(s,15);round(b,Color.rgb(4,43,67),CYAN,12);return b;} Button miniButton(String s){return baseButton(s,22);} Button bottomButton(String s){Button b=baseButton(s,12);b.setGravity(Gravity.CENTER);return b;}
+    Button baseButton(String s,int size){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextColor(TEXT);b.setTextSize(size);b.setPadding(dp(10),0,dp(10),0);b.setMinHeight(0);b.setMinimumHeight(0);round(b,PANEL2,Color.rgb(24,78,115),12);return b;}
+    View space(int w){Space s=new Space(this);s.setLayoutParams(new LinearLayout.LayoutParams(dp(w),1));return s;} void divider(LinearLayout p){View v=new View(this);v.setBackgroundColor(Color.rgb(17,59,85));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(1));lp.setMargins(0,dp(14),0,dp(14));p.addView(v,lp);} void round(View v,int fill,int stroke,int rad){GradientDrawable g=new GradientDrawable();g.setColor(fill);g.setCornerRadius(dp(rad));g.setStroke(dp(1),stroke);v.setBackground(g);} int dp(int x){return (int)(x*getResources().getDisplayMetrics().density+.5f);}
+
+    class CadSurface extends View{
+        Paint p=new Paint(3);boolean penActive=false,mode3d=false;int explode=0,section=50;
+        CadSurface(Context c){super(c);setBackgroundColor(BG);}
+        @Override protected void onDraw(Canvas c){super.onDraw(c);drawGrid(c);drawAxes(c);if(mode3d)drawDemoPart(c);if(penActive){p.setColor(GRASS);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(3));c.drawCircle(getWidth()*.50f,getHeight()*.42f,dp(28),p);}}
+        void drawGrid(Canvas c){p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1);p.setColor(Color.rgb(18,64,91));float horizon=getHeight()*.11f,center=getWidth()*.62f;for(int i=-12;i<=12;i++){float x=center+i*getWidth()*.06f;c.drawLine(center,horizon,x,getHeight(),p);}for(int j=0;j<14;j++){float y=horizon+(float)Math.pow(j/13f,1.55)*getHeight()*.89f;c.drawLine(0,y,getWidth(),y,p);}}
+        void drawAxes(Canvas c){float cx=getWidth()*.62f,cy=getHeight()*.51f;p.setStrokeWidth(dp(2));p.setColor(GRASS);c.drawLine(cx,cy,cx,getHeight()*.08f,p);p.setColor(Color.rgb(0,105,255));c.drawLine(cx,cy,getWidth()*.36f,getHeight()*.84f,p);}
+        void drawDemoPart(Canvas c){float cx=getWidth()*.54f,cy=getHeight()*.46f,w=dp(180),h=dp(95);p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(31,115,150));Path q=new Path();q.moveTo(cx-w/2,cy);q.lineTo(cx,cy-h/2);q.lineTo(cx+w/2,cy);q.lineTo(cx,cy+h/2);q.close();c.drawPath(q,p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(dp(2));p.setColor(CYAN);c.drawPath(q,p);}
+    }
 }
