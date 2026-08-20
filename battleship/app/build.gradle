@@ -10,11 +10,11 @@ android {
         applicationId 'com.mg.battleship'
         minSdk 26
         targetSdk 35
-        versionCode 6
-        versionName '6.0'
+        versionCode 7
+        versionName '7.0'
     }
 
     sourceSets {
-        main.java.srcDirs = ['src/v4/java']
+        main.java.srcDirs = ['src/v7/java', 'src/v4/java']
     }
 }
