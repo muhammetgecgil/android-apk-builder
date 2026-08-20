@@ -12,6 +12,7 @@ import android.bluetooth.*;
 import android.view.*;
 import android.webkit.*;
 import android.widget.Toast;
+import androidx.webkit.WebViewAssetLoader;
 import java.io.*;
 import java.util.*;
 
@@ -46,25 +47,29 @@ public class MainActivity extends Activity implements SensorEventListener {
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
-        s.setAllowFileAccess(true);
-        s.setAllowContentAccess(true);
+        s.setAllowFileAccess(false);
+        s.setAllowContentAccess(false);
         s.setLoadWithOverviewMode(true);
         s.setUseWideViewPort(true);
         s.setMediaPlaybackRequiresUserGesture(false);
-        if (Build.VERSION.SDK_INT >= 16) {
-            s.setAllowFileAccessFromFileURLs(true);
-            s.setAllowUniversalAccessFromFileURLs(true);
-        }
+
+        final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
+                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
+                .build();
+
         web.addJavascriptInterface(new Bridge(), "Android");
         web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient() {
+            @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                return assetLoader.shouldInterceptRequest(request.getUrl());
+            }
             @Override public void onPageFinished(WebView view, String url) {
                 pageReady = true;
                 eval("window.androidReady && window.androidReady()");
             }
         });
         setContentView(web);
-        web.loadUrl("file:///android_asset/index.html");
+        web.loadUrl("https://appassets.androidplatform.net/assets/index.html");
 
         sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
         accel = sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);
