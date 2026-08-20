@@ -1,0 +1,3 @@
+run_id=32370357668
+sha=f2afb2cd1d68f9a9333f71186326b2ca2f92deb9
+artifact=MG-CAD-PRO-v2.0.12-STABLE-V204
