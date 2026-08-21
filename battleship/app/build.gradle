@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace 'com.mg.battleship'
-    compileSdk 35
+    compileSdk 36
 
     signingConfigs {
         persistentDev {
@@ -18,9 +18,9 @@ android {
     defaultConfig {
         applicationId 'com.mg.battleship'
         minSdk 26
-        targetSdk 35
-        versionCode 17
-        versionName '17.0'
+        targetSdk 36
+        versionCode 18
+        versionName '18.0'
     }
 
     buildTypes {
@@ -28,6 +28,7 @@ android {
             signingConfig signingConfigs.persistentDev
         }
         release {
+            // RC/internal-test signing only. Production Play upload key is kept outside the public repo.
             signingConfig signingConfigs.persistentDev
             minifyEnabled false
         }
