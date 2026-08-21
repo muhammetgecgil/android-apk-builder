@@ -1,13 +1,8 @@
-name: Build Battleship v17 Release Candidate APK
+name: Build Battleship v18 Play Store RC
 
 on:
   push:
     branches: [ battleship-v1 ]
-    paths:
-      - 'battleship/**'
-      - '.github/workflows/build-battleship.yml'
-  pull_request:
-    branches: [ main ]
     paths:
       - 'battleship/**'
       - '.github/workflows/build-battleship.yml'
@@ -19,7 +14,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,8 +25,8 @@ jobs:
           java-version: '17'
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-      - name: Install Android API 35
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - name: Set up Gradle 8.10.2
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -63,31 +58,37 @@ jobs:
       - name: Apply v17 release candidate patch
         working-directory: battleship
         run: python3 patch_v17.py
-      - name: Build APK
+      - name: Build release APK and AAB
         working-directory: battleship
-        run: gradle --no-daemon :app:assembleDebug --stacktrace
-      - name: Verify APK
+        run: gradle --no-daemon :app:assembleRelease :app:bundleRelease --stacktrace
+      - name: Verify package and version
         run: |
-          test -s battleship/app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs battleship/app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.battleship'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='17'"
-      - name: Rename APK
-        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v17.0_Release_Candidate.apk
-      - name: Upload APK artifact
+          test -s battleship/app/build/outputs/apk/release/app-release.apk
+          test -s battleship/app/build/outputs/bundle/release/app-release.aab
+          $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose --print-certs battleship/app/build/outputs/apk/release/app-release.apk
+          $ANDROID_HOME/build-tools/36.0.0/aapt dump badging battleship/app/build/outputs/apk/release/app-release.apk | grep "package: name='com.mg.battleship'"
+          $ANDROID_HOME/build-tools/36.0.0/aapt dump badging battleship/app/build/outputs/apk/release/app-release.apk | grep "versionCode='18'"
+          jarsigner -verify -verbose -certs battleship/app/build/outputs/bundle/release/app-release.aab >/dev/null
+      - name: Rename outputs
+        run: |
+          cp battleship/app/build/outputs/apk/release/app-release.apk Amiral_Batti_v18.0_Play_Store_RC.apk
+          cp battleship/app/build/outputs/bundle/release/app-release.aab Amiral_Batti_v18.0_Play_Store_RC.aab
+      - name: Upload Play Store RC artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Amiral-Batti-v17.0-Release-Candidate-APK
-          path: Amiral_Batti_v17.0_Release_Candidate.apk
+          name: Amiral-Batti-v18.0-Play-Store-RC
+          path: |
+            Amiral_Batti_v18.0_Play_Store_RC.apk
+            Amiral_Batti_v18.0_Play_Store_RC.aab
           if-no-files-found: error
           retention-days: 30
-      - name: Publish stable APK release
+      - name: Publish RC release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="amiral-batti-v17-release-candidate"
+          TAG="amiral-batti-v18-play-store-rc"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Amiral_Batti_v17.0_Release_Candidate.apk --clobber
+            gh release upload "$TAG" Amiral_Batti_v18.0_Play_Store_RC.apk Amiral_Batti_v18.0_Play_Store_RC.aab --clobber
           else
-            gh release create "$TAG" Amiral_Batti_v17.0_Release_Candidate.apk --title "Amiral Battı v17.0 - Release Candidate" --notes "İnternet rakibi eklenmeden yayın kalitesi paketi: ilk açılış eğitimi, Ayarlar ekranında ses/titreşim/sinematik bildirim kontrolleri, tek oyuncu savaşlarında cihaz içi otomatik kayıt ve Devam Et, Bluetooth kopmasında kontrollü yeniden bağlanma mesajları. v16 responsive kontroller, v15 Bluetooth parity, sonar/keşif, kritik ek atış, kariyer ve sinematik savaş korunur. Sabit güncelleme imzası ve com.mg.battleship paket adı korunur."
+            gh release create "$TAG" Amiral_Batti_v18.0_Play_Store_RC.apk Amiral_Batti_v18.0_Play_Store_RC.aab --title "Amiral Battı v18.0 - Play Store RC" --notes "Android 16 / API 36 hedefli Play Store release candidate. Release APK ve AAB üretilir. Paket adı com.mg.battleship ve versionCode 18. v17 oyun özellikleri korunur. Not: üretim Play yükleme anahtarı public repodaki geliştirme anahtarından ayrı tutulmalıdır."
           fi
