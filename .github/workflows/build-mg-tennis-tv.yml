@@ -29,7 +29,7 @@ jobs:
         run: |
           base64 -d mg-tennis-tv/signing/mg-tennis-update.jks.b64 > mg-tennis-tv/signing/mg-tennis-update.jks
           test -s mg-tennis-tv/signing/mg-tennis-update.jks
-      - name: Prepare runtime and realistic opponent
+      - name: Prepare runtime and models
         run: |
           set -euo pipefail
           A=mg-tennis-tv/app/src/main/assets
@@ -41,7 +41,8 @@ jobs:
           test -s $A/v12-human-patch.js
           test -s $A/tennis-rules-v22.js
           test -s $A/difficulty-v24.js
-      - name: Inject v2.5 realistic opponent and difficulty
+          test -s $A/gameplay-feedback-v26.js
+      - name: Inject v2.6 rally feedback
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -49,36 +50,33 @@ jobs:
           s=s.replace('promo.jpg','mg-tennis-splash.svg').replace('c.width=c.height=1024','c.width=c.height=256').replace('sun.shadow.mapSize.set(4096,4096)','sun.shadow.mapSize.set(2048,2048)').replace('2 TELEFON HOST','AI + RAKET EKRAN').replace('KONTROLCÜ','RAKET TELEFON')
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,','var playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];').replace('let targetOpponentX=0,targetOpponentZ=-9.55;','var targetOpponentX=0,targetOpponentZ=-9.55;')
           a=s.find('const bodyGeom=new THREE.CylinderGeometry'); b=s.find('const adMat=',a)
-          if a!=-1 and b!=-1:s=s[:a]+'// v2.5 spectators removed\n'+s[b:]
+          if a!=-1 and b!=-1:s=s[:a]+'// v2.6 spectators removed\n'+s[b:]
           a=s.find('function loadCharacters()'); b=s.find('function loadOne(',a)
           if a!=-1 and b!=-1:s=s[:a]+"function loadCharacters(){$('loadmsg').textContent='Kort açılıyor…';$('loadfill').style.width='18%';setTimeout(()=>{$('loading').style.display='none'},700)}\n"+s[b:]
           s=s.replace('ballTrail.length>14','ballTrail.length>24')
           old_ai="let p=.9+Math.random()*.55,target=clamp(playerX+(Math.random()-.5)*3,-4.1,4.1);ballVel.set((target-ball.position.x)*.52,4.8+Math.random()*1.0,18.5+p*3.0);ballSpin.set(-14-p*5,(target-ball.position.x)*1.8,0)"
-          new_ai="let cfg=(window.MGDifficulty&&window.MGDifficulty.current)||{shotTime:2.90,accuracy:.38,power:.64,errorRate:.24,label:'KOLAY'},lane=Math.random(),spread=(1-cfg.accuracy)*2.4,targetX=lane<.33?-3.15:lane<.66?3.15:(Math.random()-.5)*1.6;targetX=clamp(targetX+(Math.random()-.5)*spread,-4.0,4.0);if(Math.random()<cfg.errorRate)targetX=clamp(targetX+(Math.random()<.5?-1:1)*(1.0+Math.random()*1.2),-5.0,5.0);let targetZ=Math.random()<.25?6.7:8.4+Math.random()*1.4,T=cfg.shotTime*(.94+Math.random()*.12),g=9.81,vx=(targetX-ball.position.x)/T,vz=(targetZ-ball.position.z)/T,vy=(BALL_R-ball.position.y+.5*g*T*T)/T;ballVel.set(vx,vy,vz);ballSpin.set((-15-Math.random()*5)*cfg.power,(targetX-ball.position.x)*1.4,0);$('status').textContent='Rakip '+(targetX<-.8?'sola':targetX>.8?'sağa':'ortaya')+' oynadı • '+cfg.label"
+          new_ai="let cfg=(window.MGDifficulty&&window.MGDifficulty.current)||{shotTime:3.25,accuracy:.34,power:.58,errorRate:.28,label:'KOLAY'},lane=Math.random(),spread=(1-cfg.accuracy)*2.4,targetX=lane<.33?-3.15:lane<.66?3.15:(Math.random()-.5)*1.6;targetX=clamp(targetX+(Math.random()-.5)*spread,-4.0,4.0);if(Math.random()<cfg.errorRate)targetX=clamp(targetX+(Math.random()<.5?-1:1)*(1.0+Math.random()*1.2),-5.0,5.0);let targetZ=Math.random()<.25?6.7:8.4+Math.random()*1.4,T=cfg.shotTime*(.94+Math.random()*.12),g=9.81,vx=(targetX-ball.position.x)/T,vz=(targetZ-ball.position.z)/T,vy=(BALL_R-ball.position.y+.5*g*T*T)/T;ballVel.set(vx,vy,vz);ballSpin.set((-15-Math.random()*5)*cfg.power,(targetX-ball.position.x)*1.4,0);$('status').textContent='Rakip '+(targetX<-.8?'sola':targetX>.8?'sağa':'ortaya')+' oynadı • '+cfg.label"
           if old_ai in s:s=s.replace(old_ai,new_ai)
           old="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);updateCamera(dt);renderer.render(scene,camera)}"
           new="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);if(window.updateOpponentMotion)window.updateOpponentMotion(dt);if(opponent){opponent.visible=true;if(opponent.position.z>-6||opponent.position.z<-11)opponent.position.z=-8.85;}updateCamera(dt);renderer.render(scene,camera)}"
           if old in s:s=s.replace(old,new)
-          if 'difficulty-v24.js' not in s:s=s.replace('</body>','<script src="difficulty-v24.js"></script></body>')
-          if 'window.tennisIntent' not in s:s=s.replace('</body>',"<script>window.tennisIntent=function(phase,intent){window.lastTennisPhase=phase;window.lastTennisIntent=intent;};</script></body>")
-          if 'v12-human-patch.js' not in s:s=s.replace('</body>','<script src="v12-human-patch.js"></script></body>')
-          if 'tennis-rules-v22.js' not in s:s=s.replace('</body>','<script src="tennis-rules-v22.js"></script></body>')
+          for fn in ['difficulty-v24.js','v12-human-patch.js','tennis-rules-v22.js','gameplay-feedback-v26.js']:
+              if fn not in s:s=s.replace('</body>',f'<script src="{fn}"></script></body>')
           p.write_text(s)
           hp=Path('mg-tennis-tv/app/src/main/assets/v12-human-patch.js'); h=hp.read_text()
           h=h.replace("const watchdog=setTimeout(()=>{if(settled)return;settled=true;releaseGame('Hazır • rakip modeli gecikiyor'); if(fallback)loadOpponent(fallback,null)},5500);","const watchdog=setTimeout(()=>{if(settled)return;releaseGame('Hazır • rakip modeli hazırlanıyor')},5500);")
           h=h.replace("if(settled)return; settled=true; clearTimeout(watchdog);","settled=true; clearTimeout(watchdog);")
           h=h.replace("wrap.position.set(0,0,-8.85);wrap.visible=true;scene.add(wrap);","wrap.position.set(0,0,-8.85);wrap.rotation.y=Math.PI;wrap.visible=true;scene.add(wrap);")
           h=h.replace("opponent.position.set(opponentX,0,opponentZ);","opponent.position.set(opponentX,0,opponentZ);opponent.visible=true;")
-          h=h.replace("Math.min(dist,5.4*dt0)","Math.min(dist,((window.MGDifficulty&&window.MGDifficulty.current.runSpeed)||2.65)*dt0)")
+          h=h.replace("Math.min(dist,5.4*dt0)","Math.min(dist,((window.MGDifficulty&&window.MGDifficulty.current.runSpeed)||2.45)*dt0)")
           hp.write_text(h)
           rp=Path('mg-tennis-tv/app/src/main/assets/tennis-rules-v22.js'); r=rp.read_text()
-          r=r.replace("function scheduleAiServe(){clearServeTimer();serveTimer=setTimeout(aiServe,850+Math.random()*550)}","function scheduleAiServe(){clearServeTimer();const c=(window.MGDifficulty&&window.MGDifficulty.current)||{reaction:1050};serveTimer=setTimeout(aiServe,c.reaction+300+Math.random()*280)}")
-          r=r.replace("const deuce=((pointsP+pointsO)%2===0), targetX=deuce?-2.0:2.0, T=1.18+Math.random()*.16, g=9.81, targetZ=6.0;","const c=(window.MGDifficulty&&window.MGDifficulty.current)||{serveTime:2.20,accuracy:.38,errorRate:.24,power:.64,label:'KOLAY'},deuce=((pointsP+pointsO)%2===0);let targetX=deuce?-2.0:2.0;targetX+=(Math.random()-.5)*(1-c.accuracy)*2.2;const T=c.serveTime*(.95+Math.random()*.10),g=9.81,targetZ=6.0;")
+          r=r.replace("function scheduleAiServe(){clearServeTimer();serveTimer=setTimeout(aiServe,850+Math.random()*550)}","function scheduleAiServe(){clearServeTimer();const c=(window.MGDifficulty&&window.MGDifficulty.current)||{reaction:1250};serveTimer=setTimeout(aiServe,c.reaction+400+Math.random()*350)}")
+          r=r.replace("const deuce=((pointsP+pointsO)%2===0), targetX=deuce?-2.0:2.0, T=1.18+Math.random()*.16, g=9.81, targetZ=6.0;","const c=(window.MGDifficulty&&window.MGDifficulty.current)||{serveTime:3.00,accuracy:.34,errorRate:.28,power:.58,label:'KOLAY'},deuce=((pointsP+pointsO)%2===0);let targetX=deuce?-2.0:2.0;targetX+=(Math.random()-.5)*(1-c.accuracy)*2.2;const T=c.serveTime*(.96+Math.random()*.08),g=9.81,targetZ=6.0;")
           r=r.replace("ballVel.set(vx,vy,vz);ballSpin.set(-19,(deuce?-1:1)*5,0);","ballVel.set(vx,vy,vz);ballSpin.set(-19*c.power,(deuce?-1:1)*5,0);")
           r=r.replace("status('Rakip servis attı • topu izle ve karşıla');","status('Rakip servis attı • '+c.label+' • topu izle ve karşıla');")
           rp.write_text(r)
-          assert 'difficulty-v24.js' in s
-          assert 'MGDifficulty' in h and 'MGDifficulty' in r
+          assert 'gameplay-feedback-v26.js' in s
           PY
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -96,19 +94,18 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v2.5 release
+      - name: Verify v2.6 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='25'"
-          unzip -l $APK | grep -q assets/opponent.glb
-          unzip -l $APK | grep -q assets/difficulty-v24.js
-          unzip -p $APK assets/index.html | grep -q 'difficulty-v24.js'
-          cp $APK MG_Tennis_TV_v2.5_RealOpponent_EasyTuned.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='26'"
+          unzip -l $APK | grep -q assets/gameplay-feedback-v26.js
+          unzip -p $APK assets/index.html | grep -q 'gameplay-feedback-v26.js'
+          cp $APK MG_Tennis_TV_v2.6_Rally_Feedback.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v2.5-RealOpponent-EasyTuned-APK
-          path: MG_Tennis_TV_v2.5_RealOpponent_EasyTuned.apk
+          name: MG-Tennis-TV-v2.6-Rally-Feedback-APK
+          path: MG_Tennis_TV_v2.6_Rally_Feedback.apk
           retention-days: 30
