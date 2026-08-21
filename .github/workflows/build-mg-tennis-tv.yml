@@ -37,10 +37,10 @@ jobs:
           curl --retry 4 -fL https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js -o $A/GLTFLoader.js
           curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/realistic-male.glb -o $A/opponent.glb
           curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/parametric-base.glb -o $A/tennis-player.glb
+          test -s $A/opponent.glb
+          test -s $A/v12-human-patch.js
           test -s $A/tennis-rules-v22.js
-          test -s mg-tennis-tv/app/src/main/java/com/mg/tennistv/PoseIntentTracker.java
-          test -s mg-tennis-tv/app/src/main/java/com/mg/tennistv/TennisIntentEngine.java
-      - name: Inject v2.2 gameplay and rules
+      - name: Inject v2.3 visible opponent and rules
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -48,18 +48,25 @@ jobs:
           s=s.replace('promo.jpg','mg-tennis-splash.svg').replace('c.width=c.height=1024','c.width=c.height=256').replace('sun.shadow.mapSize.set(4096,4096)','sun.shadow.mapSize.set(2048,2048)').replace('2 TELEFON HOST','AI + RAKET EKRAN').replace('KONTROLCÜ','RAKET TELEFON')
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,','var playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];').replace('let targetOpponentX=0,targetOpponentZ=-9.55;','var targetOpponentX=0,targetOpponentZ=-9.55;')
           a=s.find('const bodyGeom=new THREE.CylinderGeometry'); b=s.find('const adMat=',a)
-          if a!=-1 and b!=-1:s=s[:a]+'// v2.2: spectator meshes intentionally removed\n'+s[b:]
+          if a!=-1 and b!=-1:s=s[:a]+'// v2.3 spectators removed\n'+s[b:]
           a=s.find('function loadCharacters()'); b=s.find('function loadOne(',a)
           if a!=-1 and b!=-1:s=s[:a]+"function loadCharacters(){$('loadmsg').textContent='Kort açılıyor…';$('loadfill').style.width='18%';setTimeout(()=>{$('loading').style.display='none'},700)}\n"+s[b:]
-          old_ai="let p=.9+Math.random()*.55,target=clamp(playerX+(Math.random()-.5)*3,-4.1,4.1);ballVel.set((target-ball.position.x)*.52,4.8+Math.random()*1.0,18.5+p*3.0);ballSpin.set(-14-p*5,(target-ball.position.x)*1.8,0)"
-          new_ai="let lane=Math.random(),targetX=lane<.33?-3.35:lane<.66?3.35:(Math.random()-.5)*1.8,targetZ=Math.random()<.28?6.7:8.3+Math.random()*1.5,T=1.48+Math.random()*.34,g=9.81;targetX=clamp(targetX,-4.0,4.0);let vx=(targetX-ball.position.x)/T,vz=(targetZ-ball.position.z)/T,vy=(BALL_R-ball.position.y+.5*g*T*T)/T;ballVel.set(vx,vy,vz);ballSpin.set(-16-Math.random()*5,(targetX-ball.position.x)*1.4,0);$('status').textContent='Rakip '+(targetX<-.8?'sola':targetX>.8?'sağa':'ortaya')+' oynadı • topu izle'"
-          if old_ai in s:s=s.replace(old_ai,new_ai)
           s=s.replace('ballTrail.length>14','ballTrail.length>24')
+          old="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);updateCamera(dt);renderer.render(scene,camera)}"
+          new="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);if(window.updateOpponentMotion)window.updateOpponentMotion(dt);if(opponent){opponent.visible=true;if(opponent.position.z>-6||opponent.position.z<-11)opponent.position.z=-8.85;}updateCamera(dt);renderer.render(scene,camera)}"
+          if old in s:s=s.replace(old,new)
           if 'window.tennisIntent' not in s:s=s.replace('</body>',"<script>window.tennisIntent=function(phase,intent){window.lastTennisPhase=phase;window.lastTennisIntent=intent;};</script></body>")
           if 'v12-human-patch.js' not in s:s=s.replace('</body>','<script src="v12-human-patch.js"></script></body>')
           if 'tennis-rules-v22.js' not in s:s=s.replace('</body>','<script src="tennis-rules-v22.js"></script></body>')
           p.write_text(s)
-          assert 'tennis-rules-v22.js' in s
+          hp=Path('mg-tennis-tv/app/src/main/assets/v12-human-patch.js'); h=hp.read_text()
+          h=h.replace("const watchdog=setTimeout(()=>{if(settled)return;settled=true;releaseGame('Hazır • rakip modeli gecikiyor'); if(fallback)loadOpponent(fallback,null)},5500);","const watchdog=setTimeout(()=>{if(settled)return;releaseGame('Hazır • rakip modeli hazırlanıyor')},5500);")
+          h=h.replace("if(settled)return; settled=true; clearTimeout(watchdog);","settled=true; clearTimeout(watchdog);")
+          h=h.replace("wrap.position.set(0,0,-8.85);wrap.visible=true;scene.add(wrap);","wrap.position.set(0,0,-8.85);wrap.rotation.y=Math.PI;wrap.visible=true;scene.add(wrap);")
+          h=h.replace("opponent.position.set(opponentX,0,opponentZ);","opponent.position.set(opponentX,0,opponentZ);opponent.visible=true;")
+          hp.write_text(h)
+          assert 'window.updateOpponentMotion' in s
+          assert 'wrap.rotation.y=Math.PI' in h
           PY
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -77,20 +84,19 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v2.2 release
+      - name: Verify v2.3 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='22'"
-          unzip -l $APK | grep -q assets/tennis-rules-v22.js
-          unzip -p $APK assets/index.html | grep -q 'tennis-rules-v22.js'
-          grep -q 'PoseIntentTracker' mg-tennis-tv/app/src/main/java/com/mg/tennistv/MainActivity.java
-          grep -q 'RAISE_HIT' mg-tennis-tv/app/src/main/java/com/mg/tennistv/RacketService.java
-          cp $APK MG_Tennis_TV_v2.2_Full_Tennis_Rules.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='23'"
+          unzip -l $APK | grep -q assets/opponent.glb
+          unzip -p $APK assets/index.html | grep -q 'window.updateOpponentMotion'
+          unzip -p $APK assets/v12-human-patch.js | grep -q 'wrap.rotation.y=Math.PI'
+          cp $APK MG_Tennis_TV_v2.3_Visible_Real_Opponent.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v2.2-Full-Tennis-Rules-APK
-          path: MG_Tennis_TV_v2.2_Full_Tennis_Rules.apk
+          name: MG-Tennis-TV-v2.3-Visible-Real-Opponent-APK
+          path: MG_Tennis_TV_v2.3_Visible_Real_Opponent.apk
           retention-days: 30
