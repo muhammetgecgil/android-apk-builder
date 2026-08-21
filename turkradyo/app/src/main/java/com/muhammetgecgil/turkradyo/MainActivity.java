@@ -48,7 +48,7 @@ public class MainActivity extends Activity {
                 try {
                     InputStream in = getAssets().open(rel);
                     String mime = URLConnection.guessContentTypeFromName(rel);
-                    if (mime == null) mime = rel.endsWith(".html") ? "text/html" : "application/octet-stream";
+                    if (mime == null) mime = rel.endsWith(".html") ? "text/html" : rel.endsWith(".css") ? "text/css" : rel.endsWith(".js") ? "application/javascript" : "application/octet-stream";
                     return new WebResourceResponse(mime, "UTF-8", in);
                 } catch (Exception ignored) { }
             }
@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
         @Override public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
             if (url.endsWith("/index.html")) {
-                view.evaluateJavascript("(function(){if(document.getElementById('privacyBtn'))return;var x=document.querySelector('.topBtns');if(!x)return;var b=document.createElement('button');b.id='privacyBtn';b.className='iconBtn';b.textContent='Gizlilik';b.onclick=function(){location.href='https://appassets.androidplatform.net/assets/privacy.html'};x.appendChild(b);})();", null);
+                view.evaluateJavascript("(function(){if(!document.getElementById('premiumCss')){var l=document.createElement('link');l.id='premiumCss';l.rel='stylesheet';l.href='https://appassets.androidplatform.net/assets/premium.css';document.head.appendChild(l)}if(!document.getElementById('premiumJs')){var s=document.createElement('script');s.id='premiumJs';s.src='https://appassets.androidplatform.net/assets/premium.js';document.body.appendChild(s)}if(!document.getElementById('privacyBtn')){var x=document.querySelector('.topBtns');if(x){var b=document.createElement('button');b.id='privacyBtn';b.className='iconBtn';b.textContent='Gizlilik';b.onclick=function(){location.href='https://appassets.androidplatform.net/assets/privacy.html'};x.appendChild(b)}}})();", null);
             }
         }
 
