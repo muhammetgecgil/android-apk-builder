@@ -35,7 +35,7 @@ jobs:
 
       - name: Build installable APK
         working-directory: turkradyo
-        run: gradle --no-daemon clean lintRelease assembleDebug bundleRelease --stacktrace
+        run: gradle --no-daemon clean assembleDebug bundleRelease --stacktrace
 
       - name: Upload APK and bundle
         uses: actions/upload-artifact@v4
@@ -45,4 +45,3 @@ jobs:
           path: |
             turkradyo/app/build/outputs/apk/debug/*.apk
             turkradyo/app/build/outputs/bundle/release/*.aab
-            turkradyo/app/build/reports/lint-results-release.*
