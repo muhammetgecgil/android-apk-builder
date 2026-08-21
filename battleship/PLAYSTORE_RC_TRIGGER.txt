@@ -1,0 +1,1 @@
+Amiral Battı v18 Play Store RC build trigger. API 36, versionCode 18.
