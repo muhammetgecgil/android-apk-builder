@@ -40,8 +40,9 @@ jobs:
           rm -f $A/spectator.glb
           test $(stat -c%s $A/opponent.glb) -gt 1000000
           test -s $A/v12-human-patch.js
-          test -s mg-tennis-tv/app/src/main/java/com/mg/tennistv/CameraMotionTracker.java
-      - name: Inject v2.0 gameplay patches
+          test -s mg-tennis-tv/app/src/main/java/com/mg/tennistv/PoseIntentTracker.java
+          test -s mg-tennis-tv/app/src/main/java/com/mg/tennistv/TennisIntentEngine.java
+      - name: Inject v2.1 gameplay patches
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -49,7 +50,7 @@ jobs:
           s=s.replace('promo.jpg','mg-tennis-splash.svg').replace('c.width=c.height=1024','c.width=c.height=256').replace('sun.shadow.mapSize.set(4096,4096)','sun.shadow.mapSize.set(2048,2048)').replace('2 TELEFON HOST','AI + RAKET EKRAN').replace('KONTROLCÜ','RAKET TELEFON')
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,','var playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];').replace('let targetOpponentX=0,targetOpponentZ=-9.55;','var targetOpponentX=0,targetOpponentZ=-9.55;')
           a=s.find('const bodyGeom=new THREE.CylinderGeometry'); b=s.find('const adMat=',a)
-          if a!=-1 and b!=-1:s=s[:a]+'// v2.0: spectator meshes intentionally removed\n'+s[b:]
+          if a!=-1 and b!=-1:s=s[:a]+'// v2.1: spectator meshes intentionally removed\n'+s[b:]
           a=s.find('function loadCharacters()'); b=s.find('function loadOne(',a)
           if a!=-1 and b!=-1:s=s[:a]+"function loadCharacters(){$('loadmsg').textContent='Kort açılıyor…';$('loadfill').style.width='18%';setTimeout(()=>{$('loading').style.display='none'},700)}\n"+s[b:]
           old_ai="let p=.9+Math.random()*.55,target=clamp(playerX+(Math.random()-.5)*3,-4.1,4.1);ballVel.set((target-ball.position.x)*.52,4.8+Math.random()*1.0,18.5+p*3.0);ballSpin.set(-14-p*5,(target-ball.position.x)*1.8,0)"
@@ -58,6 +59,8 @@ jobs:
           old_follow="if(!serving){targetPlayerZ=clamp(ball.position.z>0?ball.position.z+1.05:8.65,6.2,10.25)}else targetPlayerZ=9.55;"
           new_follow="if(!serving&&ballVel.z>0){let tt=(8.55-ball.position.z)/Math.max(ballVel.z,.1);targetPlayerZ=clamp(tt>0&&tt<2.5?8.55:9.15,7.1,9.7)}else targetPlayerZ=9.55;"
           s=s.replace(old_follow,new_follow).replace('ballTrail.length>14','ballTrail.length>24')
+          if 'window.tennisIntent' not in s:
+              s=s.replace('</body>',"<script>window.tennisIntent=function(phase,intent){window.lastTennisPhase=phase;window.lastTennisIntent=intent;};</script></body>")
           if 'v12-human-patch.js' not in s:s=s.replace('</body>','<script src="v12-human-patch.js"></script></body>')
           p.write_text(s)
           PY
@@ -77,19 +80,21 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v2.0 release
+      - name: Verify v2.1 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='20'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='21'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump permissions $APK | grep -q android.permission.CAMERA
+          grep -q 'PoseIntentTracker' mg-tennis-tv/app/src/main/java/com/mg/tennistv/MainActivity.java
+          grep -q 'FOREHAND' mg-tennis-tv/app/src/main/java/com/mg/tennistv/TennisIntentEngine.java
+          grep -q 'PoseLandmark.RIGHT_WRIST' mg-tennis-tv/app/src/main/java/com/mg/tennistv/PoseIntentTracker.java
           grep -q 'RAISE_HIT' mg-tennis-tv/app/src/main/java/com/mg/tennistv/RacketService.java
-          grep -q 'CameraMotionTracker' mg-tennis-tv/app/src/main/java/com/mg/tennistv/MainActivity.java
-          cp $APK MG_Tennis_TV_v2.0_Camera_IMU_Fusion.apk
+          cp $APK MG_Tennis_TV_v2.1_Pose_Intent_Engine.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v2.0-Camera-IMU-Fusion-APK
-          path: MG_Tennis_TV_v2.0_Camera_IMU_Fusion.apk
+          name: MG-Tennis-TV-v2.1-Pose-Intent-Engine-APK
+          path: MG_Tennis_TV_v2.1_Pose_Intent_Engine.apk
           retention-days: 30
