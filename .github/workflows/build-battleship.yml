@@ -1,4 +1,4 @@
-name: Build Battleship v15 Bluetooth Parity APK
+name: Build Battleship v16 Responsive Controls APK
 
 on:
   push:
@@ -57,6 +57,9 @@ jobs:
       - name: Apply v15 Bluetooth parity and undo patch
         working-directory: battleship
         run: python3 patch_v15.py
+      - name: Apply v16 responsive controls patch
+        working-directory: battleship
+        run: python3 patch_v16.py
       - name: Build APK
         working-directory: battleship
         run: gradle --no-daemon :app:assembleDebug --stacktrace
@@ -65,23 +68,23 @@ jobs:
           test -s battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.battleship'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='15'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='16'"
       - name: Rename APK
-        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v15.0_Bluetooth_Parity.apk
+        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v16.0_Responsive_Controls.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Amiral-Batti-v15.0-Bluetooth-Parity-APK
-          path: Amiral_Batti_v15.0_Bluetooth_Parity.apk
+          name: Amiral-Batti-v16.0-Responsive-Controls-APK
+          path: Amiral_Batti_v16.0_Responsive_Controls.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish stable APK release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="amiral-batti-v15-bluetooth-parity"
+          TAG="amiral-batti-v16-responsive-controls"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Amiral_Batti_v15.0_Bluetooth_Parity.apk --clobber
+            gh release upload "$TAG" Amiral_Batti_v16.0_Responsive_Controls.apk --clobber
           else
-            gh release create "$TAG" Amiral_Batti_v15.0_Bluetooth_Parity.apk --title "Amiral Battı v15.0 - Bluetooth Parity" --notes "Bluetooth savaşına tek oyuncudaki sinematik HUD, vuruş ve batış efektleri, kritik 3-isabet ek atış sistemi, sonar ve keşif taktikleri taşındı. Bluetooth tur protokolü kritik ek atışı iki cihazda senkron tutacak şekilde güncellendi. Manuel filo yerleşimine son gemiyi kaldıran Geri Al butonu eklendi. v14 sabit geliştirme imzası korunur."
+            gh release create "$TAG" Amiral_Batti_v16.0_Responsive_Controls.apk --title "Amiral Battı v16.0 - Responsive Controls" --notes "Manuel filo yerleşimindeki Yön, Rastgele, Geri Al ve Hazır kontrolleri dar ekranlarda taşmayacak şekilde 2x2 responsive düzene geçirildi. Buton yazıları tek satır, ortalı ve Android 8+ cihazlarda otomatik boyutlandırılır. v15 Bluetooth parity, taktik savaş ve sabit güncelleme imzası korunur."
           fi
