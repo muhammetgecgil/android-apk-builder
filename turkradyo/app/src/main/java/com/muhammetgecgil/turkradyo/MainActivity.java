@@ -58,7 +58,7 @@ public class MainActivity extends Activity {
         @Override public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
             if (url.endsWith("/index.html")) {
-                view.evaluateJavascript("(function(){if(!document.getElementById('premiumCss')){var l=document.createElement('link');l.id='premiumCss';l.rel='stylesheet';l.href='https://appassets.androidplatform.net/assets/premium.css';document.head.appendChild(l)}if(!document.getElementById('premiumJs')){var s=document.createElement('script');s.id='premiumJs';s.src='https://appassets.androidplatform.net/assets/premium.js';document.body.appendChild(s)}if(!document.getElementById('profile2Css')){var p=document.createElement('link');p.id='profile2Css';p.rel='stylesheet';p.href='https://appassets.androidplatform.net/assets/profile2.css';document.head.appendChild(p)}if(!document.getElementById('profile2Js')){var q=document.createElement('script');q.id='profile2Js';q.src='https://appassets.androidplatform.net/assets/profile2.js';document.body.appendChild(q)}if(!document.getElementById('privacyBtn')){var x=document.querySelector('.topBtns');if(x){var b=document.createElement('button');b.id='privacyBtn';b.className='iconBtn';b.textContent='Gizlilik';b.onclick=function(){location.href='https://appassets.androidplatform.net/assets/privacy.html'};x.appendChild(b)}}})();", null);
+                view.evaluateJavascript("(function(){function css(id,n){if(document.getElementById(id))return;var l=document.createElement('link');l.id=id;l.rel='stylesheet';l.href='https://appassets.androidplatform.net/assets/'+n;document.head.appendChild(l)}function js(id,n){if(document.getElementById(id))return;var s=document.createElement('script');s.id=id;s.src='https://appassets.androidplatform.net/assets/'+n;document.body.appendChild(s)}css('premiumCss','premium.css');js('premiumJs','premium.js');css('profile2Css','profile2.css');js('profile2Js','profile2.js');css('profile3Css','profile3.css');js('profile3Js','profile3.js');if(!document.getElementById('privacyBtn')){var x=document.querySelector('.topBtns');if(x){var b=document.createElement('button');b.id='privacyBtn';b.className='iconBtn';b.textContent='Gizlilik';b.onclick=function(){location.href='https://appassets.androidplatform.net/assets/privacy.html'};x.appendChild(b)}}})();", null);
             }
         }
 
@@ -97,8 +97,8 @@ public class MainActivity extends Activity {
             case "gain": startService(new Intent(this, RadioService.class).setAction(RadioService.ACTION_GAIN).putExtra("gain", parseInt(uri.getQueryParameter("mb"), 0))); break;
             case "shazam": openShazam(); break;
             case "open": {
-                String url = uri.getQueryParameter("url");
-                if (url != null) try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); } catch (Exception ignored) { }
+                String u = uri.getQueryParameter("url");
+                if (u != null) try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(u))); } catch (Exception ignored) { }
                 break;
             }
             case "alarmsettings": openAlarmSettings(); break;
