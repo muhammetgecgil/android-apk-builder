@@ -40,7 +40,7 @@ jobs:
           rm -f $A/spectator.glb
           test $(stat -c%s $A/opponent.glb) -gt 1000000
           test -s $A/v12-human-patch.js
-      - name: Inject v1.8 non blocking opponent and empty arena
+      - name: Inject v1.9 realistic visible ball flight
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -48,13 +48,22 @@ jobs:
           s=s.replace('promo.jpg','mg-tennis-splash.svg').replace('c.width=c.height=1024','c.width=c.height=256').replace('sun.shadow.mapSize.set(4096,4096)','sun.shadow.mapSize.set(2048,2048)').replace('2 TELEFON HOST','AI + RAKET EKRAN').replace('KONTROLCÜ','RAKET TELEFON')
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,','var playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];').replace('let targetOpponentX=0,targetOpponentZ=-9.55;','var targetOpponentX=0,targetOpponentZ=-9.55;')
           a=s.find('const bodyGeom=new THREE.CylinderGeometry'); b=s.find('const adMat=',a)
-          if a!=-1 and b!=-1:s=s[:a]+'// v1.8: spectator meshes intentionally removed\n'+s[b:]
+          if a!=-1 and b!=-1:s=s[:a]+'// v1.9: spectator meshes intentionally removed\n'+s[b:]
           a=s.find('function loadCharacters()'); b=s.find('function loadOne(',a)
           if a!=-1 and b!=-1:s=s[:a]+"function loadCharacters(){$('loadmsg').textContent='Kort açılıyor…';$('loadfill').style.width='18%';setTimeout(()=>{$('loading').style.display='none'},700)}\n"+s[b:]
           old="m.compose(new THREE.Vector3(p.x,p.y+.72,p.z+(p.ry>0?-.20:.20)),q,sc);backI.setMatrixAt(idx,m);";new="let bv=new THREE.Vector3(0,.72,-.20).applyQuaternion(q).add(new THREE.Vector3(p.x,p.y,p.z));m.compose(bv,q,sc);backI.setMatrixAt(idx,m);";s=s.replace(old,new)
+          old_ai="let p=.9+Math.random()*.55,target=clamp(playerX+(Math.random()-.5)*3,-4.1,4.1);ballVel.set((target-ball.position.x)*.52,4.8+Math.random()*1.0,18.5+p*3.0);ballSpin.set(-14-p*5,(target-ball.position.x)*1.8,0)"
+          new_ai="let lane=Math.random(),targetX=lane<.33?-3.35:lane<.66?3.35:(Math.random()-.5)*1.8,targetZ=Math.random()<.28?6.7:8.3+Math.random()*1.5,T=1.48+Math.random()*.34,g=9.81;targetX=clamp(targetX,-4.0,4.0);let vx=(targetX-ball.position.x)/T,vz=(targetZ-ball.position.z)/T,vy=(BALL_R-ball.position.y+.5*g*T*T)/T;ballVel.set(vx,vy,vz);ballSpin.set(-16-Math.random()*5,(targetX-ball.position.x)*1.4,0);$('status').textContent='Rakip '+(targetX<-.8?'sola':targetX>.8?'sağa':'ortaya')+' oynadı • topu izle'"
+          assert old_ai in s
+          s=s.replace(old_ai,new_ai)
+          old_follow="if(!serving){targetPlayerZ=clamp(ball.position.z>0?ball.position.z+1.05:8.65,6.2,10.25)}else targetPlayerZ=9.55;"
+          new_follow="if(!serving&&ballVel.z>0){let tt=(8.55-ball.position.z)/Math.max(ballVel.z,.1);targetPlayerZ=clamp(tt>0&&tt<2.5?8.55:9.15,7.1,9.7)}else targetPlayerZ=9.55;"
+          s=s.replace(old_follow,new_follow)
+          s=s.replace('ballTrail.length>14','ballTrail.length>24')
           if 'v12-human-patch.js' not in s:s=s.replace('</body>','<script src="v12-human-patch.js"></script></body>')
           p.write_text(s)
-          assert 'v1.8: spectator meshes intentionally removed' in s and 'v12-human-patch.js' in s
+          assert 'targetX=lane<.33?-3.35' in s
+          assert 'ballTrail.length>24' in s
           PY
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -72,19 +81,18 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v1.8 release
+      - name: Verify v1.9 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='18'"
-          unzip -l $APK | grep -q assets/opponent.glb
-          unzip -l $APK | grep -q assets/v12-human-patch.js
-          unzip -p $APK assets/v12-human-patch.js | grep -q 'rakip arka planda hazırlanıyor'
-          cp $APK MG_Tennis_TV_v1.8_NonBlocking_RealOpponent.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='19'"
+          unzip -p $APK assets/index.html | grep -q 'targetX=lane<.33?-3.35'
+          unzip -p $APK assets/index.html | grep -q 'ballTrail.length>24'
+          cp $APK MG_Tennis_TV_v1.9_RealisticBallFlight.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v1.8-NonBlocking-RealOpponent-APK
-          path: MG_Tennis_TV_v1.8_NonBlocking_RealOpponent.apk
+          name: MG-Tennis-TV-v1.9-RealisticBallFlight-APK
+          path: MG_Tennis_TV_v1.9_RealisticBallFlight.apk
           retention-days: 30
