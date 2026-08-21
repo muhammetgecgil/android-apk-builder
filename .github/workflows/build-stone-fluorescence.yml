@@ -2,7 +2,7 @@ name: Build Stone Glow Analyzer
 
 on:
   push:
-    branches: ["main", "agent/stone-glow-icon-v13", "agent/stone-glow-build-verify"]
+    branches: ["main", "agent/stone-glow-build-verify"]
     paths:
       - "stone-fluorescence/**"
       - ".github/workflows/build-stone-fluorescence.yml"
@@ -35,10 +35,10 @@ jobs:
       - name: Stage APK
         run: |
           mkdir -p out
-          cp stone-fluorescence/app/build/outputs/apk/debug/app-debug.apk out/Stone-Glow-Analyzer-v1.3-Icon-Update.apk
-          sha256sum out/Stone-Glow-Analyzer-v1.3-Icon-Update.apk > out/SHA256SUMS.txt
+          cp stone-fluorescence/app/build/outputs/apk/debug/app-debug.apk out/Stone-Glow-Analyzer-v1.6-Distinct-Modes.apk
+          sha256sum out/Stone-Glow-Analyzer-v1.6-Distinct-Modes.apk > out/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Stone-Glow-Analyzer-v1.3-Icon-Update
+          name: Stone-Glow-Analyzer-v1.6-Distinct-Modes
           path: out/*
           if-no-files-found: error
