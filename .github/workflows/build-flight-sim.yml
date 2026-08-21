@@ -61,6 +61,11 @@ jobs:
           test -s flight-sim/app/src/main/assets/models/f22_v16.mesh
           test -s flight-sim/app/src/main/assets/models/f22_atlas_v16.png
           test -s flight-sim/app/src/main/assets/licenses/F22_MODEL_LICENSE.md
+      - name: Verify live renderer uses embedded F-22
+        run: |
+          set -euxo pipefail
+          grep -q 'new F22InternetModelView' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DViewV7.java
+          ! grep -q 'buildJet()' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DViewV7.java
       - name: Build APK
         working-directory: flight-sim
         run: gradle --no-daemon :app:assembleDebug --stacktrace
@@ -70,18 +75,18 @@ jobs:
           APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='16'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='17'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "application-icon"
           unzip -l "$APK" | grep 'assets/models/f22_v16.mesh'
           unzip -l "$APK" | grep 'assets/models/f22_atlas_v16.png'
           unzip -l "$APK" | grep 'assets/licenses/F22_MODEL_LICENSE.md'
           unzip -l "$APK" | grep 'assets/licenses/F22_MODEL_SOURCE.txt'
       - name: Rename APK
-        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Fixture_Cockpit_Sim_F22_Textured_Update_v16.0.apk
+        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Fixture_Cockpit_Sim_Real_F22_v17.0.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Fixture-Cockpit-Sim-F22-Textured-Update-v16.0-APK
-          path: Fixture_Cockpit_Sim_F22_Textured_Update_v16.0.apk
+          name: Fixture-Cockpit-Sim-Real-F22-v17.0-APK
+          path: Fixture_Cockpit_Sim_Real_F22_v17.0.apk
           if-no-files-found: error
           retention-days: 30
