@@ -1,4 +1,4 @@
-name: Build Battleship v16 Responsive Controls APK
+name: Build Battleship v17 Release Candidate APK
 
 on:
   push:
@@ -60,6 +60,9 @@ jobs:
       - name: Apply v16 responsive controls patch
         working-directory: battleship
         run: python3 patch_v16.py
+      - name: Apply v17 release candidate patch
+        working-directory: battleship
+        run: python3 patch_v17.py
       - name: Build APK
         working-directory: battleship
         run: gradle --no-daemon :app:assembleDebug --stacktrace
@@ -68,23 +71,23 @@ jobs:
           test -s battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs battleship/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.battleship'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='16'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging battleship/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='17'"
       - name: Rename APK
-        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v16.0_Responsive_Controls.apk
+        run: cp battleship/app/build/outputs/apk/debug/app-debug.apk Amiral_Batti_v17.0_Release_Candidate.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Amiral-Batti-v16.0-Responsive-Controls-APK
-          path: Amiral_Batti_v16.0_Responsive_Controls.apk
+          name: Amiral-Batti-v17.0-Release-Candidate-APK
+          path: Amiral_Batti_v17.0_Release_Candidate.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish stable APK release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="amiral-batti-v16-responsive-controls"
+          TAG="amiral-batti-v17-release-candidate"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Amiral_Batti_v16.0_Responsive_Controls.apk --clobber
+            gh release upload "$TAG" Amiral_Batti_v17.0_Release_Candidate.apk --clobber
           else
-            gh release create "$TAG" Amiral_Batti_v16.0_Responsive_Controls.apk --title "Amiral Battı v16.0 - Responsive Controls" --notes "Manuel filo yerleşimindeki Yön, Rastgele, Geri Al ve Hazır kontrolleri dar ekranlarda taşmayacak şekilde 2x2 responsive düzene geçirildi. Buton yazıları tek satır, ortalı ve Android 8+ cihazlarda otomatik boyutlandırılır. v15 Bluetooth parity, taktik savaş ve sabit güncelleme imzası korunur."
+            gh release create "$TAG" Amiral_Batti_v17.0_Release_Candidate.apk --title "Amiral Battı v17.0 - Release Candidate" --notes "İnternet rakibi eklenmeden yayın kalitesi paketi: ilk açılış eğitimi, Ayarlar ekranında ses/titreşim/sinematik bildirim kontrolleri, tek oyuncu savaşlarında cihaz içi otomatik kayıt ve Devam Et, Bluetooth kopmasında kontrollü yeniden bağlanma mesajları. v16 responsive kontroller, v15 Bluetooth parity, sonar/keşif, kritik ek atış, kariyer ve sinematik savaş korunur. Sabit güncelleme imzası ve com.mg.battleship paket adı korunur."
           fi
