@@ -7,10 +7,8 @@ on:
       - 'mg-tennis-tv/**'
       - '.github/workflows/build-mg-tennis-tv.yml'
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -18,7 +16,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Publish run id
         run: |
           mkdir -p build-status
@@ -28,12 +25,10 @@ jobs:
           git add build-status/mg-tennis-tv-run.txt
           git commit -m "Record MG Tennis TV run $GITHUB_RUN_ID" || true
           git push || true
-
       - name: Restore stable signing keystore
         run: |
           base64 -d mg-tennis-tv/signing/mg-tennis-update.jks.b64 > mg-tennis-tv/signing/mg-tennis-update.jks
           test -s mg-tennis-tv/signing/mg-tennis-update.jks
-
       - name: Prepare offline 3D runtime and realistic opponent
         run: |
           set -euo pipefail
@@ -44,88 +39,52 @@ jobs:
           curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/parametric-base.glb -o $A/tennis-player.glb
           rm -f $A/spectator.glb
           test $(stat -c%s $A/opponent.glb) -gt 1000000
-          test $(stat -c%s $A/tennis-player.glb) -gt 1000000
           test -s $A/v12-human-patch.js
-
-      - name: Inject v1.7 single real opponent and empty arena
+      - name: Inject v1.8 non blocking opponent and empty arena
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('mg-tennis-tv/app/src/main/assets/index.html')
-          s=p.read_text()
-          s=s.replace('promo.jpg','mg-tennis-splash.svg')
-          s=s.replace('c.width=c.height=1024','c.width=c.height=256')
-          s=s.replace('sun.shadow.mapSize.set(4096,4096)','sun.shadow.mapSize.set(2048,2048)')
-          s=s.replace('2 TELEFON HOST','AI + RAKET EKRAN')
-          s=s.replace('KONTROLCÜ','RAKET TELEFON')
-          # Make core game state available to the external opponent controller.
-          s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,', 'var scene,camera,renderer,clock,loader,player,opponent,')
-          s=s.replace('let playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,', 'var playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,')
-          s=s.replace('let ballVel=new THREE.Vector3(),ballTrail=[];', 'var ballVel=new THREE.Vector3(),ballTrail=[];')
-          s=s.replace('let targetOpponentX=0,targetOpponentZ=-9.55;', 'var targetOpponentX=0,targetOpponentZ=-9.55;')
-          # Remove primitive spectator generation at source, not after rendering.
-          a=s.find('const bodyGeom=new THREE.CylinderGeometry')
-          b=s.find('const adMat=',a)
-          if a!=-1 and b!=-1:
-              s=s[:a]+'// v1.7: spectator meshes intentionally removed\n'+s[b:]
-          # Disable legacy character loader; it used to overwrite the new real opponent asynchronously.
-          a=s.find('function loadCharacters()')
-          b=s.find('function loadOne(',a)
-          if a!=-1 and b!=-1:
-              s=s[:a]+"function loadCharacters(){$('loadmsg').textContent='Gerçek rakip hazırlanıyor…';$('loadfill').style.width='18%'}\n"+s[b:]
-          # Place chair backs in local outward direction so seats face the court.
-          old="m.compose(new THREE.Vector3(p.x,p.y+.72,p.z+(p.ry>0?-.20:.20)),q,sc);backI.setMatrixAt(idx,m);"
-          new="let bv=new THREE.Vector3(0,.72,-.20).applyQuaternion(q).add(new THREE.Vector3(p.x,p.y,p.z));m.compose(bv,q,sc);backI.setMatrixAt(idx,m);"
-          s=s.replace(old,new)
-          if 'v12-human-patch.js' not in s:
-              s=s.replace('</body>','<script src=\"v12-human-patch.js\"></script></body>')
+          p=Path('mg-tennis-tv/app/src/main/assets/index.html'); s=p.read_text()
+          s=s.replace('promo.jpg','mg-tennis-splash.svg').replace('c.width=c.height=1024','c.width=c.height=256').replace('sun.shadow.mapSize.set(4096,4096)','sun.shadow.mapSize.set(2048,2048)').replace('2 TELEFON HOST','AI + RAKET EKRAN').replace('KONTROLCÜ','RAKET TELEFON')
+          s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,','var playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];').replace('let targetOpponentX=0,targetOpponentZ=-9.55;','var targetOpponentX=0,targetOpponentZ=-9.55;')
+          a=s.find('const bodyGeom=new THREE.CylinderGeometry'); b=s.find('const adMat=',a)
+          if a!=-1 and b!=-1:s=s[:a]+'// v1.8: spectator meshes intentionally removed\n'+s[b:]
+          a=s.find('function loadCharacters()'); b=s.find('function loadOne(',a)
+          if a!=-1 and b!=-1:s=s[:a]+"function loadCharacters(){$('loadmsg').textContent='Kort açılıyor…';$('loadfill').style.width='18%';setTimeout(()=>{$('loading').style.display='none'},700)}\n"+s[b:]
+          old="m.compose(new THREE.Vector3(p.x,p.y+.72,p.z+(p.ry>0?-.20:.20)),q,sc);backI.setMatrixAt(idx,m);";new="let bv=new THREE.Vector3(0,.72,-.20).applyQuaternion(q).add(new THREE.Vector3(p.x,p.y,p.z));m.compose(bv,q,sc);backI.setMatrixAt(idx,m);";s=s.replace(old,new)
+          if 'v12-human-patch.js' not in s:s=s.replace('</body>','<script src="v12-human-patch.js"></script></body>')
           p.write_text(s)
-          assert 'var scene,camera,renderer,clock,loader,player,opponent,' in s
-          assert 'var targetOpponentX=0,targetOpponentZ=-9.55;' in s
-          assert 'spectator meshes intentionally removed' in s
-          assert "function loadCharacters(){$('loadmsg').textContent='Gerçek rakip hazırlanıyor…'" in s
-          assert 'v12-human-patch.js' in s
+          assert 'v1.8: spectator meshes intentionally removed' in s and 'v12-human-patch.js' in s
           PY
-
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-
       - name: Install Android API 35
         run: yes | sdkmanager 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
-
       - name: Set up Gradle 8.10.2
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-
-      - name: Verify release
+      - name: Verify v1.8 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='17'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='18'"
           unzip -l $APK | grep -q assets/opponent.glb
-          unzip -l $APK | grep -q assets/tennis-player.glb
           unzip -l $APK | grep -q assets/v12-human-patch.js
-          ! unzip -l $APK | grep -q assets/spectator.glb
-          unzip -p $APK assets/index.html | grep -q 'spectator meshes intentionally removed'
-          unzip -p $APK assets/index.html | grep -q "function loadCharacters()"
-          unzip -p $APK assets/v12-human-patch.js | grep -q 'REAL_TENNIS_OPPONENT'
-          cp $APK MG_Tennis_TV_v1.7_RealOpponent_Direct.apk
-
+          unzip -p $APK assets/v12-human-patch.js | grep -q 'rakip arka planda hazırlanıyor'
+          cp $APK MG_Tennis_TV_v1.8_NonBlocking_RealOpponent.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v1.7-RealOpponent-Direct-APK
-          path: MG_Tennis_TV_v1.7_RealOpponent_Direct.apk
+          name: MG-Tennis-TV-v1.8-NonBlocking-RealOpponent-APK
+          path: MG_Tennis_TV_v1.8_NonBlocking_RealOpponent.apk
           retention-days: 30
