@@ -4,11 +4,24 @@ android {
     namespace 'com.mg.stonefluorescence'
     compileSdk 35
 
+    signingConfigs {
+        debug {
+            storeFile rootProject.file('dev-update.jks')
+            storePassword 'stoneglow123'
+            keyAlias 'stoneglow'
+            keyPassword 'stoneglow123'
+        }
+    }
+
     defaultConfig {
         applicationId 'com.mg.stonefluorescence'
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName '1.0'
+        versionCode 8
+        versionName '1.7'
+    }
+
+    buildTypes {
+        debug { signingConfig signingConfigs.debug }
     }
 }

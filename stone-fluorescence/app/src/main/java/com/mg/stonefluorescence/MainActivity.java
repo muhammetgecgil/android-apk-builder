@@ -1,281 +1,46 @@
 package com.mg.stonefluorescence;
 
+import android.Manifest;
 import android.app.Activity;
-import android.content.Intent;
-import android.graphics.Bitmap;
+import android.content.Context;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.media.MediaMetadataRetriever;
-import android.net.Uri;
-import android.os.Bundle;
-import android.view.Gravity;
-import android.view.View;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.LinearLayout;
-import android.widget.ProgressBar;
-import android.widget.ScrollView;
-import android.widget.TextView;
-
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import android.graphics.Rect;
+import android.graphics.SurfaceTexture;
+import android.hardware.camera2.*;
+import android.hardware.camera2.params.MeteringRectangle;
+import android.media.Image;
+import android.media.ImageReader;
+import android.os.*;
+import android.view.*;
+import android.widget.*;
+import java.nio.ByteBuffer;
+import java.util.Arrays;
 
 public class MainActivity extends Activity {
-    private static final int PICK_VIDEO = 42;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private TextView result;
-    private TextView detail;
-    private ImageView preview;
-    private ProgressBar progress;
-    private Button pick;
-
-    static class FrameStat {
-        long timeUs;
-        double brightness;
-        double saturation;
-        double redRatio;
-        double greenRatio;
-        double hue;
-        double hotPixelRatio;
-    }
-
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(buildUi());
-    }
-
-    private View buildUi() {
-        int pad = dp(18);
-        ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(Color.rgb(16,18,22));
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(pad, pad, pad, dp(28));
-        scroll.addView(root);
-
-        TextView title = tv("STONE GLOW ANALYZER", 24, true);
-        title.setTextColor(Color.WHITE);
-        root.addView(title);
-
-        TextView sub = tv("Video içindeki sıra dışı renk değişimi, lokal parlama ve fosfor benzeri gecikmeli ışıma davranışını arar.", 15, false);
-        sub.setTextColor(Color.rgb(190,198,210));
-        sub.setPadding(0, dp(8), 0, dp(14));
-        root.addView(sub);
-
-        TextView warning = tv("Not: Telefon kamerası gerçek UV dalga boyunu veya mineral türünü ölçmez. Bu uygulama yalnızca görünür videodaki optik anomalileri işaretler.", 13, false);
-        warning.setTextColor(Color.rgb(255,210,105));
-        warning.setBackgroundColor(Color.rgb(43,39,24));
-        warning.setPadding(dp(12), dp(10), dp(12), dp(10));
-        root.addView(warning);
-
-        pick = new Button(this);
-        pick.setText("TAŞ VİDEOSU SEÇ VE ANALİZ ET");
-        pick.setTextSize(16);
-        pick.setOnClickListener(v -> chooseVideo());
-        LinearLayout.LayoutParams bp = new LinearLayout.LayoutParams(-1, dp(58));
-        bp.setMargins(0, dp(16), 0, dp(12));
-        root.addView(pick, bp);
-
-        progress = new ProgressBar(this);
-        progress.setVisibility(View.GONE);
-        root.addView(progress, new LinearLayout.LayoutParams(-1, dp(44)));
-
-        preview = new ImageView(this);
-        preview.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        preview.setBackgroundColor(Color.BLACK);
-        LinearLayout.LayoutParams ip = new LinearLayout.LayoutParams(-1, dp(300));
-        ip.setMargins(0, dp(8), 0, dp(10));
-        root.addView(preview, ip);
-
-        result = tv("Hazır", 22, true);
-        result.setGravity(Gravity.CENTER_HORIZONTAL);
-        result.setTextColor(Color.rgb(180,230,255));
-        root.addView(result);
-
-        detail = tv("Analiz sonucu burada görünecek.", 15, false);
-        detail.setTextColor(Color.rgb(220,225,232));
-        detail.setPadding(0, dp(10), 0, 0);
-        root.addView(detail);
-        return scroll;
-    }
-
-    private TextView tv(String text, int sp, boolean bold) {
-        TextView v = new TextView(this);
-        v.setText(text);
-        v.setTextSize(sp);
-        if (bold) v.setTypeface(null, android.graphics.Typeface.BOLD);
-        return v;
-    }
-
-    private void chooseVideo() {
-        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        i.addCategory(Intent.CATEGORY_OPENABLE);
-        i.setType("video/*");
-        startActivityForResult(i, PICK_VIDEO);
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == PICK_VIDEO && resultCode == RESULT_OK && data != null && data.getData() != null) {
-            Uri uri = data.getData();
-            try { getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION); } catch (Exception ignored) {}
-            analyze(uri);
-        }
-    }
-
-    private void analyze(Uri uri) {
-        pick.setEnabled(false);
-        progress.setVisibility(View.VISIBLE);
-        result.setText("Video analiz ediliyor…");
-        detail.setText("Kareler örnekleniyor; merkezdeki taş bölgesinin parlaklık ve renk davranışı karşılaştırılıyor.");
-
-        executor.execute(() -> {
-            MediaMetadataRetriever r = new MediaMetadataRetriever();
-            Bitmap best = null;
-            try {
-                r.setDataSource(this, uri);
-                String d = r.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
-                long durationMs = d == null ? 0 : Long.parseLong(d);
-                if (durationMs < 200) throw new IllegalArgumentException("Video çok kısa.");
-
-                int sampleCount = 24;
-                List<FrameStat> stats = new ArrayList<>();
-                for (int i = 0; i < sampleCount; i++) {
-                    long tUs = (long)((durationMs * 1000.0) * i / (sampleCount - 1));
-                    Bitmap b = r.getFrameAtTime(tUs, MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
-                    if (b != null) {
-                        FrameStat s = stat(b);
-                        s.timeUs = tUs;
-                        stats.add(s);
-                        b.recycle();
-                    }
-                }
-                if (stats.size() < 6) throw new IllegalStateException("Yeterli kare okunamadı.");
-
-                double medB = median(stats, 0);
-                double medS = median(stats, 1);
-                double medR = median(stats, 2);
-                double medG = median(stats, 3);
-                double medH = median(stats, 4);
-                double medHot = median(stats, 5);
-
-                double bestScore = -1;
-                FrameStat bestStat = stats.get(0);
-                double maxHueShift = 0;
-                double maxColorFlip = 0;
-                for (int i = 0; i < stats.size(); i++) {
-                    FrameStat s = stats.get(i);
-                    double brightSpike = positiveRatio(s.brightness, medB);
-                    double satSpike = positiveRatio(s.saturation, medS);
-                    double localGlow = positiveRatio(s.hotPixelRatio, medHot);
-                    double hueShift = circularHueDistance(s.hue, medH) / 180.0;
-                    double colorFlip = Math.abs((s.redRatio - s.greenRatio) - (medR - medG));
-                    maxHueShift = Math.max(maxHueShift, hueShift);
-                    maxColorFlip = Math.max(maxColorFlip, colorFlip);
-                    double score = 34 * clamp(brightSpike/0.45) + 18 * clamp(satSpike/0.45) + 22 * clamp(hueShift/0.55) + 16 * clamp(colorFlip/0.25) + 10 * clamp(localGlow/1.2);
-                    if (score > bestScore) { bestScore = score; bestStat = s; }
-                }
-
-                double persistence = persistenceScore(stats);
-                bestScore = Math.min(100, bestScore + persistence * 15);
-                best = r.getFrameAtTime(bestStat.timeUs, MediaMetadataRetriever.OPTION_CLOSEST);
-
-                String level;
-                if (bestScore >= 70) level = "GÜÇLÜ OPTİK ANOMALİ";
-                else if (bestScore >= 45) level = "BELİRGİN ANOMALİ";
-                else if (bestScore >= 25) level = "HAFİF ANOMALİ";
-                else level = "OLAĞANDIŞI PARLAMA ZAYIF";
-
-                String interpretation = String.format(Locale.US,
-                        "%s\n\nAnomali skoru: %.0f/100\nRenk kayması: %.0f%%\nLokal parlama: %.0f%%\nFosfor/gecikmeli ışıma ipucu: %.0f%%\n\nYorum: %s",
-                        level, bestScore, maxHueShift*100,
-                        clamp(positiveRatio(bestStat.hotPixelRatio, medHot)/1.2)*100,
-                        persistence*100,
-                        explain(bestScore, maxHueShift, maxColorFlip, persistence));
-                Bitmap finalBest = best;
-                double finalScore = bestScore;
-                runOnUiThread(() -> {
-                    preview.setImageBitmap(finalBest);
-                    result.setText(level);
-                    result.setTextColor(finalScore >= 45 ? Color.rgb(255,105,95) : Color.rgb(120,230,180));
-                    detail.setText(interpretation);
-                    progress.setVisibility(View.GONE);
-                    pick.setEnabled(true);
-                });
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    result.setText("Analiz yapılamadı");
-                    detail.setText(e.getMessage() == null ? "Video okunamadı." : e.getMessage());
-                    progress.setVisibility(View.GONE);
-                    pick.setEnabled(true);
-                });
-            } finally {
-                try { r.release(); } catch (Exception ignored) {}
-            }
-        });
-    }
-
-    private FrameStat stat(Bitmap src) {
-        Bitmap b = src;
-        int w = b.getWidth(), h = b.getHeight();
-        int x0 = (int)(w*0.15), x1 = (int)(w*0.85), y0 = (int)(h*0.15), y1 = (int)(h*0.85);
-        int step = Math.max(2, Math.min(w,h)/180);
-        double sumV=0, sumS=0, sumR=0, sumG=0, sumHueX=0, sumHueY=0;
-        int n=0, hot=0;
-        float[] hsv = new float[3];
-        for (int y=y0; y<y1; y+=step) {
-            for (int x=x0; x<x1; x+=step) {
-                int c=b.getPixel(x,y); int r=Color.red(c), g=Color.green(c), bl=Color.blue(c);
-                Color.RGBToHSV(r,g,bl,hsv);
-                double v=hsv[2], s=hsv[1], rad=Math.toRadians(hsv[0]);
-                sumV+=v; sumS+=s; sumR+=r/255.0; sumG+=g/255.0;
-                sumHueX += Math.cos(rad)*s; sumHueY += Math.sin(rad)*s;
-                if (v>0.88 && s>0.28) hot++;
-                n++;
-            }
-        }
-        FrameStat fs=new FrameStat();
-        fs.brightness=sumV/n; fs.saturation=sumS/n; fs.redRatio=sumR/n; fs.greenRatio=sumG/n;
-        double hue=Math.toDegrees(Math.atan2(sumHueY,sumHueX)); if(hue<0) hue+=360; fs.hue=hue;
-        fs.hotPixelRatio=hot/(double)n;
-        return fs;
-    }
-
-    private double median(List<FrameStat> s, int kind) {
-        List<Double> a=new ArrayList<>();
-        for(FrameStat f:s){
-            if(kind==0)a.add(f.brightness); else if(kind==1)a.add(f.saturation); else if(kind==2)a.add(f.redRatio);
-            else if(kind==3)a.add(f.greenRatio); else if(kind==4)a.add(f.hue); else a.add(f.hotPixelRatio);
-        }
-        Collections.sort(a); return a.get(a.size()/2);
-    }
-
-    private double persistenceScore(List<FrameStat> a) {
-        int peak=0; for(int i=1;i<a.size();i++) if(a.get(i).brightness>a.get(peak).brightness) peak=i;
-        if(peak>=a.size()-2) return 0;
-        double p=a.get(peak).brightness, after=(a.get(peak+1).brightness+a.get(Math.min(peak+2,a.size()-1)).brightness)/2.0;
-        double before=peak>0?a.get(peak-1).brightness:a.get(0).brightness;
-        double rise=p-before;
-        if(rise<0.06) return 0;
-        return clamp((after-before)/(rise+0.0001));
-    }
-
-    private String explain(double score,double hue,double flip,double pers){
-        if(score>=70 && pers>0.35) return "Videoda güçlü parlaklık/renk anomalisi ve tepe sonrasında devam eden ışıma görülüyor. Harici 365/395 nm UV ışıkla kontrollü tekrar test önerilir.";
-        if(score>=45 && (hue>0.25 || flip>0.12)) return "Taş bölgesinde belirgin renk dönüşümü var. Yeşil-kırmızı gibi emisyon benzeri değişim olabilir; aynı çekimi sabit pozlama ile karşılaştırın.";
-        if(score>=25) return "Bazı karelerde fark var ancak otomatik pozlama, yansıma veya beyaz dengesi de bu etkiyi oluşturabilir.";
-        return "Video boyunca renk ve parlaklık davranışı büyük ölçüde kararlı. Belirgin floresans benzeri işaret bulunmadı.";
-    }
-
-    private double positiveRatio(double x,double base){ return Math.max(0,(x-base)/(Math.abs(base)+0.02)); }
-    private double clamp(double x){ return Math.max(0,Math.min(1,x)); }
-    private double circularHueDistance(double a,double b){ double d=Math.abs(a-b)%360; return d>180?360-d:d; }
-    private int dp(int x){ return (int)(x*getResources().getDisplayMetrics().density+0.5f); }
-
-    @Override protected void onDestroy(){ super.onDestroy(); executor.shutdownNow(); }
+ private static final int REQ_CAMERA=1001; private TextureView textureView; private TextView modeTitle,status; private ModePanel modePanel;
+ private CameraDevice cameraDevice; private CameraCaptureSession captureSession; private ImageReader imageReader; private HandlerThread cameraThread; private Handler cameraHandler; private CaptureRequest.Builder previewBuilder; private CameraCharacteristics cameraCharacteristics; private Rect activeArray;
+ private String currentMode="NORMAL"; private double baselineBrightness=-1,baselineR=-1,baselineG=-1,baselineB=-1,previousBrightness=-1,previousR=-1,previousG=-1,previousB=-1,darkBrightness=0; private boolean darkCaptured=false,exposureLocked=false; private long lastUi=0;
+ private float zoom=1f,maxZoom=8f,roiX=.5f,roiY=.5f; private long lastTap=0; private float downX,downY,lastPinch=0;
+ static class Stat { double brightness,saturation,r,g,b,scatter,variation; }
+ @Override protected void onCreate(Bundle b){super.onCreate(b);setContentView(buildUi());if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)startCameraFlow();else requestPermissions(new String[]{Manifest.permission.CAMERA},REQ_CAMERA);}
+ private View buildUi(){FrameLayout root=new FrameLayout(this);root.setBackgroundColor(Color.BLACK);textureView=new TextureView(this);textureView.setOnTouchListener(this::touchCamera);root.addView(textureView,new FrameLayout.LayoutParams(-1,-1));
+  LinearLayout top=new LinearLayout(this);top.setOrientation(LinearLayout.VERTICAL);top.setPadding(dp(10),dp(10),dp(10),dp(8));top.setBackgroundColor(0xB0000000);modeTitle=text("STONE GLOW • NORMAL",18,true,Color.WHITE);top.addView(modeTitle);status=text("Kamera hazırlanıyor…",12,false,Color.rgb(200,220,235));top.addView(status);
+  HorizontalScrollView hs=new HorizontalScrollView(this);LinearLayout modes=new LinearLayout(this);String[] names={"NORMAL","UV365","UV395","TRANSMİSYON","POLARİZE","KARANLIK ALAN","PLEOKROİZM","ZONLAMA","MAKRO","PARLAKLIK","FINGERPRINT"};for(String n:names){Button x=new Button(this);x.setText(n);x.setTextSize(10);x.setAllCaps(false);x.setOnClickListener(v->selectMode(n));modes.addView(x,new LinearLayout.LayoutParams(dp(118),dp(44)));}hs.addView(modes);top.addView(hs,new LinearLayout.LayoutParams(-1,dp(50)));
+  LinearLayout tools=new LinearLayout(this);Button dark=new Button(this);dark.setText("DARK REF");dark.setOnClickListener(v->captureDarkReference());Button lock=new Button(this);lock.setText("AE/AWB KİLİT");lock.setOnClickListener(v->toggleExposureLock());Button reset=new Button(this);reset.setText("1×");reset.setOnClickListener(v->{zoom=1;roiX=roiY=.5f;applyZoom();status.setText("Zoom 1× • ROI merkez");});tools.addView(dark,new LinearLayout.LayoutParams(0,dp(42),1));tools.addView(lock,new LinearLayout.LayoutParams(0,dp(42),1));tools.addView(reset,new LinearLayout.LayoutParams(0,dp(42),1));top.addView(tools);root.addView(top,new FrameLayout.LayoutParams(-1,-2,Gravity.TOP));modePanel=new ModePanel(this);FrameLayout.LayoutParams mp=new FrameLayout.LayoutParams(-1,-2,Gravity.BOTTOM);mp.setMargins(dp(8),0,dp(8),dp(8));root.addView(modePanel,mp);return root; }
+ private boolean touchCamera(View v,MotionEvent e){int pc=e.getPointerCount();if(pc>=2){float dx=e.getX(0)-e.getX(1),dy=e.getY(0)-e.getY(1),d=(float)Math.sqrt(dx*dx+dy*dy);if(lastPinch>0){zoom*=d/lastPinch;zoom=Math.max(1,Math.min(maxZoom,zoom));applyZoom();}lastPinch=d;return true;} if(e.getAction()==MotionEvent.ACTION_DOWN){downX=e.getX();downY=e.getY();lastPinch=0;return true;} if(e.getAction()==MotionEvent.ACTION_UP){long now=System.currentTimeMillis();float x=e.getX(),y=e.getY();roiX=Math.max(.05f,Math.min(.95f,x/Math.max(1f,textureView.getWidth())));roiY=Math.max(.05f,Math.min(.95f,y/Math.max(1f,textureView.getHeight())));if(now-lastTap<330){zoom=1f;}else{zoom=zoom<1.5f?2f:zoom<3f?4f:Math.min(maxZoom,zoom);}lastTap=now;applyZoom();focusAt(x,y);status.setText(String.format("Hedef ROI %.0f%%,%.0f%% • Zoom %.1f× • AF/AE",roiX*100,roiY*100,zoom));return true;}return true;}
+ private void applyZoom(){if(previewBuilder==null||captureSession==null||activeArray==null)return;try{float z=Math.max(1,Math.min(maxZoom,zoom));int cw=(int)(activeArray.width()/z),ch=(int)(activeArray.height()/z);int cx=activeArray.left+(int)(roiX*activeArray.width()),cy=activeArray.top+(int)(roiY*activeArray.height());int l=Math.max(activeArray.left,Math.min(activeArray.right-cw,cx-cw/2)),t=Math.max(activeArray.top,Math.min(activeArray.bottom-ch,cy-ch/2));previewBuilder.set(CaptureRequest.SCALER_CROP_REGION,new Rect(l,t,l+cw,t+ch));captureSession.setRepeatingRequest(previewBuilder.build(),null,cameraHandler);}catch(Exception ignored){}}
+ private void selectMode(String m){currentMode=m;modeTitle.setText("STONE GLOW • "+m);baselineBrightness=previousBrightness=-1;previousR=previousG=previousB=-1;status.setText(protocolFor(m));}
+ private String protocolFor(String m){if(m.equals("UV365"))return"365 nm UV + 420 nm long-pass önerilir.";if(m.equals("UV395"))return"395 nm UV + long-pass önerilir.";if(m.equals("TRANSMİSYON"))return"Arkadan homojen beyaz ışık ver.";if(m.equals("POLARİZE"))return"Çapraz polarizer kullan, taşı döndür.";if(m.equals("KARANLIK ALAN"))return"Işığı yandan ver.";if(m.equals("PLEOKROİZM"))return"Sabit beyaz ışıkta taşı döndür.";if(m.equals("ZONLAMA"))return"Bölgesel renk/homojenlik ölçümü.";if(m.equals("MAKRO"))return"Taşa dokun: hedefe zoom + netlik.";if(m.equals("PARLAKLIK"))return"Sabit açılı beyaz ışık kullan.";if(m.equals("FINGERPRINT"))return"Seçilen ROI optik imzası.";return"Dokun: 2×/4× zoom + AF/AE • çift dokun: 1× • iki parmak: zoom";}
+ private void captureDarkReference(){darkCaptured=true;darkBrightness=Math.max(0,previousBrightness);status.setText("DARK REF kaydedildi");}
+ private void toggleExposureLock(){exposureLocked=!exposureLocked;if(previewBuilder==null||captureSession==null)return;try{previewBuilder.set(CaptureRequest.CONTROL_AE_LOCK,exposureLocked);previewBuilder.set(CaptureRequest.CONTROL_AWB_LOCK,exposureLocked);captureSession.setRepeatingRequest(previewBuilder.build(),null,cameraHandler);}catch(Exception ignored){}}
+ private void startCameraFlow(){cameraThread=new HandlerThread("StoneGlowCamera");cameraThread.start();cameraHandler=new Handler(cameraThread.getLooper());textureView.setSurfaceTextureListener(new TextureView.SurfaceTextureListener(){public void onSurfaceTextureAvailable(SurfaceTexture s,int w,int h){openCamera();}public void onSurfaceTextureSizeChanged(SurfaceTexture s,int w,int h){}public boolean onSurfaceTextureDestroyed(SurfaceTexture s){return true;}public void onSurfaceTextureUpdated(SurfaceTexture s){}});if(textureView.isAvailable())openCamera();}
+ private void openCamera(){if(checkSelfPermission(Manifest.permission.CAMERA)!=PackageManager.PERMISSION_GRANTED)return;CameraManager m=(CameraManager)getSystemService(Context.CAMERA_SERVICE);try{String selected=null;for(String id:m.getCameraIdList()){CameraCharacteristics cc=m.getCameraCharacteristics(id);Integer f=cc.get(CameraCharacteristics.LENS_FACING);if(f!=null&&f==CameraCharacteristics.LENS_FACING_BACK){selected=id;cameraCharacteristics=cc;break;}}if(selected==null){selected=m.getCameraIdList()[0];cameraCharacteristics=m.getCameraCharacteristics(selected);}activeArray=cameraCharacteristics.get(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);Float mz=cameraCharacteristics.get(CameraCharacteristics.SCALER_AVAILABLE_MAX_DIGITAL_ZOOM);if(mz!=null)maxZoom=Math.max(1,Math.min(10,mz));imageReader=ImageReader.newInstance(640,480,android.graphics.ImageFormat.YUV_420_888,3);imageReader.setOnImageAvailableListener(r->{Image im=r.acquireLatestImage();if(im!=null)try{analyze(im);}finally{im.close();}},cameraHandler);m.openCamera(selected,new CameraDevice.StateCallback(){public void onOpened(CameraDevice c){cameraDevice=c;createSession();}public void onDisconnected(CameraDevice c){c.close();}public void onError(CameraDevice c,int e){c.close();}},cameraHandler);}catch(Exception e){status.setText("Kamera açılamadı");}}
+ private void createSession(){try{SurfaceTexture st=textureView.getSurfaceTexture();st.setDefaultBufferSize(1280,720);Surface p=new Surface(st),a=imageReader.getSurface();previewBuilder=cameraDevice.createCaptureRequest(CameraDevice.TEMPLATE_PREVIEW);previewBuilder.addTarget(p);previewBuilder.addTarget(a);previewBuilder.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);previewBuilder.set(CaptureRequest.CONTROL_AE_MODE,CaptureRequest.CONTROL_AE_MODE_ON);previewBuilder.set(CaptureRequest.CONTROL_AWB_MODE,CaptureRequest.CONTROL_AWB_MODE_AUTO);cameraDevice.createCaptureSession(Arrays.asList(p,a),new CameraCaptureSession.StateCallback(){public void onConfigured(CameraCaptureSession s){captureSession=s;try{s.setRepeatingRequest(previewBuilder.build(),null,cameraHandler);}catch(Exception ignored){}}public void onConfigureFailed(CameraCaptureSession s){}},cameraHandler);}catch(Exception ignored){}}
+ private void focusAt(float x,float y){if(captureSession==null||previewBuilder==null||activeArray==null)return;try{int sx=activeArray.left+(int)(roiX*activeArray.width()),sy=activeArray.top+(int)(roiY*activeArray.height()),half=Math.max(80,Math.min(activeArray.width(),activeArray.height())/24);Rect rr=new Rect(Math.max(activeArray.left,sx-half),Math.max(activeArray.top,sy-half),Math.min(activeArray.right,sx+half),Math.min(activeArray.bottom,sy+half));MeteringRectangle mr=new MeteringRectangle(rr,MeteringRectangle.METERING_WEIGHT_MAX);Integer af=cameraCharacteristics.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AF),ae=cameraCharacteristics.get(CameraCharacteristics.CONTROL_MAX_REGIONS_AE);if(af!=null&&af>0)previewBuilder.set(CaptureRequest.CONTROL_AF_REGIONS,new MeteringRectangle[]{mr});if(ae!=null&&ae>0)previewBuilder.set(CaptureRequest.CONTROL_AE_REGIONS,new MeteringRectangle[]{mr});previewBuilder.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_AUTO);previewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,CaptureRequest.CONTROL_AF_TRIGGER_START);captureSession.capture(previewBuilder.build(),null,cameraHandler);previewBuilder.set(CaptureRequest.CONTROL_AF_TRIGGER,CaptureRequest.CONTROL_AF_TRIGGER_IDLE);previewBuilder.set(CaptureRequest.CONTROL_AF_MODE,CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE);captureSession.setRepeatingRequest(previewBuilder.build(),null,cameraHandler);}catch(Exception ignored){}}
+ private void analyze(Image im){Stat s=stat(im);if(s==null)return;if(darkCaptured)s.brightness=Math.max(0,s.brightness-darkBrightness);if(baselineBrightness<0){baselineBrightness=s.brightness;baselineR=s.r;baselineG=s.g;baselineB=s.b;previousBrightness=s.brightness;previousR=s.r;previousG=s.g;previousB=s.b;return;}double temporal=Math.abs(s.brightness-previousBrightness)+Math.abs(s.r-previousR)+Math.abs(s.g-previousG)+Math.abs(s.b-previousB),base=Math.abs(s.brightness-baselineBrightness)+Math.abs(s.r-baselineR)+Math.abs(s.g-baselineG)+Math.abs(s.b-baselineB);s.variation=Math.min(1,.55*base+.45*temporal);previousBrightness=s.brightness;previousR=s.r;previousG=s.g;previousB=s.b;long now=System.currentTimeMillis();if(now-lastUi>120){lastUi=now;runOnUiThread(()->modePanel.render(currentMode,s.brightness,s.r,s.g,s.b,s.saturation,s.scatter,s.variation));}}
+ private Stat stat(Image image){if(image.getPlanes().length<3)return null;Image.Plane yp=image.getPlanes()[0],up=image.getPlanes()[1],vp=image.getPlanes()[2];ByteBuffer yb=yp.getBuffer(),ub=up.getBuffer(),vb=vp.getBuffer();int w=image.getWidth(),h=image.getHeight(),yRow=yp.getRowStride(),yPix=yp.getPixelStride(),uRow=up.getRowStride(),uPix=up.getPixelStride(),vRow=vp.getRowStride(),vPix=vp.getPixelStride();float span=Math.max(.10f,.34f/Math.max(1,zoom));int cx=(int)(roiX*w),cy=(int)(roiY*h),x0=Math.max(0,(int)(cx-w*span)),x1=Math.min(w,(int)(cx+w*span)),y0=Math.max(0,(int)(cy-h*span)),y1=Math.min(h,(int)(cy+h*span));double sr=0,sg=0,sb=0,sv=0,ss=0,sdev=0;int n=0;for(int yy=y0;yy<y1;yy+=6)for(int xx=x0;xx<x1;xx+=6){int yi=yy*yRow+xx*yPix,ui=(yy/2)*uRow+(xx/2)*uPix,vi=(yy/2)*vRow+(xx/2)*vPix;if(yi>=yb.limit()||ui>=ub.limit()||vi>=vb.limit())continue;int Y=yb.get(yi)&255,U=(ub.get(ui)&255)-128,V=(vb.get(vi)&255)-128,r=clamp255((int)(Y+1.402*V)),g=clamp255((int)(Y-.344136*U-.714136*V)),b=clamp255((int)(Y+1.772*U)),max=Math.max(r,Math.max(g,b)),min=Math.min(r,Math.min(g,b));double val=max/255.0,sat=max==0?0:(max-min)/(double)max;sr+=r/255.;sg+=g/255.;sb+=b/255.;sv+=val;ss+=sat;sdev+=Math.abs(Y-128)/128.;n++;}if(n==0)return null;Stat s=new Stat();s.r=sr/n;s.g=sg/n;s.b=sb/n;s.brightness=sv/n;s.saturation=ss/n;s.scatter=sdev/n;return s;}
+ private int clamp255(int x){return Math.max(0,Math.min(255,x));} private TextView text(String s,int z,boolean bold,int c){TextView t=new TextView(this);t.setText(s);t.setTextSize(z);t.setTextColor(c);if(bold)t.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);return t;} private int dp(int v){return(int)(v*getResources().getDisplayMetrics().density+.5f);}
+ @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==REQ_CAMERA&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)startCameraFlow();}
+ @Override protected void onDestroy(){super.onDestroy();try{if(captureSession!=null)captureSession.close();if(cameraDevice!=null)cameraDevice.close();if(imageReader!=null)imageReader.close();if(cameraThread!=null)cameraThread.quitSafely();}catch(Exception ignored){}}
 }
