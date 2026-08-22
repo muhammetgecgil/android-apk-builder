@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Muhammet Türk Radyo</string>
+    <string name="notification_channel">Canlı radyo</string>
+    <string name="media_service_name">Türk Radyo Medya</string>
+</resources>
