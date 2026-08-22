@@ -1,112 +1,35 @@
 package com.muhammetgecgil.turkradyo;
 
-import android.app.*;
-import android.content.*;
-import android.media.*;
-import android.media.audiofx.LoudnessEnhancer;
-import android.net.Uri;
-import android.os.*;
+import android.app.*;import android.content.*;import android.media.*;import android.media.audiofx.LoudnessEnhancer;import android.net.Uri;import android.os.*;import org.json.*;import java.io.*;import java.net.*;import java.nio.charset.*;
 
-public class RadioService extends Service implements MediaPlayer.OnPreparedListener, MediaPlayer.OnErrorListener {
-    public static final String ACTION_PLAY="com.muhammetgecgil.turkradyo.PLAY";
-    public static final String ACTION_PAUSE="com.muhammetgecgil.turkradyo.PAUSE";
-    public static final String ACTION_RESUME="com.muhammetgecgil.turkradyo.RESUME";
-    public static final String ACTION_STOP="com.muhammetgecgil.turkradyo.STOP";
-    public static final String ACTION_VOLUME="com.muhammetgecgil.turkradyo.VOLUME";
-    public static final String ACTION_GAIN="com.muhammetgecgil.turkradyo.GAIN";
-    private static final int NOTIF_ID=1201;
-    private static final String CHANNEL="radio_playback";
-    private MediaPlayer player;
-    private LoudnessEnhancer enhancer;
-    private String stationName="Muhammet Türk Radyo";
-    private float volume=1f;
-    private int gainMb=0;
-    private AudioManager audioManager;
-    private AudioFocusRequest focusRequest;
-
-    @Override public void onCreate() {
-        super.onCreate();
-        createChannel();
-        audioManager=(AudioManager)getSystemService(AUDIO_SERVICE);
-    }
-
-    @Override public int onStartCommand(Intent intent, int flags, int startId) {
-        if (intent == null) return START_STICKY;
-        String a=intent.getAction();
-        if (ACTION_PLAY.equals(a)) {
-            String u=intent.getStringExtra("url"); String n=intent.getStringExtra("name");
-            if (u != null && !u.isEmpty()) play(u,n);
-        } else if (ACTION_PAUSE.equals(a)) pause();
-        else if (ACTION_RESUME.equals(a)) resume();
-        else if (ACTION_STOP.equals(a)) stopAll();
-        else if (ACTION_VOLUME.equals(a)) { volume=Math.max(0f,Math.min(1f,intent.getFloatExtra("volume",1f))); if(player!=null) player.setVolume(volume,volume); }
-        else if (ACTION_GAIN.equals(a)) { gainMb=intent.getIntExtra("gain",0); applyGain(); }
-        return START_STICKY;
-    }
-
-    private void play(String url,String name) {
-        stationName=(name==null||name.isEmpty())?"Türk Radyo":name;
-        startForeground(NOTIF_ID,buildNotification("Bağlanıyor…",true));
-        requestFocus();
-        releasePlayer();
-        try {
-            player=new MediaPlayer();
-            player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
-            player.setWakeMode(getApplicationContext(), PowerManager.PARTIAL_WAKE_LOCK);
-            player.setOnPreparedListener(this); player.setOnErrorListener(this);
-            player.setDataSource(this, Uri.parse(url));
-            player.setVolume(volume,volume);
-            player.prepareAsync();
-        } catch(Exception e) {
-            updateNotification("Yayın açılamadı",false);
-        }
-    }
-
-    @Override public void onPrepared(MediaPlayer mp) {
-        try { mp.start(); applyGain(); updateNotification("Canlı yayın",true); } catch(Exception ignored) { }
-    }
-
-    @Override public boolean onError(MediaPlayer mp,int what,int extra) {
-        updateNotification("Bağlantı kesildi",false); return true;
-    }
-
-    private void pause(){ if(player!=null && player.isPlaying()){player.pause(); updateNotification("Duraklatıldı",false);} }
-    private void resume(){ if(player!=null){try{player.start();updateNotification("Canlı yayın",true);}catch(Exception ignored){}} }
-    private void stopAll(){ releasePlayer(); abandonFocus(); stopForeground(STOP_FOREGROUND_REMOVE); stopSelf(); }
-
-    private void applyGain(){
-        if(player==null) return;
-        try { if(enhancer!=null) enhancer.release(); enhancer=new LoudnessEnhancer(player.getAudioSessionId()); enhancer.setTargetGain(Math.max(0,Math.min(3000,gainMb))); enhancer.setEnabled(gainMb>0); } catch(Exception ignored){}
-    }
-
-    private void releasePlayer(){
-        if(enhancer!=null){try{enhancer.release();}catch(Exception ignored){} enhancer=null;}
-        if(player!=null){try{player.stop();}catch(Exception ignored){} try{player.release();}catch(Exception ignored){} player=null;}
-    }
-
-    private void requestFocus(){
-        if(Build.VERSION.SDK_INT>=26){
-            focusRequest=new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-                    .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
-                    .setOnAudioFocusChangeListener(change->{ if(change==AudioManager.AUDIOFOCUS_LOSS || change==AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) pause(); }).build();
-            audioManager.requestAudioFocus(focusRequest);
-        }
-    }
-    private void abandonFocus(){ if(Build.VERSION.SDK_INT>=26 && focusRequest!=null) audioManager.abandonAudioFocusRequest(focusRequest); }
-
-    private PendingIntent svc(String action,int req){ return PendingIntent.getService(this,req,new Intent(this,RadioService.class).setAction(action),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE); }
-    private Notification buildNotification(String state,boolean playing){
-        Intent open=new Intent(this,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);
-        PendingIntent content=PendingIntent.getActivity(this,1,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-        Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,CHANNEL):new Notification.Builder(this);
-        b.setSmallIcon(R.drawable.ic_stat_radio).setContentTitle(stationName).setContentText(state).setContentIntent(content).setOngoing(playing).setOnlyAlertOnce(true).setCategory(Notification.CATEGORY_SERVICE).setVisibility(Notification.VISIBILITY_PUBLIC)
-          .addAction(new Notification.Action.Builder(null,playing?"Duraklat":"Oynat",svc(playing?ACTION_PAUSE:ACTION_RESUME,2)).build())
-          .addAction(new Notification.Action.Builder(null,"Durdur",svc(ACTION_STOP,3)).build());
-        if(Build.VERSION.SDK_INT>=21)b.setStyle(new Notification.MediaStyle());
-        return b.build();
-    }
-    private void updateNotification(String s,boolean p){ ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIF_ID,buildNotification(s,p)); }
-    private void createChannel(){ if(Build.VERSION.SDK_INT>=26){ NotificationChannel c=new NotificationChannel(CHANNEL,getString(R.string.notif_channel_name),NotificationManager.IMPORTANCE_LOW); c.setDescription(getString(R.string.notif_channel_desc)); ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(c);} }
-    @Override public void onDestroy(){ releasePlayer(); abandonFocus(); super.onDestroy(); }
-    @Override public android.os.IBinder onBind(Intent intent){return null;}
+public class RadioService extends Service implements MediaPlayer.OnPreparedListener,MediaPlayer.OnErrorListener,MediaPlayer.OnInfoListener{
+ public static final String ACTION_PLAY="com.muhammetgecgil.turkradyo.PLAY",ACTION_PAUSE="com.muhammetgecgil.turkradyo.PAUSE",ACTION_RESUME="com.muhammetgecgil.turkradyo.RESUME",ACTION_STOP="com.muhammetgecgil.turkradyo.STOP",ACTION_VOLUME="com.muhammetgecgil.turkradyo.VOLUME",ACTION_GAIN="com.muhammetgecgil.turkradyo.GAIN",ACTION_NORMALIZE="com.muhammetgecgil.turkradyo.NORMALIZE",ACTION_SMOOTH="com.muhammetgecgil.turkradyo.SMOOTH";
+ private static final int NOTIF_ID=1201;private static final String CHANNEL="radio_playback";private MediaPlayer player;private LoudnessEnhancer enhancer;private String stationName="Muhammet Türk Radyo",streamUrl="";private float volume=1f;private int gainMb=0,metaToken=0,bufferCount=0,lastError=0,reconnectAttempts=0;private boolean normalize=false,smooth=true,buffering=false,userPaused=false;private volatile boolean metadataBusy=false;private AudioManager audioManager;private AudioFocusRequest focusRequest;private long playStartMs=0,startupMs=0;private Handler handler=new Handler(Looper.getMainLooper());private Runnable fadeTask,reconnectTask,bufferWatchdog,metadataTask;
+ @Override public void onCreate(){super.onCreate();createChannel();audioManager=(AudioManager)getSystemService(AUDIO_SERVICE);SharedPreferences sp=getSharedPreferences("radio",MODE_PRIVATE);normalize=sp.getBoolean("normalize",false);smooth=sp.getBoolean("smooth",true);}
+ @Override public int onStartCommand(Intent in,int flags,int id){if(in==null)return START_STICKY;String a=in.getAction();if(ACTION_PLAY.equals(a)){String u=in.getStringExtra("url"),n=in.getStringExtra("name");if(u!=null&&!u.isEmpty()){if(!u.equals(streamUrl))reconnectAttempts=0;userPaused=false;play(u,n);}}else if(ACTION_PAUSE.equals(a))pause();else if(ACTION_RESUME.equals(a))resume();else if(ACTION_STOP.equals(a))stopAll();else if(ACTION_VOLUME.equals(a)){volume=Math.max(0f,Math.min(1f,in.getFloatExtra("volume",1f)));if(player!=null)player.setVolume(volume,volume);}else if(ACTION_GAIN.equals(a)){gainMb=in.getIntExtra("gain",0);applyGain();}else if(ACTION_NORMALIZE.equals(a)){normalize=in.getBooleanExtra("on",false);getSharedPreferences("radio",MODE_PRIVATE).edit().putBoolean("normalize",normalize).apply();applyGain();}else if(ACTION_SMOOTH.equals(a)){smooth=in.getBooleanExtra("on",true);getSharedPreferences("radio",MODE_PRIVATE).edit().putBoolean("smooth",smooth).apply();}return START_STICKY;}
+ private void play(String url,String name){stationName=(name==null||name.isEmpty())?"Türk Radyo":name;streamUrl=url;playStartMs=System.currentTimeMillis();startupMs=0;bufferCount=0;lastError=0;buffering=false;metaToken++;metadataBusy=false;saveTelemetry();startForeground(NOTIF_ID,buildNotification("Bağlanıyor…",true));requestFocus();cancelTransientTasks();releasePlayerOnly();try{player=new MediaPlayer();player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());player.setWakeMode(getApplicationContext(),PowerManager.PARTIAL_WAKE_LOCK);player.setOnPreparedListener(this);player.setOnErrorListener(this);player.setOnInfoListener(this);player.setDataSource(this,Uri.parse(url));player.setVolume(smooth?0f:volume,smooth?0f:volume);player.prepareAsync();}catch(Exception e){lastError=-1;saveTelemetry();updateNotification("Yayın açılamadı",false);scheduleReconnect();}}
+ @Override public void onPrepared(MediaPlayer mp){startupMs=Math.max(1,System.currentTimeMillis()-playStartMs);reconnectAttempts=0;buffering=false;saveTelemetry();try{mp.start();applyGain();if(smooth)fadeIn(mp);else mp.setVolume(volume,volume);updateNotification("Canlı yayın",true);scheduleMetadataMonitor();}catch(Exception e){lastError=-2;saveTelemetry();scheduleReconnect();}}
+ private void scheduleMetadataMonitor(){if(metadataTask!=null)handler.removeCallbacks(metadataTask);final String u=streamUrl;metadataTask=new Runnable(){@Override public void run(){if(userPaused||!u.equals(streamUrl))return;startIcySnapshot(u);handler.postDelayed(this,15000);}};handler.postDelayed(metadataTask,3500);}
+ private void fadeIn(MediaPlayer mp){cancelFade();final int steps=12;final long stepMs=55;final int[] n={0};fadeTask=new Runnable(){@Override public void run(){if(player!=mp)return;n[0]++;float f=Math.min(1f,n[0]/(float)steps);try{mp.setVolume(volume*f,volume*f);}catch(Exception ignored){}if(f<1f)handler.postDelayed(this,stepMs);}};handler.post(fadeTask);}
+ private void cancelFade(){if(fadeTask!=null){handler.removeCallbacks(fadeTask);fadeTask=null;}}
+ private void cancelTransientTasks(){cancelFade();if(reconnectTask!=null){handler.removeCallbacks(reconnectTask);reconnectTask=null;}if(bufferWatchdog!=null){handler.removeCallbacks(bufferWatchdog);bufferWatchdog=null;}if(metadataTask!=null){handler.removeCallbacks(metadataTask);metadataTask=null;}}
+ private void scheduleReconnect(){if(userPaused||streamUrl==null||streamUrl.isEmpty()||reconnectAttempts>=3)return;if(reconnectTask!=null)handler.removeCallbacks(reconnectTask);final int attempt=++reconnectAttempts;final long delay=900L*(1L<<Math.min(2,attempt-1));updateNotification("Yeniden bağlanıyor… "+attempt+"/3",true);reconnectTask=()->{if(!userPaused)play(streamUrl,stationName);};handler.postDelayed(reconnectTask,delay);}
+ private void armBufferWatchdog(){if(bufferWatchdog!=null)handler.removeCallbacks(bufferWatchdog);bufferWatchdog=()->{if(buffering&&!userPaused){lastError=-30;saveTelemetry();scheduleReconnect();}};handler.postDelayed(bufferWatchdog,10000);}
+ @Override public boolean onError(MediaPlayer mp,int what,int extra){lastError=what;buffering=false;saveTelemetry();updateNotification("Bağlantı kesildi",false);scheduleReconnect();return true;}
+ @Override public boolean onInfo(MediaPlayer mp,int what,int extra){if(what==MediaPlayer.MEDIA_INFO_BUFFERING_START){buffering=true;bufferCount++;saveTelemetry();armBufferWatchdog();}else if(what==MediaPlayer.MEDIA_INFO_BUFFERING_END){buffering=false;if(bufferWatchdog!=null){handler.removeCallbacks(bufferWatchdog);bufferWatchdog=null;}saveTelemetry();}return false;}
+ private void saveTelemetry(){try{JSONObject o=new JSONObject();o.put("startupMs",startupMs);o.put("bufferCount",bufferCount);o.put("lastError",lastError);o.put("since",playStartMs);o.put("smooth",smooth);o.put("normalize",normalize);o.put("buffering",buffering);o.put("reconnectAttempts",reconnectAttempts);o.put("metadataBusy",metadataBusy);getSharedPreferences("radio",MODE_PRIVATE).edit().putString("telemetry",o.toString()).apply();}catch(Exception ignored){}}
+ private String decodeMeta(byte[] m){try{String u=new String(m,StandardCharsets.UTF_8).replace("\u0000","");if(!u.contains("�"))return u;}catch(Exception ignored){}try{return new String(m,Charset.forName("ISO-8859-9")).replace("\u0000","");}catch(Exception e){return new String(m,StandardCharsets.ISO_8859_1).replace("\u0000","");}}
+ private void startIcySnapshot(String url){if(metadataBusy)return;metadataBusy=true;saveTelemetry();final int token=metaToken;new Thread(()->{URLConnection c=null;InputStream in=null;try{c=new URL(url).openConnection();c.setConnectTimeout(3500);c.setReadTimeout(6500);c.setRequestProperty("Icy-MetaData","1");c.setRequestProperty("User-Agent","MuhammetTurkRadyo/2.1");c.connect();String h=c.getHeaderField("icy-metaint");if(h==null||token!=metaToken)return;int mi=Integer.parseInt(h.trim());if(mi<=0||mi>262144)return;in=new BufferedInputStream(c.getInputStream(),8192);byte[] skip=new byte[4096];int left=mi;while(left>0&&token==metaToken&&!userPaused){int n=in.read(skip,0,Math.min(skip.length,left));if(n<0)return;left-=n;}if(token!=metaToken||userPaused)return;int len=in.read();if(len<0)return;int bytes=len*16;if(bytes>0&&bytes<=65536){byte[] m=new byte[bytes];int got=0;while(got<bytes){int n=in.read(m,got,bytes-got);if(n<0)return;got+=n;}String meta=decodeMeta(m);int p=meta.indexOf("StreamTitle='");if(p>=0){int e=meta.indexOf("';",p+13);if(e>p){String title=meta.substring(p+13,e).trim();if(!title.isEmpty()&&token==metaToken)addTrack(title);}}}}catch(Exception ignored){}finally{try{if(in!=null)in.close();}catch(Exception ignored){}metadataBusy=false;saveTelemetry();}},"icy-snapshot").start();}
+ private synchronized void addTrack(String title){try{SharedPreferences sp=getSharedPreferences("radio",MODE_PRIVATE);JSONArray old;try{old=new JSONArray(sp.getString("tracks","[]"));}catch(Exception e){old=new JSONArray();}if(old.length()>0&&title.equalsIgnoreCase(old.optJSONObject(0).optString("title")))return;JSONArray a=new JSONArray();JSONObject n=new JSONObject();n.put("title",title);n.put("station",stationName);n.put("time",System.currentTimeMillis());a.put(n);for(int i=0;i<old.length()&&a.length()<50;i++)a.put(old.get(i));sp.edit().putString("tracks",a.toString()).putString("nowTitle",title).apply();updateNotification(title,true);}catch(Exception ignored){}}
+ private void pause(){userPaused=true;metaToken++;metadataBusy=false;cancelTransientTasks();if(player!=null)try{if(player.isPlaying())player.pause();updateNotification("Duraklatıldı",false);}catch(Exception ignored){}}
+ private void resume(){userPaused=false;if(player!=null)try{player.start();if(smooth)fadeIn(player);updateNotification("Canlı yayın",true);scheduleMetadataMonitor();}catch(Exception e){scheduleReconnect();}else scheduleReconnect();}
+ private void stopAll(){userPaused=true;metaToken++;metadataBusy=false;cancelTransientTasks();releasePlayerOnly();abandonFocus();stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
+ private void applyGain(){if(player==null)return;try{if(enhancer!=null)enhancer.release();enhancer=new LoudnessEnhancer(player.getAudioSessionId());int target=normalize?Math.max(gainMb,300):gainMb;target=Math.max(0,Math.min(1200,target));enhancer.setTargetGain(target);enhancer.setEnabled(target>0);}catch(Exception ignored){}}
+ private void releasePlayerOnly(){cancelFade();if(enhancer!=null){try{enhancer.release();}catch(Exception ignored){}enhancer=null;}if(player!=null){try{player.reset();}catch(Exception ignored){}try{player.release();}catch(Exception ignored){}player=null;}}
+ private void requestFocus(){if(Build.VERSION.SDK_INT>=26){if(focusRequest!=null)audioManager.abandonAudioFocusRequest(focusRequest);focusRequest=new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()).setOnAudioFocusChangeListener(c->{if(c==AudioManager.AUDIOFOCUS_LOSS||c==AudioManager.AUDIOFOCUS_LOSS_TRANSIENT)pause();}).build();audioManager.requestAudioFocus(focusRequest);}}
+ private void abandonFocus(){if(Build.VERSION.SDK_INT>=26&&focusRequest!=null){audioManager.abandonAudioFocusRequest(focusRequest);focusRequest=null;}}
+ private PendingIntent svc(String action,int req){return PendingIntent.getService(this,req,new Intent(this,RadioService.class).setAction(action),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}private Notification buildNotification(String state,boolean playing){Intent open=new Intent(this,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP|Intent.FLAG_ACTIVITY_CLEAR_TOP);PendingIntent content=PendingIntent.getActivity(this,1,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);Notification.Builder b=Build.VERSION.SDK_INT>=26?new Notification.Builder(this,CHANNEL):new Notification.Builder(this);b.setSmallIcon(R.drawable.ic_stat_radio).setContentTitle(stationName).setContentText(state).setContentIntent(content).setOngoing(playing).setOnlyAlertOnce(true).setCategory(Notification.CATEGORY_SERVICE).setVisibility(Notification.VISIBILITY_PUBLIC).addAction(new Notification.Action.Builder(null,playing?"Duraklat":"Oynat",svc(playing?ACTION_PAUSE:ACTION_RESUME,2)).build()).addAction(new Notification.Action.Builder(null,"Durdur",svc(ACTION_STOP,3)).build());if(Build.VERSION.SDK_INT>=21)b.setStyle(new Notification.MediaStyle());return b.build();}
+ private void updateNotification(String s,boolean p){((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIF_ID,buildNotification(s,p));}
+ private void createChannel(){if(Build.VERSION.SDK_INT>=26){NotificationChannel c=new NotificationChannel(CHANNEL,getString(R.string.notif_channel_name),NotificationManager.IMPORTANCE_LOW);c.setDescription(getString(R.string.notif_channel_desc));((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(c);}}
+ @Override public void onDestroy(){userPaused=true;metaToken++;metadataBusy=false;cancelTransientTasks();releasePlayerOnly();abandonFocus();super.onDestroy();}@Override public IBinder onBind(Intent i){return null;}
 }

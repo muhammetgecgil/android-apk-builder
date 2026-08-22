@@ -1,0 +1,26 @@
+/* V24 — one palette for every Profile 2 surface/control */
+.profile2-active{
+ --uiA:var(--natureA,var(--red));--uiB:var(--natureB,var(--red2));--uiC:var(--natureC,#fff);--uiG:var(--natureGlow,var(--red));
+ --uiDeep:color-mix(in srgb,var(--bg) 94%,#000);--uiMid:color-mix(in srgb,var(--bg2) 82%,var(--uiA));--uiSurface:color-mix(in srgb,var(--card2) 90%,var(--uiA));--uiLine:color-mix(in srgb,var(--uiA) 58%,#ffffff20);
+ background:radial-gradient(circle at 50% 18%,color-mix(in srgb,var(--uiA) 22%,var(--bg2)) 0,var(--bg2) 36%,var(--bg) 74%)!important;
+}
+.profile2-active .round,.profile2-active .live,.profile2-active .action,.profile2-active .ctrl,.profile2-active .mode,.profile2-active .p2Tile,.profile2-active .p2DiscoveryMenu button,.profile2-active .genre-mode-trigger,.profile2-active .genre-chip,.profile2-active .p2Btn,.profile2-active .p2Cat,.profile2-active .p2BackChip,.profile2-active .p2Section,.profile2-active .p2Hero,.profile2-active .p2GenreHero,.profile2-active .p2Station,.profile2-active .p2Track,.profile2-active .p2Metric,.profile2-active .mini,.profile2-active nav.bottom,.profile2-active .bottom-nav{
+ border-color:var(--uiLine)!important;
+ background:radial-gradient(circle at 20% 10%,color-mix(in srgb,var(--uiC) 8%,transparent),transparent 30%),linear-gradient(150deg,var(--uiSurface),var(--uiDeep))!important;
+ box-shadow:inset 0 1px 0 #ffffff16,0 7px 22px #0007,0 0 15px color-mix(in srgb,var(--uiG) 20%,transparent)!important;
+}
+.profile2-active .ctrl.play,.profile2-active .mode.active,.profile2-active .mode:active,.profile2-active .p2Tile:active,.profile2-active .p2DiscoveryMenu button:active,.profile2-active .p2Btn.on,.profile2-active .p2Cat.on,.profile2-active .genre-chip.on{
+ border-color:var(--uiC)!important;box-shadow:inset 0 1px 0 #ffffff22,0 0 24px color-mix(in srgb,var(--uiG) 52%,transparent)!important;
+}
+.profile2-active .mode b,.profile2-active .p2Tile b,.profile2-active .p2Tile svg,.profile2-active .p2DiscoveryMenu b,.profile2-active .p2DiscoveryMenu svg,.profile2-active .genre-mode-trigger span,.profile2-active .genre-mode-trigger em,.profile2-active .genre-mode-state,.profile2-active .p2V17Art svg,.profile2-active .p2Health,.profile2-active .p2Badge,.profile2-active .p2SimilarityTag,.profile2-active nav.bottom .active,.profile2-active .bottom-nav .active{color:var(--uiC)!important;stroke:var(--uiC)!important;filter:drop-shadow(0 0 7px color-mix(in srgb,var(--uiG) 48%,transparent))}
+.profile2-active .p2Tile b .p2IconShell,.profile2-active .p2DiscoveryMenu b{
+ background:radial-gradient(circle at 36% 24%,color-mix(in srgb,var(--uiC) 18%,transparent),color-mix(in srgb,var(--uiDeep) 92%,#000) 72%)!important;
+ border-color:color-mix(in srgb,var(--uiA) 62%,#ffffff1a)!important;box-shadow:inset 0 1px 0 #ffffff20,0 0 17px color-mix(in srgb,var(--uiG) 38%,transparent)!important;
+}
+.profile2-active .p2Tile:after,.profile2-active .p2V17Hero:after{background:linear-gradient(90deg,transparent,var(--uiC),transparent)!important;box-shadow:0 0 10px var(--uiG)!important}
+.profile2-active .vol input{accent-color:var(--uiA)!important}.profile2-active .dot{background:var(--uiA)!important;box-shadow:0 0 14px var(--uiG)!important}
+.profile2-active .logo{outline-color:var(--uiA)!important;box-shadow:0 0 28px color-mix(in srgb,var(--uiG) 50%,transparent),inset 0 0 28px color-mix(in srgb,var(--uiA) 24%,transparent)!important}.profile2-active .logo.station-optical-v23 span{text-shadow:0 2px 0 #000,0 0 12px color-mix(in srgb,var(--uiG) 45%,transparent)!important}
+.profile2-active .genre-lock-v23{border-color:var(--uiLine)!important;background:linear-gradient(145deg,color-mix(in srgb,var(--uiA) 15%,var(--uiDeep)),var(--uiDeep))!important;box-shadow:inset 0 1px 0 #ffffff14,0 0 18px color-mix(in srgb,var(--uiG) 36%,transparent)!important}.profile2-active .genre-lock-v23 span{color:var(--uiC)!important}
+.profile2-active .miniLogo,.profile2-active .mini button{border-color:var(--uiLine)!important}.profile2-active .mini small{color:var(--uiC)!important}
+.profile2-active .p2Input,.profile2-active .p2Select,.profile2-active .search{border-color:var(--uiLine)!important;background:linear-gradient(145deg,color-mix(in srgb,var(--uiDeep) 92%,var(--uiA)),var(--uiDeep))!important;color:#fff!important}
+.profile2-active #sheet,.profile2-active .panel{background:linear-gradient(180deg,color-mix(in srgb,var(--bg) 94%,var(--uiB)),#040609)!important}.profile2-active .sheetTop,.profile2-active #sheet .sheet-head{background:linear-gradient(180deg,var(--uiSurface),var(--uiDeep))!important;border-color:var(--uiLine)!important}

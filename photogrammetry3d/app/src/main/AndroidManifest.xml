@@ -1,6 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-feature android:glEsVersion="0x00020000" android:required="true" />
     <application android:theme="@style/AppTheme" android:label="MG 3D Studio Pro" android:icon="@drawable/ic_launcher" android:roundIcon="@drawable/ic_launcher" android:allowBackup="true" android:supportsRtl="true">
+        <activity android:name=".MechanicalHybridActivityV31" android:exported="false" />
+        <activity android:name=".SfmSurfaceActivityV30" android:exported="false" />
         <activity android:name=".RobustPoseSurfaceActivityV29" android:exported="false" />
         <activity android:name=".OrthographicCadActivityV26" android:exported="false" />
         <activity android:name=".AutoObjCadSurfaceActivity" android:exported="false" />
@@ -12,20 +14,8 @@
         <activity android:name=".ProCadViewerActivity" android:exported="false" />
         <activity android:name=".CadSurfaceActivity" android:exported="false" />
         <activity android:name=".CadViewerActivity" android:exported="false" />
-        <activity android:name=".ViewerActivity" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:mimeType="*/*" />
-            </intent-filter>
-        </activity>
+        <activity android:name=".ViewerActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.VIEW"/><category android:name="android.intent.category.DEFAULT"/><category android:name="android.intent.category.BROWSABLE"/><data android:mimeType="*/*"/></intent-filter></activity>
         <activity android:name=".MainActivity" android:exported="false" />
-        <activity android:name=".HomeActivity" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <activity android:name=".HomeActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
     </application>
 </manifest>
