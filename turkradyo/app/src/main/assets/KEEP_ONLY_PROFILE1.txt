@@ -1,4 +1,0 @@
-index.html
-privacy.html
-profile1-nature-themes.css
-profile1-nature-themes.js
