@@ -1,0 +1,11 @@
+(()=>{'use strict';
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+function genreOf(s){const t=((s?.name||'')+' '+(s?.tags||'')).toLocaleLowerCase('tr');if(/arabesk|fantezi|fantazi|damar/.test(t))return'Arabesk';if(/rock|metal|alternative|indie/.test(t))return'Rock';if(/türkü|turku|folk|halk/.test(t))return'Türkü';if(/klasik|classical|opera|senfoni/.test(t))return'Klasik';if(/haber|news|gündem|gundem/.test(t))return'Haber';if(/spor|sports/.test(t))return'Spor';if(/dini|ilah[iı]|tasavvuf/.test(t))return'Dini';if(/jazz|blues/.test(t))return'Jazz';if(/pop|hit|dance|top 40/.test(t))return'Pop';return'Diğer'}
+function lock(){return localStorage.pGenreLock||''}
+function sync(){const g=lock(),tr=$('.genre-mode-trigger');if(tr){tr.classList.toggle('locked',!!g);const em=tr.querySelector('em');if(em)em.textContent=g?g+' • KİLİTLİ':'TÜMÜ'}const sim=$('.mode[data-mode="similar"]');if(sim)sim.dataset.lockLabel=g||'';$$('.genre-chip').forEach(x=>x.classList.toggle('on',x.dataset.g===(g||'Tümü')))}
+function jump(dir){const g=lock();if(!g||!window.stations||!stations.length)return false;const pool=stations.filter(s=>genreOf(s)===g);if(!pool.length)return false;const cur=stations[index],k=cur?key(cur):'';let j=pool.findIndex(s=>key(s)===k);if(j<0)j=dir>0?-1:0;j=(j+dir+pool.length)%pool.length;const target=pool[j],i=stations.findIndex(s=>key(s)===key(target));if(i<0)return false;select(i,true);return true}
+function patchNav(){try{const p=prev,n=next;prev=function(){if(!jump(-1))p()};next=function(){if(!jump(1))n()}}catch(e){}}
+function wire(){document.addEventListener('click',e=>{const c=e.target.closest('.genre-chip[data-g]');if(c){const g=c.dataset.g||'Tümü';if(g==='Tümü'){localStorage.removeItem('pGenreLock');localStorage.pGenreChoice='Tümü'}else{localStorage.pGenreChoice=g;localStorage.pGenreLock=g}setTimeout(()=>{sync();try{toast(g==='Tümü'?'Tür modu kapatıldı':g+' modu kilitlendi • ileri/geri yalnız bu tür')}catch(_){}},0)}},true)}
+function mount(){patchNav();wire();sync();setTimeout(sync,800)}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
