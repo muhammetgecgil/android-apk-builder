@@ -32,8 +32,8 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         Window w = getWindow();
-        w.setStatusBarColor(Color.rgb(32, 27, 42));
-        w.setNavigationBarColor(Color.rgb(32, 27, 42));
+        w.setStatusBarColor(Color.rgb(10, 17, 27));
+        w.setNavigationBarColor(Color.rgb(10, 17, 27));
 
         webView = new WebView(this);
         setContentView(webView);
@@ -45,11 +45,15 @@ public class MainActivity extends Activity {
         s.setAllowFileAccess(true);
         s.setAllowContentAccess(true);
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
-        s.setUserAgentString(s.getUserAgentString() + " MuhammetTurkRadyo/2.0.2");
+        s.setUserAgentString(s.getUserAgentString() + " MuhammetTurkRadyo/2.0.4");
         webView.setWebChromeClient(new WebChromeClient());
         webView.setWebViewClient(new WebViewClient() {
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) { return handleUri(request.getUrl()); }
             @Override public boolean shouldOverrideUrlLoading(WebView view, String url) { return handleUri(Uri.parse(url)); }
+            @Override public void onPageFinished(WebView view, String url) {
+                super.onPageFinished(view, url);
+                try { view.evaluateJavascript(readTextAsset("nature-themes.js"), null); } catch (Exception ignored) { }
+            }
         });
         try {
             String html = readGzipAsset("index.html.gz");
@@ -177,6 +181,15 @@ public class MainActivity extends Activity {
             byte[] buf = new byte[8192];
             int n;
             while ((n = gz.read(buf)) > 0) out.write(buf, 0, n);
+            return new String(out.toByteArray(), StandardCharsets.UTF_8);
+        }
+    }
+
+    private String readTextAsset(String name) throws Exception {
+        try (InputStream raw = getAssets().open(name); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = raw.read(buf)) > 0) out.write(buf, 0, n);
             return new String(out.toByteArray(), StandardCharsets.UTF_8);
         }
     }
