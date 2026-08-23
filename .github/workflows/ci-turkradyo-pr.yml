@@ -33,15 +33,31 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Build installable APK
+      - name: Build installable APK and Play bundle
         working-directory: turkradyo
         run: gradle --no-daemon clean assembleDebug bundleRelease --stacktrace
+
+      - name: Package complete source
+        run: |
+          rm -rf /tmp/turkradyo-source
+          mkdir -p /tmp/turkradyo-source
+          cp -a turkradyo/. /tmp/turkradyo-source/
+          rm -rf /tmp/turkradyo-source/app/build /tmp/turkradyo-source/.gradle
+          cd /tmp
+          zip -qr "$GITHUB_WORKSPACE/TurkRadyo-V18.7-Source.zip" turkradyo-source
 
       - name: Upload APK and bundle
         uses: actions/upload-artifact@v4
         with:
-          name: turkradyo-v2.0.2
+          name: turkradyo-v2.0.7-build
           if-no-files-found: error
           path: |
             turkradyo/app/build/outputs/apk/debug/*.apk
             turkradyo/app/build/outputs/bundle/release/*.aab
+
+      - name: Upload complete source ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: turkradyo-v2.0.7-source
+          if-no-files-found: error
+          path: TurkRadyo-V18.7-Source.zip
