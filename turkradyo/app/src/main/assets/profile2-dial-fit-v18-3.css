@@ -1,5 +1,7 @@
-/* Profil 2 V18.3 - merkez daire tipografi standardi */
-body.profile2-active .logo{overflow:hidden!important;padding:17px 18px!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:2px!important;text-align:center!important}
-body.profile2-active .logo .dialFitLine{display:block!important;width:100%!important;max-width:100%!important;white-space:nowrap!important;overflow:visible!important;text-align:center!important;font-family:"Roboto Condensed","Arial Narrow",Roboto,system-ui,sans-serif!important;font-size:var(--dial-font,34px)!important;font-weight:900!important;font-stretch:condensed!important;letter-spacing:var(--dial-track,-.015em)!important;line-height:.92!important;color:#fff!important;text-shadow:0 2px 0 #000,0 0 10px color-mix(in srgb,var(--natureGlow,#58aaff) 28%,transparent)!important;text-rendering:geometricPrecision;-webkit-font-smoothing:antialiased}
-body.profile2-active .logo[data-fit-name]{word-break:normal!important;overflow-wrap:normal!important}
-@media(max-width:430px){body.profile2-active .logo{padding:15px 16px!important}body.profile2-active .logo .dialFitLine{line-height:.91!important}}
+/* Profil 1 + Profil 2 V18.3.1 - ortak merkez daire tipografi standardi */
+.logo{overflow:hidden!important;padding:17px 18px!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;gap:2px!important;text-align:center!important}
+.logo .dialFitLine{display:block!important;width:100%!important;max-width:100%!important;white-space:nowrap!important;overflow:visible!important;text-align:center!important;font-family:"Roboto Condensed","Arial Narrow",Roboto,system-ui,sans-serif!important;font-size:var(--dial-font,34px)!important;font-weight:900!important;font-stretch:condensed!important;letter-spacing:var(--dial-track,-.015em)!important;line-height:.92!important;color:#fff!important;text-shadow:0 2px 0 #000,0 0 10px color-mix(in srgb,var(--natureGlow,#58aaff) 28%,transparent)!important;text-rendering:geometricPrecision;-webkit-font-smoothing:antialiased}
+.logo[data-fit-name]{word-break:normal!important;overflow-wrap:normal!important}
+/* Profil 1'de de tema parlamasi ayni motorla, kendi nature paletinden gelir. */
+body:not(.profile2-active) .logo .dialFitLine{text-shadow:0 2px 0 #000,0 0 10px color-mix(in srgb,var(--natureGlow,#ff4257) 25%,transparent)!important}
+@media(max-width:430px){.logo{padding:15px 16px!important}.logo .dialFitLine{line-height:.91!important}}
