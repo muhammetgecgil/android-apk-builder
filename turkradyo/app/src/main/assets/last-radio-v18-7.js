@@ -1,0 +1,10 @@
+(()=>{'use strict';
+const byKey=k=>{try{return (window.stations||[]).findIndex(s=>(s.stationuuid||s._url||s.url_resolved||s.url||s.name)===k)}catch(e){return-1}};
+const keyOf=s=>s&&(s.stationuuid||s._url||s.url_resolved||s.url||s.name)||'';
+let lastKey=localStorage.getItem('trLastRadioKey')||'',currentKey='';
+function mountButton(){if(document.querySelector('[data-last-radio]'))return;const modes=document.querySelector('.modes');if(!modes)return;const b=document.createElement('button');b.className='mode';b.setAttribute('data-last-radio','1');b.innerHTML='<b>↶</b>SON RADYO';const recent=modes.querySelector('[data-mode="recent"]');if(recent&&recent.nextSibling)modes.insertBefore(b,recent.nextSibling);else modes.appendChild(b);b.onclick=e=>{e.preventDefault();e.stopPropagation();goLast()};}
+function goLast(){try{if(!lastKey){window.toast?.('Henüz önceki radyo yok');return}const i=byKey(lastKey);if(i<0){window.toast?.('Son radyo artık listede değil');return}const cur=(window.stations||[])[window.index];const curKey=keyOf(cur);const targetKey=lastKey;lastKey=curKey;localStorage.setItem('trLastRadioKey',lastKey);window.select(i,true);currentKey=targetKey;window.toast?.('Son radyoya dönüldü')}catch(e){}}
+function patchSelect(){try{const old=window.select;if(typeof old!=='function'||old.__lastRadio)return;currentKey=keyOf((window.stations||[])[window.index]);const f=function(i,auto=true){const before=keyOf((window.stations||[])[window.index]);const target=keyOf((window.stations||[])[((i%(window.stations||[]).length)+(window.stations||[]).length)%(window.stations||[]).length]);if(before&&target&&before!==target&&target!==lastKey){lastKey=before;localStorage.setItem('trLastRadioKey',lastKey)}const r=old(i,auto);currentKey=keyOf((window.stations||[])[window.index]);return r};f.__lastRadio=true;window.select=f}catch(e){}}
+function mount(){mountButton();patchSelect();setTimeout(()=>{mountButton();patchSelect()},1200);setTimeout(()=>{mountButton();patchSelect()},3000)}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
