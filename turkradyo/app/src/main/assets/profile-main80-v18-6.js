@@ -1,0 +1,27 @@
+(()=>{'use strict';
+const API=['https://de1.api.radio-browser.info','https://fi1.api.radio-browser.info','https://nl1.api.radio-browser.info'];
+const BAD=/kurd|kürt|kurdish|kurdi|zaza|zazaki|sorani|kurman/i,DINAMO=/\bdinamo(?:\.fm)?\b/i;
+const key=s=>s?.stationuuid||s?._url||s?.url_resolved||s?.url||s?.name||'';
+const quality=s=>{let x=0;x+=(s?.lastcheckok?40:-50);x+=Math.min(18,(+s?.bitrate||0)/16);x+=Math.min(14,Math.max(0,+s?.votes||0)/20);x+=Math.min(14,Math.log10(1+Math.max(0,+s?.clickcount||0))*3);x+=Math.min(10,Math.max(-5,+s?.clicktrend||0)/25);return x};
+function getSet(n){try{return new Set(JSON.parse(localStorage.getItem(n)||'[]'))}catch(e){return new Set()}}
+function putSet(n,s){localStorage.setItem(n,JSON.stringify([...s]))}
+function mainKeys(){try{return JSON.parse(localStorage.v5MainKeys||'[]')}catch(e){return[]}}
+function setMainKeys(a){localStorage.v5MainKeys=JSON.stringify(a.slice(0,80))}
+async function fetchCatalog(){for(const a of API){try{const r=await fetch(a+'/json/stations/bycountrycodeexact/TR?hidebroken=true&order=clickcount&reverse=true&limit=3000',{cache:'no-store'});if(!r.ok)continue;const d=await r.json(),seen=new Set();return d.filter(s=>{const u=s.url_resolved||s.url,k=s.stationuuid||u,t=[s.name,s.language,s.languagecodes,s.tags,u].join(' ');if(!u||BAD.test(t)||DINAMO.test(t)||seen.has(k))return false;seen.add(k);s._url=u;return true})}catch(e){}}return[]}
+function syncNativeQueue(){try{if(typeof stations==='undefined'||!Array.isArray(stations)||!window.RadioNative?.setQueue)return;const q=stations.slice(0,80).map(s=>({name:s.name||'Türk Radyo',url:s._url||s.url_resolved||s.url||'',uuid:s.stationuuid||''})).filter(x=>x.url);window.RadioNative.setQueue(JSON.stringify(q),Math.max(0,Math.min(typeof index==='number'?index:0,q.length-1)))}catch(e){}}
+function updateCounts(kept,input){try{localStorage.v5CatalogCount=String(kept);localStorage.p2CatalogPrune=JSON.stringify({input,removed:Math.max(0,input-kept),kept,protectedMain80:80,at:Date.now()})}catch(e){}document.querySelectorAll('.v5Status,.p2Section h3').forEach(el=>{if(/\d+\s+Türkiye radyosu|uygun Türkiye istasyonu/i.test(el.textContent||''))el.innerHTML=(el.innerHTML||'').replace(/\d+(?=\s+(Türkiye radyosu|uygun Türkiye istasyonu))/i,String(kept))})}
+async function repairMain80(){if(typeof stations==='undefined'||!Array.isArray(stations))return;const catalog=await fetchCatalog();if(!catalog.length)return;const protectedUser=getSet('v186PinnedMain'),removed=getSet('v186RemovedMain');let keys=mainKeys();if(!keys.length)keys=stations.slice(0,80).map(key);const map=new Map([...stations,...catalog].map(s=>[key(s),s]));let arr=keys.map(k=>map.get(k)).filter(Boolean);
+// Mevcut ana listedeki kullanıcı seçimi otomatik düşmesin.
+arr.forEach(s=>protectedUser.add(key(s)));
+// Munzur mutlaka ana listede.
+const munzur=catalog.filter(s=>/munzur/i.test(s.name||'')).sort((a,b)=>quality(b)-quality(a))[0];
+if(munzur&&!arr.some(s=>key(s)===key(munzur))){if(arr.length>=80){let ri=-1,rv=1e9;arr.forEach((s,i)=>{if(!protectedUser.has(key(s))&&quality(s)<rv){rv=quality(s);ri=i}});if(ri<0)ri=arr.length-1;arr.splice(ri,1)}arr.push(munzur);protectedUser.add(key(munzur));}
+// Eksikleri en kaliteli ve daha önce kullanıcı tarafından çıkarılmamış istasyonlarla tamamla.
+const used=new Set(arr.map(key));const candidates=catalog.filter(s=>!used.has(key(s))&&!removed.has(key(s))).sort((a,b)=>quality(b)-quality(a));for(const s of candidates){if(arr.length>=80)break;arr.push(s);used.add(key(s))}
+arr=arr.slice(0,80);stations.length=0;arr.forEach(s=>stations.push(s));setMainKeys(arr.map(key));putSet('v186PinnedMain',protectedUser);if(typeof index==='number'){index=Math.max(0,Math.min(index,stations.length-1));try{select(index,false)}catch(e){}}syncNativeQueue();updateCounts(catalog.length,Number(localStorage.p2CatalogPrune?JSON.parse(localStorage.p2CatalogPrune).input:catalog.length)||catalog.length);
+}
+function interceptMainButtons(){document.addEventListener('click',e=>{const b=e.target.closest('[data-main]');if(!b||typeof stations==='undefined')return;const k=b.dataset.main;if(!k)return;const pins=getSet('v186PinnedMain'),removed=getSet('v186RemovedMain');if(/EKLE/i.test(b.textContent||'')){pins.add(k);removed.delete(k);if(stations.length>=80){let keys=mainKeys(),drop=-1;for(let i=keys.length-1;i>=0;i--){if(!pins.has(keys[i])){drop=i;break}}if(drop<0)drop=keys.length-1;if(drop>=0){const dk=keys[drop];keys.splice(drop,1);const si=stations.findIndex(s=>key(s)===dk);if(si>=0)stations.splice(si,1);setMainKeys(keys)}}}else if(/ÇIKAR/i.test(b.textContent||'')){pins.delete(k);removed.add(k)}putSet('v186PinnedMain',pins);putSet('v186RemovedMain',removed);setTimeout(()=>{repairMain80();syncNativeQueue()},180)},true)}
+function patchSelect(){try{const old=window.select;if(typeof old!=='function'||old.__v186)return;const f=function(i,auto=true){const r=old(i,auto);setTimeout(syncNativeQueue,50);return r};f.__v186=true;window.select=f}catch(e){}}
+function mount(){interceptMainButtons();patchSelect();setTimeout(repairMain80,700);setTimeout(()=>{patchSelect();syncNativeQueue()},2200);document.addEventListener('visibilitychange',()=>{if(!document.hidden)syncNativeQueue()});}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
