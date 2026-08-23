@@ -1,0 +1,65 @@
+name: Cleanup Radio Radar Once
+
+on:
+  push:
+    branches:
+      - turkradyo-remove-radio-radar
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: ${{ !contains(github.event.head_commit.message, '[radar-cleanup]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: turkradyo-remove-radio-radar
+          fetch-depth: 0
+
+      - name: Remove remaining Radio Radar code and verify zero references
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path('turkradyo')
+          p = root / 'app/src/main/assets/profile4.js'
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('<button id="p4RadarOpen">RADAR</button>', '')
+          s = s.replace("click('p4RadarOpen',function(){openModeSafe('radar')});", '')
+          p.write_text(s, encoding='utf-8')
+
+          hits = []
+          for f in root.rglob('*'):
+              if not f.is_file() or f.suffix.lower() not in {'.js','.html','.css','.kt','.java','.xml','.gradle','.kts','.md','.txt'}:
+                  continue
+              try:
+                  text = f.read_text(encoding='utf-8')
+              except Exception:
+                  continue
+              if re.search(r'radar', text, re.I):
+                  for n, line in enumerate(text.splitlines(), 1):
+                      if re.search(r'radar', line, re.I):
+                          hits.append(f'{f}:{n}:{line[:240]}')
+          if hits:
+              print('Remaining radar references:')
+              print('\n'.join(hits))
+              raise SystemExit(1)
+          print('Verified: zero radar references under turkradyo/')
+          PY
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No further changes required"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add turkradyo
+          git commit -m "Remove final Radio Radar references [radar-cleanup]"
+          git push origin HEAD:turkradyo-remove-radio-radar
