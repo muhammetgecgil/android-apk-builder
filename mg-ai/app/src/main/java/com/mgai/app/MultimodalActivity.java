@@ -6,6 +6,10 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.provider.MediaStore;
@@ -15,11 +19,13 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.nio.file.Files;
 
-public class MultimodalActivity extends Activity {
+public class MultimodalActivity extends Activity implements SensorEventListener {
     private static final int REQ_CAMERA = 4101;
     private static final int REQ_AUDIO_PERMISSION = 4102;
     private EditText endpoint, instruction;
@@ -29,18 +35,24 @@ public class MultimodalActivity extends Activity {
     private File audioFile;
     private boolean recording = false;
     private Button audioButton;
+    private SensorManager sensorManager;
+    private final float[] accel = new float[]{Float.NaN,Float.NaN,Float.NaN};
+    private final float[] gyro = new float[]{Float.NaN,Float.NaN,Float.NaN};
+    private final float[] mag = new float[]{Float.NaN,Float.NaN,Float.NaN};
+    private long lastSensorNs = 0L;
 
     @Override protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        sensorManager = (SensorManager)getSystemService(SENSOR_SERVICE);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(20), dp(24), dp(20), dp(20));
         root.setBackgroundColor(Color.rgb(244,246,248));
 
-        TextView title = new TextView(this); title.setText("Görsel & Ses Analizi"); title.setTextSize(26);
+        TextView title = new TextView(this); title.setText("Görsel, Ses & Sensör Analizi"); title.setTextSize(26);
         title.setTypeface(null, android.graphics.Typeface.BOLD); root.addView(title);
         TextView info = new TextView(this);
-        info.setText("v0.10: kamera ve mikrofon verisi provenance ile alınır; yapılandırılmış vision/audio/OCR adaptörüne gönderilir. Model yoksa sahte analiz yapılmaz.");
+        info.setText("v0.10: kamera, mikrofon, ivmeölçer, jiroskop ve manyetometre verisi provenance ile alınır. Vision/audio model yoksa sahte analiz üretilmez.");
         info.setTextSize(14); info.setPadding(0, dp(12), 0, dp(16)); root.addView(info);
 
         endpoint = new EditText(this); endpoint.setHint("Multimodal API endpoint"); endpoint.setSingleLine(true); root.addView(endpoint);
@@ -50,6 +62,7 @@ public class MultimodalActivity extends Activity {
         Button health = button("Multimodal Durum / Model Adaptörleri"); root.addView(health);
         Button camera = button("Kamera ile Fotoğraf Çek ve Analiz Et"); root.addView(camera);
         audioButton = button("Mikrofon Kaydını Başlat"); root.addView(audioButton);
+        Button sensors = button("Telefon IMU + Manyetometre Snapshot Gönder"); root.addView(sensors);
         out = new TextView(this); out.setText("Hazır."); out.setPadding(0, dp(14), 0, 0); root.addView(out);
 
         health.setOnClickListener(v -> { String base=base(); if(base==null)return; out.setText("Bağlantı testi..."); MultimodalClient.health(base, callback()); });
@@ -65,8 +78,39 @@ public class MultimodalActivity extends Activity {
                 requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_AUDIO_PERMISSION);
             else startAudio();
         });
+        sensors.setOnClickListener(v -> sendSensorSnapshot());
         setContentView(root);
     }
+
+    @Override protected void onResume() {
+        super.onResume();
+        register(Sensor.TYPE_ACCELEROMETER); register(Sensor.TYPE_GYROSCOPE); register(Sensor.TYPE_MAGNETIC_FIELD);
+    }
+    @Override protected void onPause() { if(sensorManager!=null) sensorManager.unregisterListener(this); super.onPause(); }
+    private void register(int type){ Sensor s=sensorManager==null?null:sensorManager.getDefaultSensor(type); if(s!=null) sensorManager.registerListener(this,s,SensorManager.SENSOR_DELAY_GAME); }
+
+    @Override public void onSensorChanged(SensorEvent e) {
+        float[] dst = null;
+        if(e.sensor.getType()==Sensor.TYPE_ACCELEROMETER) dst=accel;
+        else if(e.sensor.getType()==Sensor.TYPE_GYROSCOPE) dst=gyro;
+        else if(e.sensor.getType()==Sensor.TYPE_MAGNETIC_FIELD) dst=mag;
+        if(dst!=null && e.values.length>=3){ dst[0]=e.values[0]; dst[1]=e.values[1]; dst[2]=e.values[2]; lastSensorNs=e.timestamp; }
+    }
+    @Override public void onAccuracyChanged(Sensor sensor, int accuracy) {}
+
+    private void sendSensorSnapshot(){
+        String b=base(); if(b==null)return;
+        try{
+            long ts=System.currentTimeMillis();
+            JSONObject p=new JSONObject()
+                    .put("accel_m_s2", arr(accel)).put("gyro_rad_s", arr(gyro)).put("mag_uT", arr(mag))
+                    .put("sensor_event_timestamp_ns", lastSensorNs)
+                    .put("coordinate_frame", "android-device-frame");
+            out.setText("Sensör snapshot gönderiliyor...");
+            MultimodalClient.postStructuredEvent(b,"sensor","android-sensor-fusion",p,0.9,100,"device-runtime",ts,callback());
+        }catch(Exception e){ out.setText("Sensör gönderim hatası: "+e.getMessage()); }
+    }
+    private JSONArray arr(float[] v){ return new JSONArray().put(v[0]).put(v[1]).put(v[2]); }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
