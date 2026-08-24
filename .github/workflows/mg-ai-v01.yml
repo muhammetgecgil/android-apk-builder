@@ -1,4 +1,4 @@
-name: Build MG-AI v0.29 Phone-Native LLM + Whisper APK
+name: Build MG-AI v0.30 Fully Local Voice APK
 
 on:
   push:
@@ -44,10 +44,12 @@ jobs:
           git clone --filter=blob:none --no-checkout https://github.com/ggml-org/whisper.cpp.git mg-ai/app/src/main/cpp/whisper.cpp
           git -C mg-ai/app/src/main/cpp/whisper.cpp checkout v1.9.1
 
-      - name: Verify default model manifest
+      - name: Verify model manifests
         run: |
           grep -q 'qwen2.5-1.5b-instruct-q4_k_m.gguf' mg-ai/app/src/main/java/com/mgai/app/LocalModelManager.java
           grep -q '6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e' mg-ai/app/src/main/java/com/mgai/app/LocalModelManager.java
+          grep -q 'ggml-tiny.bin' mg-ai/app/src/main/java/com/mgai/app/LocalWhisperModelManager.java
+          grep -q 'be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21' mg-ai/app/src/main/java/com/mgai/app/LocalWhisperModelManager.java
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -63,9 +65,9 @@ jobs:
           unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libmgllama.so'
           unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libmgwhisper.so'
 
-      - name: Upload MG-AI v0.29 APK
+      - name: Upload MG-AI v0.30 APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-AI-v0.29-phone-native-llm-whisper-debug
+          name: MG-AI-v0.30-fully-local-voice-debug
           path: mg-ai/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
