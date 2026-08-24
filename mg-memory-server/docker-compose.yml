@@ -1,0 +1,32 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: mgai
+      POSTGRES_USER: mgai
+      POSTGRES_PASSWORD: ${MG_MEMORY_DB_PASSWORD:-mgai-dev}
+    volumes:
+      - mg_memory_db:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mgai -d mgai"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  memory-api:
+    image: python:3.12-slim
+    working_dir: /app
+    volumes:
+      - ./:/app:ro
+    command: sh -c "pip install --no-cache-dir -r requirements.txt && uvicorn api:app --host 0.0.0.0 --port 8080"
+    ports:
+      - "${MG_MEMORY_PORT:-8081}:8080"
+    environment:
+      MG_MEMORY_DATABASE_URL: postgresql://mgai:${MG_MEMORY_DB_PASSWORD:-mgai-dev}@db:5432/mgai
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mg_memory_db:
