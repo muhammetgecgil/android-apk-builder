@@ -16,18 +16,18 @@ import java.util.Locale;
 import java.util.Map;
 
 public final class TurkeyAnalyzer {
-    // No minmagnitude filter: request every event the source actually catalogues in the Turkey box.
+    // No minimum-magnitude filter: request every event the source actually catalogs in the Turkey box.
     private static final String API="https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=now-7days&minlatitude=34&maxlatitude=43&minlongitude=25&maxlongitude=46&orderby=time&limit=20000";
     private static final DecimalFormat DF=new DecimalFormat("0.00");
     static final class E{double lat,lon,mag,dep;long t;String p;E(double a,double o,double m,double d,long tt,String pp){lat=a;lon=o;mag=m;dep=d;t=tt;p=pp;}}
     static final class C{int a,b;List<E> es=new ArrayList<>();double score,bv,ratio,etas,migration;C(int x,int y){a=x;b=y;}double lat(){return 34.0+a*0.25+0.125;}double lon(){return 25.0+b*0.25+0.125;}}
     public static final class Report{
-        public final int eventCount; public final double maxScore; public final String text; public final String hotspotsJson; public final String eventsJson;
-        Report(int n,double s,String t,String j,String e){eventCount=n;maxScore=s;text=t;hotspotsJson=j;eventsJson=e;}
+        public final int eventCount; public final double maxScore; public final String text; public final String hotspotsJson; public final String eventsJson; public final String faultsJson;
+        Report(int n,double s,String t,String j,String e,String f){eventCount=n;maxScore=s;text=t;hotspotsJson=j;eventsJson=e;faultsJson=f;}
     }
 
     public static Report fetchAndAnalyze() throws Exception{
-        HttpURLConnection c=(HttpURLConnection)new URL(API).openConnection();c.setConnectTimeout(15000);c.setReadTimeout(30000);c.setRequestProperty("User-Agent","QuakeWatch-Turkey/1.4");
+        HttpURLConnection c=(HttpURLConnection)new URL(API).openConnection();c.setConnectTimeout(15000);c.setReadTimeout(30000);c.setRequestProperty("User-Agent","QuakeWatch-Turkey/1.5");
         BufferedReader br=new BufferedReader(new InputStreamReader(c.getInputStream()));StringBuilder sb=new StringBuilder();String l;while((l=br.readLine())!=null)sb.append(l);br.close();
         JSONArray f=new JSONObject(sb.toString()).getJSONArray("features");long now=System.currentTimeMillis();Map<String,C> cells=new HashMap<>();List<E> all=new ArrayList<>();
         for(int i=0;i<f.length();i++){
@@ -47,14 +47,19 @@ public final class TurkeyAnalyzer {
         }
         Collections.sort(ranked,Comparator.comparingDouble((C q)->q.score).reversed());
         JSONArray hot=new JSONArray(); JSONArray ev=new JSONArray(); StringBuilder out=new StringBuilder("TÜRKİYE JEOLOJİ PROFESÖR MODU • 7 GÜN\n");
-        out.append("Katalog olayı: ").append(all.size()).append("\nModel: 0.25° mikro-hücre + 6s/24s hızlanma + ETAS + b-değeri + aktivite göçü.\n\n");
+        out.append("Katalog olayı: ").append(all.size()).append("\nModel: 0.25° mikro-hücre + 6s/24s hızlanma + ETAS + b-değeri + aktivite göçü + en yakın ana fay bağlamı.\n\n");
         int ml=Math.min(160,ranked.size());for(int i=0;i<ml;i++){C z=ranked.get(i);JSONObject o=new JSONObject();o.put("lat",z.lat());o.put("lon",z.lon());o.put("score",z.score);o.put("count",z.es.size());o.put("rate",z.ratio);o.put("b",z.bv);o.put("etas",z.etas);o.put("migration",z.migration);hot.put(o);}
-        all.sort((x,y)->Long.compare(y.t,x.t)); for(E e:all){JSONObject o=new JSONObject();o.put("lat",e.lat);o.put("lon",e.lon);o.put("mag",e.mag);o.put("depth",e.dep);o.put("time",e.t);o.put("place",e.p);ev.put(o);}
+        all.sort((x,y)->Long.compare(y.t,x.t));
+        for(E e:all){
+            FaultModel.Nearest nf=FaultModel.nearest(e.lat,e.lon);
+            JSONObject o=new JSONObject();o.put("lat",e.lat);o.put("lon",e.lon);o.put("mag",e.mag);o.put("depth",e.dep);o.put("time",e.t);o.put("place",e.p);
+            o.put("fault",nf.name);o.put("faultSystem",nf.system);o.put("faultType",nf.type);o.put("faultKm",nf.km);ev.put(o);
+        }
         int lim=Math.min(12,ranked.size());for(int i=0;i<lim;i++){C z=ranked.get(i);out.append(i+1).append(") ").append(String.format(Locale.US,"%.3f, %.3f",z.lat(),z.lon())).append(" • anomali ").append(DF.format(z.score)).append("/100\n   7g=").append(z.es.size()).append("  oran=").append(DF.format(z.ratio)).append("x  b≈").append(DF.format(z.bv)).append("  ETAS=").append(DF.format(z.etas)).append("  göç=").append(DF.format(z.migration*100)).append("%\n\n");}
         out.append("PROFESÖR YORUMU\n");
-        if(lim>0){C z=ranked.get(0);if(z.score>=75)out.append("En aktif mikro-bölge güçlü bir kısa dönem kümelenme gösteriyor. Bu çoğu zaman artçı dizi veya yerel swarm olabilir; tek başına büyük deprem habercisi sayılmaz.\n");else if(z.score>=50)out.append("Bazı mikro-bölgelerde olağanın üzerinde aktivite var. Zaman içindeki göç yönü ve b-değeri birlikte izlenmeli.\n");else out.append("Model belirgin eşik üstü kısa dönem kümelenme saptamıyor.\n");}
-        out.append("\nKatalog sınırı: Uygulama kaynak ağın raporladığı en küçük olayları gösterir. İstasyonların algılamadığı mikro-depremleri telefon tek başına göremez. Kesin deprem yeri/zamanı/büyüklüğü tahmini değildir.");
-        return new Report(all.size(),lim==0?0:ranked.get(0).score,out.toString(),hot.toString(),ev.toString());
+        if(lim>0){C z=ranked.get(0);if(z.score>=75)out.append("En aktif mikro-bölge güçlü kısa dönem kümelenme gösteriyor. Bu çoğu zaman artçı dizi veya yerel swarm olabilir; tek başına büyük deprem habercisi sayılmaz.\n");else if(z.score>=50)out.append("Bazı mikro-bölgelerde olağanın üzerinde aktivite var. Zaman içindeki göç yönü ve b-değeri birlikte izlenmeli.\n");else out.append("Model belirgin eşik üstü kısa dönem kümelenme saptamıyor.\n");}
+        out.append("\nHaritadaki fay çizgileri sadeleştirilmiş eğitim/analiz geometrisidir; resmi mühendislik fay haritası yerine kullanılmamalıdır. Katalog sınırı: kaynak ağın raporladığı en küçük olaylar gösterilir. Kesin deprem yeri/zamanı/büyüklüğü tahmini değildir.");
+        return new Report(all.size(),lim==0?0:ranked.get(0).score,out.toString(),hot.toString(),ev.toString(),FaultModel.json());
     }
     private TurkeyAnalyzer(){}
 }
