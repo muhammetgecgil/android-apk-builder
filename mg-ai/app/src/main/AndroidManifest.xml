@@ -7,8 +7,10 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.MGAI">
+        <activity android:name=".CapabilitiesActivity" android:exported="false" />
+        <activity android:name=".MainActivity" android:exported="false" />
         <activity
-            android:name=".MainActivity"
+            android:name=".DashboardActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
