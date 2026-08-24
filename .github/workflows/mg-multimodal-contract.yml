@@ -21,6 +21,6 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install fastapi pydantic
-      - run: python -m py_compile mg-multimodal-server/multimodal_engine.py mg-multimodal-server/api.py
+      - run: python -m py_compile mg-multimodal-server/multimodal_engine.py mg-multimodal-server/model_adapters.py mg-multimodal-server/api.py
       - run: PYTHONPATH=mg-multimodal-server python mg-multimodal-server/test_multimodal_engine.py
-      - run: PYTHONPATH=mg-multimodal-server python -c "import api; print(api.app.title)"
+      - run: PYTHONPATH=mg-multimodal-server python -c "import api; print(api.app.title); print(api.adapter_status())"
