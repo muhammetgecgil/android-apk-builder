@@ -1,5 +1,5 @@
 from dataclasses import dataclass, asdict
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Callable
 import hashlib
 import math
 import re
@@ -47,8 +47,8 @@ def chunk_text(document_id: str, text: str, max_chars: int = 1200, overlap: int 
     return out
 
 
-def lexical_embedding(text: str, dims: int = 384) -> List[float]:
-    # Deterministic contract embedding used for tests only. Production uses a real embedding model.
+def lexical_embedding(text: str, dims: int = 1024) -> List[float]:
+    # Deterministic contract embedding used for tests/fallback only.
     vec = [0.0] * dims
     for tok in re.findall(r"[\wçğıöşüÇĞİÖŞÜ]+", text.lower()):
         h = int(hashlib.sha256(tok.encode('utf-8')).hexdigest()[:16], 16)
@@ -61,11 +61,12 @@ def cosine(a: List[float], b: List[float]) -> float:
     return sum(x*y for x, y in zip(a, b))
 
 
-def retrieve(query: str, chunks: List[Chunk], top_k: int = 5) -> List[Dict[str, Any]]:
-    q = lexical_embedding(query)
+def retrieve(query: str, chunks: List[Chunk], top_k: int = 5, embed_fn: Callable[[str], List[float]] | None = None) -> List[Dict[str, Any]]:
+    embed_fn = embed_fn or lexical_embedding
+    q = embed_fn(query)
     scored = []
     for c in chunks:
-        sim = cosine(q, lexical_embedding(c.content))
+        sim = cosine(q, embed_fn(c.content))
         score = sim * 0.75 + c.importance * 0.15 + c.confidence * 0.10
         item = c.to_dict()
         item['retrieval_score'] = round(score, 6)
