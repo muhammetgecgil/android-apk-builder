@@ -4,25 +4,16 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
-    <application android:allowBackup="true" android:label="Quake Watch" android:theme="@android:style/Theme.Material.Light.NoActionBar">
-        <activity android:name=".MainActivity" android:exported="true">
+    <application android:allowBackup="true" android:label="Quake Watch Research Lab" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity android:name=".ResearchConsoleActivity" android:exported="true" android:label="Quake Watch Research Lab">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
-        <activity android:name=".TurkeyLabActivity" android:exported="true" android:label="Türkiye Jeoloji Lab">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
-        <activity android:name=".ForecastReportActivity" android:exported="true" android:label="Tahmin Denetim Raporu">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
+        <activity android:name=".MainActivity" android:exported="false"/>
+        <activity android:name=".TurkeyLabActivity" android:exported="false" android:label="Türkiye Jeoloji Lab"/>
+        <activity android:name=".ForecastReportActivity" android:exported="false" android:label="Tahmin Denetim Raporu"/>
         <service android:name=".QuakeMonitorService" android:exported="false" android:foregroundServiceType="dataSync"/>
     </application>
 </manifest>
