@@ -41,10 +41,10 @@ public class VoiceControlsActivity extends Activity {
 
         SeekBar speed=new SeekBar(this);
         speed.setMax(100);
-        speed.setProgress(Math.round((LocalVoiceOutput.rate(this)-0.55f)/1.0f*100f));
+        speed.setProgress(Math.round((LocalVoiceOutput.speechRate(this)-0.55f)*100f));
         speed.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
             public void onProgressChanged(SeekBar s,int p,boolean fromUser){
-                if(fromUser){float r=0.55f+(p/100f);LocalVoiceOutput.setRate(VoiceControlsActivity.this,r);refresh();}
+                if(fromUser){float r=0.55f+(p/100f);LocalVoiceOutput.setSpeechRate(VoiceControlsActivity.this,r);refresh();}
             }
             public void onStartTrackingTouch(SeekBar s){}
             public void onStopTrackingTouch(SeekBar s){}
@@ -58,30 +58,26 @@ public class VoiceControlsActivity extends Activity {
 
         Button stop=new Button(this);
         stop.setText("Sesi durdur");stop.setAllCaps(false);
-        stop.setOnClickListener(v->{LocalVoiceOutput.stop();refresh();});
+        stop.setOnClickListener(v->{ContinuousDialogManager.suppressNextAutoListen();LocalVoiceOutput.stop();refresh();});
         root.addView(stop);
 
         CheckBox continuous=new CheckBox(this);
         continuous.setText("Sürekli diyalog modu");
-        continuous.setChecked(getSharedPreferences("mg_voice_dialog",MODE_PRIVATE).getBoolean("continuous",false));
-        continuous.setOnCheckedChangeListener((v,on)->{
-            getSharedPreferences("mg_voice_dialog",MODE_PRIVATE).edit().putBoolean("continuous",on).apply();
-            refresh();
-        });
+        continuous.setChecked(ContinuousDialogManager.enabled(this));
+        continuous.setOnCheckedChangeListener((v,on)->{ContinuousDialogManager.setEnabled(this,on);refresh();});
         root.addView(continuous);
 
         TextView note=new TextView(this);
-        note.setText("Sürekli diyalog açıkken bir sonraki aşamada TTS cevabı bittiğinde MG-AI yeniden dinlemeye hazır olacak. Bu ayar şimdiden kalıcı olarak saklanıyor.");
+        note.setText("Sürekli diyalog açıkken MG-AI cevabını sesli okumayı bitirdiğinde yerel Whisper yeniden açılır ve bir sonraki konuşmanı dinlemeye hazır olur. Kapatınca otomatik dinleme durur.");
         note.setTextSize(13);note.setPadding(0,dp(16),0,0);root.addView(note);
 
         setContentView(root);refresh();
     }
 
     private void refresh(){
-        boolean continuous=getSharedPreferences("mg_voice_dialog",MODE_PRIVATE).getBoolean("continuous",false);
         status.setText("Sesli cevap: "+(LocalVoiceOutput.enabled(this)?"AÇIK":"KAPALI")+
-                " • Hız: "+String.format(java.util.Locale.US,"%.2fx",LocalVoiceOutput.rate(this))+
-                " • Sürekli diyalog: "+(continuous?"AÇIK":"KAPALI"));
+                " • Hız: "+String.format(java.util.Locale.US,"%.2fx",LocalVoiceOutput.speechRate(this))+
+                " • Sürekli diyalog: "+(ContinuousDialogManager.enabled(this)?"AÇIK":"KAPALI"));
     }
 
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
