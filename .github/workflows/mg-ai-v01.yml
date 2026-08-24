@@ -1,4 +1,4 @@
-name: Build MG-AI v0.18 Phone-Native APK
+name: Build MG-AI v0.19 Auto-Model Phone-Native APK
 
 on:
   push:
@@ -38,6 +38,11 @@ jobs:
           git clone --filter=blob:none --no-checkout https://github.com/ggml-org/llama.cpp.git mg-ai/app/src/main/cpp/llama.cpp
           git -C mg-ai/app/src/main/cpp/llama.cpp checkout f280b26983ad0fdb705a0d9ebf0503e76f2899b0
 
+      - name: Verify default model manifest
+        run: |
+          grep -q 'qwen2.5-1.5b-instruct-q4_k_m.gguf' mg-ai/app/src/main/java/com/mgai/app/LocalModelManager.java
+          grep -q '6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e' mg-ai/app/src/main/java/com/mgai/app/LocalModelManager.java
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -51,9 +56,9 @@ jobs:
           test -f mg-ai/app/build/outputs/apk/debug/app-debug.apk
           unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libmgllama.so'
 
-      - name: Upload MG-AI v0.18 APK
+      - name: Upload MG-AI v0.19 APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-AI-v0.18-phone-native-debug
+          name: MG-AI-v0.19-auto-model-phone-native-debug
           path: mg-ai/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
