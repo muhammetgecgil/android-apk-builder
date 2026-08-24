@@ -7,6 +7,7 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.MGAI">
+        <activity android:name=".CoreHealthActivity" android:exported="false" />
         <activity android:name=".CapabilitiesActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="false" />
         <activity
