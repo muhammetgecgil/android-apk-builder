@@ -1,0 +1,26 @@
+name: Validate MG Robot Perception
+
+on:
+  push:
+    branches: [mg-ai-v0.1-bootstrap]
+    paths:
+      - 'mg-robotics-server/**'
+      - '.github/workflows/mg-robotics-contract.yml'
+  pull_request:
+    paths:
+      - 'mg-robotics-server/**'
+      - '.github/workflows/mg-robotics-contract.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install fastapi pydantic
+      - run: python -m py_compile mg-robotics-server/world_model.py mg-robotics-server/api.py
+      - run: PYTHONPATH=mg-robotics-server python mg-robotics-server/test_world_model.py
+      - run: PYTHONPATH=mg-robotics-server python -c "import api; h=api.health(); assert h['actuator_endpoints']==0; print(api.app.title)"
