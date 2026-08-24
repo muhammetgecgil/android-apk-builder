@@ -17,6 +17,7 @@ public final class LocalChatStore {
             JSONObject o=new JSONObject();o.put("role",role);o.put("text",text);o.put("ts",System.currentTimeMillis());arr.put(o);
             while(arr.length()>MAX){JSONArray n=new JSONArray();for(int i=1;i<arr.length();i++)n.put(arr.get(i));arr=n;}
             c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putString(KEY,arr.toString()).apply();
+            if("assistant".equals(role)) LocalVoiceOutput.speak(c,text);
         }catch(Exception ignored){}
     }
     public static synchronized String transcript(Context c,int maxTurns){
