@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v3.3.0
-triggered: 2026-08-25T00:13+03:00
+CI trigger for Whiffletree Aero v3.4.0
+triggered: 2026-08-25T00:16+03:00
