@@ -3,8 +3,11 @@ from pydantic import BaseModel
 from typing import List, Dict, Any
 from training_engine import manifest, validate_dataset, create_job, record_evaluation, JOBS, CHECKPOINTS
 from training_pipeline import TrainingRegistry
+from closed_loop import build_dataset, register_model, registry_snapshot
+from benchmark_runner import compare_metrics
+import tempfile, os
 
-app=FastAPI(title='MG-AI Training API',version='0.13.0')
+app=FastAPI(title='MG-AI Training API',version='0.14.0')
 reg=TrainingRegistry()
 
 class DatasetRequest(BaseModel): examples: List[Dict[str,Any]]
@@ -15,9 +18,12 @@ class GateRequest(BaseModel): verified_samples:int; safety_events:int=0; quality
 class CheckpointRequest(BaseModel): checkpoint:str
 class PromotionEvalRequest(BaseModel): quality_score:float; regression_score:float; safety_pass:bool
 class PromoteRequest(BaseModel): explicit_approval:bool=False
+class LearningImportRequest(BaseModel): experiences:List[Dict[str,Any]]; candidates:List[Dict[str,Any]]
+class BenchmarkRequest(BaseModel): candidate:Dict[str,float]; baseline:Dict[str,float]
+class RegistryPromoteRequest(BaseModel): checkpoint:str; base_model:str; candidate:Dict[str,float]; baseline:Dict[str,float]; explicit_approval:bool=False
 
 @app.get('/health')
-def health(): return {'ok':True,**manifest(),'online_weight_updates':False,'robot_runtime_training':False,'automatic_promotion':False}
+def health(): return {'ok':True,**manifest(),'online_weight_updates':False,'robot_runtime_training':False,'automatic_promotion':False,'closed_loop':True}
 @app.post('/v1/training/dataset/validate')
 def dataset_validate(req:DatasetRequest): return validate_dataset(req.examples)
 @app.post('/v1/training/jobs')
@@ -61,3 +67,23 @@ def promotion_eval(cid:str,req:PromotionEvalRequest):
 def promote(cid:str,req:PromoteRequest):
     try:return reg.snapshot(reg.promote(cid,req.explicit_approval).id)
     except Exception as e: raise HTTPException(400,str(e))
+
+@app.post('/v1/training/from-learning')
+def from_learning(req:LearningImportRequest):
+    fd,path=tempfile.mkstemp(prefix='mg_train_',suffix='.jsonl'); os.close(fd)
+    try:
+        result=build_dataset(req.experiences,req.candidates,path)
+        result['dataset_path']=path
+        result['ready_for_training']=result.get('written',0) >= 100
+        return result
+    except Exception as e: raise HTTPException(400,str(e))
+@app.post('/v1/training/benchmark')
+def benchmark(req:BenchmarkRequest): return compare_metrics(req.candidate,req.baseline)
+@app.post('/v1/model-registry/promote')
+def registry_promote(req:RegistryPromoteRequest):
+    try:
+        bench=compare_metrics(req.candidate,req.baseline)
+        return register_model(req.checkpoint,req.base_model,bench,req.explicit_approval)
+    except Exception as e: raise HTTPException(400,str(e))
+@app.get('/v1/model-registry')
+def model_registry(): return registry_snapshot()
