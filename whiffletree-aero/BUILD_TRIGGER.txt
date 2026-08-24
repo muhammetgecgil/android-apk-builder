@@ -1,0 +1,1 @@
+CI trigger for Whiffletree Aero v1.0.0
