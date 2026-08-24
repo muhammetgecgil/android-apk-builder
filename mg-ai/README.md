@@ -1,26 +1,30 @@
-# MG-AI v0.1
+# MG-AI v0.2
 
-First executable Android bootstrap for the MG-AI project.
+Second executable Android milestone for the MG-AI project.
 
-## Step 1 scope
+## Step 2 scope
 
 - Native Android chat screen
-- Local persistent conversation history
-- Deterministic bootstrap response engine
-- Internet permission reserved for the next model/backend step
-- Isolated `mg-ai/` workspace so existing apps are not modified
+- Persistent local conversation history
+- Real OpenAI-compatible MG-Core model adapter
+- Configurable endpoint and model name
+- Optional session-only API key
+- Recent conversation context sent to the model
+- Explicit connection/error states
+- HTTP local-network development endpoints plus HTTPS production endpoints
+- Isolated `mg-ai/` workspace
 - GitHub Actions APK build
 
-## Deliberately not implemented yet
+The adapter is provider-neutral: our future self-hosted MG-Core can expose the same `/v1/chat/completions` contract through vLLM/Ollama-compatible gateways. A third-party compatible endpoint can also be used temporarily for testing or teacher-model evaluation.
 
-- Real LLM / MG-Core adapter
+## Not implemented yet
+
+- Dedicated hosted MG-Core server/checkpoint
 - Web research engine
 - RAG / vector memory
 - Critic / verifier
 - Vision / audio
 - Robotics perception and control
-
-Those are added incrementally after the bootstrap APK is verified on-device.
 
 ## Build
 
