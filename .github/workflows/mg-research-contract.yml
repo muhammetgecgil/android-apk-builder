@@ -23,5 +23,15 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r mg-research-server/requirements.txt
+      - name: Compile Python modules
+        run: python -m compileall -q mg-research-server
       - name: Run contract tests
         run: python mg-research-server/test_research_engine.py
+      - name: Import API
+        working-directory: mg-research-server
+        run: python -c "import api; assert api.app.title == 'MG-AI Research Engine'"
+      - name: Validate Docker Compose
+        working-directory: mg-research-server
+        run: docker compose config >/dev/null
