@@ -49,21 +49,22 @@ public final class LocalVoiceOutput {
         if(initStarted)return;initStarted=true;
         tts=new TextToSpeech(app,status->{synchronized(LocalVoiceOutput.class){
             initStarted=false;
-            if(status!=TextToSpeech.SUCCESS){ready=false;return;}
+            if(status!=TextToSpeech.SUCCESS){ready=false;VoiceSessionStateManager.reset();return;}
             Locale tr=new Locale("tr","TR");
             int result=tts.setLanguage(tr);
             ready=result!=TextToSpeech.LANG_MISSING_DATA&&result!=TextToSpeech.LANG_NOT_SUPPORTED;
             tts.setSpeechRate(currentRate);tts.setPitch(1.0f);
             tts.setOnUtteranceProgressListener(new UtteranceProgressListener(){
                 @Override public void onStart(String id){
+                    VoiceSessionStateManager.set(VoiceSessionStateManager.State.SPEAKING);
                     BargeInController.start(appContext,()->interruptAndListen(appContext));
                 }
                 @Override public void onDone(String id){
-                    BargeInController.stop();
+                    BargeInController.stop();VoiceSessionStateManager.set(VoiceSessionStateManager.State.IDLE);
                     ContinuousDialogManager.onSpeechDone(appContext);
                 }
-                @Override public void onError(String id){BargeInController.stop();}
-                @Override public void onStop(String id,boolean interrupted){BargeInController.stop();}
+                @Override public void onError(String id){BargeInController.stop();VoiceSessionStateManager.reset();}
+                @Override public void onStop(String id,boolean interrupted){BargeInController.stop();if(!interrupted)VoiceSessionStateManager.reset();}
             });
             if(ready&&!pending.isEmpty()){doSpeak(pending);pending="";}
         }});
@@ -71,15 +72,16 @@ public final class LocalVoiceOutput {
 
     private static void interruptAndListen(Context context){
         if(context==null)return;
+        VoiceSessionStateManager.set(VoiceSessionStateManager.State.BARGE_IN);
         ContinuousDialogManager.suppressNextAutoListen();
         stop();
         Intent i=LocalSpeechInput.intent();
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP);
-        try{context.getApplicationContext().startActivity(i);}catch(Throwable ignored){}
+        try{context.getApplicationContext().startActivity(i);}catch(Throwable ignored){VoiceSessionStateManager.reset();}
     }
 
     public static synchronized boolean ready(){return ready;}
-    public static synchronized void stop(){BargeInController.stop();try{if(tts!=null)tts.stop();}catch(Throwable ignored){}pending="";}
-    public static synchronized void shutdown(){BargeInController.stop();try{if(tts!=null){tts.stop();tts.shutdown();}}catch(Throwable ignored){}tts=null;ready=false;initStarted=false;pending="";appContext=null;}
+    public static synchronized void stop(){BargeInController.stop();try{if(tts!=null)tts.stop();}catch(Throwable ignored){}pending="";if(VoiceSessionStateManager.is(VoiceSessionStateManager.State.SPEAKING))VoiceSessionStateManager.reset();}
+    public static synchronized void shutdown(){BargeInController.stop();try{if(tts!=null){tts.stop();tts.shutdown();}}catch(Throwable ignored){}tts=null;ready=false;initStarted=false;pending="";appContext=null;VoiceSessionStateManager.reset();}
     private static void doSpeak(String text){if(tts==null||!ready)return;try{tts.setSpeechRate(currentRate);}catch(Throwable ignored){}tts.speak(text,TextToSpeech.QUEUE_FLUSH,null,"mg-ai-response");}
 }
