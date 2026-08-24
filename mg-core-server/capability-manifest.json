@@ -1,0 +1,26 @@
+{
+  "component": "MG-Core",
+  "version": "0.1-bootstrap",
+  "status": "integration",
+  "baseline_model": "Qwen/Qwen3.5-4B",
+  "serving_contract": "OpenAI-compatible /v1/chat/completions",
+  "capabilities": {
+    "chat": true,
+    "reasoning": "model-dependent",
+    "tool_calling": "planned",
+    "vision": "planned",
+    "audio": false,
+    "robot_direct_actuation": false
+  },
+  "safety_boundaries": [
+    "No direct actuator control",
+    "No direct E-stop or safety PLC control",
+    "Physical actions require deterministic Robotics Safety Supervisor"
+  ],
+  "verification": {
+    "android_client_compile": "required",
+    "server_contract_smoke_test": "required before ACTIVE",
+    "model_quality_benchmark": "required before ACTIVE",
+    "security_review": "required before internet exposure"
+  }
+}
