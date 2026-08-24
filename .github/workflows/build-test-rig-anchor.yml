@@ -1,0 +1,40 @@
+name: Build Test Rig Anchor
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "test-rig-anchor/**"
+      - ".github/workflows/build-test-rig-anchor.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "test-rig-anchor/**"
+      - ".github/workflows/build-test-rig-anchor.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Build APK
+        working-directory: test-rig-anchor
+        run: gradle --no-daemon :app:assembleDebug
+      - name: Stage APK
+        run: |
+          mkdir -p out
+          cp test-rig-anchor/app/build/outputs/apk/debug/app-debug.apk out/Test-Rig-Anchor-v1.0.apk
+          sha256sum out/Test-Rig-Anchor-v1.0.apk > out/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Test-Rig-Anchor-v1.0
+          path: out/*
+          if-no-files-found: error
