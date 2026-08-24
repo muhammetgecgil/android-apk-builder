@@ -26,7 +26,7 @@ public class DashboardActivity extends Activity {
         root.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText("v0.6 • MG-Core + Research + Memory + Deep Reasoning");
+        sub.setText("v0.7 • MG-Core + Research + Memory + Reasoning + Tools/Agents");
         sub.setTextSize(14);
         sub.setTextColor(Color.rgb(90, 97, 110));
         sub.setPadding(0, dp(4), 0, dp(22));
@@ -60,6 +60,10 @@ public class DashboardActivity extends Activity {
         Button reasoning = button("Derin Muhakeme");
         reasoning.setOnClickListener(v -> startActivity(new Intent(this, ReasoningActivity.class)));
         root.addView(reasoning);
+
+        Button tools = button("Tools + Agents");
+        tools.setOnClickListener(v -> startActivity(new Intent(this, ToolsActivity.class)));
+        root.addView(tools);
 
         Button capabilities = button("Yetenekler & Gereksinimler");
         capabilities.setOnClickListener(v -> startActivity(new Intent(this, CapabilitiesActivity.class)));
