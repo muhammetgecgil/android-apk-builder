@@ -9,6 +9,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
+import android.speech.RecognizerIntent;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -19,6 +20,7 @@ import android.widget.TextView;
 
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Locale;
 
@@ -26,6 +28,7 @@ public class PhoneNativeActivity extends Activity {
     private static final int PICK_GGUF=9101;
     private static final int PICK_DOC=9102;
     private static final int TAKE_PHOTO=9103;
+    private static final int SPEECH_PROMPT=9104;
     private TextView status,output,history;
     private EditText prompt;
     private ProgressBar progress;
@@ -39,7 +42,7 @@ public class PhoneNativeActivity extends Activity {
         super.onCreate(b);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(24),dp(18),dp(18));root.setBackgroundColor(Color.rgb(244,246,248));
         TextView title=new TextView(this);title.setText("MG-AI");title.setTextSize(30);title.setTextColor(Color.rgb(20,24,32));root.addView(title);
-        TextView desc=new TextView(this);desc.setText("v0.27 • Offline AI + hafıza + PDF/RAG + kamera OCR");desc.setTextSize(13);desc.setTextColor(Color.DKGRAY);root.addView(desc);
+        TextView desc=new TextView(this);desc.setText("v0.28 • Offline AI + hafıza + RAG + kamera OCR + sesli soru");desc.setTextSize(13);desc.setTextColor(Color.DKGRAY);root.addView(desc);
         status=new TextView(this);status.setPadding(0,dp(14),0,dp(8));root.addView(status);
         progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);progress.setVisibility(ProgressBar.GONE);root.addView(progress,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,dp(18)));
 
@@ -47,8 +50,9 @@ public class PhoneNativeActivity extends Activity {
         ScrollView hs=new ScrollView(this);hs.addView(history);LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,dp(220));hp.setMargins(0,dp(8),0,dp(8));root.addView(hs,hp);
         renderHistory();
 
-        prompt=new EditText(this);prompt.setHint("Bir şey sor... Belge veya kamerayla gösterip sorabilirsin.");prompt.setMinLines(2);prompt.setPadding(dp(10),dp(12),dp(10),dp(12));root.addView(prompt);
+        prompt=new EditText(this);prompt.setHint("Bir şey sor... Yazabilir, konuşabilir veya kamerayla gösterebilirsin.");prompt.setMinLines(2);prompt.setPadding(dp(10),dp(12),dp(10),dp(12));root.addView(prompt);
         askBtn=new Button(this);askBtn.setText("Gönder");askBtn.setAllCaps(false);askBtn.setOnClickListener(v->runLocal());root.addView(askBtn);
+        Button voice=new Button(this);voice.setText("Konuş → Metne Çevir → Sor");voice.setAllCaps(false);voice.setOnClickListener(v->startVoice());root.addView(voice);
         output=new TextView(this);output.setTextSize(15);output.setTextColor(Color.rgb(30,34,42));output.setPadding(0,dp(12),0,dp(8));root.addView(output);
 
         Button camera=new Button(this);camera.setText("Kamerayla Tara → OCR → Sor");camera.setAllCaps(false);camera.setOnClickListener(v->takePhoto());root.addView(camera);
@@ -85,9 +89,19 @@ public class PhoneNativeActivity extends Activity {
     private void pickModel(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/octet-stream");startActivityForResult(i,PICK_GGUF);}
     private void pickDocument(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");i.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"application/pdf","image/jpeg","image/png","image/webp","text/plain","text/markdown","text/csv","application/json"});startActivityForResult(i,PICK_DOC);}
     private void takePhoto(){Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);if(i.resolveActivity(getPackageManager())!=null)startActivityForResult(i,TAKE_PHOTO);else output.setText("Kamera uygulaması bulunamadı.");}
+    private void startVoice(){
+        Intent i=LocalSpeechInput.intent();
+        if(i.resolveActivity(getPackageManager())!=null){output.setText("Dinliyorum… Cihazdaki offline Türkçe konuşma tanıma tercih edilecek.");startActivityForResult(i,SPEECH_PROMPT);}
+        else output.setText("Bu cihazda konuşma tanıma servisi bulunamadı.");
+    }
 
     @Override protected void onActivityResult(int r,int c,Intent data){
         super.onActivityResult(r,c,data);if(c!=RESULT_OK)return;
+        if(r==SPEECH_PROMPT){
+            ArrayList<String> results=data==null?null:data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            if(results==null||results.isEmpty()){output.setText("Konuşma metne çevrilemedi.");return;}
+            String text=results.get(0).trim();prompt.setText(text);output.setText("Duydum: "+text+"\nYerel modele gönderiliyor…");runLocal();return;
+        }
         if(r==TAKE_PHOTO){
             Bitmap bmp=data!=null&&data.getExtras()!=null?(Bitmap)data.getExtras().get("data"):null;
             if(bmp==null){output.setText("Kamera görüntüsü alınamadı.");return;}
@@ -108,7 +122,7 @@ public class PhoneNativeActivity extends Activity {
         File f=LocalModelManager.activeModel(this);if(f==null){output.setText("Model hazırlanıyor. İlk kullanımda internet gerekir.");return;}
         if(!LocalInferenceBridge.nativeAvailable()){output.setText("Native llama.cpp runtime yüklenemedi.");updateStatus();return;}
         output.setText("MG-AI başlatılıyor…");askBtn.setEnabled(false);
-        new Thread(()->{try{if(engine!=0)LocalInferenceBridge.destroyEngine(engine);engine=LocalInferenceBridge.createEngine(f.getAbsolutePath(),4096,Math.max(2,Runtime.getRuntime().availableProcessors()-2));runOnUiThread(()->{progress.setVisibility(ProgressBar.GONE);askBtn.setEnabled(true);output.setText(engine!=0?"Hazır. İnternet olmadan sohbet, PDF, kamera OCR ve yerel RAG kullanılabilir.":"Model yüklenemedi.");updateStatus();if(engine!=0&&!pendingPrompt.isEmpty()){String q=pendingPrompt;pendingPrompt="";prompt.setText(q);runLocal();}});}catch(Throwable t){runOnUiThread(()->{askBtn.setEnabled(true);output.setText("Native yükleme hatası: "+t.getMessage());});}}).start();
+        new Thread(()->{try{if(engine!=0)LocalInferenceBridge.destroyEngine(engine);engine=LocalInferenceBridge.createEngine(f.getAbsolutePath(),4096,Math.max(2,Runtime.getRuntime().availableProcessors()-2));runOnUiThread(()->{progress.setVisibility(ProgressBar.GONE);askBtn.setEnabled(true);output.setText(engine!=0?"Hazır. Offline sohbet, sesli soru, PDF, kamera OCR ve yerel RAG kullanılabilir.":"Model yüklenemedi.");updateStatus();if(engine!=0&&!pendingPrompt.isEmpty()){String q=pendingPrompt;pendingPrompt="";prompt.setText(q);runLocal();}});}catch(Throwable t){runOnUiThread(()->{askBtn.setEnabled(true);output.setText("Native yükleme hatası: "+t.getMessage());});}}).start();
     }
     private void runLocal(){
         String p=prompt.getText().toString().trim();if(p.isEmpty())return;
