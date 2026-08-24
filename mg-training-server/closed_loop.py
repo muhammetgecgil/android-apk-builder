@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List, Dict, Any
 from dataset_exporter import export_jsonl
-from benchmark_runner import compare_metrics
+from benchmark_runner import compare
 import hashlib, time
 
 MODEL_REGISTRY: Dict[str, Dict[str, Any]] = {}
@@ -11,8 +11,10 @@ def eligible_experiences(experiences: List[Dict[str,Any]], candidates: List[Dict
     out=[]
     for e in experiences:
         c=by_exp.get(e.get('experience_id'))
-        if not c or c.get('status')!='eligible': continue
-        if e.get('safety_event'): continue
+        if not c or c.get('status')!='eligible':
+            continue
+        if e.get('safety_event'):
+            continue
         out.append({
             'prompt':e.get('task',''),
             'response':e.get('answer',''),
@@ -29,12 +31,16 @@ def build_dataset(experiences: List[Dict[str,Any]], candidates: List[Dict[str,An
     rows=eligible_experiences(experiences,candidates)
     result=export_jsonl(rows,output_path)
     result['eligible_before_export']=len(rows)
-    result['written']=result.get('accepted_count',0)
     return result
 
+def benchmark_candidate(candidate: Dict[str,float], baseline: Dict[str,float]) -> Dict[str,Any]:
+    return compare(candidate, baseline)
+
 def register_model(checkpoint: str, base_model: str, benchmark: Dict[str,Any], explicit_approval: bool) -> Dict[str,Any]:
-    if not benchmark.get('pass'): raise ValueError('benchmark_gate_failed')
-    if not explicit_approval: raise ValueError('explicit_approval_required')
+    if not benchmark.get('passed'):
+        raise ValueError('benchmark_gate_failed')
+    if not explicit_approval:
+        raise ValueError('explicit_approval_required')
     mid='mg-'+hashlib.sha256((checkpoint+'|'+base_model).encode()).hexdigest()[:12]
     item={'model_id':mid,'checkpoint':checkpoint,'base_model':base_model,'status':'promoted','created_at':time.time(),'benchmark':benchmark}
     MODEL_REGISTRY[mid]=item
