@@ -13,7 +13,7 @@ public class DashboardActivity extends Activity {
         super.onCreate(savedInstanceState);
         LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(22),dp(28),dp(22),dp(22)); root.setBackgroundColor(Color.rgb(244,246,248));
         TextView title=new TextView(this); title.setText("MG-AI"); title.setTextSize(34); title.setTypeface(null,android.graphics.Typeface.BOLD); title.setTextColor(Color.rgb(20,24,32)); root.addView(title);
-        TextView sub=new TextView(this); sub.setText("v0.17 • Phone-Native Offline AI • GGUF Local Model"); sub.setTextSize(14); sub.setTextColor(Color.rgb(90,97,110)); sub.setPadding(0,dp(4),0,dp(22)); root.addView(sub);
+        TextView sub=new TextView(this); sub.setText("v0.18 • Phone-Native llama.cpp • Offline GGUF Inference"); sub.setTextSize(14); sub.setTextColor(Color.rgb(90,97,110)); sub.setPadding(0,dp(4),0,dp(22)); root.addView(sub);
         TextView summary=new TextView(this); summary.setText("Ana hedef: Sunucusuz, Jetson'sız, telefonda çalışan MG-AI\n"+CapabilityRegistry.summary()); summary.setTextSize(16); summary.setTextColor(Color.rgb(35,40,50)); summary.setPadding(dp(14),dp(14),dp(14),dp(14)); summary.setBackgroundColor(Color.WHITE); root.addView(summary,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
         add(root,"PHONE-NATIVE OFFLINE AI",PhoneNativeActivity.class);
         add(root,"Sistem Merkezi",SystemCenterActivity.class);
@@ -29,7 +29,7 @@ public class DashboardActivity extends Activity {
         add(root,"Robot Perception & World Model",RobotWorldActivity.class);
         add(root,"Robotics Safety Supervisor",RobotSafetyActivity.class);
         add(root,"Yetenekler & Gereksinimler",CapabilitiesActivity.class);
-        TextView rule=new TextView(this); rule.setText("Phone-Native modunda temel AI için internet veya harici sunucu gerekmeyecek. Internet yalnız isteğe bağlı araştırma/teacher kaynağıdır."); rule.setTextSize(13); rule.setTextColor(Color.rgb(95,102,116)); rule.setPadding(0,dp(22),0,0); root.addView(rule);
+        TextView rule=new TextView(this); rule.setText("Phone-Native modunda temel sohbet GGUF + llama.cpp ile cihaz içinde çalışır. Internet yalnız isteğe bağlı araştırma/teacher kaynağıdır."); rule.setTextSize(13); rule.setTextColor(Color.rgb(95,102,116)); rule.setPadding(0,dp(22),0,0); root.addView(rule);
         setContentView(root);
     }
     private void add(LinearLayout root,String text,Class<?> cls){Button b=button(text);b.setOnClickListener(v->startActivity(new Intent(this,cls)));root.addView(b);}
