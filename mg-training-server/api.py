@@ -4,10 +4,10 @@ from typing import List, Dict, Any
 from training_engine import manifest, validate_dataset, create_job, record_evaluation, JOBS, CHECKPOINTS
 from training_pipeline import TrainingRegistry
 from closed_loop import build_dataset, register_model, registry_snapshot
-from benchmark_runner import compare_metrics
+from benchmark_runner import compare
 import tempfile, os
 
-app=FastAPI(title='MG-AI Training API',version='0.14.0')
+app=FastAPI(title='MG-AI Training API',version='0.14.1')
 reg=TrainingRegistry()
 
 class DatasetRequest(BaseModel): examples: List[Dict[str,Any]]
@@ -74,15 +74,15 @@ def from_learning(req:LearningImportRequest):
     try:
         result=build_dataset(req.experiences,req.candidates,path)
         result['dataset_path']=path
-        result['ready_for_training']=result.get('written',0) >= 100
+        result['ready_for_training']=result.get('accepted_count',0) >= 100
         return result
     except Exception as e: raise HTTPException(400,str(e))
 @app.post('/v1/training/benchmark')
-def benchmark(req:BenchmarkRequest): return compare_metrics(req.candidate,req.baseline)
+def benchmark(req:BenchmarkRequest): return compare(req.candidate,req.baseline)
 @app.post('/v1/model-registry/promote')
 def registry_promote(req:RegistryPromoteRequest):
     try:
-        bench=compare_metrics(req.candidate,req.baseline)
+        bench=compare(req.candidate,req.baseline)
         return register_model(req.checkpoint,req.base_model,bench,req.explicit_approval)
     except Exception as e: raise HTTPException(400,str(e))
 @app.get('/v1/model-registry')
