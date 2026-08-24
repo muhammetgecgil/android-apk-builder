@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22.1)
-project(mgllama LANGUAGES C CXX)
+project(mgai_native LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -17,15 +17,27 @@ set(GGML_NATIVE OFF CACHE BOOL "" FORCE)
 if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/llama.cpp/CMakeLists.txt")
     message(FATAL_ERROR "llama.cpp source missing. Build workflow must clone pinned llama.cpp into app/src/main/cpp/llama.cpp")
 endif()
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/whisper.cpp/CMakeLists.txt")
+    message(FATAL_ERROR "whisper.cpp source missing. Build workflow must clone whisper.cpp into app/src/main/cpp/whisper.cpp")
+endif()
 
 add_subdirectory(llama.cpp EXCLUDE_FROM_ALL)
 add_library(mgllama SHARED mgllama_jni.cpp)
-
 target_include_directories(mgllama PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/llama.cpp/include
     ${CMAKE_CURRENT_SOURCE_DIR}/llama.cpp/ggml/include
 )
-
 target_link_libraries(mgllama PRIVATE llama ggml android log)
-
 target_compile_options(mgllama PRIVATE -O3 -fvisibility=hidden)
+
+set(WHISPER_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(WHISPER_BUILD_SERVER OFF CACHE BOOL "" FORCE)
+set(WHISPER_SDL2 OFF CACHE BOOL "" FORCE)
+add_subdirectory(whisper.cpp EXCLUDE_FROM_ALL)
+add_library(mgwhisper SHARED mgwhisper_jni.cpp)
+target_include_directories(mgwhisper PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/whisper.cpp/include
+)
+target_link_libraries(mgwhisper PRIVATE whisper android log)
+target_compile_options(mgwhisper PRIVATE -O3 -fvisibility=hidden)
