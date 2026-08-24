@@ -14,7 +14,8 @@ jobs:
       - uses: actions/setup-python@v5
         with: {python-version: '3.11'}
       - run: pip install fastapi pydantic
-      - run: python -m py_compile mg-training-server/training_pipeline.py mg-training-server/gpu_trainer.py mg-training-server/api.py
+      - run: python -m py_compile mg-training-server/training_pipeline.py mg-training-server/gpu_trainer.py mg-training-server/dataset_exporter.py mg-training-server/benchmark_runner.py mg-training-server/api.py
       - run: PYTHONPATH=mg-training-server python mg-training-server/test_promotion_gates.py
+      - run: PYTHONPATH=mg-training-server python mg-training-server/test_dataset_benchmark.py
       - run: PYTHONPATH=mg-training-server python mg-training-server/gpu_trainer.py --base-model Qwen/Qwen3.5-4B --dataset dummy.jsonl --output-dir out --method qlora_sft --dry-run | grep qlora_sft
       - run: PYTHONPATH=mg-training-server python -c "import api; h=api.health(); assert h['online_weight_updates']==False and h['robot_runtime_training']==False and h['automatic_promotion']==False; print(api.app.title)"
