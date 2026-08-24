@@ -26,7 +26,7 @@ public class DashboardActivity extends Activity {
         root.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText("v0.3 • Requirement-driven AI platform");
+        sub.setText("v0.4 • MG-Core + Research integration");
         sub.setTextSize(14);
         sub.setTextColor(Color.rgb(90, 97, 110));
         sub.setPadding(0, dp(4), 0, dp(22));
@@ -48,6 +48,10 @@ public class DashboardActivity extends Activity {
         Button coreHealth = button("MG-Core Durum Testi");
         coreHealth.setOnClickListener(v -> startActivity(new Intent(this, CoreHealthActivity.class)));
         root.addView(coreHealth);
+
+        Button research = button("Internet Research Engine");
+        research.setOnClickListener(v -> startActivity(new Intent(this, ResearchActivity.class)));
+        root.addView(research);
 
         Button capabilities = button("Yetenekler & Gereksinimler");
         capabilities.setOnClickListener(v -> startActivity(new Intent(this, CapabilitiesActivity.class)));
