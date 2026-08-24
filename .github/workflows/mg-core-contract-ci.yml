@@ -1,0 +1,40 @@
+name: Validate MG-Core contract
+
+on:
+  push:
+    branches:
+      - mg-ai-v0.1-bootstrap
+    paths:
+      - 'mg-core-server/**'
+      - '.github/workflows/mg-core-contract-ci.yml'
+  pull_request:
+    paths:
+      - 'mg-core-server/**'
+      - '.github/workflows/mg-core-contract-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Python smoke test
+        run: python -m py_compile mg-core-server/smoke_test.py
+
+      - name: Validate capability manifest JSON
+        run: python -m json.tool mg-core-server/capability-manifest.json > /dev/null
+
+      - name: Validate Docker Compose configuration
+        working-directory: mg-core-server
+        run: |
+          cp .env.example .env
+          docker compose config > /tmp/mg-core-compose.txt
+          grep -q 'Qwen/Qwen3.5-4B' /tmp/mg-core-compose.txt
+
+      - name: Verify safety boundary is declared
+        run: |
+          grep -q 'robot_direct_actuation.*false' mg-core-server/capability-manifest.json
+          grep -q 'No direct actuator control' mg-core-server/capability-manifest.json
