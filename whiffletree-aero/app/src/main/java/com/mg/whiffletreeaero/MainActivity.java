@@ -4,186 +4,56 @@ import android.app.*;
 import android.os.Bundle;
 import android.graphics.*;
 import android.graphics.drawable.GradientDrawable;
+import android.text.InputType;
 import android.view.*;
 import android.widget.*;
-import android.text.InputType;
 import java.util.*;
 
 public class MainActivity extends Activity {
-    private final int NAVY=Color.rgb(10,25,42), BLUE=Color.rgb(30,105,210), ORANGE=Color.rgb(235,155,30), GREEN=Color.rgb(48,170,85), RED=Color.rgb(220,70,70), PANEL=Color.rgb(20,39,58);
-    private LinearLayout root, wizardBox, presetBox;
-    private TankRigView rig;
-    private TextView stepTitle, stepHelp, result, status;
-    private Button prevBtn,nextBtn,calcBtn;
-    private EditText tankLength, tankDiameter, totalLoad, targetMoment, pressureBar, safety, stationCount, layerCount, actuatorCount, padWidth, padLength, strokeMargin;
-    private Spinner loadCase;
-    private int step=0;
-    private String activePreset="+Z Bending";
+    final int NAVY=Color.rgb(8,22,38), PANEL=Color.rgb(17,38,58), BLUE=Color.rgb(44,120,235), CYAN=Color.rgb(45,200,220), ORANGE=Color.rgb(245,160,40), GREEN=Color.rgb(55,190,105);
+    LinearLayout root,wizard; TankView tankView; TextView stepTitle,help,status,result; Spinner loadCase,qProfile; EditText L,D,F,M,stations,layers,actCapacity,actCount,pressure,sf,padW,padL; Button back,next,autoBtn,calcBtn; int step=0;
+    String[] CASES={"+Z Bending","-Z Bending","+Y Bending","-Y Bending","Pitch +My","Pitch -My","Roll +Mx","Roll -Mx","Yaw +Mz","Yaw -Mz","Combined Z+Pitch"};
+    String[] QPROFILES={"Elliptic","Uniform","Triangular root-high","Triangular tip-high","Parabolic"};
+    String[] ST={"1/7 Problem","2/7 Tank geometry","3/7 q(x) and stations","4/7 Whiffletree layers","5/7 Actuator optimization","6/7 Hardware defaults","7/7 Verify"};
+    String[] HELP={"Test yönünü seç. Bilmiyorsan +Z Bending ile başla; varsayılanlar otomatik yüklenir.","Tank boyu ve çapı station konumlarını ve moment kollarını belirler.","Dağıtılmış q(x) profilini seç. Uygulama bunu Fi station kuvvetlerine dönüştürür ve ΣF/ΣM için düzeltir.","Katman arttıkça daha az actuator ile daha çok pad sürülebilir; fakat beam/pin/rod sayısı artar.","AUTO OPTIMIZE, toplam tasarım yüküne göre minimum actuator sayısını ve actuator başına yükü önerir.","Basınç, safety factor ve pad ölçüleri ön boyutlandırma için kullanılır.","Tank üzerindeki S1…Sn kuvvetlerini, ΣF/ΣM, actuator yüklerini ve whiffletree oranlarını kontrol et."};
 
-    private static final String[] CASES={"+Z Bending","-Z Bending","+Y Bending","-Y Bending","Pitch +My","Pitch -My","Roll +Mx","Roll -Mx","Yaw +Mz","Yaw -Mz","Combined Z + Pitch"};
-    private static final String[] STEP_T={
-        "1/7  Problemi seç","2/7  Tank geometrisini tanımla","3/7  Kesit (station) sayısını seç","4/7  Whiffletree katmanını seç","5/7  Aktüatör sayısını seç","6/7  Parça varsayımlarını kontrol et","7/7  Sonuçları doğrula"
-    };
-    private static final String[] STEP_H={
-        "Önce hangi yük durumunu laboratuvarda üretmek istediğini seç. Bilmiyorsan +Z Bending varsayılanını kullan.",
-        "Tank boyu ve çapı load station geometrisini ve moment kollarını etkiler. Varsayılanlar eğitim amaçlıdır.",
-        "Daha fazla station, dağıtılmış yükü daha iyi temsil eder; ancak rod, pad ve beam sayısını artırır.",
-        "1 katman basit, 2-3 katman daha az aktüatörle daha çok yük noktasını sürer. 3 katman EFT için iyi bir eğitim varsayılanıdır.",
-        "Aktüatör sayısı toplam yük / kapasite hesabından daha fazlasıdır; moment kontrol bölgeleri, stroke ve rig geometrisi de önemlidir.",
-        "Pad ölçüsü, hidrolik basınç, emniyet katsayısı ve stroke marjı ön tasarımın parça seçim girdileridir.",
-        "ΣF ve ΣM hedeflerini, actuator yüklerini, piston çapını ve station kuvvetlerini kontrol et. Uygun değilse önceki adıma dön."
-    };
-
-    @Override public void onCreate(Bundle b){
-        super.onCreate(b);
-        ScrollView sc=new ScrollView(this);
-        root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(10),dp(10),dp(10),dp(30)); root.setBackgroundColor(NAVY); sc.addView(root);
-        TextView title=tx("EFT WHIFFLETREE TASARIM & HESAP",25,true,Color.WHITE); root.addView(title);
-        TextView sub=tx("Harici Yakıt Tankı • Statik Yük Testi • Görsel Sihirbaz",13,false,Color.rgb(180,200,220)); sub.setPadding(0,0,0,dp(10)); root.addView(sub);
-
-        presetBox=new LinearLayout(this); presetBox.setOrientation(LinearLayout.HORIZONTAL);
-        HorizontalScrollView hs=new HorizontalScrollView(this); hs.addView(presetBox); root.addView(hs,lp());
-        for(String c:CASES){ Button btt=smallButton(c); btt.setOnClickListener(v->{ activePreset=((Button)v).getText().toString(); applyPreset(activePreset); }); presetBox.addView(btt,new LinearLayout.LayoutParams(dp(120),dp(44))); }
-
-        status=card("Hazır • Varsayılan: +Z Bending",Color.rgb(14,45,70)); root.addView(status,lp());
-        rig=new TankRigView(); root.addView(rig,new LinearLayout.LayoutParams(-1,dp(420)));
-
-        wizardBox=new LinearLayout(this); wizardBox.setOrientation(LinearLayout.VERTICAL); wizardBox.setPadding(dp(10),dp(10),dp(10),dp(10)); wizardBox.setBackground(bg(Color.rgb(14,31,48),dp(10)));
-        root.addView(wizardBox,lp());
-        stepTitle=tx("",18,true,Color.WHITE); wizardBox.addView(stepTitle);
-        stepHelp=tx("",13,false,Color.rgb(190,210,228)); stepHelp.setPadding(0,dp(4),0,dp(8)); wizardBox.addView(stepHelp);
-
-        loadCase=new Spinner(this); loadCase.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,CASES)); wizardBox.addView(loadCase,lp());
-        loadCase.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){ public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){activePreset=CASES[pos]; rig.invalidate();} public void onNothingSelected(android.widget.AdapterView<?> p){} });
-
-        tankLength=field("Tank uzunluğu L [m]","7.6"); tankDiameter=field("Tank çapı D [m]","0.64");
-        stationCount=field("Station sayısı","12"); layerCount=field("Whiffletree katman sayısı","3"); actuatorCount=field("Aktüatör sayısı","4");
-        totalLoad=field("Hedef toplam yük |F| [kN]","305.7"); targetMoment=field("Hedef moment [kN·m]","1280");
-        pressureBar=field("Hidrolik basınç [bar]","210"); safety=field("Boyutlandırma katsayısı","1.50");
-        padWidth=field("Load pad genişliği [mm]","150"); padLength=field("Load pad uzunluğu [mm]","250"); strokeMargin=field("Stroke marjı [%]","25");
-
-        LinearLayout nav=new LinearLayout(this); nav.setOrientation(LinearLayout.HORIZONTAL);
-        prevBtn=new Button(this); prevBtn.setText("← Geri"); nextBtn=new Button(this); nextBtn.setText("Devam →"); calcBtn=new Button(this); calcBtn.setText("HESAPLA");
-        nav.addView(prevBtn,new LinearLayout.LayoutParams(0,dp(48),1)); nav.addView(nextBtn,new LinearLayout.LayoutParams(0,dp(48),1)); wizardBox.addView(nav,lp()); wizardBox.addView(calcBtn,lp());
-        prevBtn.setOnClickListener(v->{if(step>0){step--;renderStep();}}); nextBtn.setOnClickListener(v->{if(step<6){step++;renderStep();} else calculate();}); calcBtn.setOnClickListener(v->calculate());
-
-        result=card("Sorular ilerledikçe tank ve whiffletree görseli otomatik güncellenir.",Color.rgb(12,35,54)); result.setTextSize(14); root.addView(result,lp());
-        root.addView(card("Not: Bu uygulama eğitim ve ön tasarım aracıdır. Nihai donanım seçimi için onaylı load report, FEM, üretici katalog limitleri ve ilgili test/airworthiness gereksinimleri kullanılmalıdır.",Color.rgb(65,45,12)),lp());
-
-        applyPreset("+Z Bending"); renderStep(); setContentView(sc);
+    @Override public void onCreate(Bundle b){ super.onCreate(b);
+      ScrollView sv=new ScrollView(this); root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(10),dp(10),dp(10),dp(30)); root.setBackgroundColor(NAVY); sv.addView(root);
+      root.addView(tx("EFT WHIFFLETREE SMART DESIGNER",25,true,Color.WHITE)); TextView sub=tx("v1.3 • Akıllı sentez • q(x)→Fi • actuator optimizer",13,false,Color.rgb(180,205,225)); sub.setPadding(0,0,0,dp(8)); root.addView(sub);
+      LinearLayout presets=new LinearLayout(this); presets.setOrientation(LinearLayout.HORIZONTAL); HorizontalScrollView hs=new HorizontalScrollView(this); hs.addView(presets); root.addView(hs,lp());
+      for(String c:CASES){Button btt=small(c); btt.setOnClickListener(v->{applyPreset(((Button)v).getText().toString());}); presets.addView(btt,new LinearLayout.LayoutParams(dp(118),dp(44)));}
+      status=card("Hazır",Color.rgb(14,48,72)); root.addView(status,lp()); tankView=new TankView(); root.addView(tankView,new LinearLayout.LayoutParams(-1,dp(440)));
+      wizard=new LinearLayout(this); wizard.setOrientation(LinearLayout.VERTICAL); wizard.setPadding(dp(10),dp(10),dp(10),dp(10)); wizard.setBackground(bg(PANEL,12)); root.addView(wizard,lp());
+      stepTitle=tx("",18,true,Color.WHITE); help=tx("",13,false,Color.rgb(190,215,232)); wizard.addView(stepTitle); wizard.addView(help);
+      loadCase=new Spinner(this); loadCase.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,CASES)); wizard.addView(loadCase,lp());
+      qProfile=new Spinner(this); qProfile.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,QPROFILES)); wizard.addView(qProfile,lp());
+      L=field("Tank length L [m]","7.6"); D=field("Tank diameter D [m]","0.64"); F=field("Target total load |F| [kN]","305.7"); M=field("Target moment [kN·m]","1280"); stations=field("Station count","12"); layers=field("Whiffletree layers","3"); actCapacity=field("Available actuator nominal capacity [kN]","120"); actCount=field("Actuator count","4"); pressure=field("Hydraulic pressure [bar]","210"); sf=field("Sizing factor","1.50"); padW=field("Pad width [mm]","150"); padL=field("Pad length [mm]","250");
+      autoBtn=new Button(this); autoBtn.setText("AUTO OPTIMIZE ACTUATORS"); autoBtn.setOnClickListener(v->{try{Calc c=compute(true); actCount.setText(String.valueOf(c.nAct)); preview(c); result.setText("Actuator sayısı otomatik optimize edildi: "+c.nAct+" adet.\nTasarım yükü/actuator: "+fmt(c.actLoad)+" kN");}catch(Exception e){result.setText("Girişleri kontrol et.");}}); wizard.addView(autoBtn,lp());
+      LinearLayout nav=new LinearLayout(this); back=new Button(this); next=new Button(this); calcBtn=new Button(this); back.setText("← Geri"); next.setText("Devam →"); calcBtn.setText("HESAPLA + SENTEZLE"); nav.addView(back,new LinearLayout.LayoutParams(0,dp(48),1)); nav.addView(next,new LinearLayout.LayoutParams(0,dp(48),1)); wizard.addView(nav,lp()); wizard.addView(calcBtn,lp());
+      back.setOnClickListener(v->{if(step>0){step--;render();}}); next.setOnClickListener(v->{if(step<6){step++;render();}else calculate();}); calcBtn.setOnClickListener(v->calculate());
+      loadCase.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){safePreview();} public void onNothingSelected(android.widget.AdapterView<?> p){}});
+      qProfile.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener(){public void onItemSelected(android.widget.AdapterView<?> p,View v,int pos,long id){safePreview();} public void onNothingSelected(android.widget.AdapterView<?> p){}});
+      result=card("Sihirbazı ilerlet veya HESAPLA + SENTEZLE'ye bas.",Color.rgb(12,34,52)); result.setTextSize(14); root.addView(result,lp());
+      root.addView(card("Ön tasarım/eğitim aracıdır. Nihai test rig'i için onaylı load report, FEM, üretici katalog limitleri ve kurum prosedürü gereklidir.",Color.rgb(63,45,12)),lp());
+      setContentView(sv); applyPreset("+Z Bending"); render();
     }
 
-    private EditText field(String label,String def){
-        TextView l=tx(label,12,true,Color.rgb(180,205,225)); l.setPadding(0,dp(6),0,dp(2)); wizardBox.addView(l);
-        EditText e=new EditText(this); e.setText(def); e.setTextColor(Color.WHITE); e.setHintTextColor(Color.GRAY); e.setTextSize(16); e.setSingleLine(true); e.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL|InputType.TYPE_NUMBER_FLAG_SIGNED); e.setBackground(bg(Color.rgb(25,50,72),dp(8))); e.setPadding(dp(10),0,dp(10),0); wizardBox.addView(e,new LinearLayout.LayoutParams(-1,dp(44)));
-        e.setOnFocusChangeListener((v,has)->{if(!has){safeCalcPreview();}}); return e;
-    }
+    EditText field(String label,String def){TextView l=tx(label,12,true,Color.rgb(185,210,230)); l.setPadding(0,dp(5),0,dp(2)); wizard.addView(l); EditText e=new EditText(this); e.setText(def); e.setTextColor(Color.WHITE); e.setSingleLine(true); e.setTextSize(16); e.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL|InputType.TYPE_NUMBER_FLAG_SIGNED); e.setBackground(bg(Color.rgb(25,52,75),8)); e.setPadding(dp(10),0,dp(10),0); wizard.addView(e,new LinearLayout.LayoutParams(-1,dp(44))); e.setOnFocusChangeListener((v,h)->{if(!h)safePreview();}); return e;}
+    void render(){stepTitle.setText(ST[step]); help.setText(HELP[step]); loadCase.setVisibility(step==0?View.VISIBLE:View.GONE); qProfile.setVisibility(step==2?View.VISIBLE:View.GONE); show(L,step==1);show(D,step==1);show(F,step==0||step==5);show(M,step==0||step==5);show(stations,step==2);show(layers,step==3);show(actCapacity,step==4);show(actCount,step==4);show(pressure,step==5);show(sf,step==5);show(padW,step==5);show(padL,step==5);autoBtn.setVisibility(step==4?View.VISIBLE:View.GONE);calcBtn.setVisibility(step==6?View.VISIBLE:View.GONE);back.setEnabled(step>0);next.setText(step==6?"Hesapla":"Devam →");safePreview();}
+    void show(EditText e,boolean on){int i=wizard.indexOfChild(e); if(i>0)wizard.getChildAt(i-1).setVisibility(on?View.VISIBLE:View.GONE); e.setVisibility(on?View.VISIBLE:View.GONE);}
+    void applyPreset(String p){int ix=Arrays.asList(CASES).indexOf(p); if(ix>=0)loadCase.setSelection(ix); if(p.contains("+Z")){F.setText("305.7");M.setText("1280");} else if(p.contains("-Z")){F.setText("260");M.setText("-1080");} else if(p.contains("+Y")){F.setText("90");M.setText("360");} else if(p.contains("-Y")){F.setText("90");M.setText("-360");} else if(p.contains("Pitch")){F.setText("120");M.setText(p.contains("-")?"-150":"150");} else if(p.contains("Roll")){F.setText("40");M.setText(p.contains("-")?"-18":"18");} else if(p.contains("Yaw")){F.setText("50");M.setText(p.contains("-")?"-90":"90");} else {F.setText("220");M.setText("820");} safePreview();}
+    void safePreview(){try{preview(compute(false));}catch(Exception ignored){}}
+    void preview(Calc c){tankView.set(c); status.setText(String.format(Locale.US,"%s • q=%s • ΣF %.1f kN • M %.1f kN·m • %d stations • %d actuators",CASES[loadCase.getSelectedItemPosition()],QPROFILES[qProfile.getSelectedItemPosition()],c.sumF,c.calcM,c.n,c.nAct));}
+    void calculate(){try{Calc c=compute(false); preview(c); StringBuilder s=new StringBuilder(); s.append("SMART SYNTHESIS RESULT\n"); s.append("Load case: "+CASES[loadCase.getSelectedItemPosition()]+"\nq(x): "+QPROFILES[qProfile.getSelectedItemPosition()]+"\n\n"); s.append(String.format(Locale.US,"ΣF target / calc: %.1f / %.1f kN\nM target / calc: %.1f / %.1f kN·m\nMoment error: %.2f %%\n\n",c.targetF,c.sumF,c.targetM,c.calcM,c.mErr)); s.append(String.format(Locale.US,"Design load: %.1f kN\nActuators: %d\nDesign load / actuator: %.1f kN\nEquivalent bore @ %.0f bar: %.1f mm\nPreselect load cell: ≥ %.0f kN\n\n",c.designF,c.nAct,c.actLoad,c.pbar,c.bore,c.lc)); s.append("STATIONS\n"); for(int i=0;i<c.n;i++)s.append(String.format(Locale.US,"S%-2d x=%5.2f m  F=%6.1f kN\n",i+1,c.x[i],c.fi[i])); s.append("\nWHIFFLETREE SYNTHESIS\n"); s.append(c.tree); s.append("\nCHECKS\n"); s.append(Math.abs(c.mErr)<1?"✓ Force/moment match good\n":"! Moment error >1%; revise station/pad geometry\n"); s.append(c.padP<8?"✓ Mean pad pressure preliminary-low/moderate\n":"! Mean pad pressure high; local FEM required\n"); result.setText(s.toString()); step=6;render();}catch(Exception e){result.setText("Geçersiz giriş. Tüm alanları sayısal olarak kontrol et.");}}
 
-    private void renderStep(){
-        stepTitle.setText(STEP_T[step]); stepHelp.setText(STEP_H[step]);
-        loadCase.setVisibility(step==0?View.VISIBLE:View.GONE);
-        setVis(tankLength,step==1); setVis(tankDiameter,step==1); setLabelVis(tankLength,step==1); setLabelVis(tankDiameter,step==1);
-        setVis(stationCount,step==2); setLabelVis(stationCount,step==2);
-        setVis(layerCount,step==3); setLabelVis(layerCount,step==3);
-        setVis(actuatorCount,step==4); setLabelVis(actuatorCount,step==4);
-        boolean hardware=step==5;
-        for(EditText e:new EditText[]{totalLoad,targetMoment,pressureBar,safety,padWidth,padLength,strokeMargin}){setVis(e,hardware);setLabelVis(e,hardware);} 
-        calcBtn.setVisibility(step==6?View.VISIBLE:View.GONE); prevBtn.setEnabled(step>0); nextBtn.setText(step==6?"Hesapla":"Devam →");
-        safeCalcPreview();
-    }
-    private void setVis(View v,boolean yes){v.setVisibility(yes?View.VISIBLE:View.GONE);}    
-    private void setLabelVis(EditText e,boolean yes){ int idx=wizardBox.indexOfChild(e); if(idx>0) wizardBox.getChildAt(idx-1).setVisibility(yes?View.VISIBLE:View.GONE); }
+    Calc compute(boolean auto){Calc c=new Calc(); c.L=d(L); c.D=d(D); c.targetF=Math.abs(d(F)); c.targetM=d(M); c.n=clamp((int)Math.round(d(stations)),4,16); c.layers=clamp((int)Math.round(d(layers)),1,3); c.pbar=Math.max(1,d(pressure)); c.sf=Math.max(1,d(sf)); double cap=Math.max(1,d(actCapacity)); int manual=clamp((int)Math.round(d(actCount)),1,12); c.designF=c.targetF*c.sf; int minByCapacity=(int)Math.ceil(c.designF/cap); int minByTopology=Math.max(1,(int)Math.ceil(c.n/Math.pow(2,c.layers))); c.nAct=auto?Math.max(minByCapacity,minByTopology):manual; c.actLoad=c.designF/c.nAct; c.bore=Math.sqrt(4*(c.actLoad*1000)/(c.pbar*100000)/Math.PI)*1000; c.lc=stdClass(c.actLoad*1.2); c.x=new double[c.n]; c.fi=new double[c.n]; double[] w=new double[c.n]; double sw=0; int q=qProfile.getSelectedItemPosition(); for(int i=0;i<c.n;i++){double u=(i+.5)/c.n; c.x[i]=u*c.L; if(q==0)w[i]=Math.sqrt(Math.max(0,1-Math.pow(2*u-1,2)))+.05; else if(q==1)w[i]=1; else if(q==2)w[i]=1.15-u; else if(q==3)w[i]=.15+u; else w[i]=.25+4*u*(1-u); sw+=w[i];} for(int i=0;i<c.n;i++)c.fi[i]=c.targetF*w[i]/sw;
+      double desired=Math.abs(c.targetM), base=0; for(int i=0;i<c.n;i++)base+=c.fi[i]*c.x[i]; double delta=desired-base; double mean=0; for(double xx:c.x)mean+=xx; mean/=c.n; double den=0; for(double xx:c.x)den+=(xx-mean)*(xx-mean); if(Math.abs(delta)>1e-9&&den>1e-9){for(int i=0;i<c.n;i++)c.fi[i]+=delta*(c.x[i]-mean)/den;}
+      boolean neg=false; for(double v:c.fi)if(v<0)neg=true; if(neg){for(int i=0;i<c.n;i++)c.fi[i]=Math.max(.001,c.fi[i]); double sum=0;for(double v:c.fi)sum+=v;for(int i=0;i<c.n;i++)c.fi[i]*=c.targetF/sum;}
+      c.sumF=0;c.calcM=0;for(int i=0;i<c.n;i++){c.sumF+=c.fi[i];c.calcM+=c.fi[i]*c.x[i];} if(c.targetM<0)c.calcM=-c.calcM; c.mErr=Math.abs(c.targetM)>1e-6?100*(c.calcM-c.targetM)/Math.abs(c.targetM):0; double area=Math.max(1,d(padW)*d(padL)); double max=0;for(double v:c.fi)max=Math.max(max,v); c.padP=max*1000/(area/1e6)/1e6; c.tree=synth(c); return c; }
+    String synth(Calc c){StringBuilder s=new StringBuilder(); ArrayList<Double> vals=new ArrayList<>(); for(double v:c.fi)vals.add(v*c.sf); int lvl=1; while(vals.size()>1&&lvl<=c.layers){ArrayList<Double> nx=new ArrayList<>(); s.append("Layer "+lvl+":\n"); for(int i=0;i<vals.size();i+=2){if(i+1<vals.size()){double a=vals.get(i),b=vals.get(i+1),tot=a+b; double left=b/tot,right=a/tot; s.append(String.format(Locale.US,"  B%d  %.1f + %.1f = %.1f kN | pivot %.0f/%.0f %%\n",i/2+1,a,b,tot,left*100,right*100)); nx.add(tot);}else{nx.add(vals.get(i)); s.append(String.format(Locale.US,"  B%d  single %.1f kN\n",i/2+1,vals.get(i)));}} vals=nx;lvl++;} s.append("Top branches after selected layers: "+vals.size()+"\nSelected actuators: "+c.nAct+"\n"); return s.toString();}
 
-    private void applyPreset(String p){
-        int pos=Arrays.asList(CASES).indexOf(p); if(pos>=0) loadCase.setSelection(pos);
-        if(p.contains("+Z")){totalLoad.setText("305.7");targetMoment.setText("1280");}
-        else if(p.contains("-Z")){totalLoad.setText("260");targetMoment.setText("-1080");}
-        else if(p.contains("+Y")){totalLoad.setText("90");targetMoment.setText("360");}
-        else if(p.contains("-Y")){totalLoad.setText("90");targetMoment.setText("-360");}
-        else if(p.contains("Pitch")){totalLoad.setText("120");targetMoment.setText(p.contains("-")?"-150":"150");}
-        else if(p.contains("Roll")){totalLoad.setText("40");targetMoment.setText(p.contains("-")?"-18":"18");}
-        else if(p.contains("Yaw")){totalLoad.setText("50");targetMoment.setText(p.contains("-")?"-90":"90");}
-        else {totalLoad.setText("220");targetMoment.setText("820");}
-        status.setText("Preset yüklendi: "+p+" • Tüm alanlar düzenlenebilir."); safeCalcPreview();
-    }
-
-    private void safeCalcPreview(){ try{ Calculation c=compute(); rig.set(c); status.setText(String.format(Locale.US,"%s • ΣF %.1f kN • Hesap moment %.1f kN·m • %d station • %d actuator",activePreset,c.sumF,c.calcMoment,c.nStation,c.nAct)); }catch(Exception ignored){} }
-
-    private void calculate(){
-        try{
-            Calculation c=compute(); rig.set(c);
-            StringBuilder sb=new StringBuilder();
-            sb.append("HESAP ÖZETİ\n");
-            sb.append(String.format(Locale.US,"Yük durumu: %s\nStation: %d   Katman: %d   Aktüatör: %d\n\n",activePreset,c.nStation,c.layers,c.nAct));
-            sb.append(String.format(Locale.US,"ΣF hedef / hesap: %.1f / %.1f kN\n",c.targetF,c.sumF));
-            sb.append(String.format(Locale.US,"M hedef / hesap: %.1f / %.1f kN·m\nMoment hatası: %.2f %%\n\n",c.targetM,c.calcMoment,c.mErr));
-            sb.append(String.format(Locale.US,"Boyutlandırma yükü: %.1f kN\nAktüatör başına tasarım yükü: %.1f kN\nTeorik piston çapı @ %.0f bar: %.1f mm\n",c.designF,c.actLoad,c.pbar,c.bore));
-            sb.append(String.format(Locale.US,"Önerilen load-cell sınıfı (ön seçim): ≥ %.0f kN\nPad alanı: %.0f × %.0f mm\nOrtalama nominal pad basıncı: %.2f MPa\n\n",c.lcClass,c.padW,c.padL,c.padPressure));
-            sb.append("STATION KUVVETLERİ\n"); for(int i=0;i<c.nStation;i++) sb.append(String.format(Locale.US,"S%d  x=%.2f m   F=%.1f kN\n",i+1,c.x[i],c.f[i]));
-            sb.append("\nWHIFFLETREE\n"); sb.append(c.treeSummary);
-            sb.append("\n\nKONTROL\n"); sb.append(Math.abs(c.mErr)<=1.0?"✓ Moment eşleşmesi eğitim toleransı içinde.\n":"! Moment eşleşmesi %1 dışında; station dağılımını optimize et.\n");
-            sb.append(c.padPressure<8?"✓ Pad ortalama basıncı eğitim varsayımında düşük/orta.\n":"! Pad ortalama basıncı yüksek; gerçek skin/bulkhead FEM kontrolü gerekir.\n");
-            result.setText(sb.toString()); step=6; renderStep();
-        }catch(Exception e){result.setText("Girişleri kontrol et. Sayısal alanlar boş veya geçersiz olamaz.");}
-    }
-
-    private Calculation compute(){
-        Calculation c=new Calculation();
-        c.L=d(tankLength); c.D=d(tankDiameter); c.nStation=clampi((int)Math.round(d(stationCount)),4,16); c.layers=clampi((int)Math.round(d(layerCount)),1,3); c.nAct=clampi((int)Math.round(d(actuatorCount)),1,8);
-        c.targetF=Math.abs(d(totalLoad)); c.targetM=d(targetMoment); c.pbar=Math.max(1,d(pressureBar)); c.sf=Math.max(1,d(safety)); c.padW=Math.max(20,d(padWidth)); c.padL=Math.max(20,d(padLength)); c.strokeMargin=Math.max(0,d(strokeMargin));
-        c.x=new double[c.nStation]; c.f=new double[c.nStation]; double sumW=0;
-        for(int i=0;i<c.nStation;i++){ double u=(i+.5)/c.nStation; c.x[i]=u*c.L; double w=Math.pow(Math.sin(Math.PI*u),0.72)+0.22; c.f[i]=w; sumW+=w; }
-        for(int i=0;i<c.nStation;i++) c.f[i]=c.targetF*c.f[i]/sumW;
-        double baseM=0; for(int i=0;i<c.nStation;i++) baseM+=c.f[i]*c.x[i];
-        double desired=Math.abs(c.targetM); if(desired>1e-6){ double delta=desired-baseM; double xa=c.x[0], xb=c.x[c.nStation-1]; double move=delta/(xb-xa); c.f[c.nStation-1]+=move; c.f[0]-=move; if(c.f[0]<0||c.f[c.nStation-1]<0){ // fallback scale about center
-                for(int i=0;i<c.nStation;i++) c.f[i]=c.targetF/c.nStation;
-            }
-        }
-        c.sumF=0;c.calcMoment=0; for(int i=0;i<c.nStation;i++){ c.f[i]=Math.max(0,c.f[i]); c.sumF+=c.f[i]; c.calcMoment+=c.f[i]*c.x[i]; }
-        if(c.sumF>0){ double s=c.targetF/c.sumF; c.sumF=0;c.calcMoment=0; for(int i=0;i<c.nStation;i++){c.f[i]*=s;c.sumF+=c.f[i];c.calcMoment+=c.f[i]*c.x[i];}}
-        if(c.targetM<0)c.calcMoment*=-1;
-        c.mErr=Math.abs(c.targetM)>1e-6?100*(c.calcMoment-c.targetM)/Math.abs(c.targetM):0;
-        c.designF=c.targetF*c.sf; c.actLoad=c.designF/c.nAct; double area=c.actLoad*1000/(c.pbar*100000); c.bore=Math.sqrt(4*area/Math.PI)*1000;
-        double[] std={10,20,25,50,75,100,150,200,250,300,500,750,1000}; c.lcClass=std[std.length-1]; for(double v:std){if(v>=c.actLoad*1.15){c.lcClass=v;break;}}
-        c.padPressure=(c.targetF/c.nStation*1000)/((c.padW/1000)*(c.padL/1000))/1e6;
-        StringBuilder ts=new StringBuilder(); int groups=(int)Math.ceil(c.nStation/2.0); ts.append("1. kademe: ").append(groups).append(" beam grubu. "); if(c.layers>=2)ts.append("2. kademe: yaklaşık ").append((int)Math.ceil(groups/2.0)).append(" üst grup. "); if(c.layers>=3)ts.append("3. kademe: actuator dağıtım seviyesi. "); ts.append("Her ikili beam için pivot oranı Fsol·Lsol = Fsağ·Lsağ ile hesaplanır."); c.treeSummary=ts.toString(); return c;
-    }
-
-    private class Calculation{ double L,D,targetF,targetM,pbar,sf,padW,padL,strokeMargin,sumF,calcMoment,mErr,designF,actLoad,bore,lcClass,padPressure; int nStation,layers,nAct; double[] x,f; String treeSummary; }
-
-    private class TankRigView extends View{
-        Paint p=new Paint(Paint.ANTI_ALIAS_FLAG),t=new Paint(Paint.ANTI_ALIAS_FLAG); Calculation c;
-        TankRigView(){super(MainActivity.this);setBackground(bg(Color.rgb(7,22,36),dp(10)));t.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));}
-        void set(Calculation cc){c=cc;invalidate();}
-        @Override protected void onDraw(Canvas cv){super.onDraw(cv); int w=getWidth(),h=getHeight(); if(w<=0||h<=0)return;
-            p.setStrokeWidth(dp(2)); p.setStyle(Paint.Style.FILL); t.setTextSize(dp(11)); t.setColor(Color.WHITE);
-            float left=w*.08f,right=w*.92f, cy=h*.27f, th=h*.16f;
-            // tank shadow and body
-            p.setColor(Color.rgb(30,45,58)); cv.drawOval(left+dp(5),cy-th/2+dp(7),right+dp(5),cy+th/2+dp(7),p);
-            LinearGradient g=new LinearGradient(left,cy-th/2,right,cy+th/2,new int[]{Color.rgb(95,105,112),Color.rgb(210,215,217),Color.rgb(90,100,108)},null,Shader.TileMode.CLAMP); p.setShader(g); cv.drawOval(left,cy-th/2,right,cy+th/2,p); p.setShader(null); p.setStyle(Paint.Style.STROKE); p.setColor(Color.rgb(120,150,160)); cv.drawOval(left,cy-th/2,right,cy+th/2,p);
-            Calculation x=c; if(x==null)return; int n=x.nStation;
-            float beamY=h*.50f, beam2=h*.63f, actY=h*.82f;
-            // stations and loads
-            for(int i=0;i<n;i++){ float sx=left+(right-left)*(float)(x.x[i]/x.L); p.setStrokeWidth(dp(1));p.setColor(Color.rgb(55,170,120)); cv.drawLine(sx,cy-th*.55f,sx,cy+th*.55f,p); t.setTextSize(dp(9));cv.drawText("S"+(i+1),sx-dp(7),cy-th*.78f,t); String fv=String.format(Locale.US,"%.1f",x.f[i]);cv.drawText(fv,sx-dp(10),cy-th*.98f,t); p.setColor(BLUE);p.setStrokeWidth(dp(3));cv.drawLine(sx,cy-th*.92f,sx,cy-th*.58f,p); cv.drawLine(sx,cy-th*.58f,sx-dp(4),cy-th*.66f,p);cv.drawLine(sx,cy-th*.58f,sx+dp(4),cy-th*.66f,p);
-                // link to first beam
-                p.setColor(Color.LTGRAY);p.setStrokeWidth(dp(2));cv.drawLine(sx,cy+th*.55f,sx,beamY,p); p.setStyle(Paint.Style.FILL);p.setColor(GREEN);cv.drawRect(sx-dp(5),cy+th*.48f,sx+dp(5),cy+th*.60f,p);
-            }
-            // stage 1 beams pairwise
-            p.setStrokeWidth(dp(5));p.setColor(ORANGE); for(int i=0;i<n;i+=2){float a=left+(right-left)*(float)(x.x[i]/x.L), b=(i+1<n)?left+(right-left)*(float)(x.x[i+1]/x.L):a; if(a==b){a-=dp(10);b+=dp(10);} cv.drawLine(a,beamY,b,beamY,p);}
-            t.setTextSize(dp(10));t.setColor(Color.rgb(250,190,70));cv.drawText("1. Kademe",dp(10),beamY,t);
-            if(x.layers>=2){p.setColor(Color.rgb(220,125,30)); for(int i=0;i<n;i+=4){float a=left+(right-left)*(float)(x.x[i]/x.L), b=left+(right-left)*(float)(x.x[Math.min(n-1,i+3)]/x.L); cv.drawLine(a,beam2,b,beam2,p); cv.drawLine((a+b)/2,beamY,(a+b)/2,beam2,p);} cv.drawText("2. Kademe",dp(10),beam2,t);} 
-            float baseY=h*.93f; p.setColor(Color.rgb(70,85,95));p.setStyle(Paint.Style.FILL);cv.drawRect(w*.18f,baseY,w*.82f,baseY+dp(18),p);
-            for(int a=0;a<x.nAct;a++){float ax=w*.25f+(x.nAct==1?0:a*(w*.5f/(x.nAct-1)));float top=x.layers>=2?beam2:beamY;p.setColor(Color.LTGRAY);p.setStrokeWidth(dp(2));cv.drawLine(ax,top,ax,actY,p);p.setColor(GREEN);cv.drawRect(ax-dp(9),actY-dp(18),ax+dp(9),actY+dp(6),p);p.setColor(Color.GRAY);cv.drawRect(ax-dp(7),actY+dp(6),ax+dp(7),baseY,p);t.setColor(Color.WHITE);t.setTextSize(dp(9));cv.drawText("ACT-"+(a+1),ax-dp(17),baseY-dp(4),t);} 
-            t.setTextSize(dp(11));t.setColor(Color.WHITE);cv.drawText(String.format(Locale.US,"ΣF %.1f kN   M %.1f kN·m",x.sumF,x.calcMoment),dp(12),h-dp(8),t);
-        }
-    }
-
-    private double d(EditText e){return Double.parseDouble(e.getText().toString().trim().replace(',','.'));}
-    private int clampi(int v,int a,int b){return Math.max(a,Math.min(b,v));}
-    private TextView tx(String s,int sz,boolean bold,int color){TextView v=new TextView(this);v.setText(s);v.setTextSize(sz);v.setTextColor(color);if(bold)v.setTypeface(Typeface.DEFAULT_BOLD);return v;}
-    private TextView card(String s,int color){TextView v=tx(s,13,false,Color.WHITE);v.setPadding(dp(12),dp(10),dp(12),dp(10));v.setBackground(bg(color,dp(8)));return v;}
-    private Button smallButton(String s){Button b=new Button(this);b.setText(s);b.setTextSize(11);b.setAllCaps(false);return b;}
-    private GradientDrawable bg(int color,int r){GradientDrawable g=new GradientDrawable();g.setColor(color);g.setCornerRadius(r);g.setStroke(dp(1),Color.rgb(45,75,98));return g;}
-    private LinearLayout.LayoutParams lp(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,dp(5),0,dp(5));return p;}
-    private int dp(float v){return (int)(v*getResources().getDisplayMetrics().density+.5f);}
+    class TankView extends View{Paint p=new Paint(Paint.ANTI_ALIAS_FLAG),t=new Paint(Paint.ANTI_ALIAS_FLAG); Calc c; TankView(){super(MainActivity.this);setBackgroundColor(Color.rgb(5,17,29));t.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));} void set(Calc x){c=x;invalidate();} protected void onDraw(Canvas cn){super.onDraw(cn); int w=getWidth(),h=getHeight(); if(c==null)return; float y=h*.42f,left=w*.08f,right=w*.94f,len=right-left; p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(44,55,70)); RectF tank=new RectF(left,y-h*.07f,right,y+h*.07f); cn.drawRoundRect(tank,h*.07f,h*.07f,p); p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(3);p.setColor(Color.rgb(170,190,210));cn.drawRoundRect(tank,h*.07f,h*.07f,p); t.setTextSize(dp(10));t.setColor(Color.WHITE); for(int i=0;i<c.n;i++){float x=left+(float)(c.x[i]/c.L)*len; p.setColor(CYAN);p.setStrokeWidth(2);cn.drawLine(x,y-h*.07f,x,y+h*.07f,p); float ah=(float)Math.min(h*.24,dp(30)+c.fi[i]*.65); p.setColor(BLUE);p.setStrokeWidth(4);cn.drawLine(x,y-h*.09f,x,y-h*.09f-ah,p);cn.drawLine(x,y-h*.09f,x-dp(5),y-h*.09f-dp(8),p);cn.drawLine(x,y-h*.09f,x+dp(5),y-h*.09f-dp(8),p); cn.drawText("S"+(i+1),x-dp(7),y+h*.12f,t); cn.drawText(String.format(Locale.US,"%.0f",c.fi[i]),x-dp(8),y-h*.12f-ah,t);} float base=h*.82f; p.setColor(Color.rgb(60,75,90));p.setStrokeWidth(7);cn.drawLine(w*.08f,base,w*.94f,base,p); for(int a=0;a<c.nAct;a++){float ax=w*(.15f+.7f*(a+.5f)/c.nAct);p.setColor(GREEN);p.setStyle(Paint.Style.FILL);cn.drawRect(ax-dp(12),base-dp(55),ax+dp(12),base,p);p.setStyle(Paint.Style.STROKE);p.setColor(Color.WHITE);p.setStrokeWidth(2);cn.drawLine(ax,base-dp(55),ax,y+h*.1f,p);t.setTextSize(dp(9));cn.drawText("A"+(a+1),ax-dp(7),base+dp(14),t);} p.setColor(ORANGE);p.setStrokeWidth(5); for(int i=0;i<c.n-1;i+=2){float x1=left+(float)(c.x[i]/c.L)*len,x2=left+(float)(c.x[Math.min(i+1,c.n-1)]/c.L)*len;float by=y+h*.18f;cn.drawLine(x1,by,x2,by,p);cn.drawLine(x1,y+h*.08f,x1,by,p);cn.drawLine(x2,y+h*.08f,x2,by,p);} t.setTextSize(dp(12));t.setColor(Color.rgb(200,220,235));cn.drawText("EFT + station loads + whiffletree + actuators",dp(10),dp(20),t);cn.drawText(String.format(Locale.US,"ΣF %.1f kN   M %.1f kN·m",c.sumF,c.calcM),dp(10),dp(38),t);}}
+    static class Calc{double L,D,targetF,targetM,pbar,sf,designF,actLoad,bore,lc,sumF,calcM,mErr,padP;int n,layers,nAct;double[]x,fi;String tree;}
+    double stdClass(double v){double[] a={10,20,25,50,75,100,150,200,250,300,500,750,1000};for(double x:a)if(x>=v)return x;return Math.ceil(v/100)*100;}
+    double d(EditText e){return Double.parseDouble(e.getText().toString().trim().replace(',','.'));} int clamp(int v,int a,int b){return Math.max(a,Math.min(b,v));} String fmt(double v){return String.format(Locale.US,"%.1f",v);} int dp(int x){return (int)(x*getResources().getDisplayMetrics().density+.5f);} LinearLayout.LayoutParams lp(){LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2);p.setMargins(0,dp(4),0,dp(4));return p;} TextView tx(String s,int z,boolean b,int c){TextView v=new TextView(this);v.setText(s);v.setTextSize(z);v.setTextColor(c);v.setTypeface(Typeface.DEFAULT,b?Typeface.BOLD:Typeface.NORMAL);return v;} TextView card(String s,int c){TextView v=tx(s,13,false,Color.WHITE);v.setPadding(dp(10),dp(10),dp(10),dp(10));v.setBackground(bg(c,10));return v;} Button small(String s){Button b=new Button(this);b.setText(s);b.setTextSize(11);b.setAllCaps(false);return b;} GradientDrawable bg(int c,int r){GradientDrawable g=new GradientDrawable();g.setColor(c);g.setCornerRadius(dp(r));return g;}
 }
