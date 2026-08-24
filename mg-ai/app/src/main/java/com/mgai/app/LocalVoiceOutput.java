@@ -1,7 +1,6 @@
 package com.mgai.app;
 
 import android.content.Context;
-import android.content.SharedPreferences;
 import android.speech.tts.TextToSpeech;
 
 import java.util.Locale;
@@ -9,10 +8,13 @@ import java.util.Locale;
 public final class LocalVoiceOutput {
     private static final String PREFS="mg_voice_output";
     private static final String KEY_ENABLED="enabled";
+    private static final String KEY_RATE="rate";
+    private static final String KEY_LAST="last_text";
     private static TextToSpeech tts;
     private static boolean ready=false;
     private static boolean initStarted=false;
     private static String pending="";
+    private static float currentRate=0.95f;
 
     private LocalVoiceOutput(){}
 
@@ -25,10 +27,34 @@ public final class LocalVoiceOutput {
         if(!enabled) stop();
     }
 
+    public static float speechRate(Context c){
+        return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getFloat(KEY_RATE,0.95f);
+    }
+
+    public static void setSpeechRate(Context c,float rate){
+        float r=Math.max(0.55f,Math.min(1.55f,rate));
+        currentRate=r;
+        c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putFloat(KEY_RATE,r).apply();
+        synchronized(LocalVoiceOutput.class){
+            try{if(tts!=null)tts.setSpeechRate(r);}catch(Throwable ignored){}
+        }
+    }
+
+    public static String lastText(Context c){
+        return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY_LAST,"");
+    }
+
+    public static void repeatLast(Context c){
+        String s=lastText(c);
+        if(!s.trim().isEmpty())speak(c,s);
+    }
+
     public static synchronized void speak(Context context,String text){
         if(context==null || text==null || text.trim().isEmpty() || !enabled(context)) return;
         Context app=context.getApplicationContext();
         pending=text.trim();
+        app.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().putString(KEY_LAST,pending).apply();
+        currentRate=speechRate(app);
         if(ready && tts!=null){
             doSpeak(pending);
             pending="";
@@ -43,7 +69,7 @@ public final class LocalVoiceOutput {
                 Locale tr=new Locale("tr","TR");
                 int result=tts.setLanguage(tr);
                 ready=result!=TextToSpeech.LANG_MISSING_DATA && result!=TextToSpeech.LANG_NOT_SUPPORTED;
-                tts.setSpeechRate(0.95f);
+                tts.setSpeechRate(currentRate);
                 tts.setPitch(1.0f);
                 if(ready && !pending.isEmpty()){
                     doSpeak(pending);
@@ -67,6 +93,7 @@ public final class LocalVoiceOutput {
 
     private static void doSpeak(String text){
         if(tts==null || !ready) return;
+        try{tts.setSpeechRate(currentRate);}catch(Throwable ignored){}
         tts.speak(text,TextToSpeech.QUEUE_FLUSH,null,"mg-ai-response");
     }
 }
