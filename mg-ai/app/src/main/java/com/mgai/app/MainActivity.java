@@ -1,14 +1,16 @@
 package com.mgai.app;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.text.InputType;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
-import android.content.Context;
-import android.content.SharedPreferences;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -20,12 +22,19 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 public class MainActivity extends Activity {
-    private static final String PREFS = "mg_ai_v01";
+    private static final String PREFS = "mg_ai_v02";
     private static final String KEY_HISTORY = "history";
+    private static final String KEY_ENDPOINT = "endpoint";
+    private static final String KEY_MODEL = "model";
+
     private LinearLayout messages;
     private EditText input;
     private ScrollView scroll;
     private SharedPreferences prefs;
+    private TextView status;
+    private Button send;
+    private String sessionApiKey = "";
+    private boolean waiting;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,8 +42,9 @@ public class MainActivity extends Activity {
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
         buildUi();
         restoreHistory();
+        updateStatus();
         if (messages.getChildCount() == 0) {
-            addMessage("MG-AI", "MG-AI v0.1 çekirdeği hazır. Bu ilk sürüm sohbet arayüzü ve yerel konuşma hafızasını doğrular. Sonraki adımda gerçek model/araştırma motorunu bağlayacağız.", false, false);
+            addMessage("MG-AI", "MG-AI v0.2 model adaptörü hazır. Sağ üstteki Ayarlar bölümünden MG-Core endpoint ve model adını gir. Kendi OpenAI-compatible sunucumuza, vLLM/Ollama/LM Studio uyumlu geçide veya test için başka uyumlu bir servise bağlanabilirsin.", false, false);
         }
     }
 
@@ -44,19 +54,41 @@ public class MainActivity extends Activity {
         root.setPadding(dp(16), dp(18), dp(16), dp(14));
         root.setBackgroundColor(Color.rgb(244, 246, 248));
 
+        LinearLayout header = new LinearLayout(this);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+
+        LinearLayout titleArea = new LinearLayout(this);
+        titleArea.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams titleAreaLp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+
         TextView title = new TextView(this);
         title.setText("MG-AI");
         title.setTextSize(28);
         title.setTextColor(Color.rgb(20, 24, 32));
         title.setTypeface(null, android.graphics.Typeface.BOLD);
-        root.addView(title);
+        titleArea.addView(title);
 
         TextView subtitle = new TextView(this);
-        subtitle.setText("v0.1 • Core bootstrap • Local memory");
+        subtitle.setText("v0.2 • MG-Core adapter • Local memory");
         subtitle.setTextSize(13);
         subtitle.setTextColor(Color.rgb(90, 97, 110));
-        subtitle.setPadding(0, dp(2), 0, dp(12));
-        root.addView(subtitle);
+        subtitle.setPadding(0, dp(2), 0, 0);
+        titleArea.addView(subtitle);
+        header.addView(titleArea, titleAreaLp);
+
+        Button settings = new Button(this);
+        settings.setText("Ayarlar");
+        settings.setAllCaps(false);
+        settings.setOnClickListener(v -> showSettings());
+        header.addView(settings);
+        root.addView(header);
+
+        status = new TextView(this);
+        status.setTextSize(12);
+        status.setTextColor(Color.rgb(95, 102, 116));
+        status.setPadding(0, dp(4), 0, dp(10));
+        root.addView(status);
 
         scroll = new ScrollView(this);
         messages = new LinearLayout(this);
@@ -84,7 +116,7 @@ public class MainActivity extends Activity {
                 LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
         composer.addView(input, inputLp);
 
-        Button send = new Button(this);
+        send = new Button(this);
         send.setText("Gönder");
         send.setAllCaps(false);
         LinearLayout.LayoutParams sendLp = new LinearLayout.LayoutParams(
@@ -104,16 +136,142 @@ public class MainActivity extends Activity {
     }
 
     private void sendMessage() {
+        if (waiting) return;
         String text = input.getText().toString().trim();
         if (TextUtils.isEmpty(text)) return;
+
+        String endpoint = prefs.getString(KEY_ENDPOINT, "").trim();
+        String model = prefs.getString(KEY_MODEL, "").trim();
+        if (endpoint.isEmpty() || model.isEmpty()) {
+            addMessage("MG-AI", "Önce Ayarlar bölümünden MG-Core endpoint ve model adını gir.", false, false);
+            showSettings();
+            return;
+        }
+
         input.setText("");
         addMessage("Sen", text, true, true);
         hideKeyboard();
+        setWaiting(true);
 
-        // Step 1 deliberately uses a deterministic local bootstrap engine.
-        // It proves the app/UI/memory path before any external AI dependency is introduced.
-        String response = LocalBootstrapEngine.reply(text);
-        addMessage("MG-AI", response, false, true);
+        JSONArray context = buildRecentConversation(16);
+        ModelClient.chat(endpoint, model, sessionApiKey, context, new ModelClient.Callback() {
+            @Override
+            public void onSuccess(String result) {
+                runOnUiThread(() -> {
+                    addMessage("MG-AI", result, false, true);
+                    setWaiting(false);
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    addMessage("Bağlantı hatası", message, false, false);
+                    setWaiting(false);
+                });
+            }
+        });
+    }
+
+    private JSONArray buildRecentConversation(int maxItems) {
+        JSONArray out = new JSONArray();
+        try {
+            JSONArray saved = new JSONArray(prefs.getString(KEY_HISTORY, "[]"));
+            int start = Math.max(0, saved.length() - maxItems);
+            for (int i = start; i < saved.length(); i++) {
+                JSONObject source = saved.getJSONObject(i);
+                String text = source.optString("text", "").trim();
+                if (text.isEmpty()) continue;
+                JSONObject m = new JSONObject();
+                m.put("role", source.optBoolean("user", false) ? "user" : "assistant");
+                m.put("content", text);
+                out.put(m);
+            }
+        } catch (JSONException ignored) {
+        }
+        return out;
+    }
+
+    private void showSettings() {
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setPadding(dp(18), dp(8), dp(18), 0);
+
+        EditText endpoint = new EditText(this);
+        endpoint.setHint("https://sunucu/v1/chat/completions");
+        endpoint.setText(prefs.getString(KEY_ENDPOINT, ""));
+        endpoint.setSingleLine(true);
+        box.addView(label("MG-Core endpoint"));
+        box.addView(endpoint);
+
+        EditText model = new EditText(this);
+        model.setHint("ör. mg-core-7b");
+        model.setText(prefs.getString(KEY_MODEL, ""));
+        model.setSingleLine(true);
+        box.addView(label("Model adı"));
+        box.addView(model);
+
+        EditText key = new EditText(this);
+        key.setHint("Opsiyonel • sadece bu oturumda tutulur");
+        key.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        key.setText(sessionApiKey);
+        key.setSingleLine(true);
+        box.addView(label("API anahtarı"));
+        box.addView(key);
+
+        TextView note = new TextView(this);
+        note.setText("API anahtarı kalıcı hafızaya yazılmaz. HTTP yerel ağ endpointleri geliştirme için desteklenir; üretimde HTTPS kullanacağız.");
+        note.setTextSize(12);
+        note.setTextColor(Color.DKGRAY);
+        note.setPadding(0, dp(10), 0, 0);
+        box.addView(note);
+
+        new AlertDialog.Builder(this)
+                .setTitle("MG-Core bağlantısı")
+                .setView(box)
+                .setPositiveButton("Kaydet", (dialog, which) -> {
+                    prefs.edit()
+                            .putString(KEY_ENDPOINT, endpoint.getText().toString().trim())
+                            .putString(KEY_MODEL, model.getText().toString().trim())
+                            .apply();
+                    sessionApiKey = key.getText().toString();
+                    updateStatus();
+                })
+                .setNegativeButton("İptal", null)
+                .show();
+    }
+
+    private TextView label(String text) {
+        TextView t = new TextView(this);
+        t.setText(text);
+        t.setTextSize(12);
+        t.setTextColor(Color.rgb(70, 76, 88));
+        t.setPadding(0, dp(10), 0, 0);
+        return t;
+    }
+
+    private void updateStatus() {
+        String endpoint = prefs.getString(KEY_ENDPOINT, "").trim();
+        String model = prefs.getString(KEY_MODEL, "").trim();
+        if (endpoint.isEmpty() || model.isEmpty()) {
+            status.setText("● MG-Core ayarlanmadı");
+            status.setTextColor(Color.rgb(180, 95, 35));
+        } else {
+            status.setText("● Hazır • " + model + " • " + endpoint);
+            status.setTextColor(Color.rgb(30, 130, 80));
+        }
+    }
+
+    private void setWaiting(boolean value) {
+        waiting = value;
+        send.setEnabled(!value);
+        input.setEnabled(!value);
+        if (value) {
+            status.setText("● MG-Core yanıtı bekleniyor…");
+            status.setTextColor(Color.rgb(70, 90, 180));
+        } else {
+            updateStatus();
+        }
     }
 
     private void addMessage(String who, String text, boolean user, boolean persist) {
@@ -184,18 +342,5 @@ public class MainActivity extends Activity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
-    }
-
-    static final class LocalBootstrapEngine {
-        static String reply(String input) {
-            String normalized = input.toLowerCase(java.util.Locale.ROOT);
-            if (normalized.contains("merhaba") || normalized.contains("selam")) {
-                return "Merhaba. MG-AI v0.1 yerel çekirdeği çalışıyor. Şu anda amaç Android iskeletini ve kalıcı konuşma yolunu doğrulamak.";
-            }
-            if (normalized.contains("durum") || normalized.contains("bitti")) {
-                return "Adım 1 çalışıyor: uygulama açılıyor, mesaj alıyor ve konuşmayı cihazda saklıyor. Gerçek yapay zekâ modeli henüz bağlanmadı.";
-            }
-            return "Mesajını aldım ve cihazdaki konuşma hafızasına kaydettim. Bu v0.1 bootstrap cevabıdır; sonraki adımda MG-Core model adaptörü bağlanacak.";
-        }
     }
 }
