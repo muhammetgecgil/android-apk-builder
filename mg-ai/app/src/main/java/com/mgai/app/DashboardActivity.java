@@ -25,7 +25,7 @@ public class DashboardActivity extends Activity {
         root.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText("v0.8 • Core + Research + Memory + Reasoning + Tools/Agents + Controlled Learning");
+        sub.setText("v0.9 • Core + Research + Memory + Reasoning + Tools/Agents + Learning + Multimodal");
         sub.setTextSize(14);
         sub.setTextColor(Color.rgb(90, 97, 110));
         sub.setPadding(0, dp(4), 0, dp(22));
@@ -46,6 +46,7 @@ public class DashboardActivity extends Activity {
         add(root, "Derin Muhakeme", ReasoningActivity.class);
         add(root, "Tools + Agents", ToolsActivity.class);
         add(root, "Öğrenme & Gelişim", LearningActivity.class);
+        add(root, "Görsel & Ses Analizi", MultimodalActivity.class);
         add(root, "Yetenekler & Gereksinimler", CapabilitiesActivity.class);
 
         TextView rule = new TextView(this);
