@@ -11,8 +11,8 @@ android {
         applicationId 'com.mgai.app'
         minSdk 26
         targetSdk 35
-        versionCode 25
-        versionName '0.25.0'
+        versionCode 26
+        versionName '0.26.0'
 
         ndk {
             abiFilters 'arm64-v8a'
@@ -43,4 +43,5 @@ android {
 
 dependencies {
     implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
+    implementation 'com.google.mlkit:text-recognition:16.0.1'
 }
