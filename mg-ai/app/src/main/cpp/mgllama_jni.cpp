@@ -59,7 +59,7 @@ Java_com_mgai_app_LocalInferenceBridge_createEngine(JNIEnv * env, jclass, jstrin
 }
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_mgai_app_LocalInferenceBridge_generate(JNIEnv * env, jclass, jlong handle, jstring promptJ, jint maxTokens, jfloat temperature) {
+Java_com_mgai_app_LocalInferenceBridge_generateNative(JNIEnv * env, jclass, jlong handle, jstring promptJ, jint maxTokens, jfloat temperature) {
     Engine * e = reinterpret_cast<Engine *>(handle);
     if (!e || !e->model || !e->ctx || !e->vocab) return env->NewStringUTF("Engine hazır değil.");
     std::lock_guard<std::mutex> lock(e->mutex);
