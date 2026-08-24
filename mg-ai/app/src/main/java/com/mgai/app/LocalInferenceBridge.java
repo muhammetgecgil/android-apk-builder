@@ -9,6 +9,14 @@ public final class LocalInferenceBridge {
     private LocalInferenceBridge() {}
     public static boolean nativeAvailable(){ return loaded; }
     public static native long createEngine(String modelPath, int contextSize, int threads);
-    public static native String generate(long handle, String prompt, int maxTokens, float temperature);
+    private static native String generateNative(long handle, String prompt, int maxTokens, float temperature);
+    public static String generate(long handle, String prompt, int maxTokens, float temperature){
+        VoiceSessionStateManager.set(VoiceSessionStateManager.State.THINKING);
+        try {
+            return generateNative(handle,prompt,maxTokens,temperature);
+        } finally {
+            if(VoiceSessionStateManager.is(VoiceSessionStateManager.State.THINKING)) VoiceSessionStateManager.set(VoiceSessionStateManager.State.IDLE);
+        }
+    }
     public static native void destroyEngine(long handle);
 }
