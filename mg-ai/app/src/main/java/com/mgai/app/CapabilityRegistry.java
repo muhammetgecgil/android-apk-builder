@@ -27,7 +27,7 @@ public final class CapabilityRegistry {
 
     static {
         List<Capability> x = new ArrayList<>();
-        x.add(new Capability("CAP-CORE", "MG-Core / Foundation Model", "CORE,TOK,EMB,ATT,PRE,CPT,IFT,PREF,MOE,SPEC", State.INTEGRATING, "Model adapter builds; own checkpoint/server pending"));
+        x.add(new Capability("CAP-CORE", "MG-Core / Foundation Model", "CORE,TOK,EMB,ATT,PRE,CPT,IFT,PREF,MOE,SPEC", State.INTEGRATING, "Android adapter builds; self-hosted vLLM/Qwen3.5-4B server definition + smoke test added; live GPU inference still pending"));
         x.add(new Capability("CAP-RSN", "Reasoning & Metacognition", "RTR,RSN,HYP,CRT,DBT,MET,SRCH,MCTS,PLAN,GOAL,REFL,BUD", State.PLANNED, "Not yet integrated"));
         x.add(new Capability("CAP-VER", "Truth, Verification & Calibration", "VER,DIM,CONF,UNC,HAL,PROV,HON,ANS,REG,EVG", State.PLANNED, "Not yet integrated"));
         x.add(new Capability("CAP-RES", "Research & Knowledge", "RES,SRC,IND,CON,KAT,TMP,FRE,REV,POI,QUA", State.PLANNED, "Not yet integrated"));
@@ -37,8 +37,8 @@ public final class CapabilityRegistry {
         x.add(new Capability("CAP-WORLD", "World Model / Science / Engineering", "WMD,CAU,CF,PHY,SIM,SCI,MATH,ENG,REQ,TRC,DTW,PRED,ANO", State.PLANNED, "Not yet integrated"));
         x.add(new Capability("CAP-LEARN", "Learning & Self-Improvement", "EXP,TEA,MTD,WEBL,CL,SYN,CUR,HEM,AL,ASI,ARS,NAS,RIM", State.PLANNED, "Not yet integrated"));
         x.add(new Capability("CAP-EVAL", "Evaluation & Benchmarking", "BMF,BMC,RWE,INT,CAL,RED,LAT,COST", State.PLANNED, "Not yet integrated"));
-        x.add(new Capability("CAP-INFRA", "Infrastructure / MLOps", "API,ORC,INF,EDGE,DATA,OBS,SEC,PRIV,REL,REGY,DSR", State.INTEGRATING, "Android build/CI active; backend infrastructure pending"));
-        x.add(new Capability("CAP-PROD", "Android / Web / Governance", "PERS,UX,MOB,WEB,GOV,AUDT,ROL,INC,CMP,DOC", State.INTEGRATING, "Android chat/settings active"));
+        x.add(new Capability("CAP-INFRA", "Infrastructure / MLOps", "API,ORC,INF,EDGE,DATA,OBS,SEC,PRIV,REL,REGY,DSR", State.INTEGRATING, "Android build/CI active; MG-Core vLLM container definition added; production GPU host pending"));
+        x.add(new Capability("CAP-PROD", "Android / Web / Governance", "PERS,UX,MOB,WEB,GOV,AUDT,ROL,INC,CMP,DOC", State.INTEGRATING, "Android chat/settings/capability dashboard active"));
         x.add(new Capability("CAP-ROBOT", "Embodied AI / Robot Brain", "EMB-001..020,R27,R28,R29,R30", State.PLANNED, "Architecture defined; no actuator control enabled"));
         x.add(new Capability("CAP-SAFE", "Robotics Safety Supervisor", "EMB-002..005,008..011,015..020", State.PLANNED, "Must be deterministic and independent of LLM"));
         x.add(new Capability("CAP-RPER", "Robot Perception & World Model", "RGB,DEPTH,LIDAR,IMU,ENCODER,F/T,TACTILE,SLAM,POSE", State.PLANNED, "Not yet integrated"));
