@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -45,6 +44,10 @@ public class DashboardActivity extends Activity {
         Button chat = button("MG-AI Sohbet");
         chat.setOnClickListener(v -> startActivity(new Intent(this, MainActivity.class)));
         root.addView(chat);
+
+        Button coreHealth = button("MG-Core Durum Testi");
+        coreHealth.setOnClickListener(v -> startActivity(new Intent(this, CoreHealthActivity.class)));
+        root.addView(coreHealth);
 
         Button capabilities = button("Yetenekler & Gereksinimler");
         capabilities.setOnClickListener(v -> startActivity(new Intent(this, CapabilitiesActivity.class)));
