@@ -18,19 +18,32 @@ final class MemoryClient {
     private MemoryClient() {}
 
     static void ingest(String baseEndpoint, String documentId, String text, Callback callback) {
-        tryPost(baseEndpoint, "/v1/memory/ingest", new JSONObject()
-                .put("document_id", documentId)
-                .put("text", text)
-                .put("memory_type", "semantic")
-                .put("importance", 0.7)
-                .put("confidence", 0.7)
-                .put("provenance", new JSONObject().put("source", "android-user")), callback);
+        try {
+            JSONObject provenance = new JSONObject();
+            provenance.put("source", "android-user");
+
+            JSONObject body = new JSONObject();
+            body.put("document_id", documentId);
+            body.put("text", text);
+            body.put("memory_type", "semantic");
+            body.put("importance", 0.7);
+            body.put("confidence", 0.7);
+            body.put("provenance", provenance);
+            tryPost(baseEndpoint, "/v1/memory/ingest", body, callback);
+        } catch (Exception e) {
+            callback.onError("JSON hazırlama hatası: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+        }
     }
 
     static void query(String baseEndpoint, String query, Callback callback) {
-        tryPost(baseEndpoint, "/v1/memory/query", new JSONObject()
-                .put("query", query)
-                .put("top_k", 5), callback);
+        try {
+            JSONObject body = new JSONObject();
+            body.put("query", query);
+            body.put("top_k", 5);
+            tryPost(baseEndpoint, "/v1/memory/query", body, callback);
+        } catch (Exception e) {
+            callback.onError("JSON hazırlama hatası: " + (e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()));
+        }
     }
 
     private static void tryPost(String baseEndpoint, String path, JSONObject body, Callback callback) {
@@ -38,6 +51,10 @@ final class MemoryClient {
             HttpURLConnection c = null;
             try {
                 String base = baseEndpoint == null ? "" : baseEndpoint.trim();
+                if (base.isEmpty()) {
+                    callback.onError("Memory endpoint ayarlanmamış.");
+                    return;
+                }
                 if (base.endsWith("/")) base = base.substring(0, base.length()-1);
                 URL u = new URL(base + path);
                 c = (HttpURLConnection) u.openConnection();
@@ -46,16 +63,17 @@ final class MemoryClient {
                 c.setReadTimeout(120000);
                 c.setDoOutput(true);
                 c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                c.setRequestProperty("Accept", "application/json");
                 byte[] bytes = body.toString().getBytes(StandardCharsets.UTF_8);
                 try (OutputStream os = c.getOutputStream()) { os.write(bytes); }
                 int status = c.getResponseCode();
                 InputStream stream = status >= 200 && status < 300 ? c.getInputStream() : c.getErrorStream();
-                String text = readAll(stream);
+                String responseText = readAll(stream);
                 if (status < 200 || status >= 300) {
-                    callback.onError("HTTP " + status + (text.isEmpty() ? "" : ": " + text));
+                    callback.onError("HTTP " + status + (responseText.isEmpty() ? "" : ": " + responseText));
                     return;
                 }
-                callback.onSuccess(new JSONObject(text));
+                callback.onSuccess(new JSONObject(responseText));
             } catch (Exception e) {
                 callback.onError(e.getClass().getSimpleName() + ": " + (e.getMessage() == null ? "" : e.getMessage()));
             } finally {
