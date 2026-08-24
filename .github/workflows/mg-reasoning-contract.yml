@@ -1,0 +1,30 @@
+name: Validate MG Reasoning Engine
+
+on:
+  push:
+    branches: [mg-ai-v0.1-bootstrap]
+    paths:
+      - 'mg-reasoning-server/**'
+      - '.github/workflows/mg-reasoning-contract.yml'
+  pull_request:
+    paths:
+      - 'mg-reasoning-server/**'
+      - '.github/workflows/mg-reasoning-contract.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install API dependencies
+        run: pip install 'fastapi>=0.115,<1' 'pydantic>=2.8,<3'
+      - name: Compile modules
+        run: python -m py_compile mg-reasoning-server/reasoning_engine.py mg-reasoning-server/api.py
+      - name: Run contract tests
+        run: python mg-reasoning-server/test_reasoning_engine.py
+      - name: Import API
+        run: cd mg-reasoning-server && python -c 'import api; print(api.app.title)'
