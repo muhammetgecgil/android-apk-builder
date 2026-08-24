@@ -8,6 +8,7 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.MGAI">
+        <activity android:name=".PhoneNativeActivity" android:exported="false" />
         <activity android:name=".SystemCenterActivity" android:exported="false" />
         <activity android:name=".ModelManagementActivity" android:exported="false" />
         <activity android:name=".TrainingActivity" android:exported="false" />
