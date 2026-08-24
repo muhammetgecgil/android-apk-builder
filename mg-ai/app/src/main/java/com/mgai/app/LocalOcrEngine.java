@@ -51,7 +51,8 @@ public final class LocalOcrEngine {
         return text;
     }
 
-    private static String recognizeBitmap(Bitmap bmp) throws Exception {
+    public static String recognizeBitmap(Bitmap bmp) throws Exception {
+        if(bmp==null)throw new IllegalArgumentException("camera_bitmap_missing");
         TextRecognizer recognizer=TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
         CountDownLatch latch=new CountDownLatch(1);
         AtomicReference<String> value=new AtomicReference<>("");
