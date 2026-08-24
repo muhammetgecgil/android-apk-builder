@@ -1,4 +1,4 @@
-name: Build MG-AI v0.12 APK
+name: Build MG-AI v0.18 Phone-Native APK
 
 on:
   push:
@@ -16,7 +16,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -28,20 +28,32 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Install Android NDK and CMake
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018" "cmake;3.22.1" >/dev/null
+
+      - name: Fetch pinned llama.cpp
+        run: |
+          rm -rf mg-ai/app/src/main/cpp/llama.cpp
+          git clone --filter=blob:none --no-checkout https://github.com/ggml-org/llama.cpp.git mg-ai/app/src/main/cpp/llama.cpp
+          git -C mg-ai/app/src/main/cpp/llama.cpp checkout f280b26983ad0fdb705a0d9ebf0503e76f2899b0
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Build phone-native debug APK
         run: gradle -p mg-ai --no-daemon assembleDebug
 
-      - name: Verify APK exists
-        run: test -f mg-ai/app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify APK and native runtime
+        run: |
+          test -f mg-ai/app/build/outputs/apk/debug/app-debug.apk
+          unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libmgllama.so'
 
-      - name: Upload MG-AI APK
+      - name: Upload MG-AI v0.18 APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-AI-v0.12-debug
+          name: MG-AI-v0.18-phone-native-debug
           path: mg-ai/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
