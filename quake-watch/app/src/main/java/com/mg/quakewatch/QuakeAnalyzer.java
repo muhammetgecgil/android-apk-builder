@@ -31,19 +31,22 @@ public final class QuakeAnalyzer {
         final List<Event> events = new ArrayList<>();
         double score,bValue,rateRatio,etas;
         Cell(int a,int b){this.a=a;this.b=b;}
-        String name(){return String.format(Locale.US,"%.1f°, %.1f°", a*2.0+1.0, b*2.0+1.0);}
+        double lat(){return a*2.0+1.0;}
+        double lon(){return b*2.0+1.0;}
+        String name(){return String.format(Locale.US,"%.1f°, %.1f°", lat(), lon());}
     }
 
     public static final class Report {
         public final int eventCount;
         public final double maxScore;
         public final String text;
-        Report(int n,double m,String t){eventCount=n;maxScore=m;text=t;}
+        public final String hotspotsJson;
+        Report(int n,double m,String t,String h){eventCount=n;maxScore=m;text=t;hotspotsJson=h;}
     }
 
     public static Report fetchAndAnalyze() throws Exception {
         HttpURLConnection c = (HttpURLConnection)new URL(API).openConnection();
-        c.setConnectTimeout(15000); c.setReadTimeout(25000); c.setRequestProperty("User-Agent","QuakeWatch-Android/1.0");
+        c.setConnectTimeout(15000); c.setReadTimeout(25000); c.setRequestProperty("User-Agent","QuakeWatch-Android/1.1");
         BufferedReader br = new BufferedReader(new InputStreamReader(c.getInputStream()));
         StringBuilder sb = new StringBuilder(); String line;
         while((line=br.readLine())!=null) sb.append(line);
@@ -93,15 +96,24 @@ public final class QuakeAnalyzer {
         }
         Collections.sort(ranked,Comparator.comparingDouble((Cell x)->x.score).reversed());
         StringBuilder out=new StringBuilder();
-        out.append("SON 24 SAAT DÜNYA ANALİZİ\n");
+        out.append("OLASILIKSAL SICAK NOKTA ANALİZİ • SON 24 SAAT\n");
         out.append("Katalog olayı: ").append(all.size()).append("\n");
-        out.append("Puan = kısa dönem aktivite artışı + ETAS-benzeri artçı/tetiklenme yoğunluğu + b-değeri sinyali + büyüklük katkısı.\n\n");
+        out.append("Puan = kısa dönem aktivite artışı + ETAS-benzeri tetiklenme yoğunluğu + b-değeri sinyali + büyüklük katkısı.\n\n");
+        JSONArray hot = new JSONArray();
+        int mapLim=Math.min(100,ranked.size());
+        for(int i=0;i<mapLim;i++){
+            Cell z=ranked.get(i);
+            JSONObject o=new JSONObject();
+            o.put("lat",z.lat()); o.put("lon",z.lon()); o.put("score",z.score());
+            o.put("count",z.events.size()); o.put("rate",z.rateRatio); o.put("b",z.bValue); o.put("etas",z.etas);
+            hot.put(o);
+        }
         int lim=Math.min(12,ranked.size());
         for(int i=0;i<lim;i++){
             Cell z=ranked.get(i);
             Event last=z.events.get(0); for(Event e:z.events) if(e.time>last.time) last=e;
             out.append(i+1).append(") Bölge ").append(z.name())
-               .append("  • aktivite puanı ").append(DF.format(z.score)).append("/100\n")
+               .append("  • olasılıksal aktivite ").append(DF.format(z.score)).append("/100\n")
                .append("   24s olay=").append(z.events.size())
                .append("  oran=").append(DF.format(z.rateRatio)).append("x")
                .append("  b≈").append(DF.format(z.bValue))
@@ -111,11 +123,11 @@ public final class QuakeAnalyzer {
         out.append("YORUM\n");
         if(lim>0){
             double s=ranked.get(0).score;
-            if(s>=80) out.append("Katalogda çok güçlü bir kümelenme/anomali var. Bu, yeni deprem garantisi değildir; artçı dizisi de olabilir.\n");
-            else if(s>=60) out.append("Bazı bölgelerde belirgin kısa dönem aktivite artışı var; yakından izlenebilir.\n");
-            else out.append("Katalogda modelin eşik üstü güçlü anomalisi görünmüyor.\n");
+            if(s>=80) out.append("Çok güçlü bir sismik kümelenme/anomali var. Haritada kırmızı gösterilir; yeni büyük deprem garantisi değildir.\n");
+            else if(s>=60) out.append("Bazı bölgelerde belirgin kısa dönem aktivite artışı var; haritada turuncu/kırmızı görünür.\n");
+            else out.append("Modelin eşik üstü güçlü anomalisi görünmüyor.\n");
         }
-        out.append("\nBilimsel sınır: Günümüzde güvenilir biçimde deprem saati/konumu/büyüklüğü önceden hesaplanamaz. Bu uygulama olasılıksal/anomali izleme aracıdır, resmi erken uyarı değildir.");
-        return new Report(all.size(),lim==0?0:ranked.get(0).score,out.toString());
+        out.append("\nBilimsel sınır: Bu harita deterministik deprem tahmini değildir. Kesin tarih, saat, büyüklük ve konum veremez; göreli kısa dönem sismik aktivite/anomali gösterir.");
+        return new Report(all.size(),lim==0?0:ranked.get(0).score,out.toString(),hot.toString());
     }
 }
