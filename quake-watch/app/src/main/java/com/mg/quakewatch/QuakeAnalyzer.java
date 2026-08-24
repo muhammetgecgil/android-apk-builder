@@ -104,7 +104,7 @@ public final class QuakeAnalyzer {
         for(int i=0;i<mapLim;i++){
             Cell z=ranked.get(i);
             JSONObject o=new JSONObject();
-            o.put("lat",z.lat()); o.put("lon",z.lon()); o.put("score",z.score());
+            o.put("lat",z.lat()); o.put("lon",z.lon()); o.put("score",z.score);
             o.put("count",z.events.size()); o.put("rate",z.rateRatio); o.put("b",z.bValue); o.put("etas",z.etas);
             hot.put(o);
         }
