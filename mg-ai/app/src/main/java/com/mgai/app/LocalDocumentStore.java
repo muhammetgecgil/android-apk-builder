@@ -27,8 +27,17 @@ public final class LocalDocumentStore {
 
     public static synchronized String importDocument(Context c, Uri uri, String name, String mime) throws Exception {
         String n=name==null?"belge":name;
-        boolean pdf=n.toLowerCase(Locale.ROOT).endsWith(".pdf") || "application/pdf".equalsIgnoreCase(mime);
-        return pdf?importPdf(c,uri,n):importText(c,uri,n);
+        String lower=n.toLowerCase(Locale.ROOT);
+        boolean pdf=lower.endsWith(".pdf") || "application/pdf".equalsIgnoreCase(mime);
+        boolean image=(mime!=null&&mime.toLowerCase(Locale.ROOT).startsWith("image/"))||lower.endsWith(".jpg")||lower.endsWith(".jpeg")||lower.endsWith(".png")||lower.endsWith(".webp");
+        if(image)return importImageOcr(c,uri,n);
+        if(pdf){
+            try{return importPdf(c,uri,n);}catch(IllegalArgumentException ex){
+                if(ex.getMessage()!=null&&ex.getMessage().contains("OCR gerekli"))return importScannedPdfOcr(c,uri,n);
+                throw ex;
+            }
+        }
+        return importText(c,uri,n);
     }
 
     public static synchronized String importText(Context c, Uri uri, String name) throws Exception {
@@ -59,6 +68,16 @@ public final class LocalDocumentStore {
         if(text.length()>MAX_CHARS_PER_DOC)text=text.substring(0,MAX_CHARS_PER_DOC);
         save(c,name,text,"pdf");
         return name+" • "+pages+" sayfa • "+text.length()+" karakter";
+    }
+
+    public static synchronized String importImageOcr(Context c,Uri uri,String name) throws Exception {
+        String text=LocalOcrEngine.recognizeImage(c,uri).trim();
+        return save(c,name,text,"ocr-image");
+    }
+
+    public static synchronized String importScannedPdfOcr(Context c,Uri uri,String name) throws Exception {
+        String text=LocalOcrEngine.recognizeScannedPdf(c,uri).trim();
+        return save(c,name,text,"ocr-pdf");
     }
 
     private static String save(Context c,String name,String text,String type) throws Exception {
