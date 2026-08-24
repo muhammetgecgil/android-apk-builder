@@ -1,0 +1,31 @@
+name: Validate MG-Core Model Registry API
+on:
+  push:
+    branches: [mg-ai-v0.1-bootstrap]
+    paths: ['mg-core-server/model_registry_control.py','mg-core-server/model_registry_api.py','.github/workflows/mg-core-model-registry-api.yml']
+  pull_request:
+    paths: ['mg-core-server/model_registry_control.py','mg-core-server/model_registry_api.py','.github/workflows/mg-core-model-registry-api.yml']
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: pip install fastapi pydantic
+      - run: python -m py_compile mg-core-server/model_registry_control.py mg-core-server/model_registry_api.py
+      - run: PYTHONPATH=mg-core-server python -c "import model_registry_api as a; h=a.health(); assert h['automatic_activation'] is False and h['rollback_supported'] is True; print(a.app.title)"
+      - run: PYTHONPATH=mg-core-server python - <<'PY'
+          from model_registry_control import stage, activate, rollback, snapshot
+          m={'model_id':'test-model','status':'promoted'}
+          stage(m)
+          try:
+              activate(False)
+              raise AssertionError('activation without approval must fail')
+          except ValueError:
+              pass
+          activate(True)
+          assert snapshot()['active_model']['model_id']=='test-model'
+          print('registry approval gate OK')
+          PY

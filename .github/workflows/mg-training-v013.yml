@@ -1,0 +1,22 @@
+name: Validate MG Training Server
+on:
+  push:
+    branches: [mg-ai-v0.1-bootstrap]
+    paths: ['mg-training-server/**','.github/workflows/mg-training-v013.yml']
+  pull_request:
+    paths: ['mg-training-server/**','.github/workflows/mg-training-v013.yml']
+  workflow_dispatch:
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - run: pip install fastapi pydantic
+      - run: python -m py_compile mg-training-server/training_pipeline.py mg-training-server/gpu_trainer.py mg-training-server/dataset_exporter.py mg-training-server/benchmark_runner.py mg-training-server/checkpoint_handoff.py mg-training-server/api.py
+      - run: PYTHONPATH=mg-training-server python mg-training-server/test_promotion_gates.py
+      - run: PYTHONPATH=mg-training-server python mg-training-server/test_dataset_benchmark.py
+      - run: PYTHONPATH=mg-training-server python mg-training-server/gpu_trainer.py --base-model Qwen/Qwen3.5-4B --dataset dummy.jsonl --output-dir out --method qlora_sft --dry-run | grep qlora_sft
+      - run: mkdir -p /tmp/mg-ckpt && echo '{"loss":1.0}' > /tmp/mg-ckpt/training_metrics.json && PYTHONPATH=mg-training-server python mg-training-server/checkpoint_handoff.py --checkpoint /tmp/mg-ckpt --base-model Qwen/Qwen3.5-4B --output /tmp/mg-ckpt/handoff.json && python -c "import json; h=json.load(open('/tmp/mg-ckpt/handoff.json')); assert h['automatic_activation']==False and h['requires_benchmark']==True and h['requires_explicit_activation']==True"
+      - run: PYTHONPATH=mg-training-server python -c "import api; h=api.health(); assert h['online_weight_updates']==False and h['robot_runtime_training']==False and h['automatic_promotion']==False; print(api.app.title)"

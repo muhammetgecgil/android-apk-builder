@@ -1,0 +1,23 @@
+services:
+  searxng:
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    environment:
+      - SEARXNG_BASE_URL=http://searxng:8080/
+    volumes:
+      - ./searxng-settings.yml:/etc/searxng/settings.yml:ro
+
+  mg-research:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      - searxng
+    environment:
+      - MG_RESEARCH_PROVIDER=${MG_RESEARCH_PROVIDER:-searxng}
+      - SEARXNG_URL=${SEARXNG_URL:-http://searxng:8080}
+      - BRAVE_SEARCH_API_KEY=${BRAVE_SEARCH_API_KEY:-}
+      - MG_CORE_CHAT_ENDPOINT=${MG_CORE_CHAT_ENDPOINT:-http://host.docker.internal:8000/v1/chat/completions}
+      - MG_CORE_MODEL=${MG_CORE_MODEL:-Qwen/Qwen3.5-4B}
+      - MG_CORE_API_KEY=${MG_CORE_API_KEY:-}
+    ports:
+      - "${MG_RESEARCH_PORT:-8090}:8090"

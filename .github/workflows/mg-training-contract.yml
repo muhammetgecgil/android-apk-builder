@@ -1,0 +1,26 @@
+name: Validate MG Training Engine
+
+on:
+  push:
+    branches: [mg-ai-v0.1-bootstrap]
+    paths:
+      - 'mg-training-server/**'
+      - '.github/workflows/mg-training-contract.yml'
+  pull_request:
+    paths:
+      - 'mg-training-server/**'
+      - '.github/workflows/mg-training-contract.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install fastapi pydantic
+      - run: python -m py_compile mg-training-server/training_engine.py mg-training-server/api.py
+      - run: PYTHONPATH=mg-training-server python mg-training-server/test_training_engine.py
+      - run: PYTHONPATH=mg-training-server python -c "import api; h=api.health(); assert h['online_weight_update']==False and h['robot_runtime_weight_update']==False; print(api.app.title)"

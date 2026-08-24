@@ -1,0 +1,26 @@
+name: Validate MG Multimodal Engine
+
+on:
+  push:
+    branches: [mg-ai-v0.1-bootstrap]
+    paths:
+      - 'mg-multimodal-server/**'
+      - '.github/workflows/mg-multimodal-contract.yml'
+  pull_request:
+    paths:
+      - 'mg-multimodal-server/**'
+      - '.github/workflows/mg-multimodal-contract.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install fastapi pydantic
+      - run: python -m py_compile mg-multimodal-server/multimodal_engine.py mg-multimodal-server/model_adapters.py mg-multimodal-server/api.py
+      - run: PYTHONPATH=mg-multimodal-server python mg-multimodal-server/test_multimodal_engine.py
+      - run: PYTHONPATH=mg-multimodal-server python -c "import api; print(api.app.title); print(api.adapter_status())"

@@ -1,0 +1,26 @@
+name: Validate MG Tools Engine
+
+on:
+  push:
+    branches: [mg-ai-v0.1-bootstrap]
+    paths:
+      - 'mg-tools-server/**'
+      - '.github/workflows/mg-tools-contract.yml'
+  pull_request:
+    paths:
+      - 'mg-tools-server/**'
+      - '.github/workflows/mg-tools-contract.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install fastapi pydantic
+      - run: python -m py_compile mg-tools-server/tool_engine.py mg-tools-server/api.py
+      - run: python mg-tools-server/test_tool_engine.py
+      - run: PYTHONPATH=mg-tools-server python -c "import api; print(api.app.title)"

@@ -1,0 +1,40 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <application
+        android:allowBackup="true"
+        android:label="MG-AI"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/Theme.MGAI">
+        <activity android:name=".VoiceControlsActivity" android:exported="false" />
+        <activity android:name=".LocalWhisperCaptureActivity" android:exported="false">
+            <intent-filter>
+                <action android:name="com.mgai.app.LOCAL_WHISPER" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".SystemCenterActivity" android:exported="false" />
+        <activity android:name=".ModelManagementActivity" android:exported="false" />
+        <activity android:name=".TrainingActivity" android:exported="false" />
+        <activity android:name=".RobotSafetyActivity" android:exported="false" />
+        <activity android:name=".RobotWorldActivity" android:exported="false" />
+        <activity android:name=".MultimodalActivity" android:exported="false" />
+        <activity android:name=".LearningActivity" android:exported="false" />
+        <activity android:name=".ToolsActivity" android:exported="false" />
+        <activity android:name=".ReasoningActivity" android:exported="false" />
+        <activity android:name=".MemoryActivity" android:exported="false" />
+        <activity android:name=".ResearchActivity" android:exported="false" />
+        <activity android:name=".CoreHealthActivity" android:exported="false" />
+        <activity android:name=".CapabilitiesActivity" android:exported="false" />
+        <activity android:name=".MainActivity" android:exported="false" />
+        <activity android:name=".DashboardActivity" android:exported="false" />
+        <activity android:name=".PhoneNativeActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
