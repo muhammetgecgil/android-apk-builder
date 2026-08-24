@@ -80,6 +80,10 @@ public final class LocalDocumentStore {
         return save(c,name,text,"ocr-pdf");
     }
 
+    public static synchronized String importCameraOcr(Context c,String text,String name) throws Exception {
+        return save(c,name==null?"Kamera OCR":name,text==null?"":text.trim(),"ocr-camera");
+    }
+
     private static String save(Context c,String name,String text,String type) throws Exception {
         if(text==null||text.length()<10) throw new IllegalArgumentException("document_empty_or_too_short");
         if(text.length()>MAX_CHARS_PER_DOC)text=text.substring(0,MAX_CHARS_PER_DOC);
