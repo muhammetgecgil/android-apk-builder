@@ -12,7 +12,6 @@ public class DashboardActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(22), dp(28), dp(22), dp(22));
@@ -26,7 +25,7 @@ public class DashboardActivity extends Activity {
         root.addView(title);
 
         TextView sub = new TextView(this);
-        sub.setText("v0.7 • MG-Core + Research + Memory + Reasoning + Tools/Agents");
+        sub.setText("v0.8 • Core + Research + Memory + Reasoning + Tools/Agents + Controlled Learning");
         sub.setTextSize(14);
         sub.setTextColor(Color.rgb(90, 97, 110));
         sub.setPadding(0, dp(4), 0, dp(22));
@@ -38,45 +37,30 @@ public class DashboardActivity extends Activity {
         summary.setTextColor(Color.rgb(35, 40, 50));
         summary.setPadding(dp(14), dp(14), dp(14), dp(14));
         summary.setBackgroundColor(Color.WHITE);
-        root.addView(summary, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+        root.addView(summary, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        Button chat = button("MG-AI Sohbet");
-        chat.setOnClickListener(v -> startActivity(new Intent(this, MainActivity.class)));
-        root.addView(chat);
-
-        Button coreHealth = button("MG-Core Durum Testi");
-        coreHealth.setOnClickListener(v -> startActivity(new Intent(this, CoreHealthActivity.class)));
-        root.addView(coreHealth);
-
-        Button research = button("Internet Research Engine");
-        research.setOnClickListener(v -> startActivity(new Intent(this, ResearchActivity.class)));
-        root.addView(research);
-
-        Button memory = button("Hafıza & Bilgi");
-        memory.setOnClickListener(v -> startActivity(new Intent(this, MemoryActivity.class)));
-        root.addView(memory);
-
-        Button reasoning = button("Derin Muhakeme");
-        reasoning.setOnClickListener(v -> startActivity(new Intent(this, ReasoningActivity.class)));
-        root.addView(reasoning);
-
-        Button tools = button("Tools + Agents");
-        tools.setOnClickListener(v -> startActivity(new Intent(this, ToolsActivity.class)));
-        root.addView(tools);
-
-        Button capabilities = button("Yetenekler & Gereksinimler");
-        capabilities.setOnClickListener(v -> startActivity(new Intent(this, CapabilitiesActivity.class)));
-        root.addView(capabilities);
+        add(root, "MG-AI Sohbet", MainActivity.class);
+        add(root, "MG-Core Durum Testi", CoreHealthActivity.class);
+        add(root, "Internet Research Engine", ResearchActivity.class);
+        add(root, "Hafıza & Bilgi", MemoryActivity.class);
+        add(root, "Derin Muhakeme", ReasoningActivity.class);
+        add(root, "Tools + Agents", ToolsActivity.class);
+        add(root, "Öğrenme & Gelişim", LearningActivity.class);
+        add(root, "Yetenekler & Gereksinimler", CapabilitiesActivity.class);
 
         TextView rule = new TextView(this);
-        rule.setText("Temel kural: Bir özellik yalnızca kodlandı diye tamamlanmış sayılmaz. Doğrulama kaydı olmadan TESTED/ACTIVE durumuna geçemez. Robotik fiziksel eylemler LLM'den doğrudan aktüatöre gidemez.");
+        rule.setText("Temel kural: Doğrulama kaydı olmadan özellik TESTED/ACTIVE olamaz. Online weight update yoktur. Robotik fiziksel eylemler LLM'den doğrudan aktüatöre gidemez.");
         rule.setTextSize(13);
         rule.setTextColor(Color.rgb(95, 102, 116));
         rule.setPadding(0, dp(22), 0, 0);
         root.addView(rule);
-
         setContentView(root);
+    }
+
+    private void add(LinearLayout root, String text, Class<?> cls) {
+        Button b = button(text);
+        b.setOnClickListener(v -> startActivity(new Intent(this, cls)));
+        root.addView(b);
     }
 
     private Button button(String text) {
@@ -84,14 +68,10 @@ public class DashboardActivity extends Activity {
         b.setText(text);
         b.setAllCaps(false);
         b.setTextSize(16);
-        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(0, dp(16), 0, 0);
         b.setLayoutParams(lp);
         return b;
     }
-
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
-    }
+    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 }
