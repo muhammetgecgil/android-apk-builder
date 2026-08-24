@@ -6,6 +6,11 @@ on:
     paths:
       - "quake-watch/**"
       - ".github/workflows/build-quake-watch.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "quake-watch/**"
+      - ".github/workflows/build-quake-watch.yml"
   workflow_dispatch:
 
 jobs:
