@@ -31,10 +31,10 @@ jobs:
       - name: Stage APK
         run: |
           mkdir -p out
-          cp test-rig-anchor/app/build/outputs/apk/debug/app-debug.apk out/Test-Rig-Anchor-v1.0.apk
-          sha256sum out/Test-Rig-Anchor-v1.0.apk > out/SHA256SUMS.txt
+          cp test-rig-anchor/app/build/outputs/apk/debug/app-debug.apk out/Test-Rig-Anchor-v2.0.apk
+          sha256sum out/Test-Rig-Anchor-v2.0.apk > out/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: Test-Rig-Anchor-v1.0
+          name: Test-Rig-Anchor-v2.0
           path: out/*
           if-no-files-found: error
