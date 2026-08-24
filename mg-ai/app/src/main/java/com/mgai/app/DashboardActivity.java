@@ -13,9 +13,10 @@ public class DashboardActivity extends Activity {
         super.onCreate(savedInstanceState);
         LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(22),dp(28),dp(22),dp(22)); root.setBackgroundColor(Color.rgb(244,246,248));
         TextView title=new TextView(this); title.setText("MG-AI"); title.setTextSize(34); title.setTypeface(null,android.graphics.Typeface.BOLD); title.setTextColor(Color.rgb(20,24,32)); root.addView(title);
-        TextView sub=new TextView(this); sub.setText("v0.19 • Otomatik Model Kurulumu • Tam Phone-Native"); sub.setTextSize(14); sub.setTextColor(Color.rgb(90,97,110)); sub.setPadding(0,dp(4),0,dp(22)); root.addView(sub);
-        TextView summary=new TextView(this); summary.setText("İlk açılışta yerel model otomatik indirilir, doğrulanır ve entegre edilir.\n"+CapabilityRegistry.summary()); summary.setTextSize(16); summary.setTextColor(Color.rgb(35,40,50)); summary.setPadding(dp(14),dp(14),dp(14),dp(14)); summary.setBackgroundColor(Color.WHITE); root.addView(summary,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
+        TextView sub=new TextView(this); sub.setText("v0.33 • Phone-Native LLM + Whisper + TTS + Ses Kontrolleri"); sub.setTextSize(14); sub.setTextColor(Color.rgb(90,97,110)); sub.setPadding(0,dp(4),0,dp(22)); root.addView(sub);
+        TextView summary=new TextView(this); summary.setText("Yerel model otomatik indirilir, doğrulanır ve entegre edilir. Ses girişi whisper.cpp, cevap üretimi llama.cpp ve sesli çıktı cihaz TTS yolu ile çalışır.\n"+CapabilityRegistry.summary()); summary.setTextSize(16); summary.setTextColor(Color.rgb(35,40,50)); summary.setPadding(dp(14),dp(14),dp(14),dp(14)); summary.setBackgroundColor(Color.WHITE); root.addView(summary,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
         add(root,"PHONE-NATIVE OFFLINE AI",PhoneNativeActivity.class);
+        add(root,"Ses Kontrolleri & Sürekli Diyalog",VoiceControlsActivity.class);
         add(root,"Sistem Merkezi",SystemCenterActivity.class);
         add(root,"Eski Sunucu Sohbeti",MainActivity.class);
         add(root,"Model Yönetimi",ModelManagementActivity.class);
@@ -29,7 +30,7 @@ public class DashboardActivity extends Activity {
         add(root,"Robot Perception & World Model",RobotWorldActivity.class);
         add(root,"Robotics Safety Supervisor",RobotSafetyActivity.class);
         add(root,"Yetenekler & Gereksinimler",CapabilitiesActivity.class);
-        TextView rule=new TextView(this); rule.setText("Varsayılan model: Qwen2.5 1.5B Instruct Q4_K_M. İndirme sonrası SHA-256 doğrulanmadan model aktif edilmez. Temel sohbet için sunucu gerekmez."); rule.setTextSize(13); rule.setTextColor(Color.rgb(95,102,116)); rule.setPadding(0,dp(22),0,0); root.addView(rule);
+        TextView rule=new TextView(this); rule.setText("Varsayılan LLM: Qwen2.5 1.5B Instruct Q4_K_M. Whisper modeli ve LLM indirme sonrası doğrulanmadan aktif edilmez. Temel sohbet ve STT için sunucu gerekmez."); rule.setTextSize(13); rule.setTextColor(Color.rgb(95,102,116)); rule.setPadding(0,dp(22),0,0); root.addView(rule);
         setContentView(root);
 
         if(LocalModelManager.activeModel(this)==null){
