@@ -1,0 +1,27 @@
+name: Validate MG Research Engine
+
+on:
+  push:
+    branches:
+      - mg-ai-v0.1-bootstrap
+    paths:
+      - 'mg-research-server/**'
+      - '.github/workflows/mg-research-contract.yml'
+  pull_request:
+    paths:
+      - 'mg-research-server/**'
+      - '.github/workflows/mg-research-contract.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run contract tests
+        run: python mg-research-server/test_research_engine.py
