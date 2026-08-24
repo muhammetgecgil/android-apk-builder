@@ -1,11 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:theme="@style/AppTheme" android:label="Whiffletree Aero">
-        <activity android:name=".V34Activity" android:screenOrientation="portrait" android:exported="true">
+        <activity android:name=".V35Activity" android:screenOrientation="portrait" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <activity android:name=".V34Activity" android:screenOrientation="portrait" android:exported="false"/>
         <activity android:name=".V33Activity" android:screenOrientation="portrait" android:exported="false"/>
         <activity android:name=".V32Activity" android:screenOrientation="portrait" android:exported="false"/>
         <activity android:name=".V31Activity" android:screenOrientation="portrait" android:exported="false"/>
