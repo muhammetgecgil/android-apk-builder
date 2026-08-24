@@ -20,6 +20,7 @@ import java.util.Locale;
 
 public class PhoneNativeActivity extends Activity {
     private static final int PICK_GGUF=9101;
+    private static final int PICK_DOC=9102;
     private TextView status,output,history;
     private EditText prompt;
     private ProgressBar progress;
@@ -33,7 +34,7 @@ public class PhoneNativeActivity extends Activity {
         super.onCreate(b);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(dp(18),dp(24),dp(18),dp(18));root.setBackgroundColor(Color.rgb(244,246,248));
         TextView title=new TextView(this);title.setText("MG-AI");title.setTextSize(30);title.setTextColor(Color.rgb(20,24,32));root.addView(title);
-        TextView desc=new TextView(this);desc.setText("v0.23 • Offline sohbet + kısa ve uzun süreli yerel hafıza");desc.setTextSize(13);desc.setTextColor(Color.DKGRAY);root.addView(desc);
+        TextView desc=new TextView(this);desc.setText("v0.24 • Offline sohbet + uzun hafıza + yerel belge RAG");desc.setTextSize(13);desc.setTextColor(Color.DKGRAY);root.addView(desc);
         status=new TextView(this);status.setPadding(0,dp(14),0,dp(8));root.addView(status);
         progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);progress.setMax(100);progress.setVisibility(ProgressBar.GONE);root.addView(progress,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,dp(18)));
 
@@ -41,13 +42,17 @@ public class PhoneNativeActivity extends Activity {
         ScrollView hs=new ScrollView(this);hs.addView(history);LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,dp(220));hp.setMargins(0,dp(8),0,dp(8));root.addView(hs,hp);
         renderHistory();
 
-        prompt=new EditText(this);prompt.setHint("Bir şey sor...  Örn: Hatırla: projemin adı MG-AI");prompt.setMinLines(2);prompt.setPadding(dp(10),dp(12),dp(10),dp(12));root.addView(prompt);
+        prompt=new EditText(this);prompt.setHint("Bir şey sor...  Örn: Bu belgede test basıncı nedir?");prompt.setMinLines(2);prompt.setPadding(dp(10),dp(12),dp(10),dp(12));root.addView(prompt);
         askBtn=new Button(this);askBtn.setText("Gönder");askBtn.setAllCaps(false);askBtn.setOnClickListener(v->runLocal());root.addView(askBtn);
         output=new TextView(this);output.setTextSize(15);output.setTextColor(Color.rgb(30,34,42));output.setPadding(0,dp(12),0,dp(8));root.addView(output);
 
+        Button addDoc=new Button(this);addDoc.setText("Belge Ekle (TXT / MD / CSV / JSON)");addDoc.setAllCaps(false);addDoc.setOnClickListener(v->pickDocument());root.addView(addDoc);
+        Button showDocs=new Button(this);showDocs.setText("Yerel Belgeleri Göster");showDocs.setAllCaps(false);showDocs.setOnClickListener(v->output.setText(LocalDocumentStore.summary(this)));root.addView(showDocs);
+        Button clearDocs=new Button(this);clearDocs.setText("Yerel Belgeleri Temizle");clearDocs.setAllCaps(false);clearDocs.setOnClickListener(v->{LocalDocumentStore.clear(this);output.setText("Yerel belge bilgi tabanı temizlendi.");updateStatus();});root.addView(clearDocs);
+
         Button memory=new Button(this);memory.setText("Uzun Süreli Hafızayı Göster");memory.setAllCaps(false);memory.setOnClickListener(v->{String m=LocalLongTermMemory.allText(this);output.setText(m.isEmpty()?"Uzun süreli hafıza henüz boş.":m);});root.addView(memory);
         Button clearMemory=new Button(this);clearMemory.setText("Uzun Süreli Hafızayı Temizle");clearMemory.setAllCaps(false);clearMemory.setOnClickListener(v->{LocalLongTermMemory.clear(this);output.setText("Uzun süreli yerel hafıza temizlendi.");updateStatus();});root.addView(clearMemory);
-        Button clear=new Button(this);clear.setText("Sohbet Geçmişini Temizle");clear.setAllCaps(false);clear.setOnClickListener(v->{LocalChatStore.clear(this);renderHistory();output.setText("Kısa süreli sohbet geçmişi temizlendi. Uzun süreli hafıza korunuyor.");});root.addView(clear);
+        Button clear=new Button(this);clear.setText("Sohbet Geçmişini Temizle");clear.setAllCaps(false);clear.setOnClickListener(v->{LocalChatStore.clear(this);renderHistory();output.setText("Kısa süreli sohbet geçmişi temizlendi. Uzun süreli hafıza ve belgeler korunuyor.");});root.addView(clear);
         wifiOnly=new CheckBox(this);wifiOnly.setText("İlk model kurulumunu yalnız Wi-Fi ile yap");wifiOnly.setChecked(LocalModelManager.wifiOnly(this));wifiOnly.setOnCheckedChangeListener((b1,v)->LocalModelManager.setWifiOnly(this,v));root.addView(wifiOnly);
         downloadBtn=new Button(this);downloadBtn.setText("Modeli İndir / Devam Et");downloadBtn.setAllCaps(false);downloadBtn.setOnClickListener(v->autoInstallDefault());root.addView(downloadBtn);
         cancelBtn=new Button(this);cancelBtn.setText("İndirmeyi Durdur");cancelBtn.setAllCaps(false);cancelBtn.setEnabled(false);cancelBtn.setOnClickListener(v->{LocalModelManager.cancelDownload();output.setText("İndirme durduruluyor; yarım dosya korunacak.");});root.addView(cancelBtn);
@@ -72,12 +77,17 @@ public class PhoneNativeActivity extends Activity {
     }
 
     private void pickModel(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/octet-stream");startActivityForResult(i,PICK_GGUF);}
-    @Override protected void onActivityResult(int r,int c,Intent data){super.onActivityResult(r,c,data);if(r!=PICK_GGUF||c!=RESULT_OK||data==null||data.getData()==null)return;Uri uri=data.getData();String name=fileName(uri);new Thread(()->{try{File f=LocalModelManager.importGguf(this,uri,name);runOnUiThread(()->{output.setText("Model kuruldu: "+f.getName());updateStatus();loadModel();});}catch(Exception e){runOnUiThread(()->output.setText("Model import hatası: "+e.getMessage()));}}).start();}
+    private void pickDocument(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("text/*");i.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"text/plain","text/markdown","text/csv","application/json"});startActivityForResult(i,PICK_DOC);}
+    @Override protected void onActivityResult(int r,int c,Intent data){
+        super.onActivityResult(r,c,data);if(c!=RESULT_OK||data==null||data.getData()==null)return;Uri uri=data.getData();String name=fileName(uri);
+        if(r==PICK_GGUF){new Thread(()->{try{File f=LocalModelManager.importGguf(this,uri,name);runOnUiThread(()->{output.setText("Model kuruldu: "+f.getName());updateStatus();loadModel();});}catch(Exception e){runOnUiThread(()->output.setText("Model import hatası: "+e.getMessage()));}}).start();}
+        else if(r==PICK_DOC){new Thread(()->{try{String info=LocalDocumentStore.importText(this,uri,name);runOnUiThread(()->{output.setText("Belge yerel bilgi tabanına eklendi:\n"+info);updateStatus();});}catch(Exception e){runOnUiThread(()->output.setText("Belge import hatası: "+e.getMessage()));}}).start();}
+    }
     private void loadModel(){
         File f=LocalModelManager.activeModel(this);if(f==null){output.setText("Model hazırlanıyor. İlk kullanımda internet gerekir.");return;}
         if(!LocalInferenceBridge.nativeAvailable()){output.setText("Native llama.cpp runtime yüklenemedi.");updateStatus();return;}
         output.setText("MG-AI başlatılıyor…");askBtn.setEnabled(false);
-        new Thread(()->{try{if(engine!=0)LocalInferenceBridge.destroyEngine(engine);engine=LocalInferenceBridge.createEngine(f.getAbsolutePath(),4096,Math.max(2,Runtime.getRuntime().availableProcessors()-2));runOnUiThread(()->{progress.setVisibility(ProgressBar.GONE);askBtn.setEnabled(true);output.setText(engine!=0?"Hazır. İnternet olmadan soru sorabilirsin.":"Model yüklenemedi.");updateStatus();if(engine!=0&&!pendingPrompt.isEmpty()){String q=pendingPrompt;pendingPrompt="";prompt.setText(q);runLocal();}});}catch(Throwable t){runOnUiThread(()->{askBtn.setEnabled(true);output.setText("Native yükleme hatası: "+t.getMessage());});}}).start();
+        new Thread(()->{try{if(engine!=0)LocalInferenceBridge.destroyEngine(engine);engine=LocalInferenceBridge.createEngine(f.getAbsolutePath(),4096,Math.max(2,Runtime.getRuntime().availableProcessors()-2));runOnUiThread(()->{progress.setVisibility(ProgressBar.GONE);askBtn.setEnabled(true);output.setText(engine!=0?"Hazır. İnternet olmadan soru sorabilir ve yerel belgelerini sorgulayabilirsin.":"Model yüklenemedi.");updateStatus();if(engine!=0&&!pendingPrompt.isEmpty()){String q=pendingPrompt;pendingPrompt="";prompt.setText(q);runLocal();}});}catch(Throwable t){runOnUiThread(()->{askBtn.setEnabled(true);output.setText("Native yükleme hatası: "+t.getMessage());});}}).start();
     }
     private void runLocal(){
         String p=prompt.getText().toString().trim();if(p.isEmpty())return;
@@ -87,11 +97,12 @@ public class PhoneNativeActivity extends Activity {
         LocalChatStore.add(this,"user",p);renderHistory();prompt.setText("");askBtn.setEnabled(false);output.setText(remembered?"Hafızaya kaydedildi. Düşünüyor…":"Düşünüyor…");
         String ctx=LocalChatStore.transcript(this,6);
         String mem=LocalLongTermMemory.relevantContext(this,p,6);
-        String full="Sen MG-AI adlı yardımcı yapay zekasın. Türkçe sorulara Türkçe cevap ver. Kullanıcıya ait uzun süreli hafıza varsa yalnız ilgili olduğu ölçüde kullan.\n\nUZUN SÜRELİ HAFIZA:\n"+(mem.isEmpty()?"(ilgili kayıt yok)":mem)+"\nSON KONUŞMA:\n"+ctx+"\nMG-AI:";
+        String docs=LocalDocumentStore.retrieve(this,p,3);
+        String full="Sen MG-AI adlı yardımcı yapay zekasın. Türkçe sorulara Türkçe cevap ver. Kullanıcıya ait uzun süreli hafıza ve yerel belge parçaları varsa yalnız ilgili olduğu ölçüde kullan. Belgelerde olmayan bir bilgiyi belge varmış gibi uydurma.\n\nUZUN SÜRELİ HAFIZA:\n"+(mem.isEmpty()?"(ilgili kayıt yok)":mem)+"\n\nYEREL BELGE BAĞLAMI:\n"+(docs.isEmpty()?"(ilgili belge parçası yok)":docs)+"\n\nSON KONUŞMA:\n"+ctx+"\nMG-AI:";
         new Thread(()->{try{String ans=LocalInferenceBridge.generate(engine,full,512,0.7f);LocalChatStore.add(this,"assistant",ans);runOnUiThread(()->{askBtn.setEnabled(true);output.setText(ans);renderHistory();updateStatus();});}catch(Throwable t){runOnUiThread(()->{askBtn.setEnabled(true);output.setText("Inference hatası: "+t.getMessage());});}}).start();
     }
-    private String fileName(Uri u){String n="mg-ai.gguf";try(Cursor c=getContentResolver().query(u,null,null,null,null)){if(c!=null&&c.moveToFirst()){int ix=c.getColumnIndex(OpenableColumns.DISPLAY_NAME);if(ix>=0)n=c.getString(ix);}}catch(Exception ignored){}return n;}
-    private void updateStatus(){status.setText("Model: "+LocalModelManager.status(this)+"\nMotor: "+(LocalInferenceBridge.nativeAvailable()?"HAZIR":"HATA")+" • Offline: "+(LocalModelManager.activeModel(this)!=null?"EVET":"KURULUYOR")+" • Uzun hafıza: "+LocalLongTermMemory.count(this)+" kayıt");}
+    private String fileName(Uri u){String n="belge";try(Cursor c=getContentResolver().query(u,null,null,null,null)){if(c!=null&&c.moveToFirst()){int ix=c.getColumnIndex(OpenableColumns.DISPLAY_NAME);if(ix>=0)n=c.getString(ix);}}catch(Exception ignored){}return n;}
+    private void updateStatus(){status.setText("Model: "+LocalModelManager.status(this)+"\nMotor: "+(LocalInferenceBridge.nativeAvailable()?"HAZIR":"HATA")+" • Offline: "+(LocalModelManager.activeModel(this)!=null?"EVET":"KURULUYOR")+" • Uzun hafıza: "+LocalLongTermMemory.count(this)+" kayıt\nBelgeler: "+LocalDocumentStore.summary(this).replace('\n',' '));}
     @Override protected void onDestroy(){if(downloading)LocalModelManager.cancelDownload();if(engine!=0&&LocalInferenceBridge.nativeAvailable()){try{LocalInferenceBridge.destroyEngine(engine);}catch(Throwable ignored){}}super.onDestroy();}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
 }
