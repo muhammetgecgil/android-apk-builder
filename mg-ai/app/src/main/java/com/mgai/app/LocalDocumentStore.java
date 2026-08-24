@@ -5,6 +5,10 @@ import android.net.Uri;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
+import com.tom_roush.pdfbox.pdmodel.PDDocument;
+import com.tom_roush.pdfbox.text.PDFTextStripper;
+
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -21,20 +25,49 @@ public final class LocalDocumentStore {
     private static final int MAX_CHARS_PER_DOC=120000;
     private LocalDocumentStore(){}
 
+    public static synchronized String importDocument(Context c, Uri uri, String name, String mime) throws Exception {
+        String n=name==null?"belge":name;
+        boolean pdf=n.toLowerCase(Locale.ROOT).endsWith(".pdf") || "application/pdf".equalsIgnoreCase(mime);
+        return pdf?importPdf(c,uri,n):importText(c,uri,n);
+    }
+
     public static synchronized String importText(Context c, Uri uri, String name) throws Exception {
         InputStream in=c.getContentResolver().openInputStream(uri);
         if(in==null) throw new IllegalArgumentException("document_stream_unavailable");
         StringBuilder sb=new StringBuilder();
         try(BufferedReader br=new BufferedReader(new InputStreamReader(in, StandardCharsets.UTF_8))){
-            String line; while((line=br.readLine())!=null && sb.length()<MAX_CHARS_PER_DOC){
-                sb.append(line).append('\n');
-            }
+            String line; while((line=br.readLine())!=null && sb.length()<MAX_CHARS_PER_DOC){sb.append(line).append('\n');}
         }
-        String text=sb.toString().trim();
-        if(text.length()<10) throw new IllegalArgumentException("document_empty_or_too_short");
+        return save(c,name,sb.toString().trim(),"text");
+    }
+
+    public static synchronized String importPdf(Context c, Uri uri, String name) throws Exception {
+        PDFBoxResourceLoader.init(c.getApplicationContext());
+        InputStream in=c.getContentResolver().openInputStream(uri);
+        if(in==null) throw new IllegalArgumentException("pdf_stream_unavailable");
+        String text;
+        int pages;
+        try(InputStream src=in; PDDocument doc=PDDocument.load(src)){
+            pages=doc.getNumberOfPages();
+            PDFTextStripper stripper=new PDFTextStripper();
+            stripper.setSortByPosition(true);
+            text=stripper.getText(doc);
+        }
+        if(text==null)text="";
+        text=text.trim();
+        if(text.length()<20) throw new IllegalArgumentException("PDF içinde çıkarılabilir metin yok. Bu dosya taranmış/görüntü PDF olabilir; OCR gerekli.");
+        if(text.length()>MAX_CHARS_PER_DOC)text=text.substring(0,MAX_CHARS_PER_DOC);
+        save(c,name,text,"pdf");
+        return name+" • "+pages+" sayfa • "+text.length()+" karakter";
+    }
+
+    private static String save(Context c,String name,String text,String type) throws Exception {
+        if(text==null||text.length()<10) throw new IllegalArgumentException("document_empty_or_too_short");
+        if(text.length()>MAX_CHARS_PER_DOC)text=text.substring(0,MAX_CHARS_PER_DOC);
         JSONArray arr=load(c);
         JSONObject o=new JSONObject();
         o.put("name",name==null?"belge":name);
+        o.put("type",type);
         o.put("text",text);
         o.put("ts",System.currentTimeMillis());
         arr.put(o);
@@ -65,7 +98,7 @@ public final class LocalDocumentStore {
 
     public static synchronized String summary(Context c){
         JSONArray a=load(c); if(a.length()==0)return "Belge yok";StringBuilder sb=new StringBuilder();
-        for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o!=null)sb.append("• ").append(o.optString("name","belge")).append('\n');}
+        for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o!=null)sb.append("• ").append(o.optString("name","belge")).append(" [").append(o.optString("type","text")).append("]\n");}
         return sb.toString().trim();
     }
     public static synchronized void clear(Context c){c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).edit().remove(KEY).apply();}
