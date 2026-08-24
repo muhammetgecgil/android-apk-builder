@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS memory_chunks (
     chunk_index INTEGER NOT NULL,
     content TEXT NOT NULL,
     token_estimate INTEGER,
-    embedding VECTOR(384),
+    embedding VECTOR(1024),
     importance REAL NOT NULL DEFAULT 0.5,
     confidence REAL NOT NULL DEFAULT 0.5,
     memory_type TEXT NOT NULL DEFAULT 'semantic',
