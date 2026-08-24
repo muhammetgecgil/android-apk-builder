@@ -21,7 +21,7 @@ public class QuakeMonitorService extends Service {
 
     @Override public void onCreate(){
         super.onCreate(); createChannels();
-        startForeground(FG, buildNotification("Dünya sismik ve çevresel kaynakları izleniyor"));
+        startForeground(FG, buildNotification("Dünya + Türkiye tahmin denetimi izleniyor"));
         exec.scheduleWithFixedDelay(this::check,0,15,TimeUnit.MINUTES);
     }
 
@@ -43,6 +43,20 @@ public class QuakeMonitorService extends Service {
             if(fx!=null && fx.infrastructureIndex>=65 && (lastInfra<65 || fx.infrastructureIndex-lastInfra>=10)){
                 nm.notify(2101,buildAlert("Çevresel / sanayi etki uyarısı","NOAA Kp ve çevresel bağlamdan altyapı etki endeksi "+Math.round(fx.infrastructureIndex)+"/100. GNSS, HF, uydu, güç şebekesi ve uzun iletken hatlar için uzay hava durumunu kontrol edin."));
             }
+
+            // Turkey forecast ledger: save what the model said, then score it later against observed events.
+            try{
+                TurkeyAnalyzer.Report tr=TurkeyAnalyzer.fetchAndAnalyze();
+                PredictionAudit.verifyAgainstCatalog(this,tr.eventsJson);
+                PredictionAudit.recordTurkeyForecast(this,tr);
+                if(tr.maxScore>=65){
+                    nm.notify(2201,buildAlert("Türkiye risk bölgesi","Türkiye QIE modeli bir veya daha fazla bölgede yüksek göreli risk/anomali gösteriyor: "+Math.round(tr.maxScore)+"/100. Gerekçeler ve tahmin günlüğü raporda saklanıyor."));
+                }
+                if(PredictionAudit.hasNewHit(this)){
+                    nm.notify(2202,buildAlert("Tahmin denetimi: isabet kaydı","Daha önce risk olarak kaydedilen bir bölgede tanımlı doğrulama kriterini karşılayan deprem gözlendi. Ayrıntılı raporda hangi değerlerle hesaplandığı görülebilir."));
+                }
+            }catch(Exception ignored){}
+
             lastAlertScore=r.maxScore; if(fx!=null)lastInfra=fx.infrastructureIndex;
         }catch(Exception ignored){}
     }
@@ -50,9 +64,9 @@ public class QuakeMonitorService extends Service {
     private void createChannels(){
         if(Build.VERSION.SDK_INT>=26){
             NotificationChannel mon=new NotificationChannel(CH_MON,"Quake Watch izleme",NotificationManager.IMPORTANCE_LOW);
-            mon.setDescription("Arka planda dünya deprem kataloğu izleme durumu");
+            mon.setDescription("Arka planda dünya ve Türkiye tahmin denetimi");
             NotificationChannel alert=new NotificationChannel(CH_ALERT,"Quake Watch kritik uyarılar",NotificationManager.IMPORTANCE_HIGH);
-            alert.setDescription("Yüksek sismik anomali ve çevresel/altyapı etkisi uyarıları"); alert.enableVibration(true);
+            alert.setDescription("Sismik anomali, risk bölgesi ve tahmin doğrulama uyarıları"); alert.enableVibration(true);
             NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE); nm.createNotificationChannel(mon); nm.createNotificationChannel(alert);
         }
     }
