@@ -1,23 +1,5 @@
 package com.muhammetgecgil.turkradyo;
-
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.os.Build;
-
-public class AlarmReceiver extends BroadcastReceiver {
-    @Override public void onReceive(Context context, Intent intent) {
-        if (intent.getBooleanExtra("sleep", false)) {
-            context.startService(new Intent(context, RadioService.class).setAction(RadioService.ACTION_STOP));
-            return;
-        }
-        String url = intent.getStringExtra("url");
-        String name = intent.getStringExtra("name");
-        if (url == null || url.isEmpty()) return;
-        Intent service = new Intent(context, RadioService.class)
-                .setAction(RadioService.ACTION_PLAY)
-                .putExtra("url", url)
-                .putExtra("name", name);
-        if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(service); else context.startService(service);
-    }
+import android.content.*;import android.os.Build;import org.json.*;
+public class AlarmReceiver extends BroadcastReceiver{
+ @Override public void onReceive(Context c,Intent in){if(in.getBooleanExtra("sleep",false)){c.startService(new Intent(c,RadioService.class).setAction(RadioService.ACTION_STOP));return;}String u=in.getStringExtra("url"),n=in.getStringExtra("name");if(u==null||u.isEmpty())return;SharedPreferences p=c.getSharedPreferences("radio",Context.MODE_PRIVATE);try{JSONArray chain=new JSONArray();JSONObject first=new JSONObject();first.put("name",n==null?"Türk Radyo":n);first.put("url",u);chain.put(first);JSONArray q=new JSONArray(p.getString("queue","[]"));int idx=p.getInt("queueIndex",0);for(int k=1;k<=3&&q.length()>0;k++){JSONObject x=q.optJSONObject((idx+k)%q.length());if(x!=null&&!x.optString("url").isEmpty())chain.put(x);}p.edit().putString("alarmFallbackChain",chain.toString()).putInt("alarmFallbackIndex",0).apply();}catch(Exception ignored){}Intent s=new Intent(c,RadioService.class).setAction(RadioService.ACTION_PLAY).putExtra("url",u).putExtra("name",n).putExtra("alarmMode",true);if(Build.VERSION.SDK_INT>=26)c.startForegroundService(s);else c.startService(s);}
 }
