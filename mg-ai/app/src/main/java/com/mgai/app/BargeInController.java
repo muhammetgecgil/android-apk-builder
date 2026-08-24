@@ -14,6 +14,11 @@ public final class BargeInController {
     private static AcousticEchoCanceler aec;
     private static NoiseSuppressor ns;
     private static Thread worker;
+    private static volatile double lastBaseline=0;
+    private static volatile double lastRms=0;
+    private static volatile double lastThreshold=0;
+    private static volatile int triggerCount=0;
+    private static volatile int rejectedSpikes=0;
 
     private BargeInController(){}
 
@@ -38,21 +43,50 @@ public final class BargeInController {
     private static void monitor(int bufferSize,Runnable onUserVoice){
         short[] buf=new short[Math.max(512,bufferSize/2)];
         double baseline=0;
-        int calibration=0;
+        int calibrationFrames=0;
         int hotFrames=0;
+        int coolFrames=0;
         long started=System.currentTimeMillis();
         try{
             while(running&&record!=null){
                 int n=record.read(buf,0,buf.length);
                 if(n<=0)continue;
                 double sum=0;
-                for(int i=0;i<n;i++){double v=buf[i];sum+=v*v;}
+                int zeroCross=0;
+                short prev=0;
+                for(int i=0;i<n;i++){
+                    short s=buf[i];
+                    double v=s;sum+=v*v;
+                    if(i>0&&((s>=0&&prev<0)||(s<0&&prev>=0)))zeroCross++;
+                    prev=s;
+                }
                 double rms=Math.sqrt(sum/Math.max(1,n));
-                if(calibration<12){baseline=(baseline*calibration+rms)/(calibration+1);calibration++;continue;}
-                baseline=baseline*0.985+rms*0.015;
-                double threshold=Math.max(1100.0,baseline*2.35);
-                if(rms>threshold)hotFrames++; else hotFrames=Math.max(0,hotFrames-1);
-                if(System.currentTimeMillis()-started>300&&hotFrames>=3){
+                double zcr=zeroCross/(double)Math.max(1,n);
+                lastRms=rms;
+
+                if(calibrationFrames<20){
+                    baseline=(baseline*calibrationFrames+rms)/(calibrationFrames+1);
+                    calibrationFrames++;
+                    lastBaseline=baseline;
+                    continue;
+                }
+
+                double speechLike=(zcr>0.015&&zcr<0.28)?1.0:0.0;
+                double adaptAlpha=(rms<baseline*1.35)?0.025:0.004;
+                baseline=baseline*(1.0-adaptAlpha)+rms*adaptAlpha;
+                baseline=Math.max(120.0,Math.min(12000.0,baseline));
+                double threshold=Math.max(950.0,baseline*2.05+180.0);
+                lastBaseline=baseline;
+                lastThreshold=threshold;
+
+                boolean hot=rms>threshold&&speechLike>0.5;
+                if(hot){hotFrames++;coolFrames=0;}
+                else {coolFrames++;if(coolFrames>=2)hotFrames=Math.max(0,hotFrames-1);}
+
+                if(rms>threshold*2.8&&hotFrames<2)rejectedSpikes++;
+
+                if(System.currentTimeMillis()-started>450&&hotFrames>=4){
+                    triggerCount++;
                     running=false;
                     try{onUserVoice.run();}catch(Throwable ignored){}
                     break;
@@ -75,4 +109,7 @@ public final class BargeInController {
     }
 
     public static boolean isRunning(){return running;}
+    public static boolean aecActive(){try{return aec!=null&&aec.getEnabled();}catch(Throwable t){return false;}}
+    public static boolean noiseSuppressorActive(){try{return ns!=null&&ns.getEnabled();}catch(Throwable t){return false;}}
+    public static String diagnostics(){return "baseline="+Math.round(lastBaseline)+" rms="+Math.round(lastRms)+" threshold="+Math.round(lastThreshold)+" triggers="+triggerCount+" rejectedSpikes="+rejectedSpikes+" aec="+aecActive()+" ns="+noiseSuppressorActive();}
 }
