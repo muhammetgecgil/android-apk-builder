@@ -7,6 +7,7 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.MGAI">
+        <activity android:name=".LearningActivity" android:exported="false" />
         <activity android:name=".ToolsActivity" android:exported="false" />
         <activity android:name=".ReasoningActivity" android:exported="false" />
         <activity android:name=".MemoryActivity" android:exported="false" />
