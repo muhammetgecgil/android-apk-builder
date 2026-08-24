@@ -24,6 +24,7 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.nio.file.Files;
+import java.util.Arrays;
 
 public class MultimodalActivity extends Activity implements SensorEventListener {
     private static final int REQ_CAMERA = 4101;
@@ -110,7 +111,7 @@ public class MultimodalActivity extends Activity implements SensorEventListener 
             MultimodalClient.postStructuredEvent(b,"sensor","android-sensor-fusion",p,0.9,100,"device-runtime",ts,callback());
         }catch(Exception e){ out.setText("Sensör gönderim hatası: "+e.getMessage()); }
     }
-    private JSONArray arr(float[] v){ return new JSONArray().put(v[0]).put(v[1]).put(v[2]); }
+    private JSONArray arr(float[] v){ return new JSONArray(Arrays.asList(v[0],v[1],v[2])); }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
