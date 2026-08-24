@@ -8,6 +8,7 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.MGAI">
+        <activity android:name=".ModelManagementActivity" android:exported="false" />
         <activity android:name=".TrainingActivity" android:exported="false" />
         <activity android:name=".RobotSafetyActivity" android:exported="false" />
         <activity android:name=".RobotWorldActivity" android:exported="false" />
