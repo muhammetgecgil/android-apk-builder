@@ -21,9 +21,18 @@ final class MultimodalClient {
             JSONObject payload = new JSONObject()
                     .put("mime_type", mimeType).put("encoding", "base64").put("data", base64)
                     .put("captured_at_ms", capturedAtMs);
+            postStructuredEvent(baseEndpoint, modality, source, payload, 1.0, 0, "device-capture", capturedAtMs, cb);
+        } catch (Exception e) { cb.onError(e.getClass().getSimpleName()+": "+e.getMessage()); }
+    }
+
+    static void postStructuredEvent(String baseEndpoint, String modality, String source, JSONObject payload,
+                                    double confidence, int freshnessMs, String calibrationState,
+                                    long capturedAtMs, Callback cb) {
+        try {
             JSONObject body = new JSONObject()
                     .put("modality", modality).put("source", source).put("payload", payload)
-                    .put("confidence", 1.0).put("freshness_ms", 0).put("calibration_state", "device-capture")
+                    .put("confidence", confidence).put("freshness_ms", freshnessMs)
+                    .put("calibration_state", calibrationState)
                     .put("provenance", provenance(source, capturedAtMs));
             request(baseEndpoint, "/v1/perception/event", "POST", body, cb);
         } catch (Exception e) { cb.onError(e.getClass().getSimpleName()+": "+e.getMessage()); }
@@ -33,11 +42,8 @@ final class MultimodalClient {
                         String base64, long capturedAtMs, String instruction, boolean ocr, Callback cb) {
         try {
             JSONObject body = new JSONObject()
-                    .put("modality", modality)
-                    .put("mime_type", mimeType)
-                    .put("data_base64", base64)
-                    .put("instruction", instruction == null ? "" : instruction)
-                    .put("ocr", ocr)
+                    .put("modality", modality).put("mime_type", mimeType).put("data_base64", base64)
+                    .put("instruction", instruction == null ? "" : instruction).put("ocr", ocr)
                     .put("provenance", provenance(source, capturedAtMs));
             request(baseEndpoint, "/v1/perception/analyze", "POST", body, cb);
         } catch (Exception e) { cb.onError(e.getClass().getSimpleName()+": "+e.getMessage()); }
