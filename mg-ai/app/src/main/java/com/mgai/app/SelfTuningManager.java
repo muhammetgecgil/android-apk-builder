@@ -3,6 +3,9 @@ package com.mgai.app;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Locale;
 
 public final class SelfTuningManager {
@@ -21,6 +24,7 @@ public final class SelfTuningManager {
     private static final String PREF="mg_ai_self_tuning";
     private static final int MIN_SAMPLES=6;
     private static final int MAX_SAMPLES=40;
+    private static final int MAX_TRENDS=20;
     private SelfTuningManager(){}
 
     private static SharedPreferences p(Context c){return c.getApplicationContext().getSharedPreferences(PREF,Context.MODE_PRIVATE);}
@@ -60,7 +64,38 @@ public final class SelfTuningManager {
 
     public static synchronized void saveBenchmarkWinner(Context c,int contextSize,int threads,int maxTokens,double score,String report){
         if(c==null)return;
-        p(c).edit().putInt("best_ctx",contextSize).putInt("best_threads",threads).putInt("best_max",maxTokens).putLong("best_score",Double.doubleToRawLongBits(score)).putInt("best_samples",1).putString("best_source","aktif benchmark").putString("benchmark_report",report==null?"":report).putLong("benchmark_at",System.currentTimeMillis()).apply();
+        long now=System.currentTimeMillis();
+        SharedPreferences sp=p(c);
+        sp.edit().putInt("best_ctx",contextSize).putInt("best_threads",threads).putInt("best_max",maxTokens).putLong("best_score",Double.doubleToRawLongBits(score)).putInt("best_samples",1).putString("best_source","aktif benchmark").putString("benchmark_report",report==null?"":report).putLong("benchmark_at",now).apply();
+        appendTrend(c,now,contextSize,threads,score,report);
+    }
+
+    private static void appendTrend(Context c,long at,int ctx,int threads,double score,String report){
+        SharedPreferences sp=p(c);
+        int count=Math.min(MAX_TRENDS,sp.getInt("trend_count",0));
+        for(int i=count;i>=1;i--){
+            String prev=sp.getString("trend_"+(i-1),"");
+            if(!prev.isEmpty() && i<MAX_TRENDS)sp.edit().putString("trend_"+i,prev).apply();
+        }
+        String model="model";
+        try{File f=LocalModelManager.activeModel(c);if(f!=null)model=f.getName();}catch(Throwable ignored){}
+        double tps=parseWinnerMetric(report,"tok/sn med/p95 ",'/');
+        double ttft=parseWinnerMetric(report,"TTFT med/p95 ",'/');
+        double total=parseWinnerMetric(report,"toplam med/p95 ",'/');
+        double temp=parseWinnerMetric(report,"ΔT med ",'°');
+        String entry=at+"\t"+clean(model)+"\t"+ctx+"\t"+threads+"\t"+String.format(Locale.US,"%.3f",score)+"\t"+String.format(Locale.US,"%.3f",tps)+"\t"+String.format(Locale.US,"%.0f",ttft)+"\t"+String.format(Locale.US,"%.0f",total)+"\t"+String.format(Locale.US,"%.2f",temp);
+        sp.edit().putString("trend_0",entry).putInt("trend_count",Math.min(MAX_TRENDS,count+1)).apply();
+    }
+
+    private static String clean(String s){return s==null?"":s.replace('\t',' ').replace('\n',' ');}
+
+    private static double parseWinnerMetric(String report,String key,char endChar){
+        if(report==null)return 0;
+        int k=report.lastIndexOf("KAZANAN:");
+        String src=k>=0?report.substring(0,k):report;
+        int i=src.lastIndexOf(key);if(i<0)return 0;i+=key.length();
+        int e=src.indexOf(endChar,i);if(e<0)e=src.indexOf(' ',i);if(e<0)e=src.length();
+        try{return Double.parseDouble(src.substring(i,e).trim());}catch(Exception ignored){return 0;}
     }
 
     public static LearnedProfile learned(Context c){
@@ -74,6 +109,35 @@ public final class SelfTuningManager {
     }
 
     public static String benchmarkReport(Context c){return c==null?"":p(c).getString("benchmark_report","");}
+
+    public static String trendSummary(Context c){
+        if(c==null)return "Benchmark geçmişi yok.";
+        SharedPreferences sp=p(c);int n=sp.getInt("trend_count",0);if(n<=0)return "Benchmark geçmişi yok.";
+        StringBuilder sb=new StringBuilder("TARİH | MODEL | PROFİL | SKOR | TOK/S | TTFT | TOPLAM | ΔT");
+        SimpleDateFormat df=new SimpleDateFormat("dd.MM HH:mm",Locale.getDefault());
+        for(int i=0;i<n;i++){
+            String raw=sp.getString("trend_"+i,"");String[] a=raw.split("\\t");if(a.length<9)continue;
+            try{sb.append("\n").append(df.format(new Date(Long.parseLong(a[0])))).append(" | ").append(a[1]).append(" | ").append(a[2]).append("/").append(a[3]).append(" | ").append(a[4]).append(" | ").append(a[5]).append(" | ").append(a[6]).append(" ms | ").append(a[7]).append(" ms | ").append(a[8]).append("°C");}catch(Exception ignored){}
+        }
+        return sb.toString();
+    }
+
+    public static String trendInsight(Context c){
+        if(c==null)return "Trend verisi yok.";
+        SharedPreferences sp=p(c);int n=sp.getInt("trend_count",0);if(n<2)return "Trend yorumu için en az 2 benchmark gerekir.";
+        String[] newest=sp.getString("trend_0","").split("\\t");
+        String[] oldest=sp.getString("trend_"+(n-1),"").split("\\t");
+        if(newest.length<9||oldest.length<9)return "Trend verisi okunamadı.";
+        try{
+            double tpsN=Double.parseDouble(newest[5]),tpsO=Double.parseDouble(oldest[5]);
+            double ttftN=Double.parseDouble(newest[6]),ttftO=Double.parseDouble(oldest[6]);
+            double tpsPct=tpsO==0?0:(tpsN-tpsO)*100.0/tpsO;
+            double ttftPct=ttftO==0?0:(ttftN-ttftO)*100.0/ttftO;
+            String speed=tpsPct>5?"hızlandı":tpsPct<-5?"yavaşladı":"benzer hızda";
+            String latency=ttftPct>8?"ilk token gecikmesi arttı":ttftPct<-8?"ilk token gecikmesi azaldı":"TTFT benzer";
+            return String.format(Locale.US,"İlk → son benchmark: token hızı %+.1f%% (%s), TTFT %+.1f%% (%s).",tpsPct,speed,ttftPct,latency);
+        }catch(Exception e){return "Trend yorumu üretilemedi.";}
+    }
 
     public static String profileTable(Context c){
         if(c==null)return "Veri yok";
