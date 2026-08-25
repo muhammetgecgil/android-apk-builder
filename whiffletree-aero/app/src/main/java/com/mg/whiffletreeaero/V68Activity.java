@@ -40,16 +40,8 @@ public class V68Activity extends V67Activity {
   double av(int i){try{return Math.max(1,Double.parseDouble(actKnown[i].getText().toString().trim()));}catch(Exception e){return 1;}}
   void updateActVisibility(){int n=Math.max(1,Math.min(12,(int)Math.round(pv(pActs))));for(int i=0;i<12;i++)actuatorForcePanel.getChildAt(i).setVisibility(i<n?View.VISIBLE:View.GONE);}
 
-  @Override void runPrimary(){
-    updateActVisibility();
-    super.runPrimary();
-    updateFocusedResults();
-  }
-
-  @Override void calculateAndShow(){
-    super.calculateAndShow();
-    if(focusPanel!=null)updateFocusedResults();
-  }
+  @Override void runPrimary(){updateActVisibility();super.runPrimary();updateFocusedResults();}
+  @Override void calculateAndShow(){super.calculateAndShow();if(focusPanel!=null)updateFocusedResults();}
 
   void updateFocusedResults(){
     updateActVisibility();
@@ -75,13 +67,18 @@ public class V68Activity extends V67Activity {
   class PosterView extends View{
     Paint p=new Paint(Paint.ANTI_ALIAS_FLAG),t=new Paint(Paint.ANTI_ALIAS_FLAG);
     PosterView(){super(V68Activity.this);setBackgroundColor(Color.rgb(1,10,17));t.setTypeface(Typeface.create(Typeface.DEFAULT,Typeface.BOLD));}
-    void txt(Canvas c,String s,float x,float y,int col,float size){t.setColor(col);t.setTextSize(dp(size));c.drawText(s,x,y,t);}
-    void line(Canvas c,float x1,float y1,float x2,float y2,int col,float w){p.setColor(col);p.setStrokeWidth(dp(w));c.drawLine(x1,y1,x2,y2,p);}
-    @Override protected void onDraw(Canvas c){super.onDraw(c);int W=getWidth();txt(c,"EFT + WHIFFLETREE — CALCULATED TEST RIG VIEW",dp(12),dp(28),Color.WHITE,13);if(!solvedValid){txt(c,"HESAPLA VE 2D / 3D GÖSTER",dp(12),dp(62),Color.rgb(180,205,220),9);return;}
-      int n=solved.size(),na=Math.max(1,qi(qActs,1,12)),nl=Math.max(1,qi(qLayers,1,4));double len=Math.max(1,qd(qLength));float left=dp(26),right=W-dp(26),tankY=dp(145);
+    float du(float v){return v*getResources().getDisplayMetrics().density;}
+    void txt(Canvas c,String s,float x,float y,int col,float size){t.setColor(col);t.setTextSize(du(size));c.drawText(s,x,y,t);}
+    void line(Canvas c,float x1,float y1,float x2,float y2,int col,float w){p.setColor(col);p.setStrokeWidth(du(w));c.drawLine(x1,y1,x2,y2,p);}
+    @Override protected void onDraw(Canvas c){
+      super.onDraw(c);int W=getWidth();txt(c,"EFT + WHIFFLETREE — CALCULATED TEST RIG VIEW",dp(12),dp(28),Color.WHITE,13);
+      if(!solvedValid){txt(c,"HESAPLA VE 2D / 3D GÖSTER",dp(12),dp(62),Color.rgb(180,205,220),9);return;}
+      int na=Math.max(1,qi(qActs,1,12)),nl=Math.max(1,qi(qLayers,1,4));double len=Math.max(1,qd(qLength));float left=dp(26),right=W-dp(26),tankY=dp(145);
       p.setColor(Color.rgb(82,91,100));c.drawRoundRect(new RectF(left,tankY-dp(42),right,tankY+dp(42)),dp(40),dp(40),p);txt(c,"EFT",left+dp(8),tankY+dp(4),Color.WHITE,7);
       double maxR=1;for(SNode s:solved)maxR=Math.max(maxR,s.r);
-      for(SNode s:solved){float x=(float)(left+(s.x+len/2)/len*(right-left));line(c,x,tankY-dp(43),x,tankY+dp(43),Color.rgb(120,130,140),1);float al=(float)(dp(52)*s.r/maxR);int col=Math.abs(s.fz)>=Math.max(Math.abs(s.fx),Math.abs(s.fy))?Color.rgb(80,150,240):(Math.abs(s.fy)>=Math.abs(s.fx)?Color.rgb(80,210,120):Color.rgb(230,80,80));line(c,x,tankY-dp(48),x,tankY-dp(48)-Math.signum(s.fz==0?s.r:s.fz)*al,col,3);txt(c,"S"+(s.section+1),x-dp(7),tankY-dp(103),Color.WHITE,5.5f);txt(c,String.format(Locale.US,"R %.0fN",s.r),x-dp(15),tankY-dp(86),Color.rgb(210,225,235),5.2f);}
+      for(SNode s:solved){
+        float x=(float)(left+(s.x+len/2)/len*(right-left));line(c,x,tankY-dp(43),x,tankY+dp(43),Color.rgb(120,130,140),1);float al=(float)(dp(52)*s.r/maxR);int col=Math.abs(s.fz)>=Math.max(Math.abs(s.fx),Math.abs(s.fy))?Color.rgb(80,150,240):(Math.abs(s.fy)>=Math.abs(s.fx)?Color.rgb(80,210,120):Color.rgb(230,80,80));float endY=(float)(tankY-dp(48)-Math.signum(s.fz==0?s.r:s.fz)*al);line(c,x,tankY-dp(48),x,endY,col,3);txt(c,"S"+(s.section+1),x-dp(7),tankY-dp(103),Color.WHITE,5.5f);txt(c,String.format(Locale.US,"R %.0fN",s.r),x-dp(15),tankY-dp(86),Color.rgb(210,225,235),5.2f);
+      }
 
       ArrayList<float[]> current=new ArrayList<>();for(SNode s:solved){float x=(float)(left+(s.x+len/2)/len*(right-left));current.add(new float[]{x,tankY+dp(52),(float)s.fx,(float)s.fy,(float)s.fz});}
       float y=dp(310);
