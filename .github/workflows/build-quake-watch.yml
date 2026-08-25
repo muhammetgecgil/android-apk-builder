@@ -46,7 +46,7 @@ jobs:
         run: |
           mkdir -p build-status
           {
-            echo "Quake Watch Stage 7 build diagnostics"
+            echo "Quake Watch Stage 8 build diagnostics"
             echo "Commit: $GITHUB_SHA"
             echo "UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo
@@ -61,11 +61,11 @@ jobs:
         if: success()
         run: |
           mkdir -p out
-          cp quake-watch/app/build/outputs/apk/debug/app-debug.apk out/Quake-Watch-v2.9.0-Stage7.apk
-          sha256sum out/Quake-Watch-v2.9.0-Stage7.apk > out/SHA256SUMS.txt
+          cp quake-watch/app/build/outputs/apk/debug/app-debug.apk out/Quake-Watch-v3.0.0-Stage8.apk
+          sha256sum out/Quake-Watch-v3.0.0-Stage8.apk > out/SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         if: success()
         with:
-          name: Quake-Watch-v2.9.0-Stage7
+          name: Quake-Watch-v3.0.0-Stage8
           path: out/*
           if-no-files-found: error
