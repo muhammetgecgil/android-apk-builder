@@ -53,7 +53,12 @@ jobs:
 
       - name: Restore stable MG-AI development update key
         run: |
-          base64 -d mg-ai/signing/mg-ai-update.jks.b64 > mg-ai/app/mg-ai-update.jks
+          openssl pkcs12 -export \
+            -inkey mg-ai/signing/mg-ai-update-key.pem \
+            -in mg-ai/signing/mg-ai-update-cert.pem \
+            -name mgai \
+            -passout pass:MGAI_Update_2026 \
+            -out mg-ai/app/mg-ai-update.jks
           keytool -list -keystore mg-ai/app/mg-ai-update.jks -storepass MGAI_Update_2026 -alias mgai >/dev/null
 
       - name: Set up Gradle
