@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v7.3.0 full XYZ load verification + shear/moment proof
+CI trigger for Whiffletree Aero v7.4.0 real physical equipment + material selector
 triggered: 2026-08-25
