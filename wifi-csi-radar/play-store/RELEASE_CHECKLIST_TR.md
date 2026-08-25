@@ -1,0 +1,21 @@
+# Play Store yayın kontrol listesi — v5
+
+- [x] compileSdk 36 / targetSdk 36
+- [x] minSdk 28
+- [x] Android App Bundle üretimi
+- [x] R8 küçültme / kaynak küçültme
+- [x] Runtime Wi‑Fi izin akışı
+- [x] Arka plan konum izni yok
+- [x] Reklam/analitik SDK yok
+- [x] ESP32 ağ hedefi özel IP ile sınırlandırılmış
+- [x] Bilimsel iddia sınırları uygulama içinde görünür
+- [x] Gizlilik politikası + Veri Güvenliği taslağı
+- [x] GitHub Actions derleme kapısı
+- [x] Release Android Lint: 0 hata
+- [ ] Upload key'i GitHub Actions Secrets'a ekle
+- [ ] 512×512 mağaza ikonu
+- [ ] 1024×500 özellik grafiği
+- [ ] En az 2 telefon ekran görüntüsü
+- [ ] Fiziksel cihaz kurulum/çökme testi
+- [ ] Play Console kapalı test
+- [ ] Pre-launch report incelemesi
