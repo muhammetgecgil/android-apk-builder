@@ -6,6 +6,8 @@ import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
 import android.view.MotionEvent;
 
+import com.mg.fixturecockpitsim.visual.ProceduralFighterMesh;
+
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
@@ -14,8 +16,9 @@ import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
 /**
- * Temporary v19 fallback renderer. The production aircraft will be loaded from
- * assets/aircraft/fighter_v19.glb through the Filament visual pipeline.
+ * v20 transition renderer. The production aircraft will ultimately come from
+ * assets/aircraft/fighter_v19.glb, but this volumetric mesh replaces the old
+ * flat silhouette so device testing already reflects 3D form and lighting.
  */
 public final class Jet3DView extends GLSurfaceView {
     private final JetRenderer renderer;
@@ -50,7 +53,7 @@ public final class Jet3DView extends GLSurfaceView {
         private volatile boolean live;
         private float roll, pitch, yaw;
         private int cameraMode;
-        private int program, aPos, uMvp, uColor;
+        private int program, aPos, aNormal, uMvp, uModel, uColor, uLightDir;
         private FloatBuffer vertices;
         private int vertexCount;
         private long lastNs;
@@ -63,20 +66,25 @@ public final class Jet3DView extends GLSurfaceView {
         void nextCamera() { cameraMode = (cameraMode + 1) % 4; }
 
         @Override public void onSurfaceCreated(GL10 gl, EGLConfig config) {
-            GLES20.glClearColor(0.025f, 0.065f, 0.11f, 1f);
+            GLES20.glClearColor(0.018f, 0.045f, 0.075f, 1f);
             GLES20.glEnable(GLES20.GL_DEPTH_TEST);
+            GLES20.glEnable(GLES20.GL_CULL_FACE);
+            GLES20.glCullFace(GLES20.GL_BACK);
             program = buildProgram(VS, FS);
             aPos = GLES20.glGetAttribLocation(program, "aPos");
+            aNormal = GLES20.glGetAttribLocation(program, "aNormal");
             uMvp = GLES20.glGetUniformLocation(program, "uMvp");
+            uModel = GLES20.glGetUniformLocation(program, "uModel");
             uColor = GLES20.glGetUniformLocation(program, "uColor");
-            buildFallbackAircraft();
+            uLightDir = GLES20.glGetUniformLocation(program, "uLightDir");
+            buildTransitionAircraft();
             lastNs = System.nanoTime();
         }
 
         @Override public void onSurfaceChanged(GL10 gl, int width, int height) {
             GLES20.glViewport(0, 0, width, height);
             float aspect = Math.max(0.1f, (float) width / Math.max(1, height));
-            Matrix.perspectiveM(projection, 0, 36f, aspect, 0.1f, 120f);
+            Matrix.perspectiveM(projection, 0, 34f, aspect, 0.1f, 150f);
         }
 
         @Override public void onDrawFrame(GL10 gl) {
@@ -99,39 +107,37 @@ public final class Jet3DView extends GLSurfaceView {
 
             GLES20.glUseProgram(program);
             GLES20.glUniformMatrix4fv(uMvp,1,false,mvp,0);
+            GLES20.glUniformMatrix4fv(uModel,1,false,model,0);
             float boost = live ? throttle : 0f;
-            GLES20.glUniform4f(uColor,0.28f+0.08f*boost,0.31f+0.08f*boost,0.34f+0.08f*boost,1f);
+            GLES20.glUniform4f(uColor,0.31f+0.045f*boost,0.34f+0.045f*boost,0.37f+0.05f*boost,1f);
+            GLES20.glUniform3f(uLightDir,-0.35f,0.82f,-0.45f);
+
+            vertices.position(0);
             GLES20.glEnableVertexAttribArray(aPos);
-            GLES20.glVertexAttribPointer(aPos,3,GLES20.GL_FLOAT,false,0,vertices);
+            GLES20.glVertexAttribPointer(aPos,3,GLES20.GL_FLOAT,false,24,vertices);
+            vertices.position(3);
+            GLES20.glEnableVertexAttribArray(aNormal);
+            GLES20.glVertexAttribPointer(aNormal,3,GLES20.GL_FLOAT,false,24,vertices);
             GLES20.glDrawArrays(GLES20.GL_TRIANGLES,0,vertexCount);
             GLES20.glDisableVertexAttribArray(aPos);
+            GLES20.glDisableVertexAttribArray(aNormal);
         }
 
         private void setCamera() {
             switch (cameraMode) {
-                case 1: Matrix.setLookAtM(view,0,0,2.2f,11.5f,0,0,0,0,1,0); break;
-                case 2: Matrix.setLookAtM(view,0,9,6.5f,12,0,0,0,0,1,0); break;
-                case 3: Matrix.setLookAtM(view,0,-13,3.5f,4,0,0,0,0,1,0); break;
-                default: Matrix.setLookAtM(view,0,0,4.2f,16.5f,0,0,-1.5f,0,1,0); break;
+                case 1: Matrix.setLookAtM(view,0,0,2.4f,12.8f,0,0,0.5f,0,1,0); break;
+                case 2: Matrix.setLookAtM(view,0,10.5f,7.0f,13.8f,0,0,0.2f,0,1,0); break;
+                case 3: Matrix.setLookAtM(view,0,-13.5f,4.5f,5.5f,0,0,0.8f,0,1,0); break;
+                default: Matrix.setLookAtM(view,0,0,4.8f,18.2f,0,0,-0.6f,0,1,0); break;
             }
         }
 
-        private void buildFallbackAircraft() {
-            float[] v = {
-                0,0.25f,-4.8f,  -1.05f,0,1.8f,  1.05f,0,1.8f,
-                0,0.25f,-4.8f,  -3.7f,0,0.25f, -1.05f,0,1.8f,
-                0,0.25f,-4.8f,   1.05f,0,1.8f,  3.7f,0,0.25f,
-                -1.05f,0,1.8f,  -3.7f,0,0.25f, -1.5f,0,2.9f,
-                 1.05f,0,1.8f,   1.5f,0,2.9f,   3.7f,0,0.25f,
-                -0.85f,0,1.6f,  -0.65f,1.55f,2.25f, -0.25f,0,2.85f,
-                 0.85f,0,1.6f,   0.25f,0,2.85f,  0.65f,1.55f,2.25f,
-                -1.05f,0,1.8f,   1.05f,0,1.8f,  0, -0.45f,-2.8f,
-                -1.05f,0,1.8f,   0,-0.45f,-2.8f, -3.7f,0,0.25f,
-                 1.05f,0,1.8f,   3.7f,0,0.25f,  0,-0.45f,-2.8f
-            };
-            ByteBuffer bb = ByteBuffer.allocateDirect(v.length*4).order(ByteOrder.nativeOrder());
-            vertices = bb.asFloatBuffer(); vertices.put(v).position(0);
-            vertexCount = v.length/3;
+        private void buildTransitionAircraft() {
+            ProceduralFighterMesh.Mesh mesh = ProceduralFighterMesh.build();
+            ByteBuffer bb = ByteBuffer.allocateDirect(mesh.data.length*4).order(ByteOrder.nativeOrder());
+            vertices = bb.asFloatBuffer();
+            vertices.put(mesh.data).position(0);
+            vertexCount = mesh.vertexCount();
         }
 
         private static float shortest(float d) {
@@ -154,8 +160,11 @@ public final class Jet3DView extends GLSurfaceView {
         }
 
         private static final String VS =
-                "uniform mat4 uMvp; attribute vec3 aPos; void main(){ gl_Position=uMvp*vec4(aPos,1.0); }";
+                "uniform mat4 uMvp; uniform mat4 uModel; attribute vec3 aPos; attribute vec3 aNormal; varying vec3 vN;"+
+                "void main(){ vN=normalize(mat3(uModel)*aNormal); gl_Position=uMvp*vec4(aPos,1.0); }";
         private static final String FS =
-                "precision mediump float; uniform vec4 uColor; void main(){ gl_FragColor=uColor; }";
+                "precision mediump float; uniform vec4 uColor; uniform vec3 uLightDir; varying vec3 vN;"+
+                "void main(){ float nd=max(dot(normalize(vN),normalize(uLightDir)),0.0); float rim=pow(1.0-max(abs(vN.z),0.0),2.0);"+
+                "float light=0.22+0.70*nd+0.10*rim; gl_FragColor=vec4(uColor.rgb*light,uColor.a); }";
     }
 }
