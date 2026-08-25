@@ -15,6 +15,10 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -78,6 +82,9 @@ public final class LocalModelManager {
     }
 
     private static void activate(Context c,File out,String name){SharedPreferences p=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE);p.edit().putString(KEY_MODEL_PATH,out.getAbsolutePath()).putString(KEY_MODEL_NAME,name).apply();}
+    public static void activateExisting(Context c,File model){if(c==null||model==null||!model.isFile()||!model.getName().toLowerCase(Locale.US).endsWith(".gguf"))throw new IllegalArgumentException("Geçerli GGUF model gerekli");activate(c,model,model.getName());}
+    public static List<File> installedModels(Context c){File[] fs=modelDir(c).listFiles(f->f.isFile()&&f.getName().toLowerCase(Locale.US).endsWith(".gguf"));if(fs==null||fs.length==0)return new ArrayList<>();Arrays.sort(fs,Comparator.comparing(File::getName,String.CASE_INSENSITIVE_ORDER));return new ArrayList<>(Arrays.asList(fs));}
+    public static String installedModelsSummary(Context c){List<File> ms=installedModels(c);if(ms.isEmpty())return "Kurulu GGUF yok";StringBuilder sb=new StringBuilder();for(File f:ms){if(sb.length()>0)sb.append('\n');sb.append(f.getName()).append(" • ").append(String.format(Locale.US,"%.2f GB",f.length()/1073741824.0));}return sb.toString();}
     public static String sha256(File f)throws Exception{MessageDigest md=MessageDigest.getInstance("SHA-256");try(FileInputStream in=new FileInputStream(f)){byte[] b=new byte[1024*1024];int n;while((n=in.read(b))>0)md.update(b,0,n);}StringBuilder sb=new StringBuilder();for(byte x:md.digest())sb.append(String.format(Locale.US,"%02x",x));return sb.toString();}
     public static File activeModel(Context c){String path=c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY_MODEL_PATH,"");if(path.isEmpty())return null;File f=new File(path);return f.isFile()?f:null;}
     public static String activeModelName(Context c){return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(KEY_MODEL_NAME,"");}
