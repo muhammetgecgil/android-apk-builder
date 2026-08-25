@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v6.4.0 real load-zone pad strain-gauge mapping
-triggered: 2026-08-25T09:58+03:00
+CI trigger for Whiffletree Aero v6.5.0 primary XYZ whiffletree design screen
+triggered: 2026-08-25T10:03+03:00
