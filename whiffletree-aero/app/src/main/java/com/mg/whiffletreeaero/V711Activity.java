@@ -2,6 +2,7 @@ package com.mg.whiffletreeaero;
 
 import android.os.Bundle;
 import android.graphics.Color;
+import android.view.View;
 import android.widget.*;
 import java.util.*;
 
@@ -31,59 +32,37 @@ public class V711Activity extends V79Activity {
       solvedValid=false;return;
     }
 
-    // Synchronize every inherited module to the same active dataset.
-    qLength.setText(String.format(Locale.US,"%.3f",Lm*1000.0));
-    qDiameter.setText(String.format(Locale.US,"%.3f",Dm*1000.0));
-    qSections.setText(String.valueOf(ns));
-    qFx.setText(String.format(Locale.US,"%.6f",fxTotal));qFy.setText(String.format(Locale.US,"%.6f",fyTotal));qFz.setText(String.format(Locale.US,"%.6f",fzTotal));
-    qActs.setText(String.valueOf(na));qLayers.setText(String.valueOf(nl));
-    qActType.setSelection(hActType.getSelectedItemPosition());qPhase.setSelection(hPhase.getSelectedItemPosition());
-    pFx.setText(String.format(Locale.US,"%.6f",fxTotal));pFy.setText(String.format(Locale.US,"%.6f",fyTotal));pFz.setText(String.format(Locale.US,"%.6f",fzTotal));
-    pActs.setText(String.valueOf(na));pLayers.setText(String.valueOf(nl));pActType.setSelection(hActType.getSelectedItemPosition());
-    gLen.setText(String.format(Locale.US,"%.3f",Lm));gDia.setText(String.format(Locale.US,"%.3f",Dm));gSections.setText(String.valueOf(ns));
-    gFx.setText(String.format(Locale.US,"%.6f",fxTotal));gFy.setText(String.format(Locale.US,"%.6f",fyTotal));gFz.setText(String.format(Locale.US,"%.6f",fzTotal));
+    qLength.setText(String.format(Locale.US,"%.3f",Lm*1000.0));qDiameter.setText(String.format(Locale.US,"%.3f",Dm*1000.0));
+    qSections.setText(String.valueOf(ns));qFx.setText(String.format(Locale.US,"%.6f",fxTotal));qFy.setText(String.format(Locale.US,"%.6f",fyTotal));qFz.setText(String.format(Locale.US,"%.6f",fzTotal));
+    qActs.setText(String.valueOf(na));qLayers.setText(String.valueOf(nl));qActType.setSelection(hActType.getSelectedItemPosition());qPhase.setSelection(hPhase.getSelectedItemPosition());
+    pFx.setText(String.format(Locale.US,"%.6f",fxTotal));pFy.setText(String.format(Locale.US,"%.6f",fyTotal));pFz.setText(String.format(Locale.US,"%.6f",fzTotal));pActs.setText(String.valueOf(na));pLayers.setText(String.valueOf(nl));pActType.setSelection(hActType.getSelectedItemPosition());
+    gLen.setText(String.format(Locale.US,"%.3f",Lm));gDia.setText(String.format(Locale.US,"%.3f",Dm));gSections.setText(String.valueOf(ns));gFx.setText(String.format(Locale.US,"%.6f",fxTotal));gFy.setText(String.format(Locale.US,"%.6f",fyTotal));gFz.setText(String.format(Locale.US,"%.6f",fzTotal));
     gActs.setText(String.valueOf(na));gLayers.setText(String.valueOf(nl));gActCap.setText(String.format(Locale.US,"%.0f",cap));gActType.setSelection(hActType.getSelectedItemPosition());gPhase.setSelection(hPhase.getSelectedItemPosition());
     for(int i=0;i<actKnown.length;i++)actKnown[i].setText(String.format(Locale.US,"%.0f",cap));
 
     double len=Math.max(1,Lm*1000.0), fac=testFactor(), stiffness=Math.max(1,qd(qStiffness)), gauge=Math.max(1,qd(qGaugeLength));
-    double yoff=qd(qYoff),zoff=qd(qZoff);
-    solved.clear();
-
-    // Total loads are distributed over all requested application sections. Station signs are preserved.
+    double yoff=qd(qYoff),zoff=qd(qZoff);solved.clear();
     for(int i=0;i<ns;i++){
-      SNode s=new SNode();s.section=i;s.act=Math.min(na-1,(int)Math.floor((double)i*na/ns));
-      s.x=-len/2.0+(i+.5)*len/ns;s.y=yoff;s.z=zoff;
-      s.fx=fxTotal*fac/ns;s.fy=fyTotal*fac/ns;s.fz=fzTotal*fac/ns;
-      s.r=Math.sqrt(s.fx*s.fx+s.fy*s.fy+s.fz*s.fz);
-      s.mx=s.y*s.fz-s.z*s.fy;s.my=s.z*s.fx-s.x*s.fz;s.mz=s.x*s.fy-s.y*s.fx;
-      s.disp=s.r/stiffness;s.strain=s.disp/gauge*1e6;s.lc=s.r;solved.add(s);
+      SNode s=new SNode();s.section=i;s.act=Math.min(na-1,(int)Math.floor((double)i*na/ns));s.x=-len/2.0+(i+.5)*len/ns;s.y=yoff;s.z=zoff;
+      s.fx=fxTotal*fac/ns;s.fy=fyTotal*fac/ns;s.fz=fzTotal*fac/ns;s.r=Math.sqrt(s.fx*s.fx+s.fy*s.fy+s.fz*s.fz);
+      s.mx=s.y*s.fz-s.z*s.fy;s.my=s.z*s.fx-s.x*s.fz;s.mz=s.x*s.fy-s.y*s.fx;s.disp=s.r/stiffness;s.strain=s.disp/gauge*1e6;s.lc=s.r;solved.add(s);
     }
     solvedValid=!solved.isEmpty();
 
-    // Rebuild all result modules from this exact solved set — no second solver / no reseeding.
-    structural3D.nodes=new ArrayList<>(solved);structural3D.invalidate();
-    buildConnections();
+    structural3D.nodes=new ArrayList<>(solved);structural3D.invalidate();buildConnections();
     if(connection2D!=null)connection2D.invalidate();if(connection3D!=null)connection3D.invalidate();
     update2DResult();refreshVisualGuide();updateFocusedResults();refreshEquipment();refreshMatrixSolver();refreshSimulation();
     if(signed2D!=null)signed2D.invalidate();if(poster!=null)poster.invalidate();if(rigPoster70!=null)rigPoster70.invalidate();if(matrixView!=null)matrixView.invalidate();if(rigAssembly!=null)rigAssembly.invalidate();
 
-    double sx=0,sy=0,sz=0,mx=0,my=0,mz=0,maxZone=0,maxDisp=0,maxStrain=0;
-    double[] ax=new double[na],ay=new double[na],az=new double[na];
+    double sx=0,sy=0,sz=0,mx=0,my=0,mz=0,maxZone=0,maxDisp=0,maxStrain=0;double[] ax=new double[na],ay=new double[na],az=new double[na];
     for(SNode s:solved){sx+=s.fx;sy+=s.fy;sz+=s.fz;mx+=s.mx;my+=s.my;mz+=s.mz;maxZone=Math.max(maxZone,s.r);maxDisp=Math.max(maxDisp,Math.abs(s.disp));maxStrain=Math.max(maxStrain,Math.abs(s.strain));ax[s.act]+=s.fx;ay[s.act]+=s.fy;az[s.act]+=s.fz;}
-    double peakAct=0,maxUtil=0,asx=0,asy=0,asz=0;
-    for(int a=0;a<na;a++){double r=Math.sqrt(ax[a]*ax[a]+ay[a]*ay[a]+az[a]*az[a]);peakAct=Math.max(peakAct,r);maxUtil=Math.max(maxUtil,100*r/Math.max(1,av(a)));asx+=ax[a];asy+=ay[a];asz+=az[a];}
-    double closure=Math.sqrt((sx-asx)*(sx-asx)+(sy-asy)*(sy-asy)+(sz-asz)*(sz-asz));
-    double maxMoment=Math.sqrt(mx*mx+my*my+mz*mz);
+    double peakAct=0,maxUtil=0,asx=0,asy=0,asz=0;for(int a=0;a<na;a++){double r=Math.sqrt(ax[a]*ax[a]+ay[a]*ay[a]+az[a]*az[a]);peakAct=Math.max(peakAct,r);maxUtil=Math.max(maxUtil,100*r/Math.max(1,av(a)));asx+=ax[a];asy+=ay[a];asz+=az[a];}
+    double closure=Math.sqrt((sx-asx)*(sx-asx)+(sy-asy)*(sy-asy)+(sz-asz)*(sz-asz));double maxMoment=Math.sqrt(mx*mx+my*my+mz*mz);
 
     statusCard.setText("HESAP TAMAMLANDI — tüm sonuç sekmeleri aynı aktif solved-load setinden güncellendi.");
-    resultCard.setText(String.format(Locale.US,
-      "ANLIK MÜHENDİSLİK SONUCU\n%d yük bölgesi • %d layer • %d actuator • %s • %s\nUygulanan faktör %.3f\nΣFx %+.1f N   ΣFy %+.1f N   ΣFz %+.1f N\nΣMx %+.1f   ΣMy %+.1f   ΣMz %+.1f Nmm\nPeak zone %.1f N • Peak actuator %.1f N • Util %.1f%%\nMax displacement %.6f mm • Max strain %.1f µε\nForce closure residual %.6f N",
-      ns,nl,na,hActType.getSelectedItem().toString(),hPhase.getSelectedItem().toString(),fac,sx,sy,sz,mx,my,mz,maxZone,peakAct,maxUtil,maxDisp,maxStrain,closure));
+    resultCard.setText(String.format(Locale.US,"ANLIK MÜHENDİSLİK SONUCU\n%d yük bölgesi • %d layer • %d actuator • %s • %s\nUygulanan faktör %.3f\nΣFx %+.1f N   ΣFy %+.1f N   ΣFz %+.1f N\nΣMx %+.1f   ΣMy %+.1f   ΣMz %+.1f Nmm\nPeak zone %.1f N • Peak actuator %.1f N • Util %.1f%%\nMax displacement %.6f mm • Max strain %.1f µε\nForce closure residual %.6f N",ns,nl,na,hActType.getSelectedItem().toString(),hPhase.getSelectedItem().toString(),fac,sx,sy,sz,mx,my,mz,maxZone,peakAct,maxUtil,maxDisp,maxStrain,closure));
+    engineeringHealth.setText(String.format(Locale.US,"ENGINEERING CORE — %s\nInput→solver→2D/3D→proof→component→test chain refreshed.\nForce closure %.6f N | resultant moment %.1f Nmm | actuator capacity %s\nSections requested/calculated: %d/%d",closure<1e-6?"PASS":"CHECK",closure,maxMoment,maxUtil<=100?"PASS":"OVERLOAD",ns,solved.size()));
 
-    engineeringHealth.setText(String.format(Locale.US,
-      "ENGINEERING CORE — %s\nInput→solver→2D/3D→proof→component→test chain refreshed.\nForce closure %.6f N | resultant moment %.1f Nmm | actuator capacity %s\nSections requested/calculated: %d/%d",
-      closure<1e-6?"PASS":"CHECK",closure,maxMoment,maxUtil<=100?"PASS":"OVERLOAD",ns,solved.size()));
-
-    showPanel(visualGuide);
+    if(visualGuide!=null)visualGuide.setVisibility(View.VISIBLE);
   }
 }
