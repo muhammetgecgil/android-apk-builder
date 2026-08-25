@@ -8,6 +8,7 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.MGAI">
+        <activity android:name=".BenchmarkTrendActivity" android:exported="false" />
         <activity android:name=".BenchmarkComparisonActivity" android:exported="false" />
         <activity android:name=".SelfTuningActivity" android:exported="false" />
         <activity android:name=".VoiceControlsActivity" android:exported="false" />
