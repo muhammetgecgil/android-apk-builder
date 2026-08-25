@@ -32,10 +32,10 @@ jobs:
         working-directory: whiffletree-aero
         run: gradle --no-daemon clean assembleDebug --stacktrace
       - name: Rename APK
-        run: cp whiffletree-aero/app/build/outputs/apk/debug/app-debug.apk Whiffletree-Aero-v7.7.0.apk
+        run: cp whiffletree-aero/app/build/outputs/apk/debug/app-debug.apk Whiffletree-Aero-v7.8.0.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: whiffletree-aero-v7.7.0
+          name: whiffletree-aero-v7.8.0
           if-no-files-found: error
-          path: Whiffletree-Aero-v7.7.0.apk
+          path: Whiffletree-Aero-v7.8.0.apk
