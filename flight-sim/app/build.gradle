@@ -2,13 +2,34 @@ plugins { id 'com.android.application' }
 
 android {
     namespace 'com.mg.fixturecockpitsim'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
-        targetSdk 35
-        versionCode 3
-        versionName '3.0'
+        targetSdk 36
+        versionCode 19
+        versionName '19.0-foundation'
     }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix '.dev'
+            versionNameSuffix '-debug'
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    packagingOptions {
+        jniLibs { useLegacyPackaging = false }
+    }
+}
+
+dependencies {
+    implementation 'com.google.android.filament:filament-android:1.72.0'
+    implementation 'com.google.android.filament:gltfio-android:1.72.0'
+    implementation 'com.google.android.filament:filament-utils-android:1.72.0'
 }

@@ -1,8 +1,8 @@
-name: Build Fixture Cockpit Sim APK
+name: Build Aircraft Simulator v19
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, aircraft-sim-v19-foundation ]
     paths:
       - 'flight-sim/**'
       - '.github/workflows/build-flight-sim.yml'
@@ -19,37 +19,52 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-      - name: Install Android API 35
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
-      - name: Set up Gradle 8.10.2
+
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.10.2'
-      - name: Build APK
+          gradle-version: '8.13'
+
+      - name: Resolve dependencies
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:dependencies --configuration debugRuntimeClasspath
+
+      - name: Build debug APK
         working-directory: flight-sim
         run: gradle --no-daemon :app:assembleDebug --stacktrace
-      - name: Verify APK
+
+      - name: Verify package
         run: |
-          test -s flight-sim/app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs flight-sim/app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging flight-sim/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='3'"
+          set -euxo pipefail
+          APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='19'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
+
       - name: Rename APK
-        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Fixture_Cockpit_Sim_3D_v3.0.apk
+        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Aircraft_Simulator_v19_Foundation.apk
+
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Fixture-Cockpit-Sim-3D-v3.0-APK
-          path: Fixture_Cockpit_Sim_3D_v3.0.apk
+          name: Aircraft-Simulator-v19-Foundation-APK
+          path: Aircraft_Simulator_v19_Foundation.apk
           if-no-files-found: error
           retention-days: 30
