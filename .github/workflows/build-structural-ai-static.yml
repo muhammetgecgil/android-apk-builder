@@ -36,16 +36,22 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      - name: Restore stable debug signing key
+        run: |
+          mkdir -p "$HOME/.android"
+          base64 -d signing/structural-ai-debug.jks.b64 > "$HOME/.android/debug.keystore"
+          chmod 600 "$HOME/.android/debug.keystore"
+
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Structural_AI_Static_v0.4.0_DEBUG.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Structural_AI_Static_v0.5.0_DEBUG.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Structural-AI-Static-v0.4.0-DEBUG
-          path: structural-ai-static/Structural_AI_Static_v0.4.0_DEBUG.apk
+          name: Structural-AI-Static-v0.5.0-DEBUG
+          path: structural-ai-static/Structural_AI_Static_v0.5.0_DEBUG.apk
           if-no-files-found: error
           retention-days: 30
