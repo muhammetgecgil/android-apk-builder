@@ -3,6 +3,7 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
+        android:name=".MgAiApplication"
         android:allowBackup="true"
         android:label="MG-AI"
         android:icon="@mipmap/mg_ai_launcher"
