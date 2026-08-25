@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v6.7.0 user selectable load application section count
+CI trigger for Whiffletree Aero v6.8.0 structural test system workspace
 triggered: 2026-08-25
