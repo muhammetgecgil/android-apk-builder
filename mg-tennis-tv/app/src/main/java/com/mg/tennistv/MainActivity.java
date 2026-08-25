@@ -8,9 +8,13 @@ import android.content.*;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.hardware.*;
+import android.hardware.display.DisplayManager;
+import android.provider.Settings;
 import android.bluetooth.*;
 import android.view.*;
 import android.webkit.*;
+import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.Toast;
 import androidx.webkit.WebViewAssetLoader;
 import java.io.*;
@@ -31,7 +35,15 @@ public class MainActivity extends Activity implements SensorEventListener {
     private PoseIntentTracker poseTracker;
     private final TennisIntentEngine intentEngine=new TennisIntentEngine();
     private volatile long poseTime=0L;
+    private DisplayManager displayManager;
+    private Button castButton;
     private static final UUID UUID_GAME=UUID.fromString("6f4f4d30-9c4e-4f99-9e96-1e2ac4c1a501");
+
+    private final DisplayManager.DisplayListener displayListener=new DisplayManager.DisplayListener(){
+        @Override public void onDisplayAdded(int displayId){updateCastButton();}
+        @Override public void onDisplayRemoved(int displayId){updateCastButton();}
+        @Override public void onDisplayChanged(int displayId){updateCastButton();}
+    };
 
     @SuppressLint({"SetJavaScriptEnabled","JavascriptInterface"})
     @Override public void onCreate(Bundle b){
@@ -39,12 +51,34 @@ public class MainActivity extends Activity implements SensorEventListener {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().setStatusBarColor(Color.BLACK);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY|View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN|View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+
         web=new WebView(this);web.setBackgroundColor(Color.BLACK);web.setLayerType(View.LAYER_TYPE_HARDWARE,null);
         WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(false);s.setAllowContentAccess(false);s.setLoadWithOverviewMode(true);s.setUseWideViewPort(true);s.setMediaPlaybackRequiresUserGesture(false);
         final WebViewAssetLoader assetLoader=new WebViewAssetLoader.Builder().addPathHandler("/assets/",new WebViewAssetLoader.AssetsPathHandler(this)).build();
         web.addJavascriptInterface(new Bridge(),"Android");web.setWebChromeClient(new WebChromeClient());
         web.setWebViewClient(new WebViewClient(){@Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){return assetLoader.shouldInterceptRequest(request.getUrl());}@Override public void onPageFinished(WebView view,String url){pageReady=true;eval("window.androidReady&&window.androidReady()");}});
-        setContentView(web);web.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+
+        FrameLayout root=new FrameLayout(this);
+        root.addView(web,new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,FrameLayout.LayoutParams.MATCH_PARENT));
+        castButton=new Button(this);
+        castButton.setText("TV'YE AKTAR");
+        castButton.setTextColor(Color.WHITE);
+        castButton.setTextSize(11f);
+        castButton.setAllCaps(false);
+        castButton.setBackgroundColor(Color.argb(210,12,20,28));
+        castButton.setPadding(18,4,18,4);
+        castButton.setOnClickListener(v->openCastSettings());
+        FrameLayout.LayoutParams castLp=new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT,52);
+        castLp.gravity=Gravity.BOTTOM|Gravity.CENTER_HORIZONTAL;
+        castLp.bottomMargin=14;
+        root.addView(castButton,castLp);
+        setContentView(root);
+        web.loadUrl("https://appassets.androidplatform.net/assets/index.html");
+
+        displayManager=(DisplayManager)getSystemService(DISPLAY_SERVICE);
+        if(displayManager!=null)displayManager.registerDisplayListener(displayListener,null);
+        updateCastButton();
+
         sensorManager=(SensorManager)getSystemService(SENSOR_SERVICE);
         accel=sensorManager.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION);if(accel==null)accel=sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
         gyro=sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
@@ -52,6 +86,30 @@ public class MainActivity extends Activity implements SensorEventListener {
         bt=BluetoothAdapter.getDefaultAdapter();
         poseTracker=new PoseIntentTracker(this,p->{intentEngine.onPose(p);poseTime=p.timeMs;pushIntentStatus();});
         askPermissions();
+    }
+
+    private void openCastSettings(){
+        Toast.makeText(this,"LG TV'de Screen Share / Ekran Paylaşımı açık olmalı",Toast.LENGTH_LONG).show();
+        try{startActivity(new Intent(Settings.ACTION_CAST_SETTINGS));}
+        catch(Exception first){
+            try{startActivity(new Intent(Settings.ACTION_WIRELESS_SETTINGS));}
+            catch(Exception second){Toast.makeText(this,"Kablosuz ekran ayarı bu telefonda açılamadı",Toast.LENGTH_LONG).show();}
+        }
+    }
+
+    private boolean hasPresentationDisplay(){
+        if(displayManager==null)return false;
+        try{return displayManager.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION).length>0;}
+        catch(Exception ignored){return false;}
+    }
+
+    private void updateCastButton(){
+        if(castButton==null)return;
+        castButton.post(()->{
+            boolean connected=hasPresentationDisplay();
+            castButton.setText(connected?"TV BAĞLI ✓":"TV'YE AKTAR");
+            castButton.setAlpha(connected?0.88f:1f);
+        });
     }
 
     private void askPermissions(){
@@ -64,7 +122,7 @@ public class MainActivity extends Activity implements SensorEventListener {
     @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==7&&externalRacketHost)startVision();}
 
     private void registerSensors(){if(controllerMode||externalRacketHost)return;if(accel!=null)sensorManager.registerListener(this,accel,SensorManager.SENSOR_DELAY_GAME);if(gyro!=null)sensorManager.registerListener(this,gyro,SensorManager.SENSOR_DELAY_GAME);if(rotation!=null)sensorManager.registerListener(this,rotation,SensorManager.SENSOR_DELAY_GAME);}
-    @Override protected void onResume(){super.onResume();if(web!=null)web.onResume();registerSensors();if(externalRacketHost)startVision();}
+    @Override protected void onResume(){super.onResume();if(web!=null)web.onResume();registerSensors();if(externalRacketHost)startVision();updateCastButton();}
     @Override protected void onPause(){sensorManager.unregisterListener(this);if(poseTracker!=null)poseTracker.stop();if(web!=null)web.onPause();super.onPause();}
     @Override public void onAccuracyChanged(Sensor sensor,int accuracy){}
 
@@ -122,5 +180,5 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     public class Bridge{@JavascriptInterface public void startAi(){runOnUiThread(MainActivity.this::startAi);}@JavascriptInterface public void startHost(){runOnUiThread(MainActivity.this::startHost);}@JavascriptInterface public void startController(){runOnUiThread(MainActivity.this::startController);}@JavascriptInterface public void calibrate(){runOnUiThread(MainActivity.this::calibrate);}@JavascriptInterface public void vibrate(int ms){haptic(Math.max(5,Math.min(ms,80)));}}
     @Override public void onBackPressed(){if(controllerMode){controllerMode=false;stopRacketService();eval("window.setMode&&window.setMode('ai')");sensorManager.unregisterListener(this);registerSensors();return;}if(externalRacketHost){externalRacketHost=false;if(poseTracker!=null)poseTracker.stop();closeBt();eval("window.setMode&&window.setMode('ai')");sensorManager.unregisterListener(this);registerSensors();return;}super.onBackPressed();}
-    @Override protected void onDestroy(){if(poseTracker!=null)poseTracker.stop();closeBt();if(web!=null){web.removeJavascriptInterface("Android");web.destroy();web=null;}super.onDestroy();}
+    @Override protected void onDestroy(){if(displayManager!=null)try{displayManager.unregisterDisplayListener(displayListener);}catch(Exception ignored){}if(poseTracker!=null)poseTracker.stop();closeBt();if(web!=null){web.removeJavascriptInterface("Android");web.destroy();web=null;}super.onDestroy();}
 }
