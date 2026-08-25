@@ -8,6 +8,12 @@ on:
       - 'unit-master/**'
       - 'unit-master-source.part*'
       - '.github/workflows/unit-master.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'unit-master/**'
+      - 'unit-master-source.part*'
+      - '.github/workflows/unit-master.yml'
 
 jobs:
   build:
