@@ -51,6 +51,12 @@ public final class AdaptivePerformanceManager {
 
         if(temp>=43f)return new Profile("SERİN",2048,Math.max(2,cores/3),256,temp,"yüksek sıcaklık");
         if(temp>=39f)return new Profile("DENGELİ",3072,Math.max(2,cores/2),384,temp,"ısı kontrolü");
+
+        SelfTuningManager.LearnedProfile learned=SelfTuningManager.learned(c);
+        if(learned!=null && (temp<0 || temp<38.5f)){
+            return new Profile("ÖĞRENİLMİŞ",learned.contextSize,learned.threads,learned.maxTokens,temp,"telefonun gerçek kullanımından öğrenildi");
+        }
+
         if(ttft>2500 || (tps>0 && tps<6.0))return new Profile("HIZLI",3072,Math.max(3,cores-2),384,temp,"yüksek TTFT / düşük token hızı");
         if(tps>=12.0 && (temp<0 || temp<37f))return new Profile("KALİTE",4096,Math.max(3,cores-2),512,temp,"performans payı mevcut");
         return new Profile("DENGELİ",4096,Math.max(2,cores-2),384,temp,"varsayılan adaptif profil");
@@ -60,17 +66,16 @@ public final class AdaptivePerformanceManager {
         Profile candidate=rawChoose(c);
         long now=System.currentTimeMillis();
         if(activeProfile==null){activate(candidate,now,"ilk profil");return activeProfile;}
-        if(candidate.name.equals(activeProfile.name))return activeProfile;
+        if(candidate.name.equals(activeProfile.name) && candidate.contextSize==activeProfile.contextSize && candidate.threads==activeProfile.threads)return activeProfile;
 
         boolean emergencyHeat=candidate.temperatureC>=43f;
         boolean holdExpired=(now-activeSince)>=MIN_PROFILE_HOLD_MS;
         float currentTemp=activeProfile.temperatureC;
         float newTemp=candidate.temperatureC;
         boolean meaningfulTempDelta=currentTemp<=0 || newTemp<=0 || Math.abs(newTemp-currentTemp)>=TEMP_HYSTERESIS_C;
+        boolean learnedUpgrade="ÖĞRENİLMİŞ".equals(candidate.name) && !"ÖĞRENİLMİŞ".equals(activeProfile.name);
 
-        if(emergencyHeat || (holdExpired && meaningfulTempDelta)){
-            activate(candidate,now,candidate.reason);
-        }
+        if(emergencyHeat || learnedUpgrade || (holdExpired && meaningfulTempDelta))activate(candidate,now,candidate.reason);
         return activeProfile;
     }
 
