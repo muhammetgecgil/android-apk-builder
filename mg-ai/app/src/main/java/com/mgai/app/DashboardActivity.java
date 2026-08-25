@@ -13,9 +13,10 @@ public class DashboardActivity extends Activity {
         super.onCreate(savedInstanceState);
         LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(22),dp(28),dp(22),dp(22)); root.setBackgroundColor(Color.rgb(244,246,248));
         TextView title=new TextView(this); title.setText("MG-AI"); title.setTextSize(34); title.setTypeface(null,android.graphics.Typeface.BOLD); title.setTextColor(Color.rgb(20,24,32)); root.addView(title);
-        TextView sub=new TextView(this); sub.setText("v0.33 • Phone-Native LLM + Whisper + TTS + Ses Kontrolleri"); sub.setTextSize(14); sub.setTextColor(Color.rgb(90,97,110)); sub.setPadding(0,dp(4),0,dp(22)); root.addView(sub);
+        TextView sub=new TextView(this); sub.setText("v0.48 • Phone-Native AI + Self-Tuning Sistem Merkezi"); sub.setTextSize(14); sub.setTextColor(Color.rgb(90,97,110)); sub.setPadding(0,dp(4),0,dp(22)); root.addView(sub);
         TextView summary=new TextView(this); summary.setText("Yerel model otomatik indirilir, doğrulanır ve entegre edilir. Ses girişi whisper.cpp, cevap üretimi llama.cpp ve sesli çıktı cihaz TTS yolu ile çalışır.\n"+CapabilityRegistry.summary()); summary.setTextSize(16); summary.setTextColor(Color.rgb(35,40,50)); summary.setPadding(dp(14),dp(14),dp(14),dp(14)); summary.setBackgroundColor(Color.WHITE); root.addView(summary,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
         add(root,"PHONE-NATIVE OFFLINE AI",PhoneNativeActivity.class);
+        add(root,"Self-Tuning & Benchmark",SelfTuningActivity.class);
         add(root,"Ses Kontrolleri & Sürekli Diyalog",VoiceControlsActivity.class);
         add(root,"Sistem Merkezi",SystemCenterActivity.class);
         add(root,"Eski Sunucu Sohbeti",MainActivity.class);
