@@ -4,15 +4,13 @@
         android:allowBackup="true"
         android:label="Machine Elements Pro"
         android:theme="@style/AppTheme">
+        <activity android:name=".SelectionCatalogActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".LibraryActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".CustomGeometryActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".AssemblyActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".DrivetrainActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".AdvancedActivity" android:screenOrientation="unspecified" android:exported="false" />
-        <activity
-            android:name=".MainActivity"
-            android:screenOrientation="unspecified"
-            android:exported="true">
+        <activity android:name=".MainActivity" android:screenOrientation="unspecified" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
