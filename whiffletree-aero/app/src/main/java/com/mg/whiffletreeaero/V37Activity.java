@@ -91,7 +91,8 @@ public class V37Activity extends V36Activity {
 
       float padY=cy-r+dp(13);float padWpx=Math.min(W-dp(80),dp(230));
       p.setStyle(Paint.Style.FILL);p.setColor(Color.rgb(247,207,77));cn.drawRoundRect(new RectF(cx-padWpx/2,padY-dp(17),cx+padWpx/2,padY+dp(17)),dp(9),dp(9),p);
-      p.setColor(Color.rgb(67,190,113));cn.drawRoundRect(new RectF(cx-padWpx/2,padY+dp(18),cx+padWpx/2,padY+dp(18)+Math.max(dp(5),dp((float)Math.min(15,q.linerMm/2)))),dp(5),dp(5),p);
+      int linerPx=Math.max(dp(5),dp((int)Math.min(15.0,q.linerMm/2.0)));
+      p.setColor(Color.rgb(67,190,113));cn.drawRoundRect(new RectF(cx-padWpx/2,padY+dp(18),cx+padWpx/2,padY+dp(18)+linerPx),dp(5),dp(5),p);
       t.setColor(Color.rgb(7,20,34));t.setTextSize(dp(8));cn.drawText(String.format(Locale.US,"PAD %.0f×%.0f",q.wMm,q.lMm),cx-dp(42),padY+dp(4),t);
 
       p.setColor(Color.rgb(229,82,74));cn.drawRect(cx-dp(4),dp(65),cx+dp(4),padY-dp(25),p);Path ah=new Path();ah.moveTo(cx,padY-dp(13));ah.lineTo(cx-dp(10),padY-dp(30));ah.lineTo(cx+dp(10),padY-dp(30));ah.close();cn.drawPath(ah,p);
