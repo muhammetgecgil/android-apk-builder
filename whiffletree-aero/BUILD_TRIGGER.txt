@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v4.8.0 fixed
-triggered: 2026-08-25T07:18+03:00
+CI trigger for Whiffletree Aero v4.8.0 pressure fix
+triggered: 2026-08-25T07:22+03:00
