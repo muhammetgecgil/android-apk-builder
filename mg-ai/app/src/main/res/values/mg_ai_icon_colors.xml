@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="mg_ai_icon_bg">#071421</color>
+    <color name="mg_ai_icon_cyan">#18C8FF</color>
+    <color name="mg_ai_icon_blue">#247CFF</color>
+    <color name="mg_ai_icon_white">#F4FAFF</color>
+</resources>
