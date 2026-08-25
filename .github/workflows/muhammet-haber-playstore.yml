@@ -1,0 +1,45 @@
+name: Muhammet Haber Play Store Build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'muhammet-haber/**'
+      - '.github/workflows/muhammet-haber-playstore.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Create upload key
+        run: |
+          keytool -genkeypair -v -keystore "$RUNNER_TEMP/muhammet-haber-upload.jks" -storepass 'MuhammetHaber2026!' -keypass 'MuhammetHaber2026!' -alias upload -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Muhammet Haber, OU=Android, O=Muhammet Apps, L=Istanbul, C=TR'
+      - name: Build signed APK and AAB
+        env:
+          UPLOAD_STORE_FILE: ${{ runner.temp }}/muhammet-haber-upload.jks
+          UPLOAD_STORE_PASSWORD: MuhammetHaber2026!
+          UPLOAD_KEY_ALIAS: upload
+          UPLOAD_KEY_PASSWORD: MuhammetHaber2026!
+        run: |
+          gradle -p muhammet-haber :app:assembleRelease :app:bundleRelease --stacktrace
+      - name: Prepare Play package
+        run: |
+          mkdir -p play-package
+          cp muhammet-haber/app/build/outputs/apk/release/app-release.apk play-package/MuhammetHaber-v1.0.0-release.apk
+          cp muhammet-haber/app/build/outputs/bundle/release/app-release.aab play-package/MuhammetHaber-v1.0.0-playstore.aab
+          cp "$RUNNER_TEMP/muhammet-haber-upload.jks" play-package/muhammet-haber-upload-key.jks
+          printf '%s\n' 'UPLOAD KEY - KEEP PRIVATE' 'Alias: upload' 'Store password: MuhammetHaber2026!' 'Key password: MuhammetHaber2026!' > play-package/UPLOAD_KEY_INFO.txt
+          cp -r muhammet-haber/play-store/* play-package/ || true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MuhammetHaber-PlayStore-Package
+          path: play-package/
+          retention-days: 90
