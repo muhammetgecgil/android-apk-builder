@@ -1,5 +1,8 @@
 name: Build Whiffletree Aero APK
 
+permissions:
+  contents: write
+
 on:
   push:
     branches: [ "main", "feature/whiffletree-aero-v1" ]
@@ -39,3 +42,16 @@ jobs:
           name: whiffletree-aero-v7.9.0
           if-no-files-found: error
           path: Whiffletree-Aero-v7.9.0.apk
+      - name: Publish updater payload
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p whiffletree-aero/update
+          base64 -w0 Whiffletree-Aero-v7.9.0.apk > whiffletree-aero/update/latest.apk.b64
+          cat > whiffletree-aero/update/latest.json <<'EOF'
+          {"versionCode":70,"versionName":"7.9.0","encoding":"base64","url":"https://raw.githubusercontent.com/muhammetgecgil/android-apk-builder/main/whiffletree-aero/update/latest.apk.b64"}
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add whiffletree-aero/update/latest.apk.b64 whiffletree-aero/update/latest.json
+          git diff --cached --quiet || git commit -m "Publish Whiffletree v7.9.0 updater payload [skip ci]"
+          git push
