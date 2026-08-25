@@ -1,6 +1,7 @@
 package com.mg.machineelementspro;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Bundle;
@@ -28,14 +29,15 @@ public class AdvancedActivity extends Activity {
         ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(Color.rgb(241,245,249));
         LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(20),dp(18),dp(32)); scroll.addView(root);
         TextView title=text("ADVANCED ENGINEERING",24,true,Color.rgb(15,23,42)); root.addView(title);
-        TextView sub=text("Sistem seviyesi hesaplar • bağlantılı yük aktarımı",14,false,Color.rgb(71,85,105)); sub.setPadding(0,dp(4),0,dp(14)); root.addView(sub);
+        TextView sub=text("Sistem seviyesi hesaplar • bağlantılı yük aktarımı",14,false,Color.rgb(71,85,105)); sub.setPadding(0,dp(4),0,dp(10)); root.addView(sub);
         Button back=new Button(this); back.setText("← Temel hesaplara dön"); back.setAllCaps(false); back.setOnClickListener(v->finish()); root.addView(back,lp(-1,dp(48),0));
+        Button drivetrain=new Button(this);drivetrain.setText("DRIVETRAIN SYSTEM →");drivetrain.setAllCaps(false);drivetrain.setTypeface(Typeface.DEFAULT,Typeface.BOLD);drivetrain.setTextColor(Color.WHITE);drivetrain.setBackgroundColor(Color.rgb(109,40,217));drivetrain.setOnClickListener(v->startActivity(new Intent(this,DrivetrainActivity.class)));root.addView(drivetrain,lp(-1,dp(54),dp(10)));
         moduleSpinner=new Spinner(this); moduleSpinner.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,AdvancedCalculationEngine.MODULES)); root.addView(moduleSpinner,lp(-1,dp(56),dp(10)));
         for(int i=0;i<inputs.length;i++){inputs[i]=new EditText(this);inputs[i].setTextSize(16);inputs[i].setSingleLine(true);inputs[i].setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL|InputType.TYPE_NUMBER_FLAG_SIGNED);inputs[i].setPadding(dp(12),dp(8),dp(12),dp(8));root.addView(inputs[i],lp(-1,dp(58),dp(6)));}
         Button calc=new Button(this);calc.setText("İLERİ HESAPLA");calc.setAllCaps(false);calc.setTextColor(Color.WHITE);calc.setTypeface(Typeface.DEFAULT,Typeface.BOLD);calc.setBackgroundColor(Color.rgb(30,64,175));root.addView(calc,lp(-1,dp(56),dp(14)));
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(16),dp(16),dp(16),dp(16));card.setBackgroundColor(Color.WHITE);root.addView(card,lp(-1,-2,dp(14)));
         resultTitle=text("Sonuç",18,true,Color.rgb(15,23,42)); resultStatus=text("",15,true,Color.rgb(30,64,175)); resultStatus.setPadding(0,dp(8),0,dp(8)); resultBody=text("Değerleri girin.",16,false,Color.rgb(30,41,59)); resultBody.setLineSpacing(0,1.22f); resultNote=text("",12,false,Color.rgb(100,116,139)); resultNote.setPadding(0,dp(12),0,0); card.addView(resultTitle);card.addView(resultStatus);card.addView(resultBody);card.addView(resultNote);
-        TextView foot=text("İleri modüller sistem davranışını modellemeye başlar. Sonuç ekranındaki varsayımlar ve kapsam notu nihai mühendislik onayı öncesinde mutlaka değerlendirilmelidir.",11,false,Color.rgb(100,116,139));foot.setPadding(0,dp(16),0,0);root.addView(foot);
+        TextView foot=text("Drivetrain System dişli kuvvetlerinden başlayıp mil ve rulmanlara kadar aynı yük zincirini çözer. Buradaki 8 modül ise bağlantı, pres geçme, yorulma ve alt-sistem kontrolleridir.",11,false,Color.rgb(100,116,139));foot.setPadding(0,dp(16),0,0);root.addView(foot);
         moduleSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){@Override public void onItemSelected(AdapterView<?> p,View v,int pos,long id){selectedModule=pos;updateFields(pos);}@Override public void onNothingSelected(AdapterView<?> p){}});
         calc.setOnClickListener(v->calculate()); return scroll;
     }
