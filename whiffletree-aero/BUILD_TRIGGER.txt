@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v6.0.1
-triggered: 2026-08-25T09:16+03:00
+CI trigger for Whiffletree Aero v6.1.0 structural test workspace
+triggered: 2026-08-25T09:28+03:00
