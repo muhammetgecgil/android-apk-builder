@@ -64,12 +64,13 @@ jobs:
       - name: Build phone-native debug APK
         run: gradle -p mg-ai --no-daemon assembleDebug
 
-      - name: Verify APK and native runtimes
+      - name: Verify APK, native runtimes, icon and signature
         run: |
           test -f mg-ai/app/build/outputs/apk/debug/app-debug.apk
           unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libmgllama.so'
           unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libmgwhisper.so'
-          unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'res/mipmap-anydpi-v26/ic_launcher.xml'
+          unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'res/mipmap-anydpi-v26/mg_ai_launcher.xml'
+          unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'res/drawable/mg_ai_icon_foreground.xml'
           apksigner verify --print-certs mg-ai/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload MG-AI v0.54 APK
