@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v6.3.0 live connection force inspector
-triggered: 2026-08-25T09:47+03:00
+CI trigger for fixed Whiffletree Aero v6.3.0 live connection force inspector
+triggered: 2026-08-25T09:52+03:00
