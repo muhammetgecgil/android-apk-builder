@@ -28,8 +28,7 @@ public class V38Activity extends V37Activity {
     if(c.n<=1)return base*lf;
     double xi=-1.0+2.0*i/(double)(c.n-1);
     double shape=1.0-xi*xi;
-    double asym=0.35*xi*(c.mnm==0?0:Math.signum(c.mnm));
-    return base*lf*Math.max(-.2,shape+asym);
+    return base*lf*Math.max(0,shape);
   }
   double actuatorStrokeMm(Calc c,int a){
     int s0=c.actStationStart[a],s1=c.actStationEnd[a];double sum=0;int n=0;
@@ -42,8 +41,9 @@ public class V38Activity extends V37Activity {
       for(int i=0;i<c.n;i++)maxD=Math.max(maxD,Math.abs(stationDispMm(c,i)));
       for(int a=0;a<c.nAct;a++)maxS=Math.max(maxS,Math.abs(actuatorStrokeMm(c,a)));
       double link=Math.max(50,d(linkLength));maxAng=Math.toDegrees(Math.atan2(maxD,link));
+      int layerCount=Math.max(1,(int)Math.round(d(layers)));
       loadLabel.setText("LOAD LEVEL: "+loadPct+"%");
-      kinInfo.setText(String.format(Locale.US,"%d%% applied load • %d stations • %d layers • %d actuators\nMax displayed EFT station displacement %.2f mm\nMax actuator kinematic stroke demand %.2f mm\nEstimated max link angular change %.2f°\nThis view is a geometric/educational kinematic representation; final displacement field must come from structural analysis or measured test data.",loadPct,c.n,c.nl,c.nAct,maxD,maxS,maxAng));
+      kinInfo.setText(String.format(Locale.US,"%d%% applied load • %d stations • %d layers • %d actuators\nMax displayed EFT station displacement %.2f mm\nMax actuator kinematic stroke demand %.2f mm\nEstimated max link angular change %.2f°\nThis view is a geometric/educational kinematic representation; final displacement field must come from structural analysis or measured test data.",loadPct,c.n,layerCount,c.nAct,maxD,maxS,maxAng));
       if(kinView!=null)kinView.invalidate();
     }catch(Exception e){}
   }
@@ -56,7 +56,7 @@ public class V38Activity extends V37Activity {
       t.setColor(Color.WHITE);t.setTextSize(dp(13));cn.drawText("EFT + WHIFFLETREE KINEMATIC LOAD PATH",dp(12),dp(25),t);
       t.setTextSize(dp(8));t.setColor(Color.rgb(185,210,230));cn.drawText("Slider changes station deflection, link angle and actuator stroke together",dp(12),dp(43),t);
 
-      float left=dp(28),right=W-dp(28),tankY=dp(145);float amp=dp(2.3f);
+      float left=dp(28),right=W-dp(28),tankY=dp(145);float amp=dp(2)*1.15f;
       Path tank=new Path();
       float[] sx=new float[c.n],sy=new float[c.n];
       for(int i=0;i<c.n;i++){
