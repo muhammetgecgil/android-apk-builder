@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v7.2.0 structural verification Step 1-4 + required/applied comparison
+CI trigger for Whiffletree Aero v7.3.0 full XYZ load verification + shear/moment proof
 triggered: 2026-08-25
