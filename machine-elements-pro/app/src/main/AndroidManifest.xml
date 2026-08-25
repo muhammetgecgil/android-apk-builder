@@ -4,6 +4,7 @@
         android:allowBackup="true"
         android:label="Machine Elements Pro"
         android:theme="@style/AppTheme">
+        <activity android:name=".AdvancedActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity
             android:name=".MainActivity"
             android:screenOrientation="unspecified"
