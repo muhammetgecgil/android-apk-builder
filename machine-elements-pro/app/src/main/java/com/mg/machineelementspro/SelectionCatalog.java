@@ -50,11 +50,11 @@ public final class SelectionCatalog {
 
     public static List<String> compareMaterialsForShaft(double M_Nm,double T_Nm,double targetFos){
         List<String> out=new ArrayList<>();
-        for(MaterialLibrary.Material m:MaterialLibrary.MATERIALS){
-            double d=requiredSolidShaftDiameter(M_Nm,T_Nm,m.sy,targetFos);
-            double pref=MaterialLibrary.nextPreferredShaftDiameter(d);
-            double area=Math.PI*pref*pref/4.0;
-            double massPerM=area*1e-6*m.density;
+        for(EngineeringLibrary.Material m:EngineeringLibrary.MATERIALS){
+            double d=requiredSolidShaftDiameter(M_Nm,T_Nm,m.Sy,targetFos);
+            double pref=EngineeringLibrary.selectPreferredShaft(d);
+            double areaMm2=Math.PI*pref*pref/4.0;
+            double massPerM=areaMm2*1e-6*(m.density*1000.0);
             out.add(m.name+" | d_req="+round(d)+" mm | d_pref="+round(pref)+" mm | kütle≈"+round(massPerM)+" kg/m");
         }
         return out;
