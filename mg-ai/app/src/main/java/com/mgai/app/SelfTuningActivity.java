@@ -1,6 +1,7 @@
 package com.mgai.app;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.widget.Button;
@@ -20,6 +21,7 @@ public class SelfTuningActivity extends Activity {
         status=card(root);table=card(root);reason=card(root);history=card(root);benchmark=card(root);
         Button refresh=new Button(this);refresh.setText("Verileri Yenile");refresh.setAllCaps(false);refresh.setOnClickListener(v->render());root.addView(refresh);
         benchmarkBtn=new Button(this);benchmarkBtn.setText("Aktif Benchmark Başlat");benchmarkBtn.setAllCaps(false);benchmarkBtn.setOnClickListener(v->startBenchmark());root.addView(benchmarkBtn);
+        Button compare=new Button(this);compare.setText("Profil Karşılaştırmasını Gör");compare.setAllCaps(false);compare.setOnClickListener(v->startActivity(new Intent(this,BenchmarkComparisonActivity.class)));root.addView(compare);
         Button reset=new Button(this);reset.setText("Öğrenmeyi Sıfırla / Yeni Öğrenme Başlat");reset.setAllCaps(false);reset.setOnClickListener(v->{SelfTuningManager.reset(this);render();});root.addView(reset);
         TextView note=new TextView(this);note.setText("Aktif benchmark yalnız sen başlattığında çalışır. Aynı kısa prompt farklı llama.cpp context/thread profilleriyle denenir. 43°C ve üzeri sıcaklıkta termal güvenlik testi durdurur.");note.setTextSize(13);note.setPadding(0,dp(14),0,0);root.addView(note);
         setContentView(sv);render();
