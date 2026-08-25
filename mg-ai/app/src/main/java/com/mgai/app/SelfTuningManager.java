@@ -44,13 +44,13 @@ public final class SelfTuningManager {
 
     private static String key(int ctx,int threads){return "c"+ctx+"_t"+threads;}
 
+    private static int[] contexts(){return new int[]{2048,3072,4096};}
+    private static int[] threadCandidates(){int cores=Math.max(4,Runtime.getRuntime().availableProcessors());return new int[]{Math.max(2,cores/3),Math.max(2,cores/2),Math.max(3,cores-2)};}
+
     private static void recomputeBest(Context c){
         SharedPreferences sp=p(c);
-        int cores=Math.max(4,Runtime.getRuntime().availableProcessors());
-        int[] contexts={2048,3072,4096};
-        int[] threads={Math.max(2,cores/3),Math.max(2,cores/2),Math.max(3,cores-2)};
         double best=-1e9;int bestCtx=0,bestThreads=0,bestMax=384,bestN=0;
-        for(int ctx:contexts){for(int th:threads){
+        for(int ctx:contexts()){for(int th:threadCandidates()){
             String k=key(ctx,th);int n=sp.getInt(k+"_n",0);if(n<MIN_SAMPLES)continue;
             double avg=Double.longBitsToDouble(sp.getLong(k+"_avg",Double.doubleToRawLongBits(-1e9)));
             if(avg>best){best=avg;bestCtx=ctx;bestThreads=th;bestMax=sp.getInt(k+"_max",384);bestN=n;}
@@ -65,5 +65,25 @@ public final class SelfTuningManager {
 
     public static String summary(Context c){LearnedProfile l=learned(c);return l==null?"Self-tuning: öğreniyor (en az 6 örnek/profil)":"Self-tuning: "+l.summary();}
 
+    public static String profileTable(Context c){
+        if(c==null)return "Self-tuning verisi yok.";
+        SharedPreferences sp=p(c);StringBuilder sb=new StringBuilder("CTX   THREAD   ÖRNEK   SKOR   MAX\n");boolean any=false;
+        for(int ctx:contexts()){for(int th:threadCandidates()){
+            String k=key(ctx,th);int n=sp.getInt(k+"_n",0);if(n<=0)continue;any=true;
+            double avg=Double.longBitsToDouble(sp.getLong(k+"_avg",Double.doubleToRawLongBits(0)));
+            int max=sp.getInt(k+"_max",384);
+            sb.append(String.format(Locale.US,"%-5d %-8d %-7d %-6.2f %d\n",ctx,th,n,avg,max));
+        }}
+        if(!any)sb.append("Henüz ölçüm yok. Normal kullanımla otomatik örnek birikecek.\n");
+        return sb.toString().trim();
+    }
+
+    public static String selectionReason(Context c){
+        LearnedProfile l=learned(c);
+        if(l==null)return "Henüz kalıcı seçim yapılmadı. Her aday profil için en az "+MIN_SAMPLES+" geçerli cevap örneği gerektiğinde sistem öğrenmeye devam eder. Skor; token/s hızından yüksek sıcaklık ve yüksek TTFT cezaları düşülerek hesaplanır.";
+        return String.format(Locale.US,"Seçilen profil ctx %d / %d thread. Ortalama skor %.2f ile yeterli örneğe sahip adaylar arasında en yüksek değeri verdi. Termal güvenlik 43°C ve üzerinde bu öğrenilmiş profilin önüne geçer.",l.contextSize,l.threads,l.score);
+    }
+
+    public static int minSamples(){return MIN_SAMPLES;}
     public static void reset(Context c){if(c!=null)p(c).edit().clear().apply();}
 }
