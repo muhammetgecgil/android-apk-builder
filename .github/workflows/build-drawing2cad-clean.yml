@@ -1,4 +1,4 @@
-name: Build MG CAD Studio v2.1 APK
+name: Build MG CAD Studio v2.2 ZIP APK
 on:
   push:
     branches: [ main ]
@@ -21,27 +21,27 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Build MG CAD Studio v2.1
+      - name: Build MG CAD Studio v2.2 ZIP
         working-directory: drawing2cad
         run: gradle --no-daemon clean :app:assembleDebug --stacktrace
       - name: Verify APK
         run: |
           test -s drawing2cad/app/build/outputs/apk/debug/app-debug.apk
-          cp drawing2cad/app/build/outputs/apk/debug/app-debug.apk MG_CAD_Studio_v2.1_EngineeringDrawing.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging MG_CAD_Studio_v2.1_EngineeringDrawing.apk | head -20
-          unzip -t MG_CAD_Studio_v2.1_EngineeringDrawing.apk >/dev/null
+          cp drawing2cad/app/build/outputs/apk/debug/app-debug.apk MG_CAD_Studio_v2.2_ZIP_Bidirectional.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging MG_CAD_Studio_v2.2_ZIP_Bidirectional.apk | head -20
+          unzip -t MG_CAD_Studio_v2.2_ZIP_Bidirectional.apk >/dev/null
       - uses: actions/upload-artifact@v4
         with:
-          name: MG-CAD-Studio-v2.1-EngineeringDrawing-APK
-          path: MG_CAD_Studio_v2.1_EngineeringDrawing.apk
+          name: MG-CAD-Studio-v2.2-ZIP-Bidirectional-APK
+          path: MG_CAD_Studio_v2.2_ZIP_Bidirectional.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish APK in repo
         run: |
           mkdir -p releases
-          cp MG_CAD_Studio_v2.1_EngineeringDrawing.apk releases/MG_CAD_Studio_v2.1_EngineeringDrawing.apk
+          cp MG_CAD_Studio_v2.2_ZIP_Bidirectional.apk releases/MG_CAD_Studio_v2.2_ZIP_Bidirectional.apk
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add releases/MG_CAD_Studio_v2.1_EngineeringDrawing.apk
-          git commit -m 'Publish verified MG CAD Studio v2.1 Engineering Drawing APK [skip ci]' || exit 0
+          git add releases/MG_CAD_Studio_v2.2_ZIP_Bidirectional.apk
+          git commit -m 'Publish verified MG CAD Studio v2.2 ZIP Bidirectional APK [skip ci]' || exit 0
           git push
