@@ -4,7 +4,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application android:allowBackup="true" android:label="Quake Watch Research Lab" android:theme="@android:style/Theme.Material.Light.NoActionBar">
-        <activity android:name=".Stage6Activity" android:exported="true" android:label="Quake Watch Aşama 6"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+        <activity android:name=".Stage7Activity" android:exported="true" android:label="Quake Watch Aşama 7"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+        <activity android:name=".Stage6Activity" android:exported="false" android:label="Quake Watch Aşama 6"/>
         <activity android:name=".Stage5Activity" android:exported="false" android:label="Quake Watch Aşama 5"/>
         <activity android:name=".Stage4Activity" android:exported="false" android:label="Quake Watch Aşama 4"/>
         <activity android:name=".Stage3Activity" android:exported="false" android:label="Quake Watch Aşama 3"/>
