@@ -5,7 +5,10 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public final class VoiceSessionStateManager {
     public enum State { IDLE, LISTENING, TRANSCRIBING, THINKING, SPEAKING, BARGE_IN }
-    public interface Listener { void onStateChanged(State state, String label, long ageMs); }
+
+    public interface Listener {
+        void onStateChanged(State oldState, State newState, long changedAt);
+    }
 
     private static final AtomicReference<State> state=new AtomicReference<>(State.IDLE);
     private static final CopyOnWriteArrayList<Listener> listeners=new CopyOnWriteArrayList<>();
@@ -23,7 +26,12 @@ public final class VoiceSessionStateManager {
     public static State lastCompletedStage(){return lastCompletedStage;}
     public static String lastError(){return lastError;}
 
-    public static void addListener(Listener l){if(l!=null){listeners.addIfAbsent(l);safeNotify(l,state.get());}}
+    public static void addListener(Listener l){
+        if(l!=null){
+            listeners.addIfAbsent(l);
+            safeNotify(l,state.get(),state.get());
+        }
+    }
     public static void removeListener(Listener l){if(l!=null)listeners.remove(l);}
 
     public static synchronized void set(State next){
@@ -34,8 +42,9 @@ public final class VoiceSessionStateManager {
             lastStageDurationMs=Math.max(0,now-changedAt);
             lastCompletedStage=prev;
         }
-        state.set(next);changedAt=now;
-        notifyAllListeners(next);
+        state.set(next);
+        changedAt=now;
+        notifyAllListeners(prev,next);
     }
 
     public static synchronized boolean transition(State from,State to){
@@ -46,9 +55,12 @@ public final class VoiceSessionStateManager {
     public static synchronized void reset(){set(State.IDLE);}
     public static synchronized void reportError(String message){
         lastError=message==null?"":message.trim();
-        notifyAllListeners(state.get());
+        notifyAllListeners(state.get(),state.get());
     }
-    public static synchronized void clearError(){lastError="";notifyAllListeners(state.get());}
+    public static synchronized void clearError(){
+        lastError="";
+        notifyAllListeners(state.get(),state.get());
+    }
 
     public static String label(State s){
         if(s==null)s=State.IDLE;
@@ -73,7 +85,12 @@ public final class VoiceSessionStateManager {
     }
 
     public static String summary(){return detail();}
+    public static String telemetrySummary(){return detail();}
 
-    private static void notifyAllListeners(State s){for(Listener l:listeners)safeNotify(l,s);}
-    private static void safeNotify(Listener l,State s){try{l.onStateChanged(s,label(s),ageMs());}catch(Throwable ignored){}}
+    private static void notifyAllListeners(State oldState,State newState){
+        for(Listener l:listeners)safeNotify(l,oldState,newState);
+    }
+    private static void safeNotify(Listener l,State oldState,State newState){
+        try{l.onStateChanged(oldState,newState,changedAt);}catch(Throwable ignored){}
+    }
 }
