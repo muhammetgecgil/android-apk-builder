@@ -46,7 +46,7 @@ jobs:
         run: |
           mkdir -p build-status
           {
-            echo "Quake Watch Stage 8 build diagnostics"
+            echo "Quake Watch Stage 8 v3.0 calibration build diagnostics"
             echo "Commit: $GITHUB_SHA"
             echo "UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo
