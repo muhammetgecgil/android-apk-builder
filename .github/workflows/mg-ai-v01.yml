@@ -1,4 +1,4 @@
-name: Build MG-AI v0.55 Stable Update APK
+name: Build MG-AI v0.56 Stable Update APK
 
 on:
   push:
@@ -50,6 +50,7 @@ jobs:
           grep -q '6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e' mg-ai/app/src/main/java/com/mgai/app/LocalModelManager.java
           grep -q 'ggml-tiny.bin' mg-ai/app/src/main/java/com/mgai/app/LocalWhisperModelManager.java
           grep -q 'be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21' mg-ai/app/src/main/java/com/mgai/app/LocalWhisperModelManager.java
+          grep -q 'class ModelComparisonActivity' mg-ai/app/src/main/java/com/mgai/app/ModelComparisonActivity.java
 
       - name: Restore stable MG-AI development update key
         run: |
@@ -81,9 +82,9 @@ jobs:
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --print-certs "$APK"
 
-      - name: Upload MG-AI v0.55 APK
+      - name: Upload MG-AI v0.56 APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-AI-v0.55-stable-update-debug
+          name: MG-AI-v0.56-stable-update-debug
           path: mg-ai/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
