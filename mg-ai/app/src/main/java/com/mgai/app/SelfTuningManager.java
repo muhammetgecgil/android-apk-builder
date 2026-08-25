@@ -92,8 +92,8 @@ public final class SelfTuningManager {
     private static double parseWinnerMetric(String report,String key,char endChar){
         if(report==null)return 0;
         int k=report.lastIndexOf("KAZANAN:");
-        String src=k>=0?report.substring(0,k):report;
-        int i=src.lastIndexOf(key);if(i<0)return 0;i+=key.length();
+        String src=k>=0?report.substring(k):report;
+        int i=src.indexOf(key);if(i<0)return 0;i+=key.length();
         int e=src.indexOf(endChar,i);if(e<0)e=src.indexOf(' ',i);if(e<0)e=src.length();
         try{return Double.parseDouble(src.substring(i,e).trim());}catch(Exception ignored){return 0;}
     }
