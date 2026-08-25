@@ -45,7 +45,7 @@ public final class ActiveBenchmarkRunner {
                 cs.add(new Candidate(4096,Math.max(3,cores-2),128));
 
                 String prompt="Kısa benchmark testi. Türkçe olarak üç maddede: hız, doğruluk ve enerji verimliliği arasındaki dengeyi açıkla.";
-                double bestScore=-1e9;Candidate best=null;
+                double bestScore=-1e9;Candidate best=null;Stats bestStats=null;
                 StringBuilder report=new StringBuilder("AKTİF BENCHMARK SONUÇLARI • ").append(ROUNDS).append(" tur/profil");
 
                 for(int i=0;i<cs.size();i++){
@@ -73,12 +73,13 @@ public final class ActiveBenchmarkRunner {
                     }
                     Stats s=stats(loads,ttfts,totals,tps,rises);
                     report.append(String.format(Locale.US,"\nctx %d • %d thread • load med/p95 %d/%d ms • TTFT med/p95 %d/%d ms • tok/sn med/p95 %.1f/%.1f • toplam med/p95 %d/%d ms • ΔT med %.1f°C • skor %.2f",x.ctx,x.threads,s.loadMedian,s.loadP95,s.ttftMedian,s.ttftP95,s.tpsMedian,s.tpsP95,s.totalMedian,s.totalP95,s.tempRiseMedian,s.score));
-                    if(s.score>bestScore){bestScore=s.score;best=x;}
+                    if(s.score>bestScore){bestScore=s.score;best=x;bestStats=s;}
                 }
-                if(best==null)throw new IllegalStateException("Geçerli benchmark sonucu üretilemedi.");
+                if(best==null||bestStats==null)throw new IllegalStateException("Geçerli benchmark sonucu üretilemedi.");
                 report.append(String.format(Locale.US,"\n\nKAZANAN: ctx %d • %d thread • skor %.2f",best.ctx,best.threads,bestScore));
                 SelfTuningManager.saveBenchmarkWinner(app,best.ctx,best.threads,384,bestScore,report.toString());
-                if(listener!=null)listener.onComplete(report.toString());
+                BenchmarkTrendStore.add(app,model.getName(),best.ctx,best.threads,bestScore,bestStats.ttftP95,bestStats.tpsMedian,bestStats.totalP95,bestStats.tempRiseMedian);
+                if(listener!=null)listener.onComplete(report.toString()+"\n"+BenchmarkTrendStore.trendSummary(app));
             }catch(Throwable t){if(listener!=null)listener.onError(t.getMessage()==null?t.toString():t.getMessage());}
         },"mg-ai-active-benchmark").start();
     }
