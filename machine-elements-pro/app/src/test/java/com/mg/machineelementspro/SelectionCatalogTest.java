@@ -13,7 +13,7 @@ public class SelectionCatalogTest {
         assertEquals("6205",b.code);
     }
     @Test public void preferredMaterialComparisonReturnsAllMaterials(){
-        assertEquals(MaterialLibrary.MATERIALS.length,SelectionCatalog.compareMaterialsForShaft(100,50,2.0).size());
+        assertEquals(EngineeringLibrary.MATERIALS.length,SelectionCatalog.compareMaterialsForShaft(100,50,2.0).size());
     }
     @Test public void requiredShaftDiameterIncreasesWithFos(){
         double a=SelectionCatalog.requiredSolidShaftDiameter(100,50,500,1.5);
