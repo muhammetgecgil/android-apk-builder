@@ -4,6 +4,7 @@
         android:allowBackup="true"
         android:label="Machine Elements Pro"
         android:theme="@style/AppTheme">
+        <activity android:name=".SystemDesignerActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".DesignOptimizerActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".SelectionCatalogActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".LibraryActivity" android:screenOrientation="unspecified" android:exported="false" />
