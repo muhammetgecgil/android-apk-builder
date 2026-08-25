@@ -44,18 +44,23 @@ public final class SelfTuningManager {
 
     private static String key(int ctx,int threads){return "c"+ctx+"_t"+threads;}
 
-    private static int[] contexts(){return new int[]{2048,3072,4096};}
-    private static int[] threadCandidates(){int cores=Math.max(4,Runtime.getRuntime().availableProcessors());return new int[]{Math.max(2,cores/3),Math.max(2,cores/2),Math.max(3,cores-2)};}
-
     private static void recomputeBest(Context c){
         SharedPreferences sp=p(c);
+        int cores=Math.max(4,Runtime.getRuntime().availableProcessors());
+        int[] contexts={2048,3072,4096};
+        int[] threads={Math.max(2,cores/3),Math.max(2,cores/2),Math.max(3,cores-2)};
         double best=-1e9;int bestCtx=0,bestThreads=0,bestMax=384,bestN=0;
-        for(int ctx:contexts()){for(int th:threadCandidates()){
+        for(int ctx:contexts){for(int th:threads){
             String k=key(ctx,th);int n=sp.getInt(k+"_n",0);if(n<MIN_SAMPLES)continue;
             double avg=Double.longBitsToDouble(sp.getLong(k+"_avg",Double.doubleToRawLongBits(-1e9)));
             if(avg>best){best=avg;bestCtx=ctx;bestThreads=th;bestMax=sp.getInt(k+"_max",384);bestN=n;}
         }}
-        if(bestCtx>0){sp.edit().putInt("best_ctx",bestCtx).putInt("best_threads",bestThreads).putInt("best_max",bestMax).putLong("best_score",Double.doubleToRawLongBits(best)).putInt("best_samples",bestN).apply();}
+        if(bestCtx>0){sp.edit().putInt("best_ctx",bestCtx).putInt("best_threads",bestThreads).putInt("best_max",bestMax).putLong("best_score",Double.doubleToRawLongBits(best)).putInt("best_samples",bestN).putString("best_source","pasif öğrenme").apply();}
+    }
+
+    public static synchronized void saveBenchmarkWinner(Context c,int contextSize,int threads,int maxTokens,double score,String report){
+        if(c==null)return;
+        p(c).edit().putInt("best_ctx",contextSize).putInt("best_threads",threads).putInt("best_max",maxTokens).putLong("best_score",Double.doubleToRawLongBits(score)).putInt("best_samples",1).putString("best_source","aktif benchmark").putString("benchmark_report",report==null?"":report).putLong("benchmark_at",System.currentTimeMillis()).apply();
     }
 
     public static LearnedProfile learned(Context c){
@@ -63,27 +68,27 @@ public final class SelfTuningManager {
         return new LearnedProfile(ctx,sp.getInt("best_threads",4),sp.getInt("best_max",384),Double.longBitsToDouble(sp.getLong("best_score",Double.doubleToRawLongBits(0))),sp.getInt("best_samples",0));
     }
 
-    public static String summary(Context c){LearnedProfile l=learned(c);return l==null?"Self-tuning: öğreniyor (en az 6 örnek/profil)":"Self-tuning: "+l.summary();}
+    public static String summary(Context c){
+        LearnedProfile l=learned(c);if(l==null)return "Self-tuning: öğreniyor (en az 6 örnek/profil veya aktif benchmark)";
+        return "Self-tuning: "+l.summary()+" • kaynak: "+p(c).getString("best_source","bilinmiyor");
+    }
+
+    public static String benchmarkReport(Context c){return c==null?"":p(c).getString("benchmark_report","");}
 
     public static String profileTable(Context c){
-        if(c==null)return "Self-tuning verisi yok.";
-        SharedPreferences sp=p(c);StringBuilder sb=new StringBuilder("CTX   THREAD   ÖRNEK   SKOR   MAX\n");boolean any=false;
-        for(int ctx:contexts()){for(int th:threadCandidates()){
-            String k=key(ctx,th);int n=sp.getInt(k+"_n",0);if(n<=0)continue;any=true;
-            double avg=Double.longBitsToDouble(sp.getLong(k+"_avg",Double.doubleToRawLongBits(0)));
-            int max=sp.getInt(k+"_max",384);
-            sb.append(String.format(Locale.US,"%-5d %-8d %-7d %-6.2f %d\n",ctx,th,n,avg,max));
-        }}
-        if(!any)sb.append("Henüz ölçüm yok. Normal kullanımla otomatik örnek birikecek.\n");
-        return sb.toString().trim();
+        if(c==null)return "Veri yok";
+        SharedPreferences sp=p(c);int cores=Math.max(4,Runtime.getRuntime().availableProcessors());
+        int[] contexts={2048,3072,4096};int[] threads={Math.max(2,cores/3),Math.max(2,cores/2),Math.max(3,cores-2)};
+        StringBuilder sb=new StringBuilder("ctx | thread | örnek | ort. skor | max token");
+        for(int ctx:contexts){for(int th:threads){String k=key(ctx,th);int n=sp.getInt(k+"_n",0);double avg=n>0?Double.longBitsToDouble(sp.getLong(k+"_avg",Double.doubleToRawLongBits(0))):0;sb.append(String.format(Locale.US,"\n%d | %d | %d | %.2f | %d",ctx,th,n,avg,sp.getInt(k+"_max",384)));}}
+        return sb.toString();
     }
 
     public static String selectionReason(Context c){
         LearnedProfile l=learned(c);
-        if(l==null)return "Henüz kalıcı seçim yapılmadı. Her aday profil için en az "+MIN_SAMPLES+" geçerli cevap örneği gerektiğinde sistem öğrenmeye devam eder. Skor; token/s hızından yüksek sıcaklık ve yüksek TTFT cezaları düşülerek hesaplanır.";
-        return String.format(Locale.US,"Seçilen profil ctx %d / %d thread. Ortalama skor %.2f ile yeterli örneğe sahip adaylar arasında en yüksek değeri verdi. Termal güvenlik 43°C ve üzerinde bu öğrenilmiş profilin önüne geçer.",l.contextSize,l.threads,l.score);
+        if(l==null)return "Henüz yeterli öğrenme verisi yok. Normal kullanım örnekleri birikiyor veya aktif benchmark başlatılabilir.";
+        return "Seçilen profil en yüksek hız/ısı düzeltilmiş skora sahip. Kaynak: "+p(c).getString("best_source","bilinmiyor")+". Termal güvenlik 43°C ve üzerinde bu seçimi geçici olarak geçersiz kılabilir.";
     }
 
-    public static int minSamples(){return MIN_SAMPLES;}
     public static void reset(Context c){if(c!=null)p(c).edit().clear().apply();}
 }
