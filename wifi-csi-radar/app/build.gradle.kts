@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId = "com.muhammetgecgil.wifiradar"
-        minSdk = 26
+        minSdk = 28
         targetSdk = 36
         versionCode = 50001
         versionName = "5.0.0"
