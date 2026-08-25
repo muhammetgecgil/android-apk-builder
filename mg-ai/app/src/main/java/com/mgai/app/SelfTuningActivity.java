@@ -38,7 +38,7 @@ public class SelfTuningActivity extends Activity {
     private TextView card(LinearLayout root){TextView t=new TextView(this);t.setTextSize(15);t.setTextColor(Color.rgb(35,40,50));t.setPadding(dp(12),dp(12),dp(12),dp(12));t.setBackgroundColor(Color.WHITE);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT);lp.setMargins(0,dp(10),0,0);root.addView(t,lp);return t;}
     private void render(){
         AdaptivePerformanceManager.Profile p=AdaptivePerformanceManager.choose(this);
-        status.setText("AKTİF DURUM\n"+SelfTuningManager.summary(this)+"\nAdaptif profil: "+p.summary()+"\nAktif profil süresi: "+(AdaptivePerformanceManager.activeAgeMs()/1000)+" sn\n"+BenchmarkTrendStore.trendSummary(this));
+        status.setText("AKTİF DURUM\n"+SelfTuningManager.summary(this)+"\nAdaptif profil: "+p.summary()+"\nAktif profil süresi: "+(AdaptivePerformanceManager.activeAgeMs()/1000)+" sn\n"+SelfTuningManager.trendInsight(this));
         table.setText("PROFİL PERFORMANS TABLOSU\n"+SelfTuningManager.profileTable(this));
         reason.setText("NEDEN BU PROFİL?\n"+SelfTuningManager.selectionReason(this));
         history.setText(AdaptivePerformanceManager.historySummary());
