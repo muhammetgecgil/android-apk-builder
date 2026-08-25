@@ -1,4 +1,4 @@
-name: Build MG-AI v0.30 Fully Local Voice APK
+name: Build MG-AI v0.54 Stable Update APK
 
 on:
   push:
@@ -51,6 +51,11 @@ jobs:
           grep -q 'ggml-tiny.bin' mg-ai/app/src/main/java/com/mgai/app/LocalWhisperModelManager.java
           grep -q 'be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21' mg-ai/app/src/main/java/com/mgai/app/LocalWhisperModelManager.java
 
+      - name: Restore stable MG-AI development update key
+        run: |
+          base64 -d mg-ai/signing/mg-ai-update.jks.b64 > mg-ai/app/mg-ai-update.jks
+          keytool -list -keystore mg-ai/app/mg-ai-update.jks -storepass MGAI_Update_2026 -alias mgai >/dev/null
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -64,10 +69,12 @@ jobs:
           test -f mg-ai/app/build/outputs/apk/debug/app-debug.apk
           unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libmgllama.so'
           unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libmgwhisper.so'
+          unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'res/mipmap-anydpi-v26/ic_launcher.xml'
+          apksigner verify --print-certs mg-ai/app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload MG-AI v0.30 APK
+      - name: Upload MG-AI v0.54 APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-AI-v0.30-fully-local-voice-debug
+          name: MG-AI-v0.54-stable-update-debug
           path: mg-ai/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
