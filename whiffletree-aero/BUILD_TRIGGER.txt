@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v6.2.0 signed load-zone calculator
-triggered: 2026-08-25T09:43+03:00
+CI trigger for Whiffletree Aero v6.3.0 live connection force inspector
+triggered: 2026-08-25T09:47+03:00
