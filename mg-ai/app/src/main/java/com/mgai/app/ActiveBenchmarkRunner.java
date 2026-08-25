@@ -76,10 +76,9 @@ public final class ActiveBenchmarkRunner {
                     if(s.score>bestScore){bestScore=s.score;best=x;bestStats=s;}
                 }
                 if(best==null||bestStats==null)throw new IllegalStateException("Geçerli benchmark sonucu üretilemedi.");
-                report.append(String.format(Locale.US,"\n\nKAZANAN: ctx %d • %d thread • skor %.2f",best.ctx,best.threads,bestScore));
+                report.append(String.format(Locale.US,"\n\nKAZANAN: ctx %d • %d thread • skor %.2f • TTFT med/p95 %d/%d ms • tok/sn med/p95 %.1f/%.1f • toplam med/p95 %d/%d ms • ΔT med %.1f°C",best.ctx,best.threads,bestScore,bestStats.ttftMedian,bestStats.ttftP95,bestStats.tpsMedian,bestStats.tpsP95,bestStats.totalMedian,bestStats.totalP95,bestStats.tempRiseMedian));
                 SelfTuningManager.saveBenchmarkWinner(app,best.ctx,best.threads,384,bestScore,report.toString());
-                BenchmarkTrendStore.add(app,model.getName(),best.ctx,best.threads,bestScore,bestStats.ttftP95,bestStats.tpsMedian,bestStats.totalP95,bestStats.tempRiseMedian);
-                if(listener!=null)listener.onComplete(report.toString()+"\n"+BenchmarkTrendStore.trendSummary(app));
+                if(listener!=null)listener.onComplete(report.toString()+"\n\n"+SelfTuningManager.trendInsight(app));
             }catch(Throwable t){if(listener!=null)listener.onError(t.getMessage()==null?t.toString():t.getMessage());}
         },"mg-ai-active-benchmark").start();
     }
