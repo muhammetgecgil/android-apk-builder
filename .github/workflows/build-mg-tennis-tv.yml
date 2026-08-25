@@ -22,11 +22,11 @@ jobs:
           git add build-status/mg-tennis-tv-run.txt
           git commit -m "Record MG Tennis TV run $GITHUB_RUN_ID" || true
           git push || true
-      - name: Restore stable signing keystore
+      - name: Restore signing key
         run: |
           base64 -d mg-tennis-tv/signing/mg-tennis-update.jks.b64 > mg-tennis-tv/signing/mg-tennis-update.jks
           test -s mg-tennis-tv/signing/mg-tennis-update.jks
-      - name: Prepare runtime and realistic player models
+      - name: Prepare runtime and player models
         run: |
           set -euo pipefail
           A=mg-tennis-tv/app/src/main/assets
@@ -35,11 +35,8 @@ jobs:
           curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/realistic-male.glb -o $A/opponent.glb
           curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/parametric-base.glb -o $A/tennis-player.glb
           test -s $A/opponent.glb
-          test -s $A/v12-human-patch.js
-          test -s $A/tennis-rules-v22.js
-          test -s $A/difficulty-v24.js
-          test -s $A/gameplay-feedback-v26.js
-      - name: Inject gameplay compatibility
+          test -s $A/tv-mode-v29.js
+      - name: Inject gameplay patches
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -47,14 +44,13 @@ jobs:
           s=s.replace('promo.jpg','mg-tennis-splash.svg').replace('c.width=c.height=1024','c.width=c.height=256').replace('sun.shadow.mapSize.set(4096,4096)','sun.shadow.mapSize.set(2048,2048)').replace('2 TELEFON HOST','AI + RAKET EKRAN').replace('KONTROLCÜ','RAKET TELEFON')
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,','var playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];').replace('let targetOpponentX=0,targetOpponentZ=-9.55;','var targetOpponentX=0,targetOpponentZ=-9.55;')
           a=s.find('const bodyGeom=new THREE.CylinderGeometry'); b=s.find('const adMat=',a)
-          if a!=-1 and b!=-1:s=s[:a]+'// spectators removed for clean arena\n'+s[b:]
+          if a!=-1 and b!=-1:s=s[:a]+'// spectators removed\n'+s[b:]
           a=s.find('function loadCharacters()'); b=s.find('function loadOne(',a)
           if a!=-1 and b!=-1:s=s[:a]+"function loadCharacters(){$('loadmsg').textContent='Kort açılıyor…';$('loadfill').style.width='18%';setTimeout(()=>{$('loading').style.display='none'},700)}\n"+s[b:]
-          s=s.replace('ballTrail.length>14','ballTrail.length>24')
           old="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);updateCamera(dt);renderer.render(scene,camera)}"
           new="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);if(window.updateOpponentMotion)window.updateOpponentMotion(dt);updateCamera(dt);renderer.render(scene,camera)}"
           if old in s:s=s.replace(old,new)
-          for fn in ['difficulty-v24.js','v12-human-patch.js','tennis-rules-v22.js','gameplay-feedback-v26.js']:
+          for fn in ['difficulty-v24.js','v12-human-patch.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js']:
               if fn not in s:s=s.replace('</body>',f'<script src="{fn}"></script></body>')
           p.write_text(s)
           PY
@@ -71,17 +67,18 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v2.8 release
+      - name: Verify v2.9 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='28'"
-          unzip -l $APK | grep -q assets/v12-human-patch.js
-          cp $APK MG_Tennis_TV_v2.8_Realistic_Opponent.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='29'"
+          unzip -l $APK | grep -q assets/tv-mode-v29.js
+          unzip -p $APK assets/index.html | grep -q 'tv-mode-v29.js'
+          cp $APK MG_Tennis_TV_v2.9_TV_Lock_Human.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v2.8-Realistic-Opponent-APK
-          path: MG_Tennis_TV_v2.8_Realistic_Opponent.apk
+          name: MG-Tennis-TV-v2.9-TV-Lock-Human-APK
+          path: MG_Tennis_TV_v2.9_TV_Lock_Human.apk
           retention-days: 30
