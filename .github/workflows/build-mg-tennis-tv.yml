@@ -94,18 +94,18 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v2.6 release
+      - name: Verify v2.7 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='26'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='27'"
           unzip -l $APK | grep -q assets/gameplay-feedback-v26.js
           unzip -p $APK assets/index.html | grep -q 'gameplay-feedback-v26.js'
-          cp $APK MG_Tennis_TV_v2.6_Rally_Feedback.apk
+          cp $APK MG_Tennis_TV_v2.7_LG_TV.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v2.6-Rally-Feedback-APK
-          path: MG_Tennis_TV_v2.6_Rally_Feedback.apk
+          name: MG-Tennis-TV-v2.7-LG-TV-APK
+          path: MG_Tennis_TV_v2.7_LG_TV.apk
           retention-days: 30
