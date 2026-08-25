@@ -71,3 +71,4 @@ jobs:
           git add build-status/MODELVIEWER_V2400_LAST_SUCCESS.txt
           git commit -m 'Record successful v2.4.0 build [skip ci]' || exit 0
           git push
+# rebuild requested 2026-08-25 for in-place update APK
