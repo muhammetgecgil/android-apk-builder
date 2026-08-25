@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Human/AI profile outline -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="@color/mg_ai_icon_cyan"
+        android:strokeWidth="4.2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M69,20 C51,15 33,25 29,42 C27,50 29,56 25,61 L20,68 L27,71 L26,80 C26,84 29,87 34,87 L43,87 L43,96 M69,20 C82,25 89,37 88,52 C87,68 79,79 67,86 L67,96" />
+
+    <!-- Neural/circuit traces -->
+    <path android:fillColor="@android:color/transparent" android:strokeColor="@color/mg_ai_icon_blue" android:strokeWidth="1.8" android:pathData="M39,37 L50,30 L61,37 L72,29 M39,37 L46,48 L60,47 L69,58 L80,51 M46,48 L38,59 M60,47 L58,61 L46,69 M69,58 L62,72 L76,76" />
+    <path android:fillColor="@color/mg_ai_icon_cyan" android:pathData="M36,34 h6 v6 h-6 z M47,27 h6 v6 h-6 z M58,34 h6 v6 h-6 z M69,26 h6 v6 h-6 z M43,45 h6 v6 h-6 z M57,44 h6 v6 h-6 z M66,55 h6 v6 h-6 z M77,48 h6 v6 h-6 z M35,56 h6 v6 h-6 z M43,66 h6 v6 h-6 z M55,58 h6 v6 h-6 z M59,69 h6 v6 h-6 z M73,73 h6 v6 h-6 z" />
+
+    <!-- Stylized MG -->
+    <path android:fillColor="@color/mg_ai_icon_white" android:pathData="M34,42 L38,42 L43,49 L48,42 L52,42 L52,58 L47,58 L47,50 L43,56 L39,50 L39,58 L34,58 Z" />
+    <path android:fillColor="@color/mg_ai_icon_white" android:pathData="M55,42 L68,42 L68,46 L60,46 L60,54 L65,54 L65,51 L62,51 L62,48 L70,48 L70,58 L55,58 Z" />
+
+    <!-- Stylized AI -->
+    <path android:fillColor="@color/mg_ai_icon_cyan" android:pathData="M40,62 L46,62 L53,80 L48,80 L47,76 L39,76 L38,80 L33,80 Z M41,72 L45,72 L43,66 Z" />
+    <path android:fillColor="@color/mg_ai_icon_cyan" android:pathData="M56,62 L62,62 L62,80 L56,80 Z" />
+
+    <!-- Lower circuit pins -->
+    <path android:fillColor="@android:color/transparent" android:strokeColor="@color/mg_ai_icon_blue" android:strokeWidth="1.7" android:pathData="M48,84 L48,96 M54,84 L54,92 M60,84 L60,98 M66,84 L66,94 M72,84 L72,98" />
+    <path android:fillColor="@color/mg_ai_icon_cyan" android:pathData="M46,94 h4 v4 h-4 z M52,90 h4 v4 h-4 z M58,96 h4 v4 h-4 z M64,92 h4 v4 h-4 z M70,96 h4 v4 h-4 z" />
+</vector>
