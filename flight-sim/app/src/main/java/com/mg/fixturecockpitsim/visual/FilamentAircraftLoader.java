@@ -58,11 +58,7 @@ public final class FilamentAircraftLoader implements AutoCloseable {
         if (asset == null) {
             throw new IOException("Filament could not parse GLB: " + assetPath);
         }
-        if (!resourceLoader.loadResources(asset)) {
-            assetLoader.destroyAsset(asset);
-            asset = null;
-            throw new IOException("Filament could not load GLB resources: " + assetPath);
-        }
+        resourceLoader.loadResources(asset);
         asset.releaseSourceData();
         scene.addEntities(asset.getEntities());
         return asset;
