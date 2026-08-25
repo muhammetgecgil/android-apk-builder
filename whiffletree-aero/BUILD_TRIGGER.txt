@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v7.4.0 real physical equipment + material selector
+CI trigger for Whiffletree Aero v7.5.0 transfer matrix + true lever-arm solver + required/applied error map
 triggered: 2026-08-25
