@@ -1,4 +1,4 @@
-name: Build MG-AI v0.54 Stable Update APK
+name: Build MG-AI v0.55 Stable Update APK
 
 on:
   push:
@@ -71,16 +71,19 @@ jobs:
 
       - name: Verify APK, native runtimes, icon and signature
         run: |
-          test -f mg-ai/app/build/outputs/apk/debug/app-debug.apk
-          unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libmgllama.so'
-          unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'lib/arm64-v8a/libmgwhisper.so'
-          unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'res/mipmap-anydpi-v26/mg_ai_launcher.xml'
-          unzip -l mg-ai/app/build/outputs/apk/debug/app-debug.apk | grep 'res/drawable/mg_ai_icon_foreground.xml'
-          apksigner verify --print-certs mg-ai/app/build/outputs/apk/debug/app-debug.apk
+          APK=mg-ai/app/build/outputs/apk/debug/app-debug.apk
+          test -f "$APK"
+          unzip -l "$APK" | grep 'lib/arm64-v8a/libmgllama.so'
+          unzip -l "$APK" | grep 'lib/arm64-v8a/libmgwhisper.so'
+          unzip -l "$APK" | grep 'res/mipmap-anydpi-v26/mg_ai_launcher.xml'
+          unzip -l "$APK" | grep 'res/drawable/mg_ai_icon_foreground.xml'
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -x "$APKSIGNER"
+          "$APKSIGNER" verify --print-certs "$APK"
 
-      - name: Upload MG-AI v0.54 APK
+      - name: Upload MG-AI v0.55 APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-AI-v0.54-stable-update-debug
+          name: MG-AI-v0.55-stable-update-debug
           path: mg-ai/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
