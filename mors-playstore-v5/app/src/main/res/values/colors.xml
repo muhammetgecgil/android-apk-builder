@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg">#030A12</color>
+    <color name="surface">#071522</color>
+    <color name="surface_alt">#0A1C2B</color>
+    <color name="cyan">#20DFF4</color>
+    <color name="green">#82F45B</color>
+    <color name="text_primary">#F4FBFF</color>
+    <color name="text_secondary">#A8BDCB</color>
+    <color name="stroke">#1C5E78</color>
+    <color name="danger">#FF6B7A</color>
+</resources>
