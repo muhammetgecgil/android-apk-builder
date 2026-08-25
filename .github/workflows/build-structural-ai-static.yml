@@ -51,12 +51,12 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug --stacktrace
 
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Structural_AI_Static_v0.5.1_DEBUG.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Structural_AI_Static_v0.6.0_DEBUG.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Structural-AI-Static-v0.5.1-DEBUG
-          path: structural-ai-static/Structural_AI_Static_v0.5.1_DEBUG.apk
+          name: Structural-AI-Static-v0.6.0-DEBUG
+          path: structural-ai-static/Structural_AI_Static_v0.6.0_DEBUG.apk
           if-no-files-found: error
           retention-days: 30
