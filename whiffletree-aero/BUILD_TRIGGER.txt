@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v6.8.0 structural test system workspace
+CI trigger for Whiffletree Aero v7.0.0 guided input + poster-quality rig view
 triggered: 2026-08-25
