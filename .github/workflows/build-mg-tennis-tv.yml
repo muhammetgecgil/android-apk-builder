@@ -4,40 +4,28 @@ on:
     branches: [ feature/mg-tennis-tv-v1 ]
     paths: [ 'mg-tennis-tv/**', '.github/workflows/build-mg-tennis-tv.yml' ]
   workflow_dispatch:
-permissions:
-  contents: write
+permissions: { contents: write }
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
       - name: Publish run id
         run: |
-          mkdir -p build-status
-          echo "$GITHUB_RUN_ID" > build-status/mg-tennis-tv-run.txt
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add build-status/mg-tennis-tv-run.txt
-          git commit -m "Record MG Tennis TV run $GITHUB_RUN_ID" || true
-          git push || true
+          mkdir -p build-status; echo "$GITHUB_RUN_ID" > build-status/mg-tennis-tv-run.txt
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add build-status/mg-tennis-tv-run.txt; git commit -m "Record MG Tennis TV run $GITHUB_RUN_ID" || true; git push || true
       - name: Restore signing key
-        run: |
-          base64 -d mg-tennis-tv/signing/mg-tennis-update.jks.b64 > mg-tennis-tv/signing/mg-tennis-update.jks
-          test -s mg-tennis-tv/signing/mg-tennis-update.jks
+        run: base64 -d mg-tennis-tv/signing/mg-tennis-update.jks.b64 > mg-tennis-tv/signing/mg-tennis-update.jks
       - name: Prepare runtime and player models
         run: |
-          set -euo pipefail
-          A=mg-tennis-tv/app/src/main/assets
+          set -euo pipefail; A=mg-tennis-tv/app/src/main/assets
           curl --retry 4 -fL https://unpkg.com/three@0.128.0/build/three.min.js -o $A/three.min.js
           curl --retry 4 -fL https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js -o $A/GLTFLoader.js
           curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/realistic-male.glb -o $A/opponent.glb
           curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/parametric-base.glb -o $A/tennis-player.glb
-          test -s $A/opponent.glb
-          test -s $A/tv-mode-v29.js
-          test -s $A/gameplay-v30.js
-          test -s $A/visual-gameplay-v31.js
+          test -s $A/player-ball-v32.js
       - name: Inject gameplay patches
         run: |
           python3 - <<'PY'
@@ -52,35 +40,27 @@ jobs:
           old="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);updateCamera(dt);renderer.render(scene,camera)}"
           new="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);if(window.updateOpponentMotion)window.updateOpponentMotion(dt);updateCamera(dt);renderer.render(scene,camera)}"
           if old in s:s=s.replace(old,new)
-          for fn in ['difficulty-v24.js','v12-human-patch.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js']:
+          for fn in ['difficulty-v24.js','v12-human-patch.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js']:
               if fn not in s:s=s.replace('</body>',f'<script src="{fn}"></script></body>')
           p.write_text(s)
           PY
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-      - name: Install Android API 35
-        run: yes | sdkmanager 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
-      - name: Set up Gradle 8.10.2
-        uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v3
+      - run: yes | sdkmanager 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
+      - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.10.2' }
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v3.1 release
+      - name: Verify v3.2 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='31'"
-          unzip -l $APK | grep -q assets/visual-gameplay-v31.js
-          unzip -p $APK assets/index.html | grep -q 'visual-gameplay-v31.js'
-          cp $APK MG_Tennis_TV_v3.1_Visual_Real_Match.apk
-      - name: Upload installable APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: MG-Tennis-TV-v3.1-Visual-Real-Match-APK
-          path: MG_Tennis_TV_v3.1_Visual_Real_Match.apk
-          retention-days: 30
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='32'"
+          unzip -l $APK | grep -q assets/player-ball-v32.js
+          unzip -p $APK assets/index.html | grep -q 'player-ball-v32.js'
+          cp $APK MG_Tennis_TV_v3.2_Player_Ball_Sync.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: MG-Tennis-TV-v3.2-Player-Ball-Sync-APK, path: MG_Tennis_TV_v3.2_Player_Ball_Sync.apk, retention-days: 30 }
