@@ -3,6 +3,7 @@
 #include <vector>
 #include <mutex>
 #include <cmath>
+#include <chrono>
 #include "llama.h"
 
 struct Engine {
@@ -10,6 +11,10 @@ struct Engine {
     llama_context * ctx = nullptr;
     const llama_vocab * vocab = nullptr;
     std::mutex mutex;
+    long long last_total_ms = 0;
+    long long last_ttft_ms = 0;
+    int last_generated_tokens = 0;
+    int last_prompt_tokens = 0;
 };
 
 static std::string jstr(JNIEnv * env, jstring s) {
@@ -18,6 +23,10 @@ static std::string jstr(JNIEnv * env, jstring s) {
     std::string out = p ? p : "";
     if (p) env->ReleaseStringUTFChars(s, p);
     return out;
+}
+
+static long long ms_since(const std::chrono::steady_clock::time_point & start) {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
 }
 
 static void cleanup(Engine * e) {
@@ -63,6 +72,11 @@ Java_com_mgai_app_LocalInferenceBridge_generateNative(JNIEnv * env, jclass, jlon
     Engine * e = reinterpret_cast<Engine *>(handle);
     if (!e || !e->model || !e->ctx || !e->vocab) return env->NewStringUTF("Engine hazır değil.");
     std::lock_guard<std::mutex> lock(e->mutex);
+    const auto started = std::chrono::steady_clock::now();
+    e->last_total_ms = 0;
+    e->last_ttft_ms = 0;
+    e->last_generated_tokens = 0;
+    e->last_prompt_tokens = 0;
 
     std::string prompt = jstr(env, promptJ);
     if (prompt.empty()) return env->NewStringUTF("");
@@ -71,6 +85,7 @@ Java_com_mgai_app_LocalInferenceBridge_generateNative(JNIEnv * env, jclass, jlon
 
     int n_prompt = -llama_tokenize(e->vocab, prompt.c_str(), (int32_t)prompt.size(), nullptr, 0, true, true);
     if (n_prompt <= 0) return env->NewStringUTF("Prompt tokenize edilemedi.");
+    e->last_prompt_tokens = n_prompt;
     std::vector<llama_token> tokens((size_t)n_prompt);
     if (llama_tokenize(e->vocab, prompt.c_str(), (int32_t)prompt.size(), tokens.data(), (int32_t)tokens.size(), true, true) < 0)
         return env->NewStringUTF("Prompt tokenize edilemedi.");
@@ -90,6 +105,9 @@ Java_com_mgai_app_LocalInferenceBridge_generateNative(JNIEnv * env, jclass, jlon
         llama_token tok = llama_sampler_sample(sampler, e->ctx, -1);
         if (llama_vocab_is_eog(e->vocab, tok)) break;
 
+        if (e->last_generated_tokens == 0) e->last_ttft_ms = ms_since(started);
+        e->last_generated_tokens++;
+
         char buf[512];
         int n = llama_token_to_piece(e->vocab, tok, buf, sizeof(buf), 0, true);
         if (n > 0) output.append(buf, (size_t)n);
@@ -98,8 +116,33 @@ Java_com_mgai_app_LocalInferenceBridge_generateNative(JNIEnv * env, jclass, jlon
         if (llama_decode(e->ctx, next) != 0) break;
     }
 
+    e->last_total_ms = ms_since(started);
     llama_sampler_free(sampler);
     return env->NewStringUTF(output.c_str());
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_mgai_app_LocalInferenceBridge_lastTotalMsNative(JNIEnv *, jclass, jlong handle) {
+    Engine * e = reinterpret_cast<Engine *>(handle);
+    return e ? (jlong)e->last_total_ms : 0;
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_mgai_app_LocalInferenceBridge_lastTtftMsNative(JNIEnv *, jclass, jlong handle) {
+    Engine * e = reinterpret_cast<Engine *>(handle);
+    return e ? (jlong)e->last_ttft_ms : 0;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_mgai_app_LocalInferenceBridge_lastGeneratedTokensNative(JNIEnv *, jclass, jlong handle) {
+    Engine * e = reinterpret_cast<Engine *>(handle);
+    return e ? (jint)e->last_generated_tokens : 0;
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_mgai_app_LocalInferenceBridge_lastPromptTokensNative(JNIEnv *, jclass, jlong handle) {
+    Engine * e = reinterpret_cast<Engine *>(handle);
+    return e ? (jint)e->last_prompt_tokens : 0;
 }
 
 extern "C" JNIEXPORT void JNICALL
