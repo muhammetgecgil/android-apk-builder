@@ -17,6 +17,7 @@ public final class LocalInferenceBridge {
 
     private static boolean loaded=false;
     private static volatile Metrics lastMetrics=new Metrics(0,0,0,0);
+    private static volatile AdaptivePerformanceManager.Profile lastProfile;
     static {
         try { System.loadLibrary("mgllama"); loaded=true; }
         catch (Throwable ignored) { loaded=false; }
@@ -32,7 +33,10 @@ public final class LocalInferenceBridge {
     public static String generate(long handle, String prompt, int maxTokens, float temperature){
         VoiceSessionStateManager.set(VoiceSessionStateManager.State.THINKING);
         try {
-            String out=generateNative(handle,prompt,maxTokens,temperature);
+            AdaptivePerformanceManager.Profile p=AdaptivePerformanceManager.choose(null);
+            lastProfile=p;
+            int adaptiveMax=maxTokens>0?Math.min(maxTokens,p.maxTokens):p.maxTokens;
+            String out=generateNative(handle,prompt,adaptiveMax,temperature);
             lastMetrics=new Metrics(lastTotalMsNative(handle),lastTtftMsNative(handle),lastGeneratedTokensNative(handle),lastPromptTokensNative(handle));
             return out;
         } catch(Throwable t){
@@ -43,5 +47,6 @@ public final class LocalInferenceBridge {
         }
     }
     public static Metrics lastMetrics(){return lastMetrics;}
+    public static AdaptivePerformanceManager.Profile lastProfile(){return lastProfile;}
     public static native void destroyEngine(long handle);
 }
