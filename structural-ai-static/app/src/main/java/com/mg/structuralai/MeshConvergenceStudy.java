@@ -5,8 +5,8 @@ import java.util.List;
 /** Three-level h-refinement study for user-selected static load cases. */
 public final class MeshConvergenceStudy {
     public static final class Level {
-        public final int cells,nodes,tets; public final StaticFemSolver.Result fem; public final MeshQualityReport quality; public final AdvancedFemLoads.Result setup;
-        Level(int c,VoxelTetMesher.Result m,StaticFemSolver.Result f,AdvancedFemLoads.Result s){cells=c;nodes=m.mesh.nodes.size();tets=m.mesh.tets.size();quality=m.quality;fem=f;setup=s;}
+        public final int cells,nodes,tets; public final TetMeshData mesh; public final StaticFemSolver.Result fem; public final MeshQualityReport quality; public final AdvancedFemLoads.Result setup;
+        Level(int c,VoxelTetMesher.Result m,StaticFemSolver.Result f,AdvancedFemLoads.Result s){cells=c;mesh=m.mesh;nodes=m.mesh.nodes.size();tets=m.mesh.tets.size();quality=m.quality;fem=f;setup=s;}
     }
     public static final class Result {
         public final Level coarse,medium,fine; public final double displacementChange,stressChange; public final boolean converged;
