@@ -5,9 +5,12 @@
     <application
         android:allowBackup="true"
         android:label="MG-AI"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.MGAI">
+        <activity android:name=".ModelComparisonActivity" android:exported="false" />
         <activity android:name=".BenchmarkTrendActivity" android:exported="false" />
         <activity android:name=".BenchmarkComparisonActivity" android:exported="false" />
         <activity android:name=".SelfTuningActivity" android:exported="false" />
