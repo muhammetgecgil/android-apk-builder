@@ -6,17 +6,23 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends Activity implements SensorEventListener {
     private SensorManager sensorManager;
     private final FusionEngine fusion = new FusionEngine();
+    private final FlightRecorder recorder = new FlightRecorder();
     private BioNavView navView;
-    private TextView warning;
     private boolean running = true;
 
     @Override
@@ -26,33 +32,38 @@ public class MainActivity extends Activity implements SensorEventListener {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(20, 16, 20, 16);
-        root.setBackgroundColor(0xFF08111A);
+        root.setPadding(16, 12, 16, 12);
+        root.setBackgroundColor(0xFF071018);
 
         TextView title = new TextView(this);
-        title.setText("BioNav Aviation\nGNSS-Denied Navigation Lab");
+        title.setText("BioNav Aviation v2\nGNSS-Denied Flight Navigation Lab");
         title.setTextColor(0xFFF5F7FA);
-        title.setTextSize(22);
+        title.setTextSize(21);
         title.setGravity(Gravity.CENTER_HORIZONTAL);
         root.addView(title, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
-        warning = new TextView(this);
-        warning.setText("RESEARCH / DEMO ONLY — NOT FOR FLIGHT GUIDANCE OR SAFETY-CRITICAL NAVIGATION");
+        TextView warning = new TextView(this);
+        warning.setText("RESEARCH / FLIGHT-TEST AID ONLY — NOT CERTIFIED FOR PRIMARY FLIGHT GUIDANCE");
         warning.setTextColor(0xFFFFC857);
-        warning.setTextSize(12);
+        warning.setTextSize(11);
         warning.setGravity(Gravity.CENTER);
-        warning.setPadding(0, 12, 0, 12);
+        warning.setPadding(0, 8, 0, 8);
         root.addView(warning);
 
-        navView = new BioNavView(this, fusion);
+        navView = new BioNavView(this, fusion, recorder);
         root.addView(navView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        LinearLayout controls = new LinearLayout(this);
-        controls.setGravity(Gravity.CENTER);
-        Button reset = new Button(this);
-        reset.setText("ZERO / ORIGIN");
-        reset.setOnClickListener(v -> fusion.reset());
-        controls.addView(reset);
+        LinearLayout row1 = new LinearLayout(this);
+        row1.setGravity(Gravity.CENTER);
+        Button zero = new Button(this);
+        zero.setText("ZERO");
+        zero.setOnClickListener(v -> fusion.reset());
+        row1.addView(zero);
+
+        Button align = new Button(this);
+        align.setText("BARO ZERO");
+        align.setOnClickListener(v -> fusion.calibrateBaroOrigin());
+        row1.addView(align);
 
         Button startStop = new Button(this);
         startStop.setText("PAUSE");
@@ -60,8 +71,33 @@ public class MainActivity extends Activity implements SensorEventListener {
             running = !running;
             startStop.setText(running ? "PAUSE" : "RESUME");
         });
-        controls.addView(startStop);
-        root.addView(controls);
+        row1.addView(startStop);
+        root.addView(row1);
+
+        LinearLayout row2 = new LinearLayout(this);
+        row2.setGravity(Gravity.CENTER);
+        Button record = new Button(this);
+        record.setText("RECORD");
+        record.setOnClickListener(v -> {
+            recorder.setRecording(!recorder.isRecording());
+            record.setText(recorder.isRecording() ? "STOP REC" : "RECORD");
+            navView.invalidate();
+        });
+        row2.addView(record);
+
+        Button clear = new Button(this);
+        clear.setText("CLEAR LOG");
+        clear.setOnClickListener(v -> {
+            recorder.clear();
+            navView.invalidate();
+        });
+        row2.addView(clear);
+
+        Button save = new Button(this);
+        save.setText("SAVE CSV");
+        save.setOnClickListener(v -> saveCsv());
+        row2.addView(save);
+        root.addView(row2);
 
         setContentView(root);
     }
@@ -71,6 +107,8 @@ public class MainActivity extends Activity implements SensorEventListener {
         super.onResume();
         register(Sensor.TYPE_ROTATION_VECTOR, SensorManager.SENSOR_DELAY_GAME);
         register(Sensor.TYPE_LINEAR_ACCELERATION, SensorManager.SENSOR_DELAY_GAME);
+        register(Sensor.TYPE_GYROSCOPE, SensorManager.SENSOR_DELAY_GAME);
+        register(Sensor.TYPE_MAGNETIC_FIELD, SensorManager.SENSOR_DELAY_GAME);
         register(Sensor.TYPE_PRESSURE, SensorManager.SENSOR_DELAY_NORMAL);
     }
 
@@ -95,15 +133,40 @@ public class MainActivity extends Activity implements SensorEventListener {
             case Sensor.TYPE_LINEAR_ACCELERATION:
                 fusion.updateLinearAcceleration(event.values[0], event.values[1], event.values[2], event.timestamp);
                 break;
+            case Sensor.TYPE_GYROSCOPE:
+                fusion.updateGyroscope(event.values[0], event.values[1], event.values[2], event.timestamp);
+                break;
+            case Sensor.TYPE_MAGNETIC_FIELD:
+                fusion.updateMagneticField(event.values[0], event.values[1], event.values[2]);
+                break;
             case Sensor.TYPE_PRESSURE:
-                fusion.updatePressure(event.values[0]);
+                fusion.updatePressure(event.values[0], event.timestamp);
                 break;
         }
+        recorder.capture(fusion, SystemClock.elapsedRealtime());
         navView.invalidate();
     }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        // Accuracy is reflected indirectly by source availability in this V1 demo.
+        fusion.markSensorAccuracy(sensor.getType(), accuracy);
+    }
+
+    private void saveCsv() {
+        if (recorder.size() == 0) {
+            Toast.makeText(this, "No recorded flight-test samples", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        try {
+            File dir = new File(getExternalFilesDir(null), "flightlogs");
+            if (!dir.exists() && !dir.mkdirs()) throw new IllegalStateException("Cannot create log folder");
+            File out = new File(dir, "bionav_flightlog_" + System.currentTimeMillis() + ".csv");
+            try (FileOutputStream fos = new FileOutputStream(out)) {
+                fos.write(recorder.csv().getBytes(StandardCharsets.UTF_8));
+            }
+            Toast.makeText(this, "Saved: " + out.getAbsolutePath(), Toast.LENGTH_LONG).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Save failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+        }
     }
 }
