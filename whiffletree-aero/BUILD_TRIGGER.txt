@@ -1,2 +1,2 @@
-CI trigger for Whiffletree Aero v7.0.0 guided input + poster-quality rig view
+CI trigger for Whiffletree Aero v7.1.0 unified guided inputs + force visibility
 triggered: 2026-08-25
