@@ -36,6 +36,10 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+      - name: Restore stable BioNav test signing key
+        run: |
+          base64 -d bionav-aviation/signing/bionav-test.p12.b64 > bionav-aviation/signing/bionav-test.p12
+          keytool -list -keystore bionav-aviation/signing/bionav-test.p12 -storetype PKCS12 -storepass 'BioNavTest2026!' -alias bionav_test >/dev/null
       - name: Build APK
         working-directory: bionav-aviation
         run: gradle --no-daemon :app:assembleDebug --stacktrace
@@ -44,14 +48,15 @@ jobs:
           test -s bionav-aviation/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs bionav-aviation/app/build/outputs/apk/debug/app-debug.apk
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging bionav-aviation/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.bionavaviation'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging bionav-aviation/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='2'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging bionav-aviation/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='3'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging bionav-aviation/app/build/outputs/apk/debug/app-debug.apk | grep "application-icon"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump permissions bionav-aviation/app/build/outputs/apk/debug/app-debug.apk | grep -qv "ACCESS_FINE_LOCATION"
       - name: Rename APK
-        run: cp bionav-aviation/app/build/outputs/apk/debug/app-debug.apk BioNav_Aviation_v2.0.0.apk
+        run: cp bionav-aviation/app/build/outputs/apk/debug/app-debug.apk BioNav_Aviation_v2.1.0.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: BioNav-Aviation-v2.0.0-APK
-          path: BioNav_Aviation_v2.0.0.apk
+          name: BioNav-Aviation-v2.1.0-APK
+          path: BioNav_Aviation_v2.1.0.apk
           if-no-files-found: error
           retention-days: 30
