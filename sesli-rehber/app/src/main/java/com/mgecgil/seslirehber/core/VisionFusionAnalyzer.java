@@ -19,11 +19,10 @@ import static com.mgecgil.seslirehber.core.GuidanceModels.MotionObservation;
 import static com.mgecgil.seslirehber.core.GuidanceModels.ObjectObservation;
 
 /**
- * P0 visual fusion analyzer.
+ * P0/P1 visual fusion analyzer.
  *
- * Motion and object tracking are intentionally kept as separate evidence channels. The ML Kit
- * default detector is used only for generic bounding boxes + tracking IDs; it is NOT treated as
- * a validated semantic navigation model.
+ * Motion and object tracking remain separate evidence channels. ML Kit's default detector is
+ * used for generic geometry + tracking IDs only; it is not a validated semantic navigation model.
  */
 public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoCloseable {
     public interface Listener {
@@ -35,6 +34,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
     private static final int GRID_W = 48;
     private static final int GRID_H = 72;
     private static final long TRACK_STALE_MS = 2200L;
+    private static final float TRACK_ALPHA = 0.36f;
 
     private final byte[] previous = new byte[GRID_W * GRID_H];
     private final byte[] current = new byte[GRID_W * GRID_H];
@@ -61,7 +61,9 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         }
 
         try {
-            emitMotionEvidence(imageProxy);
+            int rotation = imageProxy.getImageInfo().getRotationDegrees();
+            emitMotionEvidence(imageProxy, rotation);
+
             Image mediaImage = imageProxy.getImage();
             if (mediaImage == null) {
                 processing.set(false);
@@ -69,7 +71,6 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
                 return;
             }
 
-            int rotation = imageProxy.getImageInfo().getRotationDegrees();
             InputImage inputImage = InputImage.fromMediaImage(mediaImage, rotation);
             final int sourceWidth = imageProxy.getWidth();
             final int sourceHeight = imageProxy.getHeight();
@@ -92,8 +93,10 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         }
     }
 
-    private void emitMotionEvidence(ImageProxy image) {
-        ImageProxy.PlaneProxy yPlane = image.getPlanes()[0];
+    private void emitMotionEvidence(ImageProxy image, int rotationDegrees) {
+        ImageProxy.PlaneProxy[] planes = image.getPlanes();
+        if (planes.length == 0) return;
+        ImageProxy.PlaneProxy yPlane = planes[0];
         ByteBuffer buffer = yPlane.getBuffer();
         int width = image.getWidth();
         int height = image.getHeight();
@@ -139,10 +142,19 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         System.arraycopy(current, 0, previous, 0, current.length);
 
         float area = changed / (float) current.length;
-        float cx = changed == 0 ? -1f : (sumX / (float) changed) / (GRID_W - 1f);
-        float cy = changed == 0 ? -1f : (sumY / (float) changed) / (GRID_H - 1f);
+        float rawX = changed == 0 ? -1f : (sumX / (float) changed) / (GRID_W - 1f);
+        float rawY = changed == 0 ? -1f : (sumY / (float) changed) / (GRID_H - 1f);
+        float[] upright = rotateNormalized(rawX, rawY, rotationDegrees);
+
         float confidence = clamp((area - 0.015f) / 0.18f);
-        listener.onMotion(new MotionObservation(area, cx, cy, confidence, System.currentTimeMillis()));
+        // A near-global frame change is commonly camera motion/exposure change, not a local hazard.
+        if (area > 0.58f) confidence *= 0.40f;
+        listener.onMotion(new MotionObservation(
+                area,
+                upright[0],
+                upright[1],
+                confidence,
+                System.currentTimeMillis()));
     }
 
     private void emitMostRelevantObject(List<DetectedObject> objects, int width, int height, long nowMs) {
@@ -158,36 +170,55 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
 
             float centerX = clamp(box.exactCenterX() / width);
             float centerY = clamp(box.exactCenterY() / height);
+            float bottomY = clamp(box.bottom / (float) height);
             float areaRatio = clamp((box.width() * (float) box.height()) / frameArea);
             Integer idValue = object.getTrackingId();
             int trackingId = idValue == null ? -1 : idValue;
 
             float growthPerSecond = 0f;
+            float centerVelocityX = 0f;
             int seenCount = 1;
             if (trackingId >= 0) {
                 TrackState previousState = tracks.get(trackingId);
                 if (previousState != null) {
                     long dtMs = Math.max(1L, nowMs - previousState.timeMs);
-                    growthPerSecond = (areaRatio - previousState.areaRatio) * (1000f / dtMs);
-                    seenCount = Math.min(20, previousState.seenCount + 1);
+                    float seconds = dtMs / 1000f;
+                    float rawGrowth = (areaRatio - previousState.areaRatio) / seconds;
+                    float rawCenterVelocity = (centerX - previousState.centerX) / seconds;
+                    growthPerSecond = ema(previousState.smoothedGrowth, rawGrowth, TRACK_ALPHA);
+                    centerVelocityX = ema(previousState.smoothedCenterVelocityX, rawCenterVelocity, TRACK_ALPHA);
+                    seenCount = Math.min(30, previousState.seenCount + 1);
                 }
-                tracks.put(trackingId, new TrackState(areaRatio, nowMs, seenCount));
+                tracks.put(trackingId, new TrackState(
+                        areaRatio,
+                        centerX,
+                        growthPerSecond,
+                        centerVelocityX,
+                        nowMs,
+                        seenCount));
             }
 
-            float persistenceConfidence = trackingId < 0 ? 0.50f : clamp(0.54f + 0.07f * Math.min(seenCount, 5));
+            float persistenceConfidence = trackingId < 0
+                    ? 0.46f
+                    : clamp(0.52f + 0.075f * Math.min(seenCount, 5));
             ObjectObservation observation = new ObjectObservation(
                     centerX,
                     centerY,
+                    bottomY,
                     areaRatio,
                     growthPerSecond,
+                    centerVelocityX,
                     trackingId,
                     persistenceConfidence,
                     nowMs);
 
             float centerDistance = Math.abs(centerX - 0.5f) * 2f;
-            float centerBonus = (1f - clamp(centerDistance)) * 0.18f;
-            float approachBonus = Math.max(0f, Math.min(0.30f, growthPerSecond * 1.5f));
-            float score = areaRatio + centerBonus + approachBonus;
+            float centerBonus = (1f - clamp(centerDistance)) * 0.22f;
+            float approachBonus = clamp(Math.max(0f, growthPerSecond) / 0.22f) * 0.28f;
+            float towardCenter = Math.signum(0.5f - centerX) * centerVelocityX;
+            float crossingBonus = clamp(Math.max(0f, towardCenter) / 0.16f) * 0.12f;
+            float bottomBonus = Math.max(0f, bottomY - 0.45f) * 0.10f;
+            float score = areaRatio + centerBonus + approachBonus + crossingBonus + bottomBonus;
             if (score > bestScore) {
                 bestScore = score;
                 best = observation;
@@ -199,6 +230,20 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
 
     private void pruneTracks(long nowMs) {
         tracks.entrySet().removeIf(entry -> nowMs - entry.getValue().timeMs > TRACK_STALE_MS);
+    }
+
+    static float[] rotateNormalized(float x, float y, int rotationDegrees) {
+        if (x < 0f || y < 0f) return new float[]{x, y};
+        return switch (rotationDegrees) {
+            case 90 -> new float[]{clamp(1f - y), clamp(x)};
+            case 180 -> new float[]{clamp(1f - x), clamp(1f - y)};
+            case 270 -> new float[]{clamp(y), clamp(1f - x)};
+            default -> new float[]{clamp(x), clamp(y)};
+        };
+    }
+
+    private static float ema(float previous, float current, float alpha) {
+        return previous * (1f - alpha) + current * alpha;
     }
 
     private static float clamp(float value) {
@@ -213,11 +258,23 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
 
     private static final class TrackState {
         final float areaRatio;
+        final float centerX;
+        final float smoothedGrowth;
+        final float smoothedCenterVelocityX;
         final long timeMs;
         final int seenCount;
 
-        TrackState(float areaRatio, long timeMs, int seenCount) {
+        TrackState(
+                float areaRatio,
+                float centerX,
+                float smoothedGrowth,
+                float smoothedCenterVelocityX,
+                long timeMs,
+                int seenCount) {
             this.areaRatio = areaRatio;
+            this.centerX = centerX;
+            this.smoothedGrowth = smoothedGrowth;
+            this.smoothedCenterVelocityX = smoothedCenterVelocityX;
             this.timeMs = timeMs;
             this.seenCount = seenCount;
         }
