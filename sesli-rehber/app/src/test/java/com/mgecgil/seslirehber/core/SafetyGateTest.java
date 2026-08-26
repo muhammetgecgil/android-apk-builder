@@ -13,19 +13,36 @@ public class SafetyGateTest {
 
     @Test public void fastApproachingCenterObjectForcesStop() {
         SafetyGate gate = new SafetyGate();
-        ObjectObservation o = new ObjectObservation(0.50f, 0.50f, 0.16f, 0.22f, 7, 0.82f, 1000L);
+        ObjectObservation o = new ObjectObservation(
+                0.50f, 0.50f, 0.82f, 0.16f, 0.22f, 0.00f, 7, 0.82f, 1000L);
         assertEquals(Risk.STOP, gate.evaluateObject(o, 0.90f).risk());
+    }
+
+    @Test public void veryLargeStaticCenterObjectForcesStop() {
+        SafetyGate gate = new SafetyGate();
+        ObjectObservation o = new ObjectObservation(
+                0.50f, 0.50f, 0.90f, 0.30f, 0.00f, 0.00f, 10, 0.86f, 1000L);
+        assertEquals(Risk.STOP, gate.evaluateObject(o, 0.92f).risk());
     }
 
     @Test public void smallSideObjectDoesNotForceStop() {
         SafetyGate gate = new SafetyGate();
-        ObjectObservation o = new ObjectObservation(0.12f, 0.50f, 0.04f, 0.00f, 8, 0.82f, 1000L);
+        ObjectObservation o = new ObjectObservation(
+                0.12f, 0.50f, 0.70f, 0.04f, 0.00f, 0.00f, 8, 0.82f, 1000L);
         assertEquals(Risk.INFO, gate.evaluateObject(o, 0.90f).risk());
+    }
+
+    @Test public void sideObjectCrossingTowardPathProducesCaution() {
+        SafetyGate gate = new SafetyGate();
+        ObjectObservation o = new ObjectObservation(
+                0.25f, 0.52f, 0.78f, 0.09f, 0.03f, 0.18f, 11, 0.84f, 1000L);
+        assertEquals(Risk.CAUTION, gate.evaluateObject(o, 0.90f).risk());
     }
 
     @Test public void unstablePhoneAlsoBlocksObjectConfidence() {
         SafetyGate gate = new SafetyGate();
-        ObjectObservation o = new ObjectObservation(0.50f, 0.50f, 0.30f, 0.30f, 9, 0.90f, 1000L);
+        ObjectObservation o = new ObjectObservation(
+                0.50f, 0.50f, 0.90f, 0.30f, 0.30f, 0.00f, 9, 0.90f, 1000L);
         assertEquals(Risk.STOP, gate.evaluateObject(o, 0.20f).risk());
     }
 }
