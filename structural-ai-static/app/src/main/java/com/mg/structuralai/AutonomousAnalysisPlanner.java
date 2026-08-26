@@ -27,20 +27,31 @@ public final class AutonomousAnalysisPlanner {
         p.material=new LinearElasticMaterial("Normalized isotropic reference",210e9,0.30,7850,355e6);p.materialReason="No material evidence in bare tessellation; reference material is normalization only";p.materialConfidence=0.0;
 
         GeometryFeatureDetector.FeatureSet fs=GeometryFeatureDetector.detect(m);p.featureSummary=fs.summary();
-        if(!fs.flangeCandidates.isEmpty()&&fs.flangeConfidence>=0.45){
-            p.supports.addAll(fs.flangeCandidates);p.supportReason="Broad flange/mount-like planar geometry detected";p.supportConfidence=fs.flangeConfidence;
-        }else if(!fs.planarMountCandidates.isEmpty()&&fs.planarConfidence>=0.45){
-            p.supports.addAll(fs.planarMountCandidates);p.supportReason="Planar mounting-face candidates detected near model boundary";p.supportConfidence=fs.planarConfidence;
-        }
-
         double lo=major==0?minX:major==1?minY:minZ,hi=major==0?maxX:major==1?maxY:maxZ,tol=Math.max((hi-lo)*0.02,1e-9);
         List<MeshModel.V3> lowEnd=new ArrayList<>(),highEnd=new ArrayList<>();
         for(MeshModel.V3 v:m.vertices){double q=major==0?v.x:major==1?v.y:v.z;if(Math.abs(q-lo)<=tol)lowEnd.add(v);if(Math.abs(q-hi)<=tol)highEnd.add(v);}
-        if(p.supports.isEmpty()){p.supports.addAll(lowEnd);p.supportReason="Fallback candidate mounting region = extreme end of dominant geometric axis";p.supportConfidence=p.geometryClass.startsWith("SLENDER")?0.70:0.40;}
-        // load region chosen away from support centroid, defaulting to opposite major-axis end
-        MeshModel.V3 sc=centroid(p.supports);double dl=dist(sc,centroid(lowEnd)),dh=dist(sc,centroid(highEnd));p.loads.addAll(dh>=dl?highEnd:lowEnd);
-        p.loadReason="Region farthest from inferred support used for 1 N influence/capacity study; not asserted as service load";p.loadConfidence=p.geometryClass.startsWith("SLENDER")?0.68:0.42;
-        if(!fs.circularHoleCandidates.isEmpty())p.supportReason+="; circular/hole-like evidence present (support confidence modifier only)";
+
+        // Critical rule: a slender beam must never use every planar face as support.
+        // Use one complete end face as the candidate restraint and the opposite end as the influence-load face.
+        if(p.geometryClass.startsWith("SLENDER")){
+            p.supports.addAll(lowEnd);
+            p.loads.addAll(highEnd);
+            p.supportReason="Beam-like geometry: one dominant-axis end face selected as candidate restraint; other planar faces intentionally excluded";
+            p.supportConfidence=0.78;
+            p.loadReason="Opposite dominant-axis end face used for 1 N transverse influence/capacity study; not asserted as service load";
+            p.loadConfidence=0.76;
+        }else{
+            // For general solids use feature evidence, but never aggregate all disconnected planar faces.
+            if(!fs.flangeCandidates.isEmpty()&&fs.flangeConfidence>=0.55){
+                MeshModel.V3 seed=fs.flangeCandidates.get(0);p.supports.add(seed);p.supportReason="Strong flange/mount-like planar seed selected; connected-face extraction will define the actual support region";p.supportConfidence=fs.flangeConfidence;
+            }else if(!fs.planarMountCandidates.isEmpty()&&fs.planarConfidence>=0.55){
+                MeshModel.V3 seed=fs.planarMountCandidates.get(0);p.supports.add(seed);p.supportReason="Planar mounting-face seed selected; connected-face extraction will define one support region";p.supportConfidence=fs.planarConfidence;
+            }else{
+                p.supports.addAll(lowEnd);p.supportReason="Fallback candidate mounting region = one extreme end of dominant geometric axis";p.supportConfidence=0.40;
+            }
+            MeshModel.V3 sc=centroid(p.supports);double dl=dist(sc,centroid(lowEnd)),dh=dist(sc,centroid(highEnd));p.loads.addAll(dh>=dl?highEnd:lowEnd);
+            p.loadReason="Region farthest from inferred support used for 1 N influence/capacity study; not asserted as service load";p.loadConfidence=0.42;
+        }
 
         int transverse;if(major==0)transverse=d[1]<=d[2]?1:2;else if(major==1)transverse=d[0]<=d[2]?0:2;else transverse=d[0]<=d[1]?0:1;
         if(transverse==0)p.fx=-1;else if(transverse==1)p.fy=-1;else p.fz=-1;
