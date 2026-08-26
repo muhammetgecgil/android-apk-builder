@@ -20,9 +20,16 @@ import android.widget.Toast;
 import java.util.List;
 
 public class ProductCatalogActivity extends Activity {
+    public static final String EXTRA_TYPE="catalog_type";
+    public static final String EXTRA_V0="catalog_v0";
+    public static final String EXTRA_V1="catalog_v1";
+    public static final String EXTRA_V2="catalog_v2";
+    public static final String EXTRA_V3="catalog_v3";
+
     private final EditText[] in=new EditText[4];
     private LinearLayout results;
     private Spinner type;
+    private boolean applyingPreset=false;
     private final String[][] labels={
             {"Bore / mil çapı (mm)","Gerekli dinamik C (N)","",""},
             {"Hesaplanan min. nominal çap (mm)","Property class (örn. 10.9)","",""},
@@ -30,7 +37,7 @@ public class ProductCatalogActivity extends Activity {
             {"Motor gücü (kW)","Giriş devri (rpm)","Çıkış devri (rpm)","Gerekli çıkış torku (Nm)"}
     };
 
-    @Override protected void onCreate(Bundle b){super.onCreate(b);setContentView(ui());}
+    @Override protected void onCreate(Bundle b){super.onCreate(b);setContentView(ui());applyIntentPreset();}
 
     private View ui(){
         ScrollView s=new ScrollView(this);s.setBackgroundColor(Color.rgb(248,250,252));
@@ -41,8 +48,19 @@ public class ProductCatalogActivity extends Activity {
         for(int i=0;i<4;i++){in[i]=new EditText(this);in[i].setTextSize(16);in[i].setSingleLine(true);in[i].setPadding(dp(12),dp(8),dp(12),dp(8));r.addView(in[i],lp(-1,dp(58),dp(8)));}
         Button calc=new Button(this);calc.setText("TEKNİK ADAYLARI BUL");calc.setAllCaps(false);calc.setTypeface(Typeface.DEFAULT,Typeface.BOLD);calc.setTextColor(Color.WHITE);calc.setBackgroundColor(Color.rgb(5,150,105));r.addView(calc,lp(-1,dp(56),dp(14)));
         results=new LinearLayout(this);results.setOrientation(LinearLayout.VERTICAL);r.addView(results,lp(-1,-2,dp(14)));
-        type.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> p,View v,int pos,long id){update(pos);}public void onNothingSelected(AdapterView<?> p){}});
+        type.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onItemSelected(AdapterView<?> p,View v,int pos,long id){if(!applyingPreset)update(pos);}public void onNothingSelected(AdapterView<?> p){}});
         calc.setOnClickListener(v->calculate());update(0);return s;
+    }
+
+    private void applyIntentPreset(){
+        Intent intent=getIntent();
+        if(intent==null||!intent.hasExtra(EXTRA_TYPE))return;
+        int p=Math.max(0,Math.min(3,intent.getIntExtra(EXTRA_TYPE,0)));
+        applyingPreset=true;type.setSelection(p);update(p);
+        String[] keys={EXTRA_V0,EXTRA_V1,EXTRA_V2,EXTRA_V3};
+        for(int i=0;i<4;i++)if(intent.hasExtra(keys[i]))in[i].setText(intent.getStringExtra(keys[i]));
+        applyingPreset=false;
+        calculate();
     }
 
     private void update(int pos){
