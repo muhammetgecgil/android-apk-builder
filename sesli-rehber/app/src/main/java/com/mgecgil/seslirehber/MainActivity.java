@@ -5,6 +5,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.Surface;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -77,7 +78,7 @@ public final class MainActivity extends ComponentActivity {
 
         setContentView(buildUi());
         requestPermissionsAndStart();
-        speaker.speak("Sesli Rehber sürüm sıfır nokta iki. Hareket ve genel nesne yaklaşma takibi açılıyor. Çukur ve kesin mesafe henüz doğrulanmadı.");
+        speaker.speak("Sesli Rehber sürüm sıfır nokta üç. Dinamik çarpışma koridoru, yaklaşma ve yanal geçiş takibi açılıyor. Kesin mesafe ve çukur algısı henüz doğrulanmadı.");
     }
 
     private View buildUi() {
@@ -160,10 +161,17 @@ public final class MainActivity extends ComponentActivity {
         future.addListener(() -> {
             try {
                 ProcessCameraProvider provider = future.get();
-                Preview preview = new Preview.Builder().build();
+                int targetRotation = previewView.getDisplay() != null
+                        ? previewView.getDisplay().getRotation()
+                        : Surface.ROTATION_0;
+
+                Preview preview = new Preview.Builder()
+                        .setTargetRotation(targetRotation)
+                        .build();
                 preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
                 ImageAnalysis analysis = new ImageAnalysis.Builder()
+                        .setTargetRotation(targetRotation)
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
@@ -191,7 +199,7 @@ public final class MainActivity extends ComponentActivity {
 
                 provider.unbindAll();
                 provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis);
-                updateStatus("Kamera aktif. Hareket + genel nesne yaklaşma takibi çalışıyor.", false);
+                updateStatus("Kamera aktif. Dinamik çarpışma koridoru + yaklaşma takibi çalışıyor.", false);
             } catch (Exception error) {
                 guidanceEnabled = false;
                 updateStatus("Kamera başlatılamadı: " + error.getClass().getSimpleName(), true);
@@ -227,7 +235,7 @@ public final class MainActivity extends ComponentActivity {
             }
             case REPEAT -> speaker.repeat();
             case DESCRIBE_SCENE -> speaker.speak(
-                    "Genel nesne ve yaklaşma takibi çalışıyor. Nesne sınıfları ve ayrıntılı sahne anlatımı doğrulanmış özel model eklendiğinde açılacak.");
+                    "Genel nesne, yaklaşma ve yürüyüş koridoru takibi çalışıyor. Nesne sınıfları ve ayrıntılı sahne anlatımı doğrulanmış özel model eklendiğinde açılacak.");
             case HELP -> speaker.speak(
                     "Komutlar: rehberliği başlat, rehberliği durdur, tekrar et, çevremi anlat.");
             case UNKNOWN -> speaker.speak("Komutu anlayamadım.");
