@@ -6,7 +6,8 @@ import java.util.List;
 public final class MeshConvergenceStudy {
     public static final class Level {
         public final int cells,nodes,tets; public final TetMeshData mesh; public final StaticFemSolver.Result fem; public final MeshQualityReport quality; public final AdvancedFemLoads.Result setup;
-        Level(int c,VoxelTetMesher.Result m,StaticFemSolver.Result f,AdvancedFemLoads.Result s){cells=c;mesh=m.mesh;nodes=m.mesh.nodes.size();tets=m.mesh.tets.size();quality=m.quality;fem=f;setup=s;}
+        public final BoundaryConformityReport conformity; public final boolean boundarySnapped; public final String meshDecision;
+        Level(int c,SmartTetMesher.Result m,StaticFemSolver.Result f,AdvancedFemLoads.Result s){cells=c;mesh=m.mesh;nodes=m.mesh.nodes.size();tets=m.mesh.tets.size();quality=m.quality;conformity=m.conformity;boundarySnapped=m.snapped;meshDecision=m.decision;fem=f;setup=s;}
     }
     public static final class Result {
         public final Level coarse,medium,fine; public final double displacementChange,stressChange; public final boolean converged;
@@ -27,7 +28,7 @@ public final class MeshConvergenceStudy {
 
     private static Level solveLevel(MeshModel surface,double scale,LinearElasticMaterial mat,List<MeshModel.V3> supports,List<MeshModel.V3> loads,
                                     double fx,double fy,double fz,double pressurePa,boolean gravity,double rho,int cells){
-        VoxelTetMesher.Result mr=VoxelTetMesher.generate(surface,cells,scale);
+        SmartTetMesher.Result mr=SmartTetMesher.generate(surface,cells,scale);
         if(!mr.quality.pass) throw new IllegalStateException("Mesh QA failed at level "+cells+": "+mr.quality.summary());
         StaticFemSolver solver=new StaticFemSolver(mr.mesh,mat);
         AdvancedFemLoads.Result setup=AdvancedFemLoads.apply(solver,mr.mesh,surface,supports,loads,scale,fx,fy,fz,pressurePa,gravity,rho);
