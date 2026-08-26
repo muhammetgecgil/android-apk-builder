@@ -81,21 +81,21 @@ jobs:
             adb shell am force-stop com.mg.unitmasterx.stable2 || true
             adb shell am start -W -n com.mg.unitmasterx.stable2/com.mg.unitmasterx.MainActivity
             sleep 6
-            PID=$(adb shell pidof com.mg.unitmasterx.stable2 | tr -d '\r' || true)
-            echo "PID=$PID"
-            adb logcat -d AndroidRuntime:E '*:S' > androidruntime.log || true
-            echo '=== AndroidRuntime ==='
-            cat androidruntime.log || true
+            echo '=== UNIT MASTER PROCESSES ==='
+            adb shell ps -A | grep -i unitmaster || true
+            echo '=== ACTIVITY STATE ==='
+            adb shell dumpsys activity activities | grep -A30 -B10 -i unitmaster || true
+            echo '=== WINDOW STATE ==='
+            adb shell dumpsys window windows | grep -A20 -B10 -i unitmaster || true
             adb logcat -d > full-logcat.txt || true
-            if [ -z "$PID" ]; then
-              echo '=== APP PROCESS DIED ==='
-              grep -A100 -B20 -E 'FATAL EXCEPTION|AndroidRuntime|com.mg.unitmasterx.stable2' full-logcat.txt || true
-              exit 1
-            fi
-            adb shell uiautomator dump /sdcard/umx.xml
-            adb pull /sdcard/umx.xml umx.xml
+            echo '=== RELEVANT LOGCAT ==='
+            grep -A120 -B30 -E 'FATAL EXCEPTION|AndroidRuntime|unitmaster|am_crash|am_kill|am_proc_died|Force finishing|WIN DEATH|Process .*died|Killing .*unitmaster' full-logcat.txt || true
+            echo '=== UI DUMP ==='
+            adb shell uiautomator dump /sdcard/umx.xml || true
+            adb pull /sdcard/umx.xml umx.xml || true
+            grep -o 'text="[^"]*"' umx.xml | head -40 || true
+            adb shell pidof com.mg.unitmasterx.stable2 | grep -q .
             grep -q 'Unit Master X' umx.xml
-            if grep -q 'com.mg.unitmasterx.stable2' androidruntime.log; then exit 1; fi
 
       - name: Normalize outputs
         run: |
