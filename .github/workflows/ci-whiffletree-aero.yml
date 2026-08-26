@@ -26,6 +26,9 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Compile-check engineering source
+        working-directory: whiffletree-aero
+        run: gradle --no-daemon clean compileDebugJavaWithJavac --stacktrace
       - name: Restore stable Whiffletree signing key
         uses: actions/cache@v4
         with:
@@ -34,7 +37,7 @@ jobs:
           fail-on-cache-miss: true
       - name: Build signed debug APK
         working-directory: whiffletree-aero
-        run: gradle --no-daemon clean assembleDebug --stacktrace
+        run: gradle --no-daemon assembleDebug --stacktrace
       - name: Rename APK
         run: cp whiffletree-aero/app/build/outputs/apk/debug/app-debug.apk Whiffletree-Aero-v7.12.0.apk
       - name: Upload installable APK
