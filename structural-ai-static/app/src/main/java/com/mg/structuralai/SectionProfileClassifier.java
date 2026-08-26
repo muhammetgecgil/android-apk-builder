@@ -20,14 +20,28 @@ public final class SectionProfileClassifier {
             CrossSectionAnalyzer.Loop outer=cs.loops.get(0),inner=cs.loops.get(1);
             double ratio=inner.area/Math.max(outer.area,1e-30);
             if(outer.circularity>0.88&&inner.circularity>0.88&&ratio>0.05&&ratio<0.95)
-                return new Result(Type.PIPE,0.91,"Two closed concentric-like section contours with strong circularity evidence; hollow circular section proven by actual slice loops.",cs);
+                return new Result(Type.PIPE,0.91,"Two closed section contours with strong circularity evidence; hollow circular section proven by actual slice loops.",cs);
             if(outer.circularity<0.86&&inner.circularity<0.86&&ratio>0.05&&ratio<0.95)
-                return new Result(Type.BOX,0.84,"Two closed non-circular section contours prove a hollow prismatic section; treated as box/tube candidate pending corner rectangularity check.",cs);
+                return new Result(Type.BOX,0.84,"Two closed non-circular section contours prove a hollow prismatic section; treated as box/tube candidate pending stricter corner rectangularity evidence.",cs);
         }
 
-        if(slender&&cs.closed&&cs.loops.size()==1&&f.planarMountCandidates.size()==6&&f.circularHoleCandidates.isEmpty()&&f.flangeCandidates.isEmpty())
-            return new Result(Type.RECTANGULAR_SOLID,0.94,"Single closed section contour plus six merged planar faces and slender dominant axis prove a rectangular solid beam.",cs);
+        if(slender&&cs.closed&&cs.loops.size()==1){
+            OpenSectionTopologyClassifier.Result op=OpenSectionTopologyClassifier.classify(cs);
+            if(op.type!=OpenSectionTopologyClassifier.Type.UNKNOWN&&op.confidence>=0.80){
+                Type t=Type.GENERAL_SOLID;
+                switch(op.type){
+                    case I_SECTION:t=Type.I_SECTION;break;
+                    case C_SECTION:t=Type.C_SECTION;break;
+                    case T_SECTION:t=Type.T_SECTION;break;
+                    case L_SECTION:t=Type.L_SECTION;break;
+                    default:break;
+                }
+                return new Result(t,op.confidence,op.reason+" Signature score="+String.format(java.util.Locale.US,"%.3f",op.score)+", separation="+String.format(java.util.Locale.US,"%.3f",op.margin)+".",cs);
+            }
+            if(f.planarMountCandidates.size()==6&&f.circularHoleCandidates.isEmpty()&&f.flangeCandidates.isEmpty())
+                return new Result(Type.RECTANGULAR_SOLID,0.94,"Single closed section contour plus six merged planar faces and slender dominant axis prove a rectangular solid beam.",cs);
+        }
 
-        return new Result(Type.GENERAL_SOLID,0.30,"Profile family not proven from extracted section topology; retain general 3D solid path. I/C/T/L classification requires stronger contour-corner evidence.",cs);
+        return new Result(Type.GENERAL_SOLID,0.30,"Profile family not proven from extracted section topology; retain general 3D solid path.",cs);
     }
 }
