@@ -89,7 +89,7 @@ public final class SafetyGate {
         return new GuidanceDecision(
                 Risk.STOP,
                 Direction.UNKNOWN,
-                "Görüntü kararsız. Dur ve bastonla doğrula.",
+                "Telefon veya görüntü kararsız. Dur ve bastonla doğrula.",
                 clamp(1f - stability));
     }
 
