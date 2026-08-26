@@ -1,0 +1,41 @@
+name: Build Sesli Rehber
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'sesli-rehber/**'
+      - '.github/workflows/build-sesli-rehber.yml'
+  pull_request:
+    paths:
+      - 'sesli-rehber/**'
+      - '.github/workflows/build-sesli-rehber.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sesli-rehber
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android 16 SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Unit tests
+        run: gradle testDebugUnitTest --stacktrace
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SesliRehber-debug-apk
+          path: sesli-rehber/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
