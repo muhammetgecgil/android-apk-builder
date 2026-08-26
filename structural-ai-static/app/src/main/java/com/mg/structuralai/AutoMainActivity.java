@@ -26,16 +26,16 @@ public final class AutoMainActivity extends Activity {
     private String modelName="model";
 
     @Override public void onCreate(Bundle b){super.onCreate(b);
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(18,18,18,18);root.setBackgroundColor(Color.rgb(8,18,31));
-        TextView title=new TextView(this);title.setText("STRUCTURAL AI • AUTONOMOUS");title.setTextColor(Color.WHITE);title.setTextSize(23);title.setGravity(Gravity.CENTER);root.addView(title);
-        TextView sub=new TextView(this);sub.setText("v1.1 AUTO ALPHA • MODEL → AUTO ANALYZE");sub.setTextColor(Color.LTGRAY);sub.setGravity(Gravity.CENTER);root.addView(sub);
+        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(18,72,18,18);root.setBackgroundColor(Color.rgb(8,18,31));
+        TextView title=new TextView(this);title.setText("STRUCTURAL AI • AUTONOMOUS");title.setTextColor(Color.WHITE);title.setTextSize(22);title.setGravity(Gravity.CENTER);root.addView(title);
+        TextView sub=new TextView(this);sub.setText("v1.3.1 AUTO ALPHA • MODEL → AUTO ANALYZE");sub.setTextColor(Color.LTGRAY);sub.setGravity(Gravity.CENTER);root.addView(sub);
         badge=new TextView(this);badge.setText("MODE: WAITING FOR MODEL");badge.setTextColor(Color.WHITE);badge.setGravity(Gravity.CENTER);badge.setPadding(10,8,10,8);badge.setBackgroundColor(Color.rgb(70,70,78));root.addView(badge);
         viewport=new InteractiveModelView(this);root.addView(viewport,new LinearLayout.LayoutParams(-1,430));
         Button choose=new Button(this);choose.setText("MODEL SEÇ");choose.setOnClickListener(v->pickModel());root.addView(choose);
         Button auto=new Button(this);auto.setText("AUTO ANALYZE");auto.setOnClickListener(v->runAuto());root.addView(auto);
         Button manual=new Button(this);manual.setText("GELİŞMİŞ / MANUEL MOD");manual.setOnClickListener(v->startActivity(new Intent(this,MainActivity.class)));root.addView(manual);
         status=new TextView(this);status.setText("OBJ / ASCII STL / Binary STL");status.setTextColor(Color.rgb(120,220,190));status.setPadding(0,8,0,5);root.addView(status);
-        ScrollView sc=new ScrollView(this);report=new TextView(this);report.setTextColor(Color.WHITE);report.setTextSize(12);report.setText("Otonom akış:\n1) Yalnız modeli seç\n2) AUTO ANALYZE\n3) Geometri QA\n4) Birim/malzeme belirsizliği yönetimi\n5) Mesnet/yük adayları\n6) Alternatif birim-yük senaryoları\n7) 3-level FEM convergence\n8) En güvenilir senaryo + confidence raporu\n\nGerçek yük dosyada yoksa sistem yük uydurmaz; 1 N influence/capacity analizi yapar.");sc.addView(report);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
+        ScrollView sc=new ScrollView(this);report=new TextView(this);report.setTextColor(Color.WHITE);report.setTextSize(12);report.setText("Otonom akış:\n1) Yalnız modeli seç\n2) AUTO ANALYZE\n3) Geometri QA\n4) Birim/malzeme belirsizliği yönetimi\n5) Mesnet/yük adayları\n6) Alternatif birim-yük senaryoları\n7) 3-level FEM convergence\n8) Sıfır-cevap watchdog\n9) En güvenilir senaryo + confidence raporu\n\nGerçek yük dosyada yoksa sistem yük uydurmaz; 1 N influence/capacity analizi yapar.");sc.addView(report);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
     }
 
     private void pickModel(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("*/*");startActivityForResult(i,PICK_MODEL);}
