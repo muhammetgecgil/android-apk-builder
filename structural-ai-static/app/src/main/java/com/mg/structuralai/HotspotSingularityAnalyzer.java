@@ -18,7 +18,11 @@ public final class HotspotSingularityAnalyzer {
         double a=cv.coarse.fem.maxVonMisesPa,b=cv.medium.fem.maxVonMisesPa,c=cv.fine.fem.maxVonMisesPa;
         double g1=growth(a,b),g2=growth(b,c);
         Type type; String why;
-        if(cv.stressChange<=0.10 && g2<=0.12){
+        double scale=Math.max(Math.max(Math.abs(a),Math.abs(b)),Math.abs(c));
+        if(!Double.isFinite(scale) || scale<1e-6){
+            type=Type.UNRESOLVED;
+            why="Peak stress is effectively zero; this is not evidence of convergence. Load transfer, constraints and solver response must be validated first.";
+        }else if(cv.stressChange<=0.10 && Math.abs(g2)<=0.12){
             type=Type.CONVERGED_HOTSPOT;
             why="Peak stress is stabilizing under h-refinement; treat as a credible hotspot candidate.";
         }else if(c>b && b>a && g2>=g1*0.80 && g2>0.15){
