@@ -49,10 +49,14 @@ public class RadioService extends Service implements MediaPlayer.OnPreparedListe
     private String currentNetworkType(){try{Network n=connectivityManager==null?null:connectivityManager.getActiveNetwork();NetworkCapabilities c=n==null?null:connectivityManager.getNetworkCapabilities(n);return typeFromCaps(c);}catch(Exception e){return"unknown";}}
     private String typeFromCaps(NetworkCapabilities c){if(c==null)return"offline";if(c.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))return"wifi";if(c.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))return"cellular";if(c.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))return"ethernet";if(c.hasTransport(NetworkCapabilities.TRANSPORT_VPN))return"vpn";return"other";}
     private void onNetworkChanged(String next,String why){
-        if(next==null)next="unknown"; if(next.equals(networkType))return; String old=networkType; networkType=next; networkTransitions++; lastNetworkChangeMs=System.currentTimeMillis(); saveTelemetry();
-        if(userPaused||primaryUrl.isEmpty()||"offline".equals(next))return;
+        if(next==null)next="unknown";
+        if(next.equals(networkType))return;
+        final String oldNet=networkType;
+        final String nextNet=next;
+        networkType=nextNet; networkTransitions++; lastNetworkChangeMs=System.currentTimeMillis(); saveTelemetry();
+        if(userPaused||primaryUrl.isEmpty()||"offline".equals(nextNet))return;
         if(networkRecoveryTask!=null)handler.removeCallbacks(networkRecoveryTask);
-        networkRecoveryTask=()->{if(userPaused)return; boolean playing=false;try{playing=player!=null&&player.isPlaying()&&!buffering;}catch(Exception ignored){}if(!playing){reconnectAttempts=0;playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}else{updateNotification("Ağ geçişi: "+old+" → "+next,true);saveTelemetry();}};
+        networkRecoveryTask=()->{if(userPaused)return; boolean playing=false;try{playing=player!=null&&player.isPlaying()&&!buffering;}catch(Exception ignored){}if(!playing){reconnectAttempts=0;playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}else{updateNotification("Ağ geçişi: "+oldNet+" → "+nextNet,true);saveTelemetry();}};
         handler.postDelayed(networkRecoveryTask,1200);
     }
 
