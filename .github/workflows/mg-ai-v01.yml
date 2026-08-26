@@ -1,4 +1,4 @@
-name: Build MG-AI v0.58 Stable Update APK
+name: Build MG-AI v0.59 Stable Update APK
 
 on:
   push:
@@ -39,13 +39,14 @@ jobs:
           rm -rf mg-ai/app/src/main/cpp/whisper.cpp
           git clone --filter=blob:none --no-checkout https://github.com/ggml-org/whisper.cpp.git mg-ai/app/src/main/cpp/whisper.cpp
           git -C mg-ai/app/src/main/cpp/whisper.cpp checkout v1.9.1
-      - name: Verify model manifests and personal modes
+      - name: Verify orchestrator and model manifests
         run: |
           grep -q 'qwen2.5-1.5b-instruct-q4_k_m.gguf' mg-ai/app/src/main/java/com/mgai/app/LocalModelManager.java
           grep -q '6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e' mg-ai/app/src/main/java/com/mgai/app/LocalModelManager.java
           grep -q 'ggml-tiny.bin' mg-ai/app/src/main/java/com/mgai/app/LocalWhisperModelManager.java
-          grep -q 'DEEP_REASONING' mg-ai/app/src/main/java/com/mgai/app/AiModeManager.java
-          grep -q 'qualityWeight' mg-ai/app/src/main/java/com/mgai/app/ModelVsModelBenchmarkRunner.java
+          grep -q 'class AiOrchestrator' mg-ai/app/src/main/java/com/mgai/app/AiOrchestrator.java
+          grep -q 'class OrchestratedAiActivity' mg-ai/app/src/main/java/com/mgai/app/OrchestratedAiActivity.java
+          grep -q 'OrchestratedAiActivity' mg-ai/app/src/main/AndroidManifest.xml
       - name: Restore stable MG-AI development update key
         run: |
           openssl pkcs12 -export \
@@ -72,9 +73,9 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -x "$APKSIGNER"
           "$APKSIGNER" verify --print-certs "$APK"
-      - name: Upload MG-AI v0.58 APK
+      - name: Upload MG-AI v0.59 APK
         uses: actions/upload-artifact@v4
         with:
-          name: MG-AI-v0.58-stable-update-debug
+          name: MG-AI-v0.59-stable-update-debug
           path: mg-ai/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
