@@ -1,5 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:theme="@style/AppTheme" android:label="Stone Glow Analyzer" android:allowBackup="false" android:supportsRtl="true">
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="true" />
+    <application android:theme="@style/AppTheme" android:label="Stone Glow Analyzer" android:icon="@drawable/ic_stone_glow" android:roundIcon="@drawable/ic_stone_glow" android:allowBackup="false" android:supportsRtl="true">
         <activity android:name=".MainActivity" android:screenOrientation="portrait" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
