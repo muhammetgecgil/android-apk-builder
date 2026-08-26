@@ -22,20 +22,22 @@ public final class AutonomousAnalysisRunner {
         AutonomousScenarioRanker.Scenario s=AutonomousScenarioRanker.runAndRank(model,p);
         if(s.convergence==null) throw new IllegalStateException("No autonomous scenario passed numerical setup");
         MeshConvergenceStudy.Level f=s.convergence.fine;
-        boolean primaryReady=s.convergence.converged && f.fem.linearSolve.converged && f.fem.forceEquilibriumRelativeError<1e-5;
+        boolean nonZeroResponse=Double.isFinite(f.fem.maxDisplacementM)&&Double.isFinite(f.fem.maxVonMisesPa)&&f.fem.maxDisplacementM>1e-15&&f.fem.maxVonMisesPa>1e-6;
+        boolean primaryReady=s.convergence.converged && f.fem.linearSolve.converged && f.fem.forceEquilibriumRelativeError<1e-5 && nonZeroResponse;
         HotspotSingularityAnalyzer.Result h=HotspotSingularityAnalyzer.analyze(s.convergence);
         boolean hotspotReady=h.type==HotspotSingularityAnalyzer.Type.CONVERGED_HOTSPOT;
         MaterialScaleScenarioEngine.Result u=MaterialScaleScenarioEngine.evaluate(model,p,s.fx,s.fy,s.fz);
         boolean bandReady=u.passed>=3 && Double.isFinite(u.minCapacityN) && Double.isFinite(u.maxCapacityN);
         boolean ready=primaryReady && bandReady && hotspotReady;
-        String capacityLine=hotspotReady?String.format(Locale.US,"Yield-capacity band: %.6g to %.6g N-equivalent",u.minCapacityN,u.maxCapacityN):"Yield-capacity band: BLOCKED until peak-stress singularity status is resolved";
+        String capacityLine=hotspotReady&&nonZeroResponse?String.format(Locale.US,"Yield-capacity band: %.6g to %.6g N-equivalent",u.minCapacityN,u.maxCapacityN):"Yield-capacity band: BLOCKED until a non-zero, credible stress response is obtained";
+        String responseWatchdog=nonZeroResponse?"PASS":"FAIL — near-zero FEM response detected; load transfer / support mapping must be corrected before accepting any hotspot or capacity result";
         String criticalWhy=CriticalRegionExplainer.explain(p,h);
         String txt=String.format(Locale.US,
-            "AUTONOMOUS STATIC ANALYSIS\n\nGeometry class: %s\nGeometry QA: %s\nDetected features: %s\nSelected load scenario: %s\nScenario score: %.2f/1.00\n\nASSUMPTIONS / CONFIDENCE\nUnit: %.0f %% • %s\nMaterial: %.0f %% • %s\nSupport: %.0f %% • %s\nLoad: %.0f %% • %s\n\nLOAD POLICY\nReal service load was NOT invented. Solver used a 1 N influence load.\n\nHOTSPOT / SINGULARITY\n%s\n\nWHY CRITICAL?\n%s\n\nUNCERTAINTY ENVELOPE\nMaterial/unit scenarios passed: %d / %d\n%s\nThe band is intentionally reported instead of a single capacity because bare STL/OBJ does not prove material or units.\n\nPRIMARY FINE FEM\nUmax per 1 N: %.6g mm\nVon Mises per 1 N: %.6g MPa\nResidual: %.3e\nForce equilibrium error: %.3e\nMesh convergence: %s\nΔU: %.2f %% • Δσ: %.2f %%\n\nAUTONOMOUS NUMERICAL GATE: %s\n\nIf hotspot status is POSSIBLE_SINGULARITY or UNRESOLVED, the raw peak stress is not accepted for allowable/capacity decisions. This remains an autonomous geometry-only engineering screening result; physical certification still requires evidence for real material, fixture and service load.",
+            "AUTONOMOUS STATIC ANALYSIS\n\nGeometry class: %s\nGeometry QA: %s\nDetected features: %s\nSelected load scenario: %s\nScenario score: %.2f/1.00\n\nASSUMPTIONS / CONFIDENCE\nUnit: %.0f %% • %s\nMaterial: %.0f %% • %s\nSupport: %.0f %% • %s\nLoad: %.0f %% • %s\n\nLOAD POLICY\nReal service load was NOT invented. Solver used a 1 N influence load.\n\nZERO-RESPONSE WATCHDOG\n%s\n\nHOTSPOT / SINGULARITY\n%s\n\nWHY CRITICAL?\n%s\n\nUNCERTAINTY ENVELOPE\nMaterial/unit scenarios passed: %d / %d\n%s\nThe band is intentionally reported instead of a single capacity because bare STL/OBJ does not prove material or units.\n\nPRIMARY FINE FEM\nUmax per 1 N: %.6g mm\nVon Mises per 1 N: %.6g MPa\nResidual: %.3e\nForce equilibrium error: %.3e\nMesh convergence: %s\nΔU: %.2f %% • Δσ: %.2f %%\n\nAUTONOMOUS NUMERICAL GATE: %s\n\nIf hotspot status is POSSIBLE_SINGULARITY or UNRESOLVED, or the response watchdog fails, the raw peak stress is not accepted for allowable/capacity decisions. This remains an autonomous geometry-only engineering screening result; physical certification still requires evidence for real material, fixture and service load.",
             p.geometryClass,topo.summary(),p.featureSummary,s.name,s.totalScore,
             p.unitConfidence*100,p.unitReason,p.materialConfidence*100,p.materialReason,
             p.supportConfidence*100,p.supportReason,p.loadConfidence*100,p.loadReason,
-            HotspotSingularityAnalyzer.summary(h),criticalWhy,u.passed,u.scenarios.size(),capacityLine,
+            responseWatchdog,HotspotSingularityAnalyzer.summary(h),criticalWhy,u.passed,u.scenarios.size(),capacityLine,
             f.fem.maxDisplacementM*1000,f.fem.maxVonMisesPa/1e6,
             f.fem.linearSolve.relativeResidual,f.fem.forceEquilibriumRelativeError,
             s.convergence.converged,s.convergence.displacementChange*100,s.convergence.stressChange*100,
