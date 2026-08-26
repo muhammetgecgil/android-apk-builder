@@ -11,6 +11,7 @@
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.MGAI">
+        <activity android:name=".AiModeActivity" android:exported="false" />
         <activity android:name=".ModelComparisonActivity" android:exported="false" />
         <activity android:name=".BenchmarkTrendActivity" android:exported="false" />
         <activity android:name=".BenchmarkComparisonActivity" android:exported="false" />
