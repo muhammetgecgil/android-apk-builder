@@ -15,6 +15,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
@@ -74,7 +77,19 @@ public class MainActivity extends Activity {
             startLocationUpdates();
         }
 
-        webView.loadUrl("file:///android_asset/index.html");
+        String html = readAsset("index.html");
+        webView.loadDataWithBaseURL("https://angleview.local/", html, "text/html", "UTF-8", null);
+    }
+
+    private String readAsset(String name) {
+        try (InputStream in = getAssets().open(name); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[8192];
+            int n;
+            while ((n = in.read(buffer)) >= 0) out.write(buffer, 0, n);
+            return out.toString(StandardCharsets.UTF_8.name());
+        } catch (Exception e) {
+            return "<html><body style='background:#111;color:white;font-family:sans-serif'><h2>AngleView Duo</h2><p>Arayuz yuklenemedi.</p></body></html>";
+        }
     }
 
     private boolean hasLocationPermission() {
