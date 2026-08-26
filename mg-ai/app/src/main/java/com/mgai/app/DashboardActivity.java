@@ -13,10 +13,11 @@ public class DashboardActivity extends Activity {
         super.onCreate(savedInstanceState);
         LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(22),dp(28),dp(22),dp(22)); root.setBackgroundColor(Color.rgb(244,246,248));
         TextView title=new TextView(this); title.setText("MG-AI"); title.setTextSize(34); title.setTypeface(null,android.graphics.Typeface.BOLD); title.setTextColor(Color.rgb(20,24,32)); root.addView(title);
-        TextView sub=new TextView(this); sub.setText("v0.57 • Phone-Native AI + Self-Tuning + Akıllı Model Seçici"); sub.setTextSize(14); sub.setTextColor(Color.rgb(90,97,110)); sub.setPadding(0,dp(4),0,dp(22)); root.addView(sub);
-        TextView summary=new TextView(this); summary.setText("Yerel model otomatik indirilir, doğrulanır ve entegre edilir. Ses girişi whisper.cpp, cevap üretimi llama.cpp ve sesli çıktı cihaz TTS yolu ile çalışır.\n"+CapabilityRegistry.summary()); summary.setTextSize(16); summary.setTextColor(Color.rgb(35,40,50)); summary.setPadding(dp(14),dp(14),dp(14),dp(14)); summary.setBackgroundColor(Color.WHITE); root.addView(summary,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
+        TextView sub=new TextView(this); sub.setText("v0.58 • Phone-Native AI + Kişisel Model Modları"); sub.setTextSize(14); sub.setTextColor(Color.rgb(90,97,110)); sub.setPadding(0,dp(4),0,dp(22)); root.addView(sub);
+        TextView summary=new TextView(this); summary.setText("Aktif AI modu: "+AiModeManager.summary(this)+"\n\nYerel model otomatik indirilir, doğrulanır ve entegre edilir. Ses girişi whisper.cpp, cevap üretimi llama.cpp ve sesli çıktı cihaz TTS yolu ile çalışır.\n"+CapabilityRegistry.summary()); summary.setTextSize(16); summary.setTextColor(Color.rgb(35,40,50)); summary.setPadding(dp(14),dp(14),dp(14),dp(14)); summary.setBackgroundColor(Color.WHITE); root.addView(summary,new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,LinearLayout.LayoutParams.WRAP_CONTENT));
         add(root,"PHONE-NATIVE OFFLINE AI",PhoneNativeActivity.class);
-        add(root,"★ Genel En İyi Yerel Modeli Bul",ModelComparisonActivity.class);
+        add(root,"🎛 AI Çalışma Modu",AiModeActivity.class);
+        add(root,"★ Moda Göre En İyi Yerel Modeli Bul",ModelComparisonActivity.class);
         add(root,"Self-Tuning & Benchmark",SelfTuningActivity.class);
         add(root,"Ses Kontrolleri & Sürekli Diyalog",VoiceControlsActivity.class);
         add(root,"Sistem Merkezi",SystemCenterActivity.class);
@@ -32,7 +33,7 @@ public class DashboardActivity extends Activity {
         add(root,"Robot Perception & World Model",RobotWorldActivity.class);
         add(root,"Robotics Safety Supervisor",RobotSafetyActivity.class);
         add(root,"Yetenekler & Gereksinimler",CapabilitiesActivity.class);
-        TextView rule=new TextView(this); rule.setText("Akıllı Model Seçici birden fazla GGUF modelini kalite %65 + cihaz performansı %35 ile karşılaştırır. Kalite tarafı doğrulanabilir yerel testler, performans tarafı TTFT/token-s/ısı/yükleme ölçümleri kullanır. Temel sohbet ve STT için sunucu gerekmez."); rule.setTextSize(13); rule.setTextColor(Color.rgb(95,102,116)); rule.setPadding(0,dp(22),0,0); root.addView(rule);
+        TextView rule=new TextView(this); rule.setText("Hız, Dengeli, Kalite, Serin ve Uzun Muhakeme modları model seçimi ile context/thread/token hedeflerini değiştirir. Termal koruma her modun üzerinde önceliklidir."); rule.setTextSize(13); rule.setTextColor(Color.rgb(95,102,116)); rule.setPadding(0,dp(22),0,0); root.addView(rule);
         setContentView(root);
         if(LocalModelManager.activeModel(this)==null){root.post(()->startActivity(new Intent(this,PhoneNativeActivity.class)));}
     }
