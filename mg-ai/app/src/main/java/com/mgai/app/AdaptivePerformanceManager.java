@@ -48,35 +48,68 @@ public final class AdaptivePerformanceManager {
         LocalInferenceBridge.Metrics m=LocalInferenceBridge.lastMetrics();
         double tps=m==null?0.0:m.tokensPerSecond;
         long ttft=m==null?0:m.ttftMs;
+        AiModeManager.Mode mode=AiModeManager.get(c);
 
-        if(temp>=43f)return new Profile("SERİN",2048,Math.max(2,cores/3),256,temp,"yüksek sıcaklık");
-        if(temp>=39f)return new Profile("DENGELİ",3072,Math.max(2,cores/2),384,temp,"ısı kontrolü");
+        // Termal güvenlik her kullanıcı modunun üzerindedir.
+        if(temp>=43f)return new Profile("ACİL-SERİN",2048,Math.max(2,cores/3),192,temp,"43°C+ termal koruma");
+        if(temp>=39f)return new Profile("ISI-DENGELİ",3072,Math.max(2,cores/2),256,temp,"39°C+ ısı kontrolü");
 
-        SelfTuningManager.LearnedProfile learned=SelfTuningManager.learned(c);
-        if(learned!=null && (temp<0 || temp<38.5f)){
-            return new Profile("ÖĞRENİLMİŞ",learned.contextSize,learned.threads,learned.maxTokens,temp,"telefonun gerçek kullanımından öğrenildi");
+        // Kullanıcının seçtiği çalışma modu gerçek llama.cpp engine parametrelerine dönüşür.
+        switch(mode){
+            case COOL:
+                return new Profile("SERİN-MOD",Math.min(2048,AiModeManager.contextCap(mode)),Math.min(Math.max(2,cores/3),AiModeManager.threadCap(c,mode)),AiModeManager.tokenBudget(mode),temp,"kullanıcı Serin modunu seçti");
+            case SPEED:
+                return new Profile("HIZ-MOD",Math.min(2048,AiModeManager.contextCap(mode)),Math.min(Math.max(3,cores-2),AiModeManager.threadCap(c,mode)),AiModeManager.tokenBudget(mode),temp,"kullanıcı Hız modunu seçti");
+            case QUALITY:
+                return new Profile("KALİTE-MOD",AiModeManager.contextCap(mode),AiModeManager.threadCap(c,mode),AiModeManager.tokenBudget(mode),temp,"kullanıcı Kalite modunu seçti");
+            case DEEP_REASONING:
+                return new Profile("UZUN-MUHAKEME",AiModeManager.contextCap(mode),AiModeManager.threadCap(c,mode),AiModeManager.tokenBudget(mode),temp,"geniş context ve uzun üretim bütçesi");
+            case BALANCED:
+            default:
+                break;
         }
 
-        if(ttft>2500 || (tps>0 && tps<6.0))return new Profile("HIZLI",3072,Math.max(3,cores-2),384,temp,"yüksek TTFT / düşük token hızı");
-        if(tps>=12.0 && (temp<0 || temp<37f))return new Profile("KALİTE",4096,Math.max(3,cores-2),512,temp,"performans payı mevcut");
-        return new Profile("DENGELİ",4096,Math.max(2,cores-2),384,temp,"varsayılan adaptif profil");
+        // Dengeli modda gerçek kullanım self-tuning'i önceliklidir.
+        SelfTuningManager.LearnedProfile learned=SelfTuningManager.learned(c);
+        if(learned!=null && (temp<0 || temp<38.5f)){
+            int ctx=Math.min(learned.contextSize,AiModeManager.contextCap(mode));
+            int threads=Math.min(learned.threads,AiModeManager.threadCap(c,mode));
+            int max=Math.min(learned.maxTokens,AiModeManager.tokenBudget(mode));
+            return new Profile("ÖĞRENİLMİŞ-DENGELİ",ctx,threads,max,temp,"telefonun gerçek kullanımından öğrenildi");
+        }
+
+        if(ttft>2500 || (tps>0 && tps<6.0))return new Profile("DENGELİ-HIZ",3072,Math.max(3,cores-2),AiModeManager.tokenBudget(mode),temp,"yüksek TTFT / düşük token hızı");
+        if(tps>=12.0 && (temp<0 || temp<37f))return new Profile("DENGELİ-KALİTE",AiModeManager.contextCap(mode),Math.max(3,cores-2),AiModeManager.tokenBudget(mode),temp,"performans payı mevcut");
+        return new Profile("DENGELİ",AiModeManager.contextCap(mode),AiModeManager.threadCap(c,mode),AiModeManager.tokenBudget(mode),temp,"varsayılan adaptif profil");
     }
 
     public static synchronized Profile choose(Context c){
         Profile candidate=rawChoose(c);
         long now=System.currentTimeMillis();
         if(activeProfile==null){activate(candidate,now,"ilk profil");return activeProfile;}
-        if(candidate.name.equals(activeProfile.name) && candidate.contextSize==activeProfile.contextSize && candidate.threads==activeProfile.threads)return activeProfile;
+        if(candidate.name.equals(activeProfile.name) && candidate.contextSize==activeProfile.contextSize && candidate.threads==activeProfile.threads && candidate.maxTokens==activeProfile.maxTokens)return activeProfile;
 
         boolean emergencyHeat=candidate.temperatureC>=43f;
+        boolean explicitModeChange=!modeFamily(candidate.name).equals(modeFamily(activeProfile.name));
         boolean holdExpired=(now-activeSince)>=MIN_PROFILE_HOLD_MS;
         float currentTemp=activeProfile.temperatureC;
         float newTemp=candidate.temperatureC;
         boolean meaningfulTempDelta=currentTemp<=0 || newTemp<=0 || Math.abs(newTemp-currentTemp)>=TEMP_HYSTERESIS_C;
-        boolean learnedUpgrade="ÖĞRENİLMİŞ".equals(candidate.name) && !"ÖĞRENİLMİŞ".equals(activeProfile.name);
+        boolean learnedUpgrade=candidate.name.startsWith("ÖĞRENİLMİŞ") && !activeProfile.name.startsWith("ÖĞRENİLMİŞ");
 
-        if(emergencyHeat || learnedUpgrade || (holdExpired && meaningfulTempDelta))activate(candidate,now,candidate.reason);
+        // Kullanıcının mod değişikliği anında uygulanır; adaptif küçük dalgalanmalar bekleme/histerezise tabidir.
+        if(emergencyHeat || explicitModeChange || learnedUpgrade || (holdExpired && meaningfulTempDelta))activate(candidate,now,candidate.reason);
         return activeProfile;
+    }
+
+    private static String modeFamily(String name){
+        if(name==null)return "";
+        if(name.contains("HIZ"))return "SPEED";
+        if(name.contains("KALİTE"))return "QUALITY";
+        if(name.contains("SERİN"))return "COOL";
+        if(name.contains("MUHAKEME"))return "DEEP";
+        if(name.contains("ISI"))return "THERMAL";
+        return "BALANCED";
     }
 
     private static void activate(Profile p,long now,String why){
