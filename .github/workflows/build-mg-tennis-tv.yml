@@ -30,7 +30,7 @@ jobs:
           curl --retry 4 -fL $BASE/vitruvian_head.glb -o $A/v33_head.glb
           curl --retry 4 -fL $BASE/vitruvian_hair_rigged.glb -o $A/v33_hair.glb
           for f in vit_body_bc.png vit_body_n.png vit_body_rough.png vit_face_bc.png vit_face_n.png vit_face_rough.png vit_fabric_n.png vit_hair_ao.png vit_hair_atlas.png vit_hair_diffuse.png vit_hair_normal.png vit_hair_opacity.png vit_iris.png vit_lash_atlas.png vit_mouth.png vit_sclera.png; do curl --retry 4 -fL $BASE/$f -o $A/$f; done
-          test -s $A/ultra-human-v33.js; test -s $A/v33_body.glb; test -s $A/v33_head.glb; test -s $A/v33_hair.glb
+          test -s $A/ultra-human-v33.js; test -s $A/match-start-v34.js
       - name: Inject gameplay patches
         run: |
           python3 - <<'PY'
@@ -45,7 +45,7 @@ jobs:
           old="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);updateCamera(dt);renderer.render(scene,camera)}"
           new="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);if(window.updateOpponentMotion)window.updateOpponentMotion(dt);updateCamera(dt);renderer.render(scene,camera)}"
           if old in s:s=s.replace(old,new)
-          for fn in ['difficulty-v24.js','v12-human-patch.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js']:
+          for fn in ['difficulty-v24.js','v12-human-patch.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','match-start-v34.js']:
               if fn not in s:s=s.replace('</body>',f'<script src="{fn}"></script></body>')
           p.write_text(s)
           PY
@@ -58,15 +58,15 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v3.3 release
+      - name: Verify v3.4 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='33'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='34'"
           unzip -l $APK | grep -q assets/ultra-human-v33.js
-          unzip -l $APK | grep -q assets/v33_body.glb
-          unzip -p $APK assets/index.html | grep -q 'ultra-human-v33.js'
-          cp $APK MG_Tennis_TV_v3.3_Ultra_Human_Racket_Origin.apk
+          unzip -l $APK | grep -q assets/match-start-v34.js
+          unzip -p $APK assets/index.html | grep -q 'match-start-v34.js'
+          cp $APK MG_Tennis_TV_v3.4_Mode_Select_Realistic_Start.apk
       - uses: actions/upload-artifact@v4
-        with: { name: MG-Tennis-TV-v3.3-Ultra-Human-Racket-Origin-APK, path: MG_Tennis_TV_v3.3_Ultra_Human_Racket_Origin.apk, retention-days: 30 }
+        with: { name: MG-Tennis-TV-v3.4-Mode-Select-Realistic-Start-APK, path: MG_Tennis_TV_v3.4_Mode_Select_Realistic_Start.apk, retention-days: 30 }
