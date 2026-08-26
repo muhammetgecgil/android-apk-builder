@@ -16,6 +16,9 @@ public class V711Activity extends V79Activity {
     proHome.addView(engineeringHealth, Math.min(4,proHome.getChildCount()), lp());
   }
 
+  /** Float-friendly density helper used by later engineering views. */
+  int dp(float v){ return dp(Math.round(v)); }
+
   double testFactor(){
     int p=hPhase==null?0:hPhase.getSelectedItemPosition();
     double f=p==0?qd(qLimit):(p==1?qd(qUltimate):qd(qUnload));
