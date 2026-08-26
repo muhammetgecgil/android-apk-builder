@@ -81,14 +81,21 @@ jobs:
             adb shell am force-stop com.mg.unitmasterx.stable2 || true
             adb shell am start -W -n com.mg.unitmasterx.stable2/com.mg.unitmasterx.MainActivity
             sleep 6
-            PID=$(adb shell pidof com.mg.unitmasterx.stable2 | tr -d '\r')
+            PID=$(adb shell pidof com.mg.unitmasterx.stable2 | tr -d '\r' || true)
             echo "PID=$PID"
-            test -n "$PID"
+            adb logcat -d AndroidRuntime:E '*:S' > androidruntime.log || true
+            echo '=== AndroidRuntime ==='
+            cat androidruntime.log || true
+            adb logcat -d > full-logcat.txt || true
+            if [ -z "$PID" ]; then
+              echo '=== APP PROCESS DIED ==='
+              grep -A100 -B20 -E 'FATAL EXCEPTION|AndroidRuntime|com.mg.unitmasterx.stable2' full-logcat.txt || true
+              exit 1
+            fi
             adb shell uiautomator dump /sdcard/umx.xml
             adb pull /sdcard/umx.xml umx.xml
             grep -q 'Unit Master X' umx.xml
-            adb logcat -d AndroidRuntime:E '*:S' > androidruntime.log || true
-            if grep -q 'com.mg.unitmasterx.stable2' androidruntime.log; then cat androidruntime.log; exit 1; fi
+            if grep -q 'com.mg.unitmasterx.stable2' androidruntime.log; then exit 1; fi
 
       - name: Normalize outputs
         run: |
