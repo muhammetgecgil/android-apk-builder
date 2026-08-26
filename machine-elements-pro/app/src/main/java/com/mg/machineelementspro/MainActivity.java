@@ -29,10 +29,11 @@ public class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(Color.rgb(248,250,252));
         LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(20),dp(18),dp(32)); scroll.addView(root,new ScrollView.LayoutParams(-1,-2));
         root.addView(text("MACHINE ELEMENTS PRO",24,true,Color.rgb(15,23,42)));
-        TextView sub=text("Makine tasarım suite • temel, ileri, drivetrain, assembly, serbest geometri, katalog, optimizasyon ve sistem seçimi",14,false,Color.rgb(71,85,105)); sub.setPadding(0,dp(4),0,dp(12)); root.addView(sub);
+        TextView sub=text("Makine tasarım suite • temel, ileri, drivetrain, gearbox, assembly, serbest geometri, katalog, optimizasyon ve sistem seçimi",14,false,Color.rgb(71,85,105)); sub.setPadding(0,dp(4),0,dp(12)); root.addView(sub);
 
         Button advanced=navButton("ADVANCED ENGINEERING →",Color.rgb(30,64,175)); advanced.setOnClickListener(v->startActivity(new Intent(this,AdvancedActivity.class))); root.addView(advanced,lp(-1,dp(54),0));
         Button drive=navButton("DRIVETRAIN SYSTEM →",Color.rgb(2,132,199)); drive.setOnClickListener(v->startActivity(new Intent(this,DrivetrainActivity.class))); root.addView(drive,lp(-1,dp(54),dp(8)));
+        Button gearbox=navButton("GEARBOX DESIGNER →",Color.rgb(14,116,144)); gearbox.setOnClickListener(v->startActivity(new Intent(this,GearboxDesignerActivity.class))); root.addView(gearbox,lp(-1,dp(54),dp(8)));
         Button assembly=navButton("ASSEMBLY DESIGNER →",Color.rgb(67,56,202)); assembly.setOnClickListener(v->startActivity(new Intent(this,AssemblyActivity.class))); root.addView(assembly,lp(-1,dp(54),dp(8)));
         Button custom=navButton("CUSTOM GEOMETRY LAB →",Color.rgb(3,105,161)); custom.setOnClickListener(v->startActivity(new Intent(this,CustomGeometryActivity.class))); root.addView(custom,lp(-1,dp(54),dp(8)));
         Button library=navButton("ENGINEERING LIBRARY →",Color.rgb(55,65,81)); library.setOnClickListener(v->startActivity(new Intent(this,LibraryActivity.class))); root.addView(library,lp(-1,dp(54),dp(8)));
