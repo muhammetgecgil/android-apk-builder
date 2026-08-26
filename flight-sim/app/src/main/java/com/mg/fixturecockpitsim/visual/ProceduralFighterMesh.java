@@ -9,7 +9,7 @@ public final class ProceduralFighterMesh {
             PART_STAB_L=4f, PART_STAB_R=5f, PART_RUDDER_L=6f, PART_RUDDER_R=7f,
             PART_AFTERBURNER=8f, PART_FLAPERON_L=9f, PART_FLAPERON_R=10f,
             PART_CANOPY_FRAME=11f, PART_NOZZLE_INNER=12f, PART_GEAR_STRUT=13f,
-            PART_GEAR_WHEEL=14f;
+            PART_GEAR_WHEEL=14f, PART_GEAR_DOOR=15f;
     public static final class Mesh {
         public final float[] data;
         public Mesh(float[] data){this.data=data;}
@@ -34,6 +34,7 @@ public final class ProceduralFighterMesh {
         b.part=PART_CANOPY_FRAME; b.canopyFrame();
         b.part=PART_GEAR_STRUT; b.gearStruts();
         b.part=PART_GEAR_WHEEL; b.gearWheels();
+        b.part=PART_GEAR_DOOR; b.gearDoors();
         float[] data=new float[b.out.size()]; for(int i=0;i<data.length;i++) data[i]=b.out.get(i); return new Mesh(data);
     }
 
@@ -68,13 +69,21 @@ public final class ProceduralFighterMesh {
     private void canopyFrame(){prism(new float[][]{{-.58f,.77f,-1.80f},{.58f,.77f,-1.80f},{.48f,.80f,-1.62f},{-.48f,.80f,-1.62f}},.07f);prism(new float[][]{{-.40f,.97f,-.42f},{.40f,.97f,-.42f},{.36f,1.02f,-.27f},{-.36f,1.02f,-.27f}},.055f);prism(new float[][]{{-.31f,.92f,.48f},{.31f,.92f,.48f},{.27f,.95f,.62f},{-.27f,.95f,.62f}},.05f);}
 
     private void gearStruts(){
-        box(-.075f,-1.52f,-3.72f,.15f,1.10f,.16f); // nose
+        box(-.075f,-1.52f,-3.72f,.15f,1.10f,.16f);
         box(-1.72f,-1.48f,.62f,.18f,1.18f,.18f); box(1.54f,-1.48f,.62f,.18f,1.18f,.18f);
         box(-1.70f,-.98f,.55f,.16f,.18f,.84f); box(1.54f,-.98f,.55f,.16f,.18f,.84f);
     }
     private void gearWheels(){
         wheel(0f,-1.66f,-3.72f,.26f,.18f);
         wheel(-1.72f,-1.72f,1.12f,.38f,.24f); wheel(1.72f,-1.72f,1.12f,.38f,.24f);
+    }
+    private void gearDoors(){
+        // Nose bay split doors, slightly below the belly when extended.
+        prism(new float[][]{{-.30f,-.53f,-4.18f},{-.03f,-.53f,-4.18f},{-.03f,-.53f,-3.23f},{-.30f,-.53f,-3.23f}},.045f);
+        prism(new float[][]{{.03f,-.53f,-4.18f},{.30f,-.53f,-4.18f},{.30f,-.53f,-3.23f},{.03f,-.53f,-3.23f}},.045f);
+        // Main gear inner doors.
+        prism(new float[][]{{-1.82f,-.55f,.22f},{-.88f,-.55f,.22f},{-.88f,-.55f,1.56f},{-1.82f,-.55f,1.56f}},.055f);
+        prism(new float[][]{{.88f,-.55f,.22f},{1.82f,-.55f,.22f},{1.82f,-.55f,1.56f},{.88f,-.55f,1.56f}},.055f);
     }
     private void box(float x,float y,float z,float sx,float sy,float sz){float hx=sx*.5f,hz=sz*.5f;prism(new float[][]{{x-hx,y+sy,z-hz},{x+hx,y+sy,z-hz},{x+hx,y+sy,z+hz},{x-hx,y+sy,z+hz}},sy);}
     private void wheel(float x,float y,float z,float r,float width){int n=16;float x0=x-width*.5f,x1=x+width*.5f;for(int i=0;i<n;i++){double a0=2*Math.PI*i/n,a1=2*Math.PI*(i+1)/n;float[] a={x0,y+r*(float)Math.cos(a0),z+r*(float)Math.sin(a0)},b={x1,y+r*(float)Math.cos(a0),z+r*(float)Math.sin(a0)},c={x1,y+r*(float)Math.cos(a1),z+r*(float)Math.sin(a1)},d={x0,y+r*(float)Math.cos(a1),z+r*(float)Math.sin(a1)};quad(a,b,c,d);} }
