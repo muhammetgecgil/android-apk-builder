@@ -3,16 +3,18 @@ name: Unit Master X Play Store Build
 on:
   workflow_dispatch:
   push:
-    branches: [ main, unit-master-playstore-v1 ]
+    branches: [ main, unit-master-playstore-v1, unit-master-stability-v101 ]
     paths:
       - 'unit-master/**'
       - 'unit-master-source.part*'
+      - 'unit-master-stability-patch.py'
       - '.github/workflows/unit-master.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'unit-master/**'
       - 'unit-master-source.part*'
+      - 'unit-master-stability-patch.py'
       - '.github/workflows/unit-master.yml'
 
 jobs:
@@ -28,6 +30,12 @@ jobs:
           cat unit-master-source.part* | base64 -d > unit-master-source.zip
           unzip -q unit-master-source.zip
           test -f unit-master/app/build.gradle
+
+      - name: Apply stability patch when present
+        run: |
+          if [ -f unit-master-stability-patch.py ]; then
+            python unit-master-stability-patch.py
+          fi
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -57,13 +65,13 @@ jobs:
       - name: Normalize outputs
         run: |
           mkdir -p unit-master/dist
-          cp unit-master/app/build/outputs/apk/debug/app-debug.apk unit-master/dist/UnitMasterX-PlayStore-debug.apk
-          cp unit-master/app/build/outputs/bundle/release/app-release.aab unit-master/dist/UnitMasterX-release.aab
+          cp unit-master/app/build/outputs/apk/debug/app-debug.apk unit-master/dist/UnitMasterX-Stability-v1.0.1.apk
+          cp unit-master/app/build/outputs/bundle/release/app-release.aab unit-master/dist/UnitMasterX-v1.0.1-release.aab
           sha256sum unit-master/dist/* > unit-master/dist/SHA256SUMS.txt
 
       - name: Upload install and Play Store artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: UnitMasterX-PlayStore
+          name: UnitMasterX-Stability-v101
           path: unit-master/dist/*
           if-no-files-found: error
