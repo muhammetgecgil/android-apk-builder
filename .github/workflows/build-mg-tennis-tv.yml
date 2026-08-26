@@ -11,11 +11,6 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      - name: Publish run id
-        run: |
-          mkdir -p build-status; echo "$GITHUB_RUN_ID" > build-status/mg-tennis-tv-run.txt
-          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add build-status/mg-tennis-tv-run.txt; git commit -m "Record MG Tennis TV run $GITHUB_RUN_ID" || true; git push || true
       - name: Restore signing key
         run: base64 -d mg-tennis-tv/signing/mg-tennis-update.jks.b64 > mg-tennis-tv/signing/mg-tennis-update.jks
       - name: Prepare runtime and photoreal human assets
@@ -23,29 +18,20 @@ jobs:
           set -euo pipefail; A=mg-tennis-tv/app/src/main/assets
           curl --retry 4 -fL https://unpkg.com/three@0.128.0/build/three.min.js -o $A/three.min.js
           curl --retry 4 -fL https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js -o $A/GLTFLoader.js
-          curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/realistic-male.glb -o $A/opponent.glb
-          curl --retry 4 -fL https://raw.githubusercontent.com/nirholas/three.ws/main/public/avatars/parametric-base.glb -o $A/tennis-player.glb
           BASE=https://raw.githubusercontent.com/ibrews/VitruvianGodot/main/godot_project
           curl --retry 4 -fL $BASE/vitruvian_body.glb -o $A/v33_body.glb
           curl --retry 4 -fL $BASE/vitruvian_head.glb -o $A/v33_head.glb
           curl --retry 4 -fL $BASE/vitruvian_hair_rigged.glb -o $A/v33_hair.glb
           for f in vit_body_bc.png vit_body_n.png vit_body_rough.png vit_face_bc.png vit_face_n.png vit_face_rough.png vit_fabric_n.png vit_hair_ao.png vit_hair_atlas.png vit_hair_diffuse.png vit_hair_normal.png vit_hair_opacity.png vit_iris.png vit_lash_atlas.png vit_mouth.png vit_sclera.png; do curl --retry 4 -fL $BASE/$f -o $A/$f; done
-          test -s $A/ultra-human-v33.js; test -s $A/match-start-v34.js
-      - name: Inject gameplay patches
+          test -s $A/gameplay-v36.js
+      - name: Inject patches
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('mg-tennis-tv/app/src/main/assets/index.html'); s=p.read_text()
-          s=s.replace('promo.jpg','mg-tennis-splash.svg').replace('c.width=c.height=1024','c.width=c.height=256').replace('sun.shadow.mapSize.set(4096,4096)','sun.shadow.mapSize.set(2048,2048)').replace('2 TELEFON HOST','AI + RAKET EKRAN').replace('KONTROLCÜ','RAKET TELEFON')
-          s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,','var playerX=0,playerZ=9.55,opponentX=0,opponentZ=-9.55,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];').replace('let targetOpponentX=0,targetOpponentZ=-9.55;','var targetOpponentX=0,targetOpponentZ=-9.55;')
-          a=s.find('const bodyGeom=new THREE.CylinderGeometry'); b=s.find('const adMat=',a)
-          if a!=-1 and b!=-1:s=s[:a]+'// spectators removed\n'+s[b:]
-          a=s.find('function loadCharacters()'); b=s.find('function loadOne(',a)
-          if a!=-1 and b!=-1:s=s[:a]+"function loadCharacters(){$('loadmsg').textContent='Kort açılıyor…';$('loadfill').style.width='18%';setTimeout(()=>{$('loading').style.display='none'},700)}\n"+s[b:]
-          old="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);updateCamera(dt);renderer.render(scene,camera)}"
-          new="function animate(){requestAnimationFrame(animate);let dt=Math.min(.025,clock.getDelta()),now=performance.now();if(playerMixer)playerMixer.update(dt);if(opponentMixer)opponentMixer.update(dt);updateGame(dt,now);if(window.updateOpponentMotion)window.updateOpponentMotion(dt);updateCamera(dt);renderer.render(scene,camera)}"
-          if old in s:s=s.replace(old,new)
-          for fn in ['difficulty-v24.js','v12-human-patch.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','match-start-v34.js']:
+          s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];')
+          for fn in ['difficulty-v24.js','v12-human-patch.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','match-start-v34.js','gameplay-v36.js']:
+              if fn not in s:s.replace('</body>',f'<script src="{fn}"></script></body>')
               if fn not in s:s=s.replace('</body>',f'<script src="{fn}"></script></body>')
           p.write_text(s)
           PY
@@ -58,15 +44,13 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v3.5 release
+      - name: Verify v3.6 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='35'"
-          unzip -l $APK | grep -q assets/ultra-human-v33.js
-          unzip -l $APK | grep -q assets/match-start-v34.js
-          unzip -p $APK assets/index.html | grep -q 'match-start-v34.js'
-          cp $APK MG_Tennis_TV_v3.5_Update_Setup_Readable_UI.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='36'"
+          unzip -p $APK assets/index.html | grep -q 'gameplay-v36.js'
+          cp $APK MG_Tennis_TV_v3.6_Easy_Aim_Seats.apk
       - uses: actions/upload-artifact@v4
-        with: { name: MG-Tennis-TV-v3.5-Update-Setup-Readable-UI-APK, path: MG_Tennis_TV_v3.5_Update_Setup_Readable_UI.apk, retention-days: 30 }
+        with: { name: MG-Tennis-TV-v3.6-Easy-Aim-Seats-APK, path: MG_Tennis_TV_v3.6_Easy_Aim_Seats.apk, retention-days: 30 }
