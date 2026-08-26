@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>AngleView Duo</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070b;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#fff}
+#stage{position:fixed;inset:0;background:#000}
+.layer{position:absolute;inset:0;overflow:hidden;background:#000;will-change:mask-image,-webkit-mask-image,opacity}
+#mapLayer{z-index:1}
+#videoLayer{z-index:2}
+#map{width:100%;height:100%}
+#ytFrame{width:100%;height:100%;border:0;background:#000}
+#hud{position:absolute;z-index:20;left:16px;top:14px;width:min(520px,calc(100vw - 32px));background:rgba(8,12,18,.88);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.16);border-radius:18px;box-shadow:0 12px 40px rgba(0,0,0,.45);padding:12px}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0;flex-wrap:wrap}
+button,input{border:0;border-radius:12px;font-size:15px}
+button{padding:10px 13px;background:#202938;color:#fff;font-weight:700}
+button.active{background:#fff;color:#111}
+button.primary{background:#e11d48}
+input[type=text]{flex:1;min-width:180px;padding:11px 12px;background:#121923;color:#fff;outline:1px solid rgba(255,255,255,.12)}
+input[type=range]{flex:1;min-width:150px}
+.label{font-size:12px;color:#aeb8c7;min-width:88px}.value{font-variant-numeric:tabular-nums;font-weight:800;min-width:48px;text-align:right}
+#brand{display:flex;align-items:center;justify-content:space-between;gap:12px}.title{font-weight:900;letter-spacing:.4px}.sub{font-size:12px;color:#aeb8c7}
+#status{position:absolute;z-index:19;right:14px;bottom:14px;background:rgba(0,0,0,.72);padding:8px 11px;border-radius:999px;font-size:12px;border:1px solid rgba(255,255,255,.15)}
+#reopen{display:none;position:absolute;z-index:30;left:14px;top:14px;border-radius:999px;background:rgba(0,0,0,.75)}
+.badge{padding:5px 8px;border-radius:999px;background:#0f172a;color:#cbd5e1;font-size:11px}
+.leaflet-control-attribution{font-size:9px!important}
+@media(max-height:520px){#hud{transform:scale(.88);transform-origin:top left;max-height:95vh;overflow:auto}}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="mapLayer" class="layer"><div id="map"></div></div>
+  <div id="videoLayer" class="layer"><iframe id="ytFrame" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div>
+
+  <div id="hud">
+    <div id="brand"><div><div class="title">ANGLEVIEW DUO</div><div class="sub">Tek ekran • iki bakış açısı • split-screen yok</div></div><span class="badge" id="modeBadge">OPTİK</span></div>
+    <div class="row">
+      <button id="leftBtn" onclick="setMode('left')">SOL: Navigasyon</button>
+      <button id="dualBtn" class="active" onclick="setMode('dual')">OPTİK ÇİFT</button>
+      <button id="rightBtn" onclick="setMode('right')">SAĞ: YouTube</button>
+      <button onclick="hideHud()">Paneli Gizle</button>
+    </div>
+    <div class="row">
+      <input id="dest" type="text" placeholder="Navigasyon hedefi: ör. Sabiha Gökçen" />
+      <button onclick="routeToDestination()">Rota</button>
+      <button onclick="locateMe()">Konum</button>
+    </div>
+    <div class="row">
+      <input id="yt" type="text" placeholder="YouTube bağlantısı veya video ID" />
+      <button class="primary" onclick="loadYouTube()">YouTube Aç</button>
+    </div>
+    <div class="row"><span class="label">Şerit genişliği</span><input id="pitch" type="range" min="1" max="24" value="4" step="1" oninput="applyMasks()"><span class="value" id="pitchVal">4 px</span></div>
+    <div class="row"><span class="label">Faz</span><input id="phase" type="range" min="-24" max="24" value="0" step="1" oninput="applyMasks()"><span class="value" id="phaseVal">0 px</span></div>
+    <div class="row"><button onclick="swapViews()">Sol/Sağ Değiştir</button><button onclick="toggleStripeGuide()">Kalibrasyon Kılavuzu</button><span class="sub">Lentiküler/paralaks film ile ince ayar</span></div>
+  </div>
+  <button id="reopen" onclick="showHud()">Ayarlar</button>
+  <div id="status">Harita hazırlanıyor…</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let mode='dual', swapped=false, guide=false;
+let map, meMarker, routeLine, destMarker;
+let current={lat:40.992,lon:29.124};
+const mapLayer=document.getElementById('mapLayer');
+const videoLayer=document.getElementById('videoLayer');
+const statusEl=document.getElementById('status');
+
+function initMap(){
+  try{
+    map=L.map('map',{zoomControl:true}).setView([current.lat,current.lon],12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+    meMarker=L.circleMarker([current.lat,current.lon],{radius:9,weight:4}).addTo(map).bindTooltip('Konumum');
+    statusEl.textContent='Navigasyon hazır';
+    locateMe();
+  }catch(e){ statusEl.textContent='Harita ağı bekliyor'; }
+}
+
+function getNativeLocation(){
+  try{
+    if(window.AndroidBridge){
+      const raw=AndroidBridge.getLocation();
+      if(raw){ const o=JSON.parse(raw); if(o.lat && o.lon) return o; }
+    }
+  }catch(e){}
+  return null;
+}
+
+function locateMe(){
+  const n=getNativeLocation();
+  if(n){updateLocation(n.lat,n.lon);return;}
+  if(navigator.geolocation){
+    navigator.geolocation.getCurrentPosition(p=>updateLocation(p.coords.latitude,p.coords.longitude),()=>statusEl.textContent='Konum izni gerekli',{enableHighAccuracy:true,timeout:5000});
+  }
+}
+function updateLocation(lat,lon){
+  current={lat,lon};
+  if(map){ meMarker.setLatLng([lat,lon]); map.panTo([lat,lon]); }
+  statusEl.textContent=`GPS ${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+}
+setInterval(()=>{ const n=getNativeLocation(); if(n) updateLocation(n.lat,n.lon); },3000);
+
+async function routeToDestination(){
+  const q=document.getElementById('dest').value.trim(); if(!q){statusEl.textContent='Hedef yaz';return;}
+  statusEl.textContent='Hedef aranıyor…';
+  try{
+    let lat,lon;
+    const m=q.match(/^\s*(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)\s*$/);
+    if(m){lat=parseFloat(m[1]);lon=parseFloat(m[2]);}
+    else{
+      const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&q='+encodeURIComponent(q),{headers:{'Accept':'application/json'}});
+      const a=await r.json(); if(!a.length) throw new Error('Hedef bulunamadı'); lat=parseFloat(a[0].lat);lon=parseFloat(a[0].lon);
+    }
+    const url=`https://router.project-osrm.org/route/v1/driving/${current.lon},${current.lat};${lon},${lat}?overview=full&geometries=geojson&steps=true`;
+    const rr=await fetch(url); const data=await rr.json(); if(!data.routes||!data.routes.length) throw new Error('Rota yok');
+    const coords=data.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);
+    if(routeLine) map.removeLayer(routeLine); routeLine=L.polyline(coords,{weight:7,opacity:.9}).addTo(map);
+    if(destMarker) map.removeLayer(destMarker); destMarker=L.marker([lat,lon]).addTo(map).bindPopup(q);
+    map.fitBounds(routeLine.getBounds(),{padding:[35,35]});
+    const km=(data.routes[0].distance/1000).toFixed(1), min=Math.round(data.routes[0].duration/60);
+    statusEl.textContent=`Rota: ${km} km • yaklaşık ${min} dk`;
+  }catch(e){statusEl.textContent='Rota hatası: '+e.message;}
+}
+
+function extractVideoId(v){
+  v=v.trim(); if(/^[A-Za-z0-9_-]{11}$/.test(v)) return v;
+  try{const u=new URL(v); if(u.hostname.includes('youtu.be')) return u.pathname.slice(1).split('/')[0]; if(u.searchParams.get('v')) return u.searchParams.get('v'); const p=u.pathname.split('/').filter(Boolean); const i=p.findIndex(x=>x==='embed'||x==='shorts'||x==='live'); if(i>=0&&p[i+1]) return p[i+1];}catch(e){}
+  return '';
+}
+function loadYouTube(){
+  const id=extractVideoId(document.getElementById('yt').value); if(!id){statusEl.textContent='Geçerli YouTube bağlantısı gir';return;}
+  document.getElementById('ytFrame').src='https://www.youtube.com/embed/'+encodeURIComponent(id)+'?autoplay=1&playsinline=1&rel=0';
+  statusEl.textContent='YouTube yüklendi';
+}
+
+function applyMasks(){
+  const w=parseInt(document.getElementById('pitch').value,10), ph=parseInt(document.getElementById('phase').value,10);
+  document.getElementById('pitchVal').textContent=w+' px'; document.getElementById('phaseVal').textContent=ph+' px';
+  const p=w*2;
+  const a=`repeating-linear-gradient(90deg, transparent ${ph}px, #000 ${ph}px, #000 ${ph+w}px, transparent ${ph+w}px, transparent ${ph+p}px)`;
+  const b=`repeating-linear-gradient(90deg, transparent ${ph-w}px, #000 ${ph-w}px, #000 ${ph}px, transparent ${ph}px, transparent ${ph+w}px)`;
+  const leftMask=swapped?b:a, rightMask=swapped?a:b;
+  mapLayer.style.webkitMaskImage=leftMask; mapLayer.style.maskImage=leftMask;
+  videoLayer.style.webkitMaskImage=rightMask; videoLayer.style.maskImage=rightMask;
+  if(mode==='left'){mapLayer.style.webkitMaskImage='none';mapLayer.style.maskImage='none';videoLayer.style.opacity='0';mapLayer.style.opacity='1';}
+  else if(mode==='right'){videoLayer.style.webkitMaskImage='none';videoLayer.style.maskImage='none';mapLayer.style.opacity='0';videoLayer.style.opacity='1';}
+  else{mapLayer.style.opacity='1';videoLayer.style.opacity='1';}
+  document.getElementById('stage').style.backgroundImage=guide?'repeating-linear-gradient(90deg,rgba(255,255,255,.25) 0 1px,transparent 1px '+w+'px)':'none';
+}
+function setMode(m){mode=m;['leftBtn','dualBtn','rightBtn'].forEach(x=>document.getElementById(x).classList.remove('active')); document.getElementById(m==='left'?'leftBtn':m==='right'?'rightBtn':'dualBtn').classList.add('active'); document.getElementById('modeBadge').textContent=m==='dual'?'OPTİK':m==='left'?'SOL TAM':'SAĞ TAM'; applyMasks(); setTimeout(()=>{if(map)map.invalidateSize()},150);}
+function swapViews(){swapped=!swapped;applyMasks();statusEl.textContent=swapped?'Bakış yönleri değiştirildi':'Bakış yönleri normal';}
+function toggleStripeGuide(){guide=!guide;applyMasks();}
+function hideHud(){document.getElementById('hud').style.display='none';document.getElementById('reopen').style.display='block';}
+function showHud(){document.getElementById('hud').style.display='block';document.getElementById('reopen').style.display='none';}
+
+window.addEventListener('load',()=>{initMap();applyMasks();});
+</script>
+</body>
+</html>
