@@ -5,7 +5,7 @@ import java.util.*;
 /** v1.0-candidate loads: connected surface regions, force/pressure mapping and gravity body load. */
 public final class AdvancedFemLoads {
     public static final class Result {
-        public int fixedNodes, loadedNodes, pressureTriangles, supportRegions, loadRegions;
+        public int fixedNodes, loadedNodes, pressureTriangles, supportRegions, loadRegions, rejectedOverlapNodes;
         public double patchRadiusM, resultantFx, resultantFy, resultantFz, gravityMassKg, selectedPressureAreaM2;
     }
     private AdvancedFemLoads(){}
@@ -24,15 +24,16 @@ public final class AdvancedFemLoads {
 
         List<SurfaceRegionExtractor.Region> loadRegs=(loads==null)?Collections.emptyList():regions(surface,loads,38.0); r.loadRegions=loadRegs.size();
         Set<Integer> loaded=mapRegionsToVolumeNodes(mesh,surface,loadRegs,unitScale,r.patchRadiusM);
+        int before=loaded.size(); loaded.removeAll(fixed); r.rejectedOverlapNodes=before-loaded.size();
         if((Math.abs(fx)+Math.abs(fy)+Math.abs(fz))>0){
-            if(loaded.isEmpty()) throw new IllegalArgumentException("Kuvvet için bağlı yük yüzeyi seçilmeli");
+            if(loaded.isEmpty()) throw new IllegalStateException("Yük bölgesi mesnet düğümleriyle çakıştı veya volumetrik düğümlere eşlenemedi");
             double inv=1.0/loaded.size(); for(int n:loaded) solver.addNodalForce(n,fx*inv,fy*inv,fz*inv);
             r.resultantFx+=fx;r.resultantFy+=fy;r.resultantFz+=fz;
         }
 
         if(Math.abs(pressurePa)>0){
             if(loadRegs.isEmpty()) throw new IllegalArgumentException("Basınç için bağlı yüzey seçilmeli");
-            applyPressure(solver,mesh,surface,loadRegs,unitScale,r.patchRadiusM,pressurePa,loaded,r);
+            applyPressure(solver,mesh,surface,loadRegs,unitScale,r.patchRadiusM,pressurePa,loaded,fixed,r);
         }
         r.loadedNodes=loaded.size();
         if(gravity) applyGravity(solver,mesh,densityKgM3,r);
@@ -48,13 +49,18 @@ public final class AdvancedFemLoads {
     private static Set<Integer> mapRegionsToVolumeNodes(TetMeshData mesh,MeshModel s,List<SurfaceRegionExtractor.Region> regs,double scale,double tol){
         Set<Integer> out=new LinkedHashSet<>(); if(regs==null)return out;
         for(SurfaceRegionExtractor.Region rr:regs){
-            for(int vi:rr.vertices){MeshModel.V3 p=si(s.vertices.get(vi),scale);out.addAll(nearOrNearest(mesh,p,tol,1));}
+            for(int vi:rr.vertices){MeshModel.V3 p=si(s.vertices.get(vi),scale);out.addAll(nearOrNearest(mesh,p,tol,2));}
+            // Add the region centroid as an extra mapping anchor so coarse voxel meshes still receive the load/support patch.
+            if(!rr.vertices.isEmpty()){
+                double x=0,y=0,z=0;for(int vi:rr.vertices){MeshModel.V3 q=s.vertices.get(vi);x+=q.x;y+=q.y;z+=q.z;}double n=rr.vertices.size();
+                out.addAll(nearOrNearest(mesh,si(new MeshModel.V3(x/n,y/n,z/n),scale),tol,3));
+            }
         }
         return out;
     }
 
     private static void applyPressure(StaticFemSolver solver,TetMeshData mesh,MeshModel s,List<SurfaceRegionExtractor.Region> regs,
-                                      double scale,double tol,double pressurePa,Set<Integer> loaded,Result out){
+                                      double scale,double tol,double pressurePa,Set<Integer> loaded,Set<Integer> fixed,Result out){
         Set<Integer> tris=new LinkedHashSet<>(); for(SurfaceRegionExtractor.Region rr:regs)tris.addAll(rr.triangles);
         for(int ti:tris){
             int[] t=s.triangles.get(ti); if(t.length<3)continue; MeshModel.V3 a=s.vertices.get(t[0]),b=s.vertices.get(t[1]),c=s.vertices.get(t[2]);
@@ -63,11 +69,11 @@ public final class AdvancedFemLoads {
             double areaM2=0.5*mag*scale*scale; out.selectedPressureAreaM2+=areaM2;
             double f=-pressurePa*areaM2,fx=f*nx/mag,fy=f*ny/mag,fz=f*nz/mag;
             MeshModel.V3 cent=si(new MeshModel.V3((a.x+b.x+c.x)/3,(a.y+b.y+c.y)/3,(a.z+b.z+c.z)/3),scale);
-            List<Integer> ns=nearOrNearest(mesh,cent,tol,3); double inv=1.0/ns.size();
+            List<Integer> ns=nearOrNearest(mesh,cent,tol,3); ns.removeIf(fixed::contains); if(ns.isEmpty())continue; double inv=1.0/ns.size();
             for(int n:ns){solver.addNodalForce(n,fx*inv,fy*inv,fz*inv);loaded.add(n);}
             out.resultantFx+=fx;out.resultantFy+=fy;out.resultantFz+=fz;out.pressureTriangles++;
         }
-        if(out.pressureTriangles==0) throw new IllegalStateException("Seçilen bağlı yüzeyde basınç uygulanabilir üçgen bulunamadı");
+        if(out.pressureTriangles==0) throw new IllegalStateException("Seçilen bağlı yüzeyde basınç uygulanabilir üçgen bulunamadı veya yük düğümleri mesnetlerle çakıştı");
     }
 
     private static void applyGravity(StaticFemSolver solver,TetMeshData mesh,double rho,Result out){double total=0;for(int[] t:mesh.tets){MeshModel.V3 a=mesh.nodes.get(t[0]),b=mesh.nodes.get(t[1]),c=mesh.nodes.get(t[2]),d=mesh.nodes.get(t[3]);double v=Math.abs(volume6(a,b,c,d))/6.0,m=rho*v,share=-m*9.80665/4.0;for(int n:t)solver.addNodalForce(n,0,0,share);total+=m;}out.gravityMassKg=total;out.resultantFz+=-total*9.80665;}
