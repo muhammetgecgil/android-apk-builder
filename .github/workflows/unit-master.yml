@@ -36,7 +36,9 @@ jobs:
           if [ -f unit-master-stability-patch.py ]; then python unit-master-stability-patch.py; fi
 
       - name: Apply v1.0.2 safe activity
-        run: python unit-master-v102/apply_v102.py
+        run: |
+          python unit-master-v102/apply_v102.py
+          python unit-master-v102/fix_clipboard.py
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
