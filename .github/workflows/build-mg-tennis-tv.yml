@@ -58,15 +58,15 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v3.4 release
+      - name: Verify v3.5 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='34'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='35'"
           unzip -l $APK | grep -q assets/ultra-human-v33.js
           unzip -l $APK | grep -q assets/match-start-v34.js
           unzip -p $APK assets/index.html | grep -q 'match-start-v34.js'
-          cp $APK MG_Tennis_TV_v3.4_Mode_Select_Realistic_Start.apk
+          cp $APK MG_Tennis_TV_v3.5_Update_Setup_Readable_UI.apk
       - uses: actions/upload-artifact@v4
-        with: { name: MG-Tennis-TV-v3.4-Mode-Select-Realistic-Start-APK, path: MG_Tennis_TV_v3.4_Mode_Select_Realistic_Start.apk, retention-days: 30 }
+        with: { name: MG-Tennis-TV-v3.5-Update-Setup-Readable-UI-APK, path: MG_Tennis_TV_v3.5_Update_Setup_Readable_UI.apk, retention-days: 30 }
