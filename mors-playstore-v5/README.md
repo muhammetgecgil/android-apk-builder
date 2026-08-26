@@ -32,3 +32,12 @@ gradle :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:bundleRelea
 ```
 
 Debug APK telefona kurulabilir. Play Store yayını için release AAB bir upload key ile imzalanmalıdır; imza anahtarını public repository'ye koymayın.
+
+
+## MORS LINK - Parça 1
+
+- Telefonlar arasında kamera flaşıyla Mors gönderme
+- Tam ekran siyah/beyaz ışıkla Mors gönderme
+- 5-8 WPM optik güvenlik sınırı
+- Gönderim sırasında ekran parlaklığını geçici yükseltme ve işlem bitince geri yükleme
+- Sonraki parça: kamera ile otomatik optik alıcı

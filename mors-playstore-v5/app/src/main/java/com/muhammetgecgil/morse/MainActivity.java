@@ -105,6 +105,7 @@ public class MainActivity extends Activity {
         addInputCard();
         addOutputCard();
         addStatusStrip();
+        addMorseLinkLauncher();
         addActionGrid();
         addHistoryCard();
         addFooter();
@@ -238,6 +239,21 @@ public class MainActivity extends Activity {
         refreshStatus();
     }
 
+    private void addMorseLinkLauncher() {
+        TextView link = label("⌁  MORS LINK\nTelefon → telefon ışık haberleşmesi", 16, GREEN, Typeface.BOLD);
+        link.setGravity(Gravity.CENTER);
+        link.setPadding(dp(14), dp(10), dp(14), dp(10));
+        link.setMinHeight(dp(72));
+        link.setBackground(ripple(rounded(Color.rgb(8, 38, 36), GREEN, 16, 1)));
+        link.setContentDescription("Mors Link iki telefon arasında ışıkla Mors gönderme");
+        link.setOnClickListener(v -> {
+            haptic(v);
+            signalEngine.cancelAll();
+            startActivity(new Intent(this, MorseLinkActivity.class));
+        });
+        root.addView(link, matchWrap(0, 12));
+    }
+
     private void addActionGrid() {
         String[][] labels = {
                 {"↻", "Çevir"}, {"◖)))", "Sesli Çal"}, {"▯≋", "Titreşim"},
@@ -310,7 +326,7 @@ public class MainActivity extends Activity {
         row.addView(about, ap);
         root.addView(row, matchWrap(0, 4));
 
-        TextView privacy = label("Veriler cihazda kalır • İnternet izni yok • v5.0", 11, Color.rgb(96, 123, 139), Typeface.NORMAL);
+        TextView privacy = label("Veriler cihazda kalır • İnternet izni yok • v5.1", 11, Color.rgb(96, 123, 139), Typeface.NORMAL);
         privacy.setGravity(Gravity.CENTER);
         root.addView(privacy, matchWrap(0, 0));
     }
@@ -597,13 +613,14 @@ public class MainActivity extends Activity {
 
     private void showAbout() {
         new AlertDialog.Builder(this)
-                .setTitle("Mors Kod Çevirici 5.0")
+                .setTitle("Mors Kod Çevirici 5.1")
                 .setMessage("Modern ve çevrimdışı Mors yardımcı aracı.\n\n" +
                         "• Metin ↔ Mors dönüşümü\n" +
                         "• Türkçe genişletilmiş karakterler\n" +
                         "• WPM tabanlı doğru zamanlama\n" +
                         "• Ses, S24 Ultra uyumlu titreşim ve flaş\n" +
-                        "• Yerel geçmiş ve paylaşım\n\n" +
+                        "• Yerel geçmiş ve paylaşım\n" +
+                        "• MORS LINK: flaş ve ekran ışığıyla telefon → telefon gönderim\n\n" +
                         "Gizlilik: Uygulama internet izni istemez ve dönüşüm verilerini sunucuya göndermez. Kamera izni yalnızca kullanıcı Flaş özelliğini seçtiğinde el fenerini kontrol etmek için istenir.\n\n" +
                         "MUHAMMET tasarımı uygulama içi görsel kimliğin bir parçasıdır.")
                 .setPositiveButton("Tamam", null)
