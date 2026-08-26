@@ -24,15 +24,15 @@ public final class BoundarySnapTetMesher {
     public static Result generate(MeshModel surface,int targetLongestAxisCells,double unitScaleToMetres){
         VoxelTetMesher.Result base=VoxelTetMesher.generate(surface,targetLongestAxisCells,unitScaleToMetres);
         TetMeshData mesh=copy(base.mesh);
-        double hM=base.cellSizeModelUnits*unitScaleToMetres;
-        BoundaryConformityReport before=BoundaryConformityReport.evaluate(mesh,surface,unitScaleToMetres,hM);
+        double hModel=base.cellSizeModelUnits;
+        double hM=hModel*unitScaleToMetres;
+        BoundaryConformityReport before=BoundaryConformityReport.evaluate(mesh,surface,unitScaleToMetres,hModel);
         Set<Integer> boundary=boundaryNodes(mesh);
         int accepted=0,rejected=0;
 
         // Limit snap distance to avoid pulling voxel topology through thin walls or sharp corners.
         double maxSnap=0.80*hM;
         List<Integer> order=new ArrayList<>(boundary);
-        // Deterministic order gives reproducible meshes/build regression results.
         Collections.sort(order);
         for(int idx:order){
             MeshModel.V3 old=mesh.nodes.get(idx);
@@ -41,7 +41,6 @@ public final class BoundarySnapTetMesher {
             double dist=distance(old,target);
             if(!(dist>1e-14) || dist>maxSnap){rejected++;continue;}
 
-            // Backtracking projection: full snap first, then progressively smaller steps.
             boolean ok=false;
             for(double alpha:new double[]{1.0,0.75,0.50,0.25}){
                 MeshModel.V3 cand=new MeshModel.V3(old.x+alpha*(target.x-old.x),old.y+alpha*(target.y-old.y),old.z+alpha*(target.z-old.z));
@@ -57,7 +56,7 @@ public final class BoundarySnapTetMesher {
 
         MeshQualityReport q=MeshQualityReport.evaluate(mesh);
         if(!q.pass)throw new IllegalStateException("Boundary snapping produced unacceptable TET quality: "+q.summary());
-        BoundaryConformityReport after=BoundaryConformityReport.evaluate(mesh,surface,unitScaleToMetres,hM);
+        BoundaryConformityReport after=BoundaryConformityReport.evaluate(mesh,surface,unitScaleToMetres,hModel);
         return new Result(mesh,q,before,after,boundary.size(),accepted,rejected);
     }
 
@@ -101,7 +100,6 @@ public final class BoundarySnapTetMesher {
     }
     private static MeshModel.V3 scaled(MeshModel.V3 p,double s){return new MeshModel.V3(p.x*s,p.y*s,p.z*s);}
 
-    // Ericson-style closest point on triangle.
     private static MeshModel.V3 closestPointTriangle(MeshModel.V3 p,MeshModel.V3 a,MeshModel.V3 b,MeshModel.V3 c){
         double[] ab=sub(b,a),ac=sub(c,a),ap=sub(p,a);double d1=dot(ab,ap),d2=dot(ac,ap);if(d1<=0&&d2<=0)return a;
         double[] bp=sub(p,b);double d3=dot(ab,bp),d4=dot(ac,bp);if(d3>=0&&d4<=d3)return b;
