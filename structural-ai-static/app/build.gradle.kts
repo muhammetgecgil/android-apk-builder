@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 23
-        versionName = "1.6.1-profile-alpha"
+        versionCode = 24
+        versionName = "1.6.2-profile-regression"
     }
 
     buildTypes {
