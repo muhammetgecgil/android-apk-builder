@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 26
-        versionName = "1.7.0-mesh-engine-alpha"
+        versionCode = 27
+        versionName = "1.7.1-local-refinement-alpha"
     }
 
     buildTypes {
