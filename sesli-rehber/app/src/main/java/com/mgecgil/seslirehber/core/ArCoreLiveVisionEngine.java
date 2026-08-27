@@ -21,16 +21,18 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
 /**
- * Headless ARCore camera owner for v0.6. It consumes CPU camera frames and aligned Depth16 without
- * visual rendering. A fatal callback is emitted only after the ARCore Session has released the
- * camera, so CameraX fallback can safely bind the rear camera.
+ * Headless ARCore camera owner. It consumes CPU camera frames and aligned Depth16 without visual
+ * rendering. A fatal callback is emitted only after the ARCore Session has released the camera,
+ * so CameraX fallback can safely bind the rear camera.
  */
 public final class ArCoreLiveVisionEngine implements AutoCloseable {
     public interface Listener {
         void onMotion(MotionObservation observation);
         void onObject(ObjectObservation observation);
         void onGround(GroundObservation observation);
+        void onSceneHealth(SceneHealthObservation observation);
         void onDepth(DepthObservation observation);
+        void onWalkable(WalkableCorridorObservation observation);
         void onStatus(String status);
         void onFatal(String message);
     }
@@ -89,7 +91,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             session = localSession;
 
             int imageRotationDegrees = resolveImageRotation(localSession, displayRotation);
-            listener.onStatus("ARCore canlı derinlik modu aktif. Kamera, zemin, nesne ve Depth16 birlikte izleniyor.");
+            listener.onStatus("ARCore canlı derinlik modu aktif. Kamera, zemin, nesne, yürüyüş koridoru ve Depth16 birlikte izleniyor.");
 
             long lastFrameTimestampNs = Long.MIN_VALUE;
             while (running.get()) {
@@ -124,20 +126,26 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             cameraImage = frame.acquireCameraImage();
             sampleLuma(cameraImage, lumaGrid);
             GridEvidenceEstimator.Result evidence = gridEstimator.analyze(lumaGrid, rotationDegrees, nowMs);
+            listener.onSceneHealth(evidence.sceneHealth());
             if (evidence.motion().changedAreaRatio() > 0f) listener.onMotion(evidence.motion());
             if (evidence.ground().viewConfidence() > 0.08f) listener.onGround(evidence.ground());
 
             if (frame.getCamera().getTrackingState() == TrackingState.TRACKING) {
                 try {
                     depthImage = frame.acquireDepthImage16Bits();
-                    DepthObservation depth = depthAdapter.analyzeAligned(
+                    DepthImageAdapter.AlignedEvidence depthEvidence = depthAdapter.analyzeAlignedEvidence(
                             frame,
                             depthImage,
                             cameraImage.getWidth(),
                             cameraImage.getHeight(),
                             rotationDegrees,
                             nowMs);
-                    if (depth.validRatio() > 0.04f) listener.onDepth(depth);
+                    if (depthEvidence.depth().validRatio() > 0.04f) {
+                        listener.onDepth(depthEvidence.depth());
+                    }
+                    if (depthEvidence.walkable().confidence() > 0.20f) {
+                        listener.onWalkable(depthEvidence.walkable());
+                    }
                 } catch (NotYetAvailableException ignored) {
                     // Normal at startup, low motion, weak texture or temporary tracking loss.
                 }
@@ -224,6 +232,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         executor.shutdownNow();
         objectTracker.reset();
         gridEstimator.reset();
+        depthAdapter.reset();
         try { objectDetector.close(); } catch (Throwable ignored) {}
     }
 }
