@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 43
-        versionName = "1.11.1-zip-cad-browser"
+        versionCode = 44
+        versionName = "1.11.2-regression-stabilization"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
