@@ -38,6 +38,7 @@ public final class NavigationModels {
         MANEUVER,
         OFF_ROUTE,
         REROUTE_REQUEST,
+        FINAL_APPROACH,
         ARRIVED
     }
 
