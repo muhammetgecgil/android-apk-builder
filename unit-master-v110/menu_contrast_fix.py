@@ -8,11 +8,13 @@ if not main.exists():
     raise SystemExit('MainActivity.java not found')
 
 # Product-level menu fix: do not rely on Android/One UI list-row colors at all.
-# Every ArrayAdapter menu row is inflated from our own white resource.
+# Every dropdown row is inflated from our own white resource and every Spinner popup
+# also gets an explicit opaque white PopupWindow background.
 res_layout.mkdir(parents=True, exist_ok=True)
 row = res_layout / 'white_menu_row.xml'
 row.write_text('''<?xml version="1.0" encoding="utf-8"?>
 <TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@android:id/text1"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
@@ -26,7 +28,8 @@ row.write_text('''<?xml version="1.0" encoding="utf-8"?>
     android:textColor="#FF14181C"
     android:textSize="18sp"
     android:maxLines="2"
-    android:ellipsize="end" />
+    android:ellipsize="end"
+    tools:ignore="Overdraw" />
 ''', encoding='utf-8')
 
 a = main.read_text(encoding='utf-8')
@@ -85,7 +88,7 @@ for marker in markers:
 if not inserted:
     raise SystemExit('Could not locate helper insertion point in MainActivity')
 
-# Force ArrayAdapter rows to use an app-owned white TextView instead of Samsung/system layouts.
+# Force ArrayAdapter dropdown/list rows to use an app-owned white TextView instead of Samsung/system layouts.
 layout_patterns = [
     'android.R.layout.simple_list_item_1',
     'android.R.layout.simple_spinner_item',
@@ -98,7 +101,7 @@ for old in layout_patterns:
         a = a.replace(old, 'R.layout.white_menu_row')
         row_replacements += n
 
-# Remove any older list styling injection before adding the current one.
+# Remove any older ListView styling injection before adding the current one.
 a = re.sub(
     r'list\.setBackgroundColor\([^;]+\);list\.setCacheColorHint\([^;]+\);list\.setDivider\(new android\.graphics\.drawable\.ColorDrawable\([^\)]+\)\);list\.setDividerHeight\([^;]+\);list\.setOnHierarchyChangeListener\(new ViewGroup\.OnHierarchyChangeListener\(\)\{public void onChildViewAdded\(View parent,View child\)\{styleMenuTree\(child\);\}public void onChildViewRemoved\(View parent,View child\)\{\}\}\);refreshMenuContrast\(list\);',
     '', a)
@@ -119,6 +122,18 @@ for pattern in patterns:
 # Eliminate dark/transparent menu surfaces inherited from the app theme.
 a = a.replace('list.setBackgroundColor(Color.TRANSPARENT);', 'list.setBackgroundColor(MENU_BG);')
 a = a.replace('list.setBackgroundColor(CARD);', 'list.setBackgroundColor(MENU_BG);')
+
+# Explicitly force all three converter Spinners' popup windows to opaque white.
+# This is the key One UI/Samsung fix: changing row TextViews alone does not change PopupWindow background.
+spinner_bg = 'setPopupBackgroundDrawable(new android.graphics.drawable.ColorDrawable(MENU_BG))'
+spinner_changes = 0
+for needle, replacement in [
+    ('categorySpinner.setAdapter(a);', 'categorySpinner.setAdapter(a);categorySpinner.' + spinner_bg + ';'),
+    ('fromSpinner.setAdapter(a);toSpinner.setAdapter(b);', 'fromSpinner.setAdapter(a);toSpinner.setAdapter(b);fromSpinner.' + spinner_bg + ';toSpinner.' + spinner_bg + ';')
+]:
+    if needle in a:
+        a = a.replace(needle, replacement)
+        spinner_changes += 1
 
 # The dialog window itself must be light as well as its rows.
 a = a.replace('new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_DARK)', 'new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)')
@@ -141,6 +156,12 @@ if row_replacements == 0:
         if 'setAdapter' in line or 'ArrayAdapter' in line:
             print(line[:1600])
     raise SystemExit('No system ArrayAdapter row layouts found; refusing to publish an unverified menu-color patch')
+if spinner_changes < 2:
+    print('--- Spinner diagnostics ---')
+    for line in a.splitlines():
+        if 'Spinner' in line or 'setAdapter' in line:
+            print(line[:1600])
+    raise SystemExit(f'Expected category and unit Spinner popup background patches; found {spinner_changes}')
 
 main.write_text(a, encoding='utf-8')
 
@@ -151,7 +172,7 @@ if gradle.exists():
     gradle.write_text(g, encoding='utf-8')
     print(f'Version bump: versionCode replacements={vc}, versionName replacements={vn}')
 
-print(f'WHITE MENU FIX VERIFIED IN SOURCE: {list_count} ListView picker(s), {row_replacements} adapter row layout replacement(s), app-owned white_menu_row.xml')
+print(f'WHITE MENU FIX VERIFIED IN SOURCE: {list_count} ListView picker(s), {row_replacements} adapter row layout replacement(s), {spinner_changes} Spinner popup-background patch points, app-owned white_menu_row.xml')
 for line in a.splitlines():
-    if 'setAdapter' in line and ('list.' in line or 'ArrayAdapter' in line):
+    if 'setAdapter' in line and ('list.' in line or 'ArrayAdapter' in line or 'Spinner' in line):
         print('ADAPTER:', line.strip()[:1600])
