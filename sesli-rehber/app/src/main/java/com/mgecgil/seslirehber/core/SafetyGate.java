@@ -3,9 +3,13 @@ package com.mgecgil.seslirehber.core;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
 public final class SafetyGate {
+    private static final long SCENE_HEALTH_MAX_SKEW_MS = 700L;
+    private static final long WALKABLE_MAX_SKEW_MS = 500L;
     private final CollisionCorridor collisionCorridor = new CollisionCorridor();
 
     public GuidanceDecision evaluate(MotionObservation observation, float deviceStability) {
+        GuidanceDecision preflight = preflight(observation.timestampMs(), deviceStability);
+        if (preflight != null) return preflight;
         if (deviceStability < 0.35f) return unstable(deviceStability);
         float fused = clamp(observation.visionConfidence() * (0.55f + 0.45f * deviceStability));
         if (observation.changedAreaRatio() < 0.025f) return quiet(fused);
@@ -24,6 +28,8 @@ public final class SafetyGate {
     }
 
     public GuidanceDecision evaluateObject(ObjectObservation observation, float deviceStability) {
+        GuidanceDecision preflight = preflight(observation.timestampMs(), deviceStability);
+        if (preflight != null) return preflight;
         if (deviceStability < 0.35f) return unstable(deviceStability);
 
         float fused = clamp(observation.visionConfidence() * (0.60f + 0.40f * deviceStability));
@@ -136,11 +142,9 @@ public final class SafetyGate {
         return quiet(fused);
     }
 
-    /**
-     * Ground continuity is an appearance/geometric evidence channel. Without depth it may raise
-     * CAUTION after persistence, but never STOP and never a semantic "hole/curb" claim.
-     */
     public GuidanceDecision evaluateGround(GroundObservation observation, float deviceStability) {
+        GuidanceDecision preflight = preflight(observation.timestampMs(), deviceStability);
+        if (preflight != null) return preflight;
         if (deviceStability < 0.35f) return unstable(deviceStability);
 
         float fused = clamp(observation.viewConfidence() * (0.52f + 0.48f * deviceStability));
@@ -170,29 +174,34 @@ public final class SafetyGate {
         return quiet(fused);
     }
 
-    /**
-     * Depth alone remains CAUTION-only. A single depth edge may be a wall/object boundary rather
-     * than a ground drop, so semantic language is deliberately avoided.
-     */
     public GuidanceDecision evaluateDepth(DepthObservation depth, float deviceStability) {
+        GuidanceDecision preflight = preflight(depth.timestampMs(), deviceStability);
+        if (preflight != null) return preflight;
         if (deviceStability < 0.35f) return unstable(deviceStability);
         float fused = clamp(depth.depthConfidence() * (0.58f + 0.42f * deviceStability));
-        if (!depth.strongDiscontinuity() || fused < 0.52f) return quiet(fused);
-        return new GuidanceDecision(
-                Risk.CAUTION,
-                Direction.CENTER,
-                "Ön bölgede ani derinlik değişimi algılandı. Yavaşla ve bastonla doğrula.",
-                fused);
+        if (depth.strongDiscontinuity() && fused >= 0.52f) {
+            return new GuidanceDecision(
+                    Risk.CAUTION,
+                    Direction.CENTER,
+                    "Ön bölgede ani derinlik değişimi algılandı. Yavaşla ve bastonla doğrula.",
+                    fused);
+        }
+        WalkableCorridorObservation walkable =
+                PerceptionContext.walkableNear(depth.timestampMs(), WALKABLE_MAX_SKEW_MS);
+        if (walkable != null) {
+            GuidanceDecision corridor = evaluateWalkable(walkable, deviceStability);
+            if (corridor.risk() != Risk.INFO) return corridor;
+        }
+        return quiet(fused);
     }
 
-    /**
-     * STOP requires two independent channels: persistent ground discontinuity AND strong depth
-     * discontinuity, plus stable device evidence. It still does not call the event a hole/curb.
-     */
     public GuidanceDecision evaluateGroundWithDepth(
             GroundObservation ground,
             DepthObservation depth,
             float deviceStability) {
+        long sourceTimestamp = Math.max(ground.timestampMs(), depth.timestampMs());
+        GuidanceDecision preflight = preflight(sourceTimestamp, deviceStability);
+        if (preflight != null) return preflight;
         if (deviceStability < 0.35f) return unstable(deviceStability);
 
         float groundConfidence = clamp(ground.viewConfidence() * (0.52f + 0.48f * deviceStability));
@@ -225,11 +234,24 @@ public final class SafetyGate {
 
         GuidanceDecision groundOnly = evaluateGround(ground, deviceStability);
         if (groundOnly.risk() != Risk.INFO) return groundOnly;
-        return evaluateDepth(depth, deviceStability);
+        GuidanceDecision depthOnly = evaluateDepth(depth, deviceStability);
+        if (depthOnly.risk() != Risk.INFO) return depthOnly;
+
+        WalkableCorridorObservation walkable =
+                PerceptionContext.walkableNear(sourceTimestamp, WALKABLE_MAX_SKEW_MS);
+        return walkable == null ? quiet(fused) : evaluateWalkable(walkable, deviceStability);
     }
 
     public CorridorAssessment assessCorridor(ObjectObservation observation, float deviceStability) {
         return collisionCorridor.assess(observation, deviceStability);
+    }
+
+    private GuidanceDecision preflight(long timestampMs, float deviceStability) {
+        SceneHealthObservation scene =
+                PerceptionContext.sceneHealthNear(timestampMs, SCENE_HEALTH_MAX_SKEW_MS);
+        if (scene == null) return null;
+        GuidanceDecision sceneDecision = evaluateSceneHealth(scene, deviceStability);
+        return sceneDecision.risk() == Risk.STOP ? sceneDecision : null;
     }
 
     private static GuidanceDecision unstable(float stability) {
