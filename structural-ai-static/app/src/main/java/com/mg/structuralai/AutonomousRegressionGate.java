@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Fast in-app regression that catches broken FEM mapping, theory drift, contact, mesh, BC/load and material-evidence regressions before user analyses. */
+/** Fast in-app regression that catches broken FEM mapping, theory drift, contact, mesh, BC/load and evidence regressions before user analyses. */
 public final class AutonomousRegressionGate {
     public static final class Result {
         public final boolean pass;
@@ -42,8 +42,9 @@ public final class AutonomousRegressionGate {
             ProductionMeshGate.Result pm=ProductionMeshGate.run();
             BoundaryLoadRegressionGate.Result bc=BoundaryLoadRegressionGate.run();
             MaterialEvidenceGate.Result mg=MaterialEvidenceGate.run();
-            boolean pass=femPass&&tet.pass&&theory.pass&&axial.pass&&cr.pass&&pm.pass&&bc.pass&&mg.pass;
-            return cached=new Result(pass,femMsg+"\n"+tet.message+"\n"+theory.message+"\n"+axial.message+"\n"+cr.summary+"\n"+pm.summary+"\n"+bc.summary+"\n"+mg.summary);
+            ContactEvidenceRegressionGate.Result ceg=ContactEvidenceRegressionGate.run();
+            boolean pass=femPass&&tet.pass&&theory.pass&&axial.pass&&cr.pass&&pm.pass&&bc.pass&&mg.pass&&ceg.pass;
+            return cached=new Result(pass,femMsg+"\n"+tet.message+"\n"+theory.message+"\n"+axial.message+"\n"+cr.summary+"\n"+pm.summary+"\n"+bc.summary+"\n"+mg.summary+"\n"+ceg.summary);
         }catch(Throwable t){return cached=new Result(false,"REGRESSION ERROR: "+t.getMessage());}
     }
 
