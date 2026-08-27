@@ -38,10 +38,13 @@ import com.mgecgil.seslirehber.core.GuidanceModels.GuidanceDecision;
 import com.mgecgil.seslirehber.core.GuidanceModels.MotionObservation;
 import com.mgecgil.seslirehber.core.GuidanceModels.ObjectObservation;
 import com.mgecgil.seslirehber.core.GuidanceModels.Risk;
+import com.mgecgil.seslirehber.core.GuidanceModels.SceneHealthObservation;
+import com.mgecgil.seslirehber.core.GuidanceModels.WalkableCorridorObservation;
 import com.mgecgil.seslirehber.core.GuidancePriorityArbiter;
 import com.mgecgil.seslirehber.core.GuidanceSpeaker;
 import com.mgecgil.seslirehber.core.OfflineIntentParser;
 import com.mgecgil.seslirehber.core.SafetyGate;
+import com.mgecgil.seslirehber.core.SceneSummaryState;
 import com.mgecgil.seslirehber.core.SensorFusionManager;
 import com.mgecgil.seslirehber.core.VisionFusionAnalyzer;
 import com.mgecgil.seslirehber.core.VisionHealthWatchdog;
@@ -52,11 +55,14 @@ import java.util.concurrent.Executors;
 
 public final class MainActivity extends ComponentActivity {
     private enum VisionMode { STARTING, CAMERAX, ARCORE }
+    private enum PendingAudioAction { NONE, ONE_SHOT, HANDS_FREE }
 
     private PreviewView previewView;
     private TextView statusView;
     private TextView depthStatusView;
+    private TextView voiceStatusView;
     private TextView gateCStatusView;
+    private Button wakeButton;
     private Button gateCButton;
     private Button shareReportButton;
     private GuidanceSpeaker speaker;
@@ -72,6 +78,7 @@ public final class MainActivity extends ComponentActivity {
     private final AnnouncementGate announcementGate = new AnnouncementGate();
     private final GuidancePriorityArbiter priorityArbiter = new GuidancePriorityArbiter();
     private final OfflineIntentParser intentParser = new OfflineIntentParser();
+    private final SceneSummaryState sceneSummary = new SceneSummaryState();
     private final GroundDepthSynchronizer groundDepthSynchronizer = new GroundDepthSynchronizer();
     private final VisionHealthWatchdog visionWatchdog = new VisionHealthWatchdog();
     private final Handler healthHandler = new Handler(Looper.getMainLooper());
@@ -83,7 +90,9 @@ public final class MainActivity extends ComponentActivity {
     private volatile boolean destroyed;
     private boolean watchdogRecoveryInProgress;
     private VisionHealthWatchdog.Health lastWatchdogHealth = VisionHealthWatchdog.Health.STARTING;
+    private PendingAudioAction pendingAudioAction = PendingAudioAction.NONE;
     private long lastVisionErrorMs;
+    private String pendingDestination = "";
 
     private final Runnable healthTick = new Runnable() {
         @Override public void run() {
@@ -106,10 +115,14 @@ public final class MainActivity extends ComponentActivity {
 
     private final ActivityResultLauncher<String> audioPermission = registerForActivityResult(
             new ActivityResultContracts.RequestPermission(), granted -> {
+                PendingAudioAction action = pendingAudioAction;
+                pendingAudioAction = PendingAudioAction.NONE;
                 if (Boolean.TRUE.equals(granted)) {
-                    if (voice != null) voice.listenOnce();
+                    if (action == PendingAudioAction.HANDS_FREE) enableHandsFreeNow();
+                    else if (voice != null) voice.listenOnce();
                 } else if (speaker != null) {
                     speaker.speak("Sesli komut için mikrofon izni gerekli. Kamera rehberliği çalışmaya devam ediyor.");
+                    updateVoiceUi();
                 }
             });
 
@@ -122,16 +135,30 @@ public final class MainActivity extends ComponentActivity {
         cameraExecutor = Executors.newSingleThreadExecutor();
         voice = new VoiceCommandController(this, new VoiceCommandController.Listener() {
             @Override public void onVoiceText(String text) { handleVoice(text); }
+
             @Override public void onVoiceError(String message) {
                 updateStatus(message, false);
                 speaker.speak(message);
             }
+
+            @Override public void onVoiceState(String message) {
+                runOnUiThread(() -> {
+                    if (voiceStatusView != null) voiceStatusView.setText("Ses: " + message);
+                });
+                if ("Dinliyorum.".equals(message)) speaker.speak(message);
+            }
+
+            @Override public void onWakeModeChanged(boolean enabled, boolean onDevice) {
+                updateVoiceUi();
+            }
         });
+        voice.setSpeechBusySupplier(speaker::isSpeaking);
 
         setContentView(buildUi());
+        updateVoiceUi();
         probeDepthCapability();
         requestCameraAndStart();
-        speaker.speak("Sesli Rehber sürüm sıfır nokta sekiz. Kamera sağlığı, göreli yürüyüş koridoru, canlı Depth ve güvenlik öncelikli rehberlik çekirdeği başlıyor.");
+        speaker.speak("Sesli Rehber sürüm sıfır nokta dokuz. Eller serbest ses, yazı okuma ve canlı çevre özeti hazırlanıyor. Kamera güvenliği çalışmaya devam ediyor.");
     }
 
     private View buildUi() {
@@ -157,6 +184,14 @@ public final class MainActivity extends ComponentActivity {
         depthStatusView.setContentDescription("Derinlik sistemi durumu");
         root.addView(depthStatusView, new LinearLayout.LayoutParams(-1, -2));
 
+        voiceStatusView = new TextView(this);
+        voiceStatusView.setText("Ses: kontrol ediliyor…");
+        voiceStatusView.setTextColor(Color.LTGRAY);
+        voiceStatusView.setTextSize(16f);
+        voiceStatusView.setMinHeight(dp(44));
+        voiceStatusView.setContentDescription("Hey Rehber ve ses tanıma durumu");
+        root.addView(voiceStatusView, new LinearLayout.LayoutParams(-1, -2));
+
         gateCStatusView = new TextView(this);
         gateCStatusView.setText("Gate C: kayıt kapalı");
         gateCStatusView.setTextColor(Color.LTGRAY);
@@ -173,6 +208,10 @@ public final class MainActivity extends ComponentActivity {
         Button voiceButton = bigButton("Sesli Komut", "Bir kez sesli komut dinle");
         voiceButton.setOnClickListener(v -> startVoiceCommand());
         root.addView(voiceButton);
+
+        wakeButton = bigButton("Hey Rehber'i Aç", "Eller serbest Hey Rehber dinlemeyi aç veya kapat");
+        wakeButton.setOnClickListener(v -> toggleHandsFree());
+        root.addView(wakeButton);
 
         Button toggleButton = bigButton("Rehberliği Durdur", "Çevre rehberliğini aç veya kapat");
         toggleButton.setOnClickListener(v -> {
@@ -227,8 +266,46 @@ public final class MainActivity extends ComponentActivity {
                 == PackageManager.PERMISSION_GRANTED) {
             voice.listenOnce();
         } else {
+            pendingAudioAction = PendingAudioAction.ONE_SHOT;
             audioPermission.launch(Manifest.permission.RECORD_AUDIO);
         }
+    }
+
+    private void toggleHandsFree() {
+        if (voice == null) return;
+        if (voice.isHandsFreeEnabled()) {
+            voice.setHandsFreeEnabled(false);
+            updateVoiceUi();
+            speaker.speak("Hey Rehber kapalı.");
+            return;
+        }
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED) {
+            pendingAudioAction = PendingAudioAction.HANDS_FREE;
+            audioPermission.launch(Manifest.permission.RECORD_AUDIO);
+            return;
+        }
+        enableHandsFreeNow();
+    }
+
+    private void enableHandsFreeNow() {
+        boolean enabled = voice != null && voice.setHandsFreeEnabled(true);
+        updateVoiceUi();
+        if (enabled) {
+            speaker.speak("Hey Rehber açık. Uygulama ekrandayken yerel ses tanıma ile dinliyorum.");
+        } else {
+            speaker.speak("Bu cihazda yerel eller serbest ses tanıma hazır değil. Sesli Komut düğmesi kullanılabilir.");
+        }
+    }
+
+    private void updateVoiceUi() {
+        runOnUiThread(() -> {
+            if (destroyed || voice == null) return;
+            if (voiceStatusView != null) voiceStatusView.setText("Ses: " + voice.modeDescription());
+            if (wakeButton != null) {
+                wakeButton.setText(voice.isHandsFreeEnabled() ? "Hey Rehber'i Kapat" : "Hey Rehber'i Aç");
+            }
+        });
     }
 
     private void toggleGateCTest() {
@@ -241,7 +318,7 @@ public final class MainActivity extends ComponentActivity {
             return;
         }
 
-        boolean started = gateCRecorder.start("0.8.0", modeName());
+        boolean started = gateCRecorder.start("0.9.0", modeName());
         if (!started) {
             gateCStatusView.setText("Gate C: kayıt dosyası açılamadı");
             speaker.speak("Gate C kayıt dosyası açılamadı.");
@@ -292,11 +369,8 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void requestCameraAndStart() {
-        if (cameraPermissionGranted()) {
-            startCameraX();
-        } else {
-            cameraPermission.launch(Manifest.permission.CAMERA);
-        }
+        if (cameraPermissionGranted()) startCameraX();
+        else cameraPermission.launch(Manifest.permission.CAMERA);
     }
 
     private boolean cameraPermissionGranted() {
@@ -309,6 +383,7 @@ public final class MainActivity extends ComponentActivity {
         visionMode = VisionMode.STARTING;
         previewView.setVisibility(View.VISIBLE);
         groundDepthSynchronizer.reset();
+        sceneSummary.reset();
         visionWatchdog.beginMode(SystemClock.elapsedRealtime(), false);
         lastWatchdogHealth = VisionHealthWatchdog.Health.STARTING;
         if (gateCRecorder.isActive()) gateCRecorder.recordMode("STARTING", "CameraX_start_requested");
@@ -336,6 +411,8 @@ public final class MainActivity extends ComponentActivity {
                     @Override public void onMotion(MotionObservation observation) { handleMotion(observation); }
                     @Override public void onObject(ObjectObservation observation) { handleObject(observation); }
                     @Override public void onGround(GroundObservation observation) { handleGround(observation); }
+                    @Override public void onSceneHealth(SceneHealthObservation observation) { handleSceneHealth(observation); }
+                    @Override public void onTextRecognized(String text) { handleTextRecognized(text); }
                     @Override public void onVisionError(String message) {
                         long now = System.currentTimeMillis();
                         if (now - lastVisionErrorMs > 8000L) {
@@ -371,6 +448,7 @@ public final class MainActivity extends ComponentActivity {
         arCoreSwitchAttempted = true;
         visionMode = VisionMode.STARTING;
         groundDepthSynchronizer.reset();
+        sceneSummary.reset();
         if (cameraProvider != null) cameraProvider.unbindAll();
         closeCameraXAnalyzer();
         visionWatchdog.beginMode(SystemClock.elapsedRealtime(), true);
@@ -389,7 +467,10 @@ public final class MainActivity extends ComponentActivity {
             @Override public void onMotion(MotionObservation observation) { handleMotion(observation); }
             @Override public void onObject(ObjectObservation observation) { handleObject(observation); }
             @Override public void onGround(GroundObservation observation) { handleGround(observation); }
+            @Override public void onSceneHealth(SceneHealthObservation observation) { handleSceneHealth(observation); }
             @Override public void onDepth(DepthObservation observation) { handleDepth(observation); }
+            @Override public void onWalkable(WalkableCorridorObservation observation) { handleWalkable(observation); }
+            @Override public void onTextRecognized(String text) { handleTextRecognized(text); }
 
             @Override public void onStatus(String status) {
                 runOnUiThread(() -> {
@@ -419,6 +500,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void handleMotion(MotionObservation observation) {
+        sceneSummary.update(observation);
         long elapsed = SystemClock.elapsedRealtime();
         visionWatchdog.noteVision(elapsed);
         float stability = sensors.stability();
@@ -428,6 +510,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void handleObject(ObjectObservation observation) {
+        sceneSummary.update(observation);
         float stability = sensors.stability();
         if (gateCRecorder.isActive()) gateCRecorder.recordObject(modeName(), observation, stability);
         if (!guidanceEnabled) return;
@@ -435,6 +518,7 @@ public final class MainActivity extends ComponentActivity {
     }
 
     private void handleGround(GroundObservation observation) {
+        sceneSummary.update(observation);
         float stability = sensors.stability();
         if (gateCRecorder.isActive()) gateCRecorder.recordGround(modeName(), observation, stability);
         if (!guidanceEnabled) return;
@@ -444,12 +528,19 @@ public final class MainActivity extends ComponentActivity {
             long sourceTs = Math.max(evidence.ground().timestampMs(), evidence.depth().timestampMs());
             recordAndAnnounceDecision(
                     safetyGate.evaluateGroundWithDepth(evidence.ground(), evidence.depth(), stability),
-                    "GROUND_DEPTH",
-                    sourceTs);
+                    "GROUND_DEPTH", sourceTs);
         }
     }
 
+    private void handleSceneHealth(SceneHealthObservation observation) {
+        sceneSummary.update(observation);
+        if (!guidanceEnabled) return;
+        GuidanceDecision decision = safetyGate.evaluateSceneHealth(observation, sensors.stability());
+        recordAndAnnounceDecision(decision, "SCENE_HEALTH", observation.timestampMs());
+    }
+
     private void handleDepth(DepthObservation observation) {
+        sceneSummary.update(observation);
         visionWatchdog.noteDepth(SystemClock.elapsedRealtime());
         float stability = sensors.stability();
         if (gateCRecorder.isActive()) gateCRecorder.recordDepth(modeName(), observation, stability);
@@ -460,8 +551,33 @@ public final class MainActivity extends ComponentActivity {
             long sourceTs = Math.max(evidence.ground().timestampMs(), evidence.depth().timestampMs());
             recordAndAnnounceDecision(
                     safetyGate.evaluateGroundWithDepth(evidence.ground(), evidence.depth(), stability),
-                    "GROUND_DEPTH",
-                    sourceTs);
+                    "GROUND_DEPTH", sourceTs);
+        }
+    }
+
+    private void handleWalkable(WalkableCorridorObservation observation) {
+        sceneSummary.update(observation);
+        if (!guidanceEnabled) return;
+        GuidanceDecision decision = safetyGate.evaluateWalkable(observation, sensors.stability());
+        recordAndAnnounceDecision(decision, "WALKABLE", observation.timestampMs());
+    }
+
+    private void handleTextRecognized(String rawText) {
+        String text = rawText == null ? "" : rawText.replaceAll("\\s+", " ").trim();
+        if (text.length() > 420) text = text.substring(0, 420) + ". Devamı var.";
+        if (text.isEmpty()) text = "Okunabilir yazı bulamadım.";
+        deliverNonSafety(GuidancePriorityArbiter.Channel.SCENE, text);
+    }
+
+    private void requestTextScan() {
+        if (visionMode == VisionMode.ARCORE && arCoreEngine != null) {
+            arCoreEngine.requestTextScan();
+            deliverNonSafety(GuidancePriorityArbiter.Channel.SCENE, "Yazıyı okuyorum.");
+        } else if (visionMode == VisionMode.CAMERAX && visionAnalyzer != null) {
+            visionAnalyzer.requestTextScan();
+            deliverNonSafety(GuidancePriorityArbiter.Channel.SCENE, "Yazıyı okuyorum.");
+        } else {
+            deliverNonSafety(GuidancePriorityArbiter.Channel.SYSTEM, "Kamera henüz hazır değil.");
         }
     }
 
@@ -478,6 +594,22 @@ public final class MainActivity extends ComponentActivity {
             updateStatus(decision.speech() + "  Güven: " + Math.round(decision.confidence() * 100) + "%", urgent);
             speaker.announce(decision);
         });
+    }
+
+    private void deliverNonSafety(GuidancePriorityArbiter.Channel channel, String text) {
+        if (text == null || text.trim().isEmpty()) return;
+        GuidanceDecision message = new GuidanceDecision(
+                Risk.INFO,
+                com.mgecgil.seslirehber.core.GuidanceModels.Direction.UNKNOWN,
+                text,
+                1f);
+        long now = System.currentTimeMillis();
+        if (!priorityArbiter.shouldDeliver(channel, message, now)) {
+            updateStatus("Güvenlik uyarısı öncelikli; istek geçici olarak bastırıldı.", true);
+            return;
+        }
+        updateStatus(text, false);
+        speaker.speak(text);
     }
 
     private void checkVisionHealth() {
@@ -522,6 +654,7 @@ public final class MainActivity extends ComponentActivity {
         if (destroyed) return;
         visionMode = VisionMode.STARTING;
         groundDepthSynchronizer.reset();
+        sceneSummary.reset();
         if (arCoreEngine != null) {
             arCoreEngine.close();
             arCoreEngine = null;
@@ -546,26 +679,39 @@ public final class MainActivity extends ComponentActivity {
                 guidanceEnabled = false;
                 speaker.speak("Rehberlik durduruldu.");
             }
-            case REPEAT -> speaker.repeat();
-            case DESCRIBE_SCENE -> {
-                String modeText = switch (visionMode) {
-                    case ARCORE -> " Canlı ARCore derinlik, göreli yürüyüş koridoru, zemin, nesne ve hareket kanalları birlikte çalışıyor.";
-                    case CAMERAX -> " CameraX kamera sağlığı, zemin, nesne ve hareket kanalları çalışıyor; canlı derinlik koridoru aktif değil.";
-                    default -> " Görüş sistemi başlatılıyor.";
-                };
-                String testText = gateCRecorder.isActive() ? " Gate C doğrulama kaydı açık." : "";
-                speaker.speak("Ön çevre güvenlik kanalları izleniyor." + modeText + testText
-                        + " Daha açık koridor önerisi güvenli yol onayı değildir. Çukur veya kaldırım adı saha doğrulaması olmadan kesin söylenmez.");
+            case WAKE_MODE_ON -> {
+                if (!voice.isHandsFreeEnabled()) toggleHandsFree();
+                else speaker.speak("Hey Rehber zaten açık.");
             }
-            case HELP -> speaker.speak("Komutlar: rehberliği başlat, rehberliği durdur, tekrar et, çevremi anlat. Mikrofon izni yalnız sesli komut kullanıldığında gerekir.");
+            case WAKE_MODE_OFF -> {
+                if (voice.isHandsFreeEnabled()) {
+                    voice.setHandsFreeEnabled(false);
+                    updateVoiceUi();
+                    speaker.speak("Hey Rehber kapalı.");
+                } else speaker.speak("Hey Rehber zaten kapalı.");
+            }
+            case REPEAT -> speaker.repeat();
+            case READ_TEXT -> requestTextScan();
+            case DESCRIBE_SCENE -> deliverNonSafety(
+                    GuidancePriorityArbiter.Channel.SCENE,
+                    sceneSummary.summarize(System.currentTimeMillis()));
+            case NAVIGATE_TO -> {
+                pendingDestination = parsed.argument();
+                deliverNonSafety(
+                        GuidancePriorityArbiter.Channel.NAVIGATION,
+                        "Hedef algılandı: " + pendingDestination
+                                + ". Rota motoru henüz bağlı değil; yönlendirme başlatılmadı.");
+            }
+            case HELP -> speaker.speak(
+                    "Komutlar: Hey Rehber çevremi anlat, yazıyı oku, beni bir adrese götür, "
+                            + "rehberliği başlat, rehberliği durdur ve tekrar et. "
+                            + "Hey Rehber modu yalnız cihazda yerel tanıma varsa eller serbest açılır.");
             case UNKNOWN -> speaker.speak("Komutu anlayamadım.");
         }
         updateStatus("Komut: " + text, false);
     }
 
-    private String modeName() {
-        return visionMode.name();
-    }
+    private String modeName() { return visionMode.name(); }
 
     private void updateStatus(String text, boolean urgent) {
         runOnUiThread(() -> {
@@ -597,6 +743,7 @@ public final class MainActivity extends ComponentActivity {
     protected void onStart() {
         super.onStart();
         if (sensors != null) sensors.start();
+        if (voice != null) voice.onHostStart();
         healthHandler.removeCallbacks(healthTick);
         healthHandler.postDelayed(healthTick, 500L);
         if (visionMode == VisionMode.ARCORE && arCoreEngine != null && !arCoreEngine.isRunning()) {
@@ -608,6 +755,7 @@ public final class MainActivity extends ComponentActivity {
     @Override
     protected void onStop() {
         healthHandler.removeCallbacks(healthTick);
+        if (voice != null) voice.onHostStop();
         if (arCoreEngine != null) arCoreEngine.stop();
         if (sensors != null) sensors.stop();
         super.onStop();
