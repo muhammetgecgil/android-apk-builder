@@ -70,9 +70,11 @@ public final class DepthImageAdapter {
         if (frame == null || depthImage == null || depthImage.getPlanes().length == 0
                 || cpuWidth <= 0 || cpuHeight <= 0) {
             short[] empty = new short[0];
+            WalkableCorridorObservation walkable = walkableEstimator.analyze(empty, 0, 0, timestampMs);
+            PerceptionContext.noteWalkable(walkable);
             return new AlignedEvidence(
                     estimator.analyze(empty, 0, 0, timestampMs),
-                    walkableEstimator.analyze(empty, 0, 0, timestampMs));
+                    walkable);
         }
 
         short[] grid = new short[GRID_W * GRID_H];
@@ -104,9 +106,12 @@ public final class DepthImageAdapter {
                 grid[gy * GRID_W + gx] = readDepth(plane, buffer, dx, dy);
             }
         }
+        WalkableCorridorObservation walkable =
+                walkableEstimator.analyze(grid, GRID_W, GRID_H, timestampMs);
+        PerceptionContext.noteWalkable(walkable);
         return new AlignedEvidence(
                 estimator.analyze(grid, GRID_W, GRID_H, timestampMs),
-                walkableEstimator.analyze(grid, GRID_W, GRID_H, timestampMs));
+                walkable);
     }
 
     public void reset() {
