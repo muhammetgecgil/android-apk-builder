@@ -21,7 +21,9 @@ public final class GuidancePriorityArbiter {
             Channel channel,
             GuidanceDecision decision,
             long nowMs) {
-        if (decision == null || decision.speech() == null || decision.speech().isBlank()) return false;
+        if (decision == null
+                || decision.speech() == null
+                || decision.speech().trim().isEmpty()) return false;
 
         if (channel == Channel.SAFETY) {
             if (decision.risk() == Risk.STOP) lastStopMs = nowMs;
