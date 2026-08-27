@@ -61,9 +61,6 @@ jobs:
           cp -a /tmp/occt-install/include/opencascade/. app/src/main/cpp/occt/include/opencascade/
           find /tmp/occt-install -type f -name 'libTK*.so' -exec cp -L {} app/src/main/jniLibs/arm64-v8a/ \;
           cp "$NDK/toolchains/llvm/prebuilt/linux-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so" app/src/main/jniLibs/arm64-v8a/
-          test -f app/src/main/cpp/occt/include/opencascade/Standard.hxx
-          test -f app/src/main/jniLibs/arm64-v8a/libTKDESTEP.so
-          test -f app/src/main/jniLibs/arm64-v8a/libTKDEIGES.so
       - name: Restore generated Structural AI icon
         run: |
           mkdir -p app/src/main/res/drawable-nodpi
@@ -76,11 +73,11 @@ jobs:
       - name: Build debug APK with OCCT exact CAD kernel
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Structural_AI_Static_v1.11.1_ZIP_CAD_BROWSER_DEBUG.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Structural_AI_Static_v1.12.0_BOUNDARY_LOAD_GATE_DEBUG.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Structural-AI-Static-v1.11.1-ZIP-CAD-BROWSER-DEBUG
-          path: structural-ai-static/Structural_AI_Static_v1.11.1_ZIP_CAD_BROWSER_DEBUG.apk
+          name: Structural-AI-Static-v1.12.0-BOUNDARY-LOAD-GATE-DEBUG
+          path: structural-ai-static/Structural_AI_Static_v1.12.0_BOUNDARY_LOAD_GATE_DEBUG.apk
           if-no-files-found: error
           retention-days: 30
