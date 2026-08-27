@@ -82,11 +82,14 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
             int uprightHeight = (rotation == 90 || rotation == 270) ? sourceWidth : sourceHeight;
             InputImage inputImage = InputImage.fromMediaImage(mediaImage, rotation);
 
-            if (textScanRequested.getAndSet(false)) {
+            boolean doTextScan = textScanRequested.getAndSet(false)
+                    || VisionTextContext.shouldAutoScan(nowMs);
+            if (doTextScan) {
                 textRecognizer.process(inputImage)
                         .addOnSuccessListener(result -> {
                             String text = result.getText() == null ? "" : result.getText().trim();
-                            listener.onTextRecognized(text);
+                            listener.onTextRecognized(
+                                    VisionTextContext.enrichOcr(text, System.currentTimeMillis()));
                         })
                         .addOnFailureListener(error -> listener.onVisionError("Yazı okuma geçici olarak kullanılamıyor."))
                         .addOnCompleteListener(task -> {
