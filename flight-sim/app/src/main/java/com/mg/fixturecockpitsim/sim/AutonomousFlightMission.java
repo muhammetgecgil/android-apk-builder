@@ -67,7 +67,7 @@ public final class AutonomousFlightMission {
                 orbitTime += dtSec;
                 c.throttle = 0.70;
                 c.pitch = altitudePitch(s.altitudeM, CRUISE_ALTITUDE_M, 0.14);
-                c.roll = 0.28; // gentle continuous orbit using normal cockpit control path
+                c.roll = 0.28;
                 c.gearDown = false;
                 if (orbitTime >= ORBIT_DURATION_SEC) next(Phase.APPROACH);
                 break;
@@ -83,7 +83,11 @@ public final class AutonomousFlightMission {
             case FLARE:
                 c.gearDown = true;
                 c.throttle = 0.18;
-                c.pitch = s.altitudeM > 3.0 ? -0.035 : 0.10;
+                // Keep a shallow descent all the way to wheel contact. The previous positive
+                // command below 3 m could hold the aircraft above the runway indefinitely.
+                if (s.altitudeM > 3.0) c.pitch = -0.035;
+                else if (s.altitudeM > 0.60) c.pitch = -0.012;
+                else c.pitch = -0.005;
                 c.roll = headingRoll(s.headingDeg, RUNWAY_HEADING_DEG) * 0.6;
                 if (s.onGround || s.altitudeM <= 0.05) next(Phase.ROLLOUT);
                 break;
