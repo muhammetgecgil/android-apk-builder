@@ -15,6 +15,9 @@ release_apks = sorted(release_dir.glob('*.apk')) if release_dir.exists() else []
 apk_release = release_apks[0] if release_apks else None
 aab_release = root / 'app/build/outputs/bundle/release/app-release.aab'
 
+EXPECTED_VERSION_CODE = 111
+EXPECTED_VERSION_NAME = '1.1.1'
+
 errors = []
 
 def require(cond, message):
@@ -25,8 +28,10 @@ b = build.read_text(encoding='utf-8')
 m = manifest.read_text(encoding='utf-8')
 a = main_activity.read_text(encoding='utf-8')
 
-require(re.search(r'versionCode\s+110\b', b) is not None, 'versionCode must be 110')
-require("versionName '1.1.0'" in b, 'versionName must be 1.1.0')
+require(re.search(rf'versionCode\s+{EXPECTED_VERSION_CODE}\b', b) is not None,
+        f'versionCode must be {EXPECTED_VERSION_CODE}')
+require(re.search(rf'versionName\s+[\"\']{re.escape(EXPECTED_VERSION_NAME)}[\"\']', b) is not None,
+        f'versionName must be {EXPECTED_VERSION_NAME}')
 require(re.search(r'targetSdk\s+36\b', b) is not None, 'targetSdk must be 36')
 require('minifyEnabled true' in b, 'release minification must be enabled')
 require("applicationIdSuffix '.rc110'" in b, 'debug package must be isolated with .rc110')
@@ -35,6 +40,13 @@ require('android.webkit.WebView' not in a and 'WebView' not in a, 'WebView is no
 require('android:exported="true"' in m, 'launcher activity must explicitly declare exported=true')
 require('android:screenOrientation=' not in m, 'launcher activity must not force screen orientation')
 require('.commit()' not in a, 'blocking SharedPreferences.commit() is not allowed in production UI code')
+
+# White-menu regression gate. Samsung/One UI must not be able to recolor the popup.
+require('R.layout.white_menu_row' in a, 'app-owned white menu row must be used')
+require('setPopupBackgroundDrawable(new android.graphics.drawable.ColorDrawable(MENU_BG))' in a,
+        'Spinner popup windows must have explicit white background')
+require('private static final int MENU_BG=Color.WHITE;' in a,
+        'menu surface must be explicitly white')
 
 artifacts = [(apk_debug, 'debug APK')]
 if apk_release is None:
@@ -80,12 +92,13 @@ require(summary['skipped'] == 0, f'Unit test skipped={summary["skipped"]}')
 
 report = {
     'product': 'Unit Master X',
-    'version': '1.1.0',
-    'versionCode': 110,
+    'version': EXPECTED_VERSION_NAME,
+    'versionCode': EXPECTED_VERSION_CODE,
     'targetSdk': 36,
     'native_ui': True,
     'permissions_requested': 0,
     'release_minified': True,
+    'white_menu_regression_gate': True,
     'unit_test_summary': summary,
     'artifact_checks': {
         'debug_apk': apk_debug.exists(),
