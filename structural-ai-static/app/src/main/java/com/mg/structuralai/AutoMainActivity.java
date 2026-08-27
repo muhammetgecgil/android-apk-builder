@@ -1,6 +1,7 @@
 package com.mg.structuralai;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.database.Cursor;
@@ -13,15 +14,19 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** One-button autonomous flow with persistent CAD session recovery. */
+/** One-button autonomous flow with persistent CAD session recovery and safe ZIP model browsing. */
 public final class AutoMainActivity extends Activity {
     private static final int PICK_MODEL=2101;
     private static final String PREFS="structural_ai_session";
     private static final String KEY_URI="last_model_uri";
+    private static final String KEY_ZIP_ENTRY="last_zip_entry";
     private final ExecutorService executor=Executors.newSingleThreadExecutor();
     private TextView status,report,badge;
     private InteractiveModelView viewport;
@@ -35,15 +40,15 @@ public final class AutoMainActivity extends Activity {
         super.onCreate(b);
         LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(18,72,18,18);root.setBackgroundColor(Color.rgb(8,18,31));
         TextView title=new TextView(this);title.setText("STRUCTURAL AI • AUTONOMOUS");title.setTextColor(Color.WHITE);title.setTextSize(22);title.setGravity(Gravity.CENTER);root.addView(title);
-        TextView sub=new TextView(this);sub.setText("ENGINEERING SESSION • MULTI-BENCHMARK GATE • OCCT ARM64");sub.setTextColor(Color.LTGRAY);sub.setGravity(Gravity.CENTER);root.addView(sub);
+        TextView sub=new TextView(this);sub.setText("v1.11.1 • PRODUCTION MESH + ZIP CAD BROWSER • OCCT ARM64");sub.setTextColor(Color.LTGRAY);sub.setGravity(Gravity.CENTER);root.addView(sub);
         badge=new TextView(this);badge.setText("MODE: WAITING FOR MODEL");badge.setTextColor(Color.WHITE);badge.setGravity(Gravity.CENTER);badge.setPadding(10,8,10,8);badge.setBackgroundColor(Color.rgb(70,70,78));root.addView(badge);
         viewport=new InteractiveModelView(this);root.addView(viewport,new LinearLayout.LayoutParams(-1,430));
-        Button choose=new Button(this);choose.setText("MODEL SEÇ");choose.setOnClickListener(v->pickModel());root.addView(choose);
+        Button choose=new Button(this);choose.setText("MODEL / ZIP SEÇ");choose.setOnClickListener(v->pickModel());root.addView(choose);
         Button auto=new Button(this);auto.setText("AUTO ANALYZE");auto.setOnClickListener(v->runAuto());root.addView(auto);
         Button manual=new Button(this);manual.setText("GELİŞMİŞ / MANUEL MOD");manual.setOnClickListener(v->startActivity(new Intent(this,MainActivity.class)));root.addView(manual);
-        status=new TextView(this);status.setText("OBJ / STL + exact STEP / IGES / BREP • persistent engineering session");status.setTextColor(Color.rgb(120,220,190));status.setPadding(0,8,0,5);root.addView(status);
+        status=new TextView(this);status.setText("ZIP içinden STEP/STP/IGES/IGS/BREP/STL/OBJ + doğrudan CAD/mesh");status.setTextColor(Color.rgb(120,220,190));status.setPadding(0,8,0,5);root.addView(status);
         ScrollView sc=new ScrollView(this);report=new TextView(this);report.setTextColor(Color.WHITE);report.setTextSize(12);
-        report.setText("Engineering Session Gate:\n1) Exact CAD / tessellated provenance\n2) Persistent URI + automatic session restore\n3) Unit-TET sanity\n4) Cantilever bending theory <=5%\n5) Axial solid theory <=3%\n6) Frictionless contact opening regression\n7) Gate PASS olmadan kullanıcı analizi başlamaz\n\nGerçek servis yükü veya malzeme uydurulmaz.");
+        report.setText("Production Mesh / Archive Gate:\n1) Direct CAD/mesh veya ZIP arşivi\n2) ZIP içindeki desteklenen modeller listelenir\n3) Zip-slip / archive-size safety gate\n4) Persistent URI + selected ZIP entry restore\n5) Multi-benchmark solver + contact + production mesh gate\n6) Gate PASS olmadan kullanıcı analizi başlamaz\n\nGerçek servis yükü veya malzeme uydurulmaz.");
         sc.addView(report);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));setContentView(root);
         restoreLastModel();
     }
@@ -59,43 +64,107 @@ public final class AutoMainActivity extends Activity {
         if(rq!=PICK_MODEL||rc!=RESULT_OK||data==null)return;
         Uri uri=data.getData();if(uri==null)return;
         try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}
-        getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString(KEY_URI,uri.toString()).apply();
+        getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString(KEY_URI,uri.toString()).remove(KEY_ZIP_ENTRY).apply();
         loadModel(uri,false);
     }
 
     private void restoreLastModel(){
         String s=getSharedPreferences(PREFS,MODE_PRIVATE).getString(KEY_URI,null);
         if(s==null||s.isEmpty())return;
-        try{loadModel(Uri.parse(s),true);}catch(Exception e){getSharedPreferences(PREFS,MODE_PRIVATE).edit().remove(KEY_URI).apply();}
+        try{loadModel(Uri.parse(s),true);}catch(Exception e){getSharedPreferences(PREFS,MODE_PRIVATE).edit().remove(KEY_URI).remove(KEY_ZIP_ENTRY).apply();}
     }
 
     private void loadModel(Uri uri,boolean restoring){
-        modelName=getName(uri);status.setText(restoring?"Oturum geri yükleniyor: "+modelName:"Model okunuyor: "+modelName);badge.setText("MODE: IMPORT + GEOMETRY QA");
+        String outerName=getName(uri);
+        if(ZipModelArchive.isZipName(outerName)){loadZip(uri,outerName,restoring);return;}
+        modelName=outerName;
+        status.setText(restoring?"Oturum geri yükleniyor: "+modelName:"Model okunuyor: "+modelName);badge.setText("MODE: IMPORT + GEOMETRY QA");
         executor.submit(()->{
             try(InputStream in=getContentResolver().openInputStream(uri)){
                 if(in==null)throw new IllegalStateException("Model stream açılamadı");
-                CadImportGateway.ImportedModel im=CadImportGateway.read(modelName,in,getCacheDir());
-                MeshModel m=im.mesh;SurfaceTopologyReport t=SurfaceTopologyReport.evaluate(m);if(!t.closedManifold)throw new IllegalStateException("Kapalı/manifold değil: "+t.summary());
-                AssemblyBodyDecomposer.Result ad=AssemblyBodyDecomposer.decompose(m);ContactCandidateEngine.Result cr=ContactCandidateEngine.analyze(m,ad);
-                model=m;assembly=ad;contacts=cr;importedModel=im;
-                String ar=assemblyReport(ad,cr),provenance=provenanceReport(im,m);
-                runOnUiThread(()->{viewport.setModel(m);status.setText(restoring?"Oturum geri yüklendi — AUTO ANALYZE hazır":(ad.isAssembly()?"Assembly bulundu — contact gate hazır":"Tek gövde hazır — AUTO ANALYZE'a bas"));badge.setText(ad.isAssembly()?"MODE: ASSEMBLY / CONTACT QA":"MODE: MODEL READY");badge.setBackgroundColor(ad.isAssembly()?Color.rgb(135,90,25):Color.rgb(20,105,105));report.setText("MODEL READY\n\n"+modelName+"\n"+t.summary()+"\n\n"+provenance+"\n\nNATIVE CAD METADATA\n"+im.metadataSummary+"\n"+im.assemblySummary+"\n\nACTUAL MODEL BODY / CONTACT QA\n"+ar+(restoring?"\n\nSESSION RESTORE: PASS":""));});
-            }catch(Exception e){
-                runOnUiThread(()->{badge.setText("MODE: IMPORT / GEOMETRY BLOCKED");badge.setBackgroundColor(Color.rgb(145,45,45));status.setText("Model güvenli şekilde bloke edildi");report.setText("IMPORT / GEOMETRY GATE\n"+e.getMessage()+"\n\nSTEP/IGES hiçbir zaman STL gibi sessizce yorumlanmaz. Exact CAD transferi veya geometri QA başarısızsa analiz başlatılmaz.");});
-            }
+                importModelStream(modelName,in,restoring,null);
+            }catch(Exception e){showImportBlocked(e);}
         });
+    }
+
+    private void loadZip(Uri uri,String zipName,boolean restoring){
+        badge.setText("MODE: ZIP ARCHIVE QA");
+        status.setText(restoring?"ZIP oturumu geri yükleniyor: "+zipName:"ZIP içeriği taranıyor: "+zipName);
+        String saved=restoring?getSharedPreferences(PREFS,MODE_PRIVATE).getString(KEY_ZIP_ENTRY,null):null;
+        executor.submit(()->{
+            try{
+                if(saved!=null&&!saved.isEmpty()){
+                    extractAndImportZipEntry(uri,zipName,saved,true);return;
+                }
+                List<String> entries;
+                try(InputStream in=getContentResolver().openInputStream(uri)){
+                    if(in==null)throw new IllegalStateException("ZIP stream açılamadı");
+                    entries=ZipModelArchive.listSupported(in);
+                }
+                if(entries.isEmpty())throw new IllegalStateException("ZIP içinde desteklenen STEP/STP/IGES/IGS/BREP/STL/OBJ modeli yok");
+                if(entries.size()==1){extractAndImportZipEntry(uri,zipName,entries.get(0),restoring);return;}
+                runOnUiThread(()->showZipEntryChooser(uri,zipName,entries));
+            }catch(Exception e){showImportBlocked(e);}
+        });
+    }
+
+    private void showZipEntryChooser(Uri uri,String zipName,List<String> entries){
+        String[] items=entries.toArray(new String[0]);
+        new AlertDialog.Builder(this)
+            .setTitle("ZIP içinden model seç")
+            .setMessage(zipName+" • "+entries.size()+" desteklenen model bulundu")
+            .setItems(items,(d,which)->{
+                String entry=entries.get(which);
+                status.setText("ZIP modeli açılıyor: "+entry);
+                badge.setText("MODE: ZIP EXTRACT + CAD IMPORT");
+                executor.submit(()->{try{extractAndImportZipEntry(uri,zipName,entry,false);}catch(Exception e){showImportBlocked(e);}});
+            })
+            .setNegativeButton("İptal",null)
+            .show();
+    }
+
+    private void extractAndImportZipEntry(Uri uri,String zipName,String entry,boolean restoring) throws Exception {
+        File extracted;
+        try(InputStream in=getContentResolver().openInputStream(uri)){
+            if(in==null)throw new IllegalStateException("ZIP stream açılamadı");
+            extracted=ZipModelArchive.extract(in,entry,getCacheDir());
+        }
+        getSharedPreferences(PREFS,MODE_PRIVATE).edit().putString(KEY_ZIP_ENTRY,entry).apply();
+        modelName=new File(entry).getName();
+        try(InputStream modelIn=new FileInputStream(extracted)){
+            importModelStream(modelName,modelIn,restoring,"ZIP: "+zipName+" → "+entry);
+        }finally{if(!extracted.delete())extracted.deleteOnExit();}
+    }
+
+    private void importModelStream(String name,InputStream in,boolean restoring,String archiveSource) throws Exception {
+        CadImportGateway.ImportedModel im=CadImportGateway.read(name,in,getCacheDir());
+        MeshModel m=im.mesh;SurfaceTopologyReport t=SurfaceTopologyReport.evaluate(m);if(!t.closedManifold)throw new IllegalStateException("Kapalı/manifold değil: "+t.summary());
+        AssemblyBodyDecomposer.Result ad=AssemblyBodyDecomposer.decompose(m);ContactCandidateEngine.Result cr=ContactCandidateEngine.analyze(m,ad);
+        model=m;assembly=ad;contacts=cr;importedModel=im;
+        String ar=assemblyReport(ad,cr),provenance=provenanceReport(im,m);
+        runOnUiThread(()->{
+            viewport.setModel(m);
+            status.setText(restoring?"Oturum geri yüklendi — AUTO ANALYZE hazır":(ad.isAssembly()?"Assembly bulundu — contact gate hazır":"Tek gövde hazır — AUTO ANALYZE'a bas"));
+            badge.setText(ad.isAssembly()?"MODE: ASSEMBLY / CONTACT QA":"MODE: MODEL READY");badge.setBackgroundColor(ad.isAssembly()?Color.rgb(135,90,25):Color.rgb(20,105,105));
+            String archive=archiveSource==null?"":"\nARCHIVE SOURCE\n"+archiveSource+"\n";
+            report.setText("MODEL READY\n\n"+name+"\n"+t.summary()+archive+"\n\n"+provenance+"\n\nNATIVE CAD METADATA\n"+im.metadataSummary+"\n"+im.assemblySummary+"\n\nACTUAL MODEL BODY / CONTACT QA\n"+ar+(restoring?"\n\nSESSION RESTORE: PASS":""));
+        });
+    }
+
+    private void showImportBlocked(Exception e){
+        runOnUiThread(()->{badge.setText("MODE: IMPORT / GEOMETRY BLOCKED");badge.setBackgroundColor(Color.rgb(145,45,45));status.setText("Model güvenli şekilde bloke edildi");report.setText("IMPORT / GEOMETRY GATE\n"+e.getMessage()+"\n\nZIP güvenliği, exact CAD transferi veya geometri QA başarısızsa analiz başlatılmaz.");});
     }
 
     private void runAuto(){
         if(model==null){status.setText("Önce model seç");return;}if(assembly!=null&&assembly.isAssembly()){runAssemblyAuto();return;}
-        badge.setText("MODE: MULTI-BENCHMARK SELF TEST");badge.setBackgroundColor(Color.rgb(80,70,135));status.setText("Bending + axial solid + frictionless contact regression çalışıyor…");
+        badge.setText("MODE: MULTI-BENCHMARK SELF TEST");badge.setBackgroundColor(Color.rgb(80,70,135));status.setText("Solver + contact + production mesh regression çalışıyor…");
         final String actualQa=assemblyReport(assembly,contacts),provenance=provenanceReport(importedModel,model);
         executor.submit(()->{try{
             AutonomousRegressionGate.Result rg=AutonomousRegressionGate.run();ProfileRegressionGate.Result pg=ProfileRegressionGate.run();
-            if(!rg.pass||!pg.pass){runOnUiThread(()->{badge.setText("MODE: SOLVER VERIFIED GATE BLOCKED");badge.setBackgroundColor(Color.rgb(145,45,45));status.setText("Dahili multi-benchmark verification başarısız");report.setText("ENGINEERING TRUST STATE: NUMERICAL_BLOCKED — MULTI-BENCHMARK GATE FAILED\n\nIN-APP FEM / THEORY / CONTACT REGRESSION\n"+rg.summary+"\n\nPROFILE REGRESSION\n"+pg.summary);});return;}
-            runOnUiThread(()->{badge.setText("MODE: MESH + AUTONOMOUS ANALYSIS");badge.setBackgroundColor(Color.rgb(25,80,130));status.setText("Multi-benchmark Gate PASS → Smart mesh + FEM çalışıyor…");});
+            if(!rg.pass||!pg.pass){runOnUiThread(()->{badge.setText("MODE: ENGINEERING GATE BLOCKED");badge.setBackgroundColor(Color.rgb(145,45,45));status.setText("Dahili engineering verification başarısız");report.setText("ENGINEERING TRUST STATE: NUMERICAL_BLOCKED — MULTI-GATE FAILED\n\nIN-APP FEM / THEORY / CONTACT / MESH REGRESSION\n"+rg.summary+"\n\nPROFILE REGRESSION\n"+pg.summary);});return;}
+            runOnUiThread(()->{badge.setText("MODE: MESH + AUTONOMOUS ANALYSIS");badge.setBackgroundColor(Color.rgb(25,80,130));status.setText("Engineering Gate PASS → Smart mesh + FEM çalışıyor…");});
             AutonomousAnalysisRunner.Result r=AutonomousAnalysisRunner.run(model);
-            runOnUiThread(()->{viewport.setResult(r.displayMesh,r.displayFem);String trust=r.numericallyReady?"NUMERICAL_PASS / DESIGN_EVIDENCE_REQUIRED":"NUMERICAL_BLOCKED";report.setText("ENGINEERING TRUST STATE: "+trust+"\nNumerical convergence is authoritative here; material, service-load and allowable release remain separate evidence gates.\n\n"+provenance+"\n\nACTUAL MODEL BODY / CONTACT QA\n"+actualQa+"\n\nIN-APP FEM / THEORY / CONTACT REGRESSION\n"+rg.summary+"\n\nPROFILE REGRESSION\n"+pg.summary+"\n\n"+r.report);status.setText(r.numericallyReady?"Otonom numerik analiz tamamlandı — multi-benchmark gate PASS":"Otonom analiz QA tarafından bloke edildi");badge.setText(r.numericallyReady?"MODE: ENGINEERING TRUST NUMERICAL PASS":"MODE: ENGINEERING TRUST BLOCKED");badge.setBackgroundColor(r.numericallyReady?Color.rgb(20,125,70):Color.rgb(145,45,45));});
+            runOnUiThread(()->{viewport.setResult(r.displayMesh,r.displayFem);String trust=r.numericallyReady?"NUMERICAL_PASS / DESIGN_EVIDENCE_REQUIRED":"NUMERICAL_BLOCKED";report.setText("ENGINEERING TRUST STATE: "+trust+"\nNumerical convergence is authoritative here; material, service-load and allowable release remain separate evidence gates.\n\n"+provenance+"\n\nACTUAL MODEL BODY / CONTACT QA\n"+actualQa+"\n\nIN-APP FEM / THEORY / CONTACT / MESH REGRESSION\n"+rg.summary+"\n\nPROFILE REGRESSION\n"+pg.summary+"\n\n"+r.report);status.setText(r.numericallyReady?"Otonom numerik analiz tamamlandı — engineering gate PASS":"Otonom analiz QA tarafından bloke edildi");badge.setText(r.numericallyReady?"MODE: ENGINEERING TRUST NUMERICAL PASS":"MODE: ENGINEERING TRUST BLOCKED");badge.setBackgroundColor(r.numericallyReady?Color.rgb(20,125,70):Color.rgb(145,45,45));});
         }catch(Exception e){runOnUiThread(()->{badge.setText("MODE: AUTO ERROR");badge.setBackgroundColor(Color.rgb(145,45,45));status.setText("Otonom analiz durdu");report.setText("ENGINEERING TRUST STATE: NUMERICAL_BLOCKED\n\nHata: "+e.getMessage());});}});
     }
 
