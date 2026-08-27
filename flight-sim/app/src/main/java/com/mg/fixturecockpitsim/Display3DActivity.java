@@ -53,6 +53,7 @@ public final class Display3DActivity extends Activity {
     private TextView missionHud;
     private long lastSimNs;
     private boolean demoMode;
+    private int demoCameraMode=Jet3DView.CAMERA_CHASE;
 
     private final Runnable simTick = new Runnable() {
         @Override public void run() {
@@ -70,6 +71,7 @@ public final class Display3DActivity extends Activity {
                 jetView.setSimulationState((float)simState.gearPosition,(float)simState.mainStrutCompression01,(float)simState.noseStrutCompression01,(float)simState.brake01,simState.onGround);
                 runwayView.setFlightState(simState.altitudeM,simState.trueAirspeedMps,simState.onGround,mission.getPhase().name());
                 runwayView.setDemoProgress(mission.getOrbitTimeSec());
+                if(demoMode) updateDemoCameraDirector();
                 updateMissionHud();
             }
             simHandler.postDelayed(this,20);
@@ -101,15 +103,41 @@ public final class Display3DActivity extends Activity {
         back.setOnClickListener(v -> finish());
         setContentView(root);
         jetView.setSimulationState((float)simState.gearPosition,0f,0f,0f,true);
+        jetView.setCameraMode(Jet3DView.CAMERA_CHASE);
         runwayView.setFlightState(0,0,true,mission.getPhase().name());
         updateMissionHud();
         simHandler.post(simTick);
 
         if(demoMode){
-            Toast.makeText(this,"DEMO MODE — otomatik kalkış, manzara turu ve iniş",Toast.LENGTH_LONG).show();
+            Toast.makeText(this,"DEMO MODE — sinematik kamera, otomatik kalkış, gezi ve iniş",Toast.LENGTH_LONG).show();
         } else {
             requestBtThenStart();
         }
+    }
+
+    private void updateDemoCameraDirector(){
+        AutonomousFlightMission.Phase p=mission.getPhase();
+        int wanted;
+        switch(p){
+            case RUNWAY_HOLD: wanted=Jet3DView.CAMERA_RIGHT_QUARTER; break;
+            case TAKEOFF_ROLL: wanted=Jet3DView.CAMERA_CHASE; break;
+            case ROTATE_CLIMB: wanted=Jet3DView.CAMERA_REAR; break;
+            case ORBIT:
+                int shot=((int)(mission.getOrbitTimeSec()/18.0))%4;
+                wanted=shot==0?Jet3DView.CAMERA_CHASE:shot==1?Jet3DView.CAMERA_RIGHT_QUARTER:shot==2?Jet3DView.CAMERA_LEFT_QUARTER:Jet3DView.CAMERA_REAR;
+                break;
+            case APPROACH: wanted=Jet3DView.CAMERA_RIGHT_QUARTER; break;
+            case FLARE: wanted=Jet3DView.CAMERA_REAR; break;
+            case ROLLOUT: wanted=Jet3DView.CAMERA_LEFT_QUARTER; break;
+            case COMPLETE: wanted=Jet3DView.CAMERA_RIGHT_QUARTER; break;
+            default: wanted=Jet3DView.CAMERA_CHASE;
+        }
+        if(wanted!=demoCameraMode){demoCameraMode=wanted;jetView.setCameraMode(wanted);}
+    }
+
+    private String cameraName(){
+        int c=demoMode?demoCameraMode:jetView.getCameraMode();
+        switch(c){case Jet3DView.CAMERA_REAR:return "REAR";case Jet3DView.CAMERA_RIGHT_QUARTER:return "RIGHT 3/4";case Jet3DView.CAMERA_LEFT_QUARTER:return "LEFT 3/4";default:return "CHASE";}
     }
 
     private void updateMissionHud(){
@@ -117,8 +145,8 @@ public final class Display3DActivity extends Activity {
         String extra=mission.getPhase()== AutonomousFlightMission.Phase.ORBIT ? String.format(Locale.US,"  GEZİ %.0f/300 s",mission.getOrbitTimeSec()) : "";
         String mode=demoMode?"DEMO":"AUTO / LINK WAIT";
         missionHud.setText(String.format(Locale.US,
-                "%s  %s%s\nALT %.0f m   SPD %.0f m/s   HDG %03.0f\nGEAR %.0f%%   BRK %.0f%%   WOW %s\nSTRUT M %.0f%% N %.0f%%   SINK %.1f m/s",
-                mode,phase,extra,simState.altitudeM,simState.trueAirspeedMps,simState.headingDeg,
+                "%s  %s%s   CAM %s\nALT %.0f m   SPD %.0f m/s   HDG %03.0f\nGEAR %.0f%%   BRK %.0f%%   WOW %s\nSTRUT M %.0f%% N %.0f%%   SINK %.1f m/s",
+                mode,phase,extra,cameraName(),simState.altitudeM,simState.trueAirspeedMps,simState.headingDeg,
                 simState.gearPosition*100.0,simState.brake01*100.0,simState.onGround?"GROUND":"AIR",
                 simState.mainStrutCompression01*100.0,simState.noseStrutCompression01*100.0,simState.touchdownSinkMps));
     }
