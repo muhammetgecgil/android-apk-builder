@@ -4,6 +4,7 @@
         android:allowBackup="true"
         android:label="Machine Elements Pro"
         android:theme="@style/AppTheme">
+        <activity android:name=".ProjectManagerActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".ProductCatalogActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".GearboxDesignerActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".SystemDesignerActivity" android:screenOrientation="unspecified" android:exported="false" />
