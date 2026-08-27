@@ -35,7 +35,7 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
                 .build());
         vibrator = context.getSystemService(Vibrator.class);
         navigation = new NavigationCoordinator(context, new NavigationCoordinator.Output() {
-            @Override public void speakSystem(String text) { speakRaw(text, "nav-system"); }
+            @Override public void speakSystem(String text) { GuidanceSpeaker.this.speakNavigation(text); }
             @Override public void speakNavigation(String text) { GuidanceSpeaker.this.speakNavigation(text); }
         });
     }
