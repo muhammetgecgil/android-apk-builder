@@ -40,6 +40,7 @@ jobs:
           python unit-master-v102/apply_v102.py
           python unit-master-v102/fix_clipboard.py
           python unit-master-v110/apply_v110.py
+          python unit-master-v110/fix_android26_theme.py
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -61,7 +62,16 @@ jobs:
 
       - name: Release lint
         working-directory: unit-master
-        run: gradle lintRelease --stacktrace --no-daemon
+        run: |
+          set +e
+          gradle lintRelease --stacktrace --no-daemon
+          CODE=$?
+          REPORT=app/build/intermediates/lint_intermediate_text_report/release/lintReportRelease/lint-results-release.txt
+          if [ -f "$REPORT" ]; then
+            echo '=== FULL RELEASE LINT REPORT ==='
+            cat "$REPORT"
+          fi
+          exit $CODE
 
       - name: Build APK and AAB candidates
         working-directory: unit-master
