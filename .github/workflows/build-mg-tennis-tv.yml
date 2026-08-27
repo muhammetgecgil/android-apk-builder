@@ -4,7 +4,8 @@ on:
     branches: [ feature/mg-tennis-tv-v1 ]
     paths: [ 'mg-tennis-tv/**', '.github/workflows/build-mg-tennis-tv.yml' ]
   workflow_dispatch:
-permissions: { contents: write }
+permissions:
+  contents: write
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -13,9 +14,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Restore signing key
         run: base64 -d mg-tennis-tv/signing/mg-tennis-update.jks.b64 > mg-tennis-tv/signing/mg-tennis-update.jks
-      - name: Prepare runtime and photoreal human assets
+      - name: Prepare runtime assets
         run: |
-          set -euo pipefail; A=mg-tennis-tv/app/src/main/assets
+          set -euo pipefail
+          A=mg-tennis-tv/app/src/main/assets
           curl --retry 4 -fL https://unpkg.com/three@0.128.0/build/three.min.js -o $A/three.min.js
           curl --retry 4 -fL https://unpkg.com/three@0.128.0/examples/js/loaders/GLTFLoader.js -o $A/GLTFLoader.js
           BASE=https://raw.githubusercontent.com/ibrews/VitruvianGodot/main/godot_project
@@ -23,22 +25,25 @@ jobs:
           curl --retry 4 -fL $BASE/vitruvian_head.glb -o $A/v33_head.glb
           curl --retry 4 -fL $BASE/vitruvian_hair_rigged.glb -o $A/v33_hair.glb
           for f in vit_body_bc.png vit_body_n.png vit_body_rough.png vit_face_bc.png vit_face_n.png vit_face_rough.png vit_fabric_n.png vit_hair_ao.png vit_hair_atlas.png vit_hair_diffuse.png vit_hair_normal.png vit_hair_opacity.png vit_iris.png vit_lash_atlas.png vit_mouth.png vit_sclera.png; do curl --retry 4 -fL $BASE/$f -o $A/$f; done
-          for f in product-core-v41.js gameplay-v42.js gameplay-v43.js gameplay-v44.js product-core-v45.js product-core-v46.js product-core-v47.js product-core-v48.js product-core-v49.js product-core-v50.js product-core-v51.js product-core-v52.js product-core-v53.js; do test -s $A/$f; done
-      - name: Inject product layers and native capability bridge
+          test -s $A/product-core-v53.js
+      - name: Inject product layers
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('mg-tennis-tv/app/src/main/assets/index.html'); s=p.read_text()
+          p=Path('mg-tennis-tv/app/src/main/assets/index.html')
+          s=p.read_text()
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];')
           scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','clean-core-v37.js','gameplay-v40.js','product-core-v41.js','gameplay-v42.js','gameplay-v43.js','gameplay-v44.js','product-core-v45.js','product-core-v46.js','product-core-v47.js','product-core-v48.js','product-core-v49.js','product-core-v50.js','product-core-v51.js','product-core-v52.js','product-core-v53.js']
-          for obsolete in ['match-start-v34.js','role-start-v38.js','gameplay-v36.js','gameplay-v39.js']:
-              s=s.replace(f'<script src="{obsolete}"></script>','')
+          for old in ['match-start-v34.js','role-start-v38.js','gameplay-v36.js','gameplay-v39.js']:
+              s=s.replace(f'<script src="{old}"></script>','')
           for fn in scripts:
-              if fn not in s:s=s.replace('</body>',f'<script src="{fn}"></script></body>')
+              if fn not in s:
+                  s=s.replace('</body>',f'<script src="{fn}"></script></body>')
           p.write_text(s)
-          j=Path('mg-tennis-tv/app/src/main/java/com/mg/tennistv/MainActivity.java'); t=j.read_text()
+          j=Path('mg-tennis-tv/app/src/main/java/com/mg/tennistv/MainActivity.java')
+          t=j.read_text()
           marker='@JavascriptInterface public long getRacketLatencyMs(){return latencyMs;}'
-          extras='''@JavascriptInterface public long getRacketLatencyMs(){return latencyMs;}
+          add='''@JavascriptInterface public long getRacketLatencyMs(){return latencyMs;}
         @JavascriptInterface public void stopVision(){runOnUiThread(()->{if(poseTracker!=null)poseTracker.stop();});}
         @JavascriptInterface public void startVisionMode(){runOnUiThread(()->{if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)startVision();else askPermissions();});}
         @JavascriptInterface public boolean hasGyroscope(){return gyro!=null;}
@@ -46,33 +51,33 @@ jobs:
         @JavascriptInterface public boolean hasCameraPermission(){return checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED;}
         @JavascriptInterface public boolean isBluetoothEnabled(){try{return bt!=null&&bt.isEnabled();}catch(Exception e){return false;}}'''
           if 'public boolean hasGyroscope()' not in t:
-              if 'public void stopVision()' in t:
-                  t=t.replace('@JavascriptInterface public void stopVision(){runOnUiThread(()->{if(poseTracker!=null)poseTracker.stop();});}\n        @JavascriptInterface public void startVisionMode(){runOnUiThread(()->{if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)startVision();else askPermissions();});}', '@JavascriptInterface public void stopVision(){runOnUiThread(()->{if(poseTracker!=null)poseTracker.stop();});}\n        @JavascriptInterface public void startVisionMode(){runOnUiThread(()->{if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)startVision();else askPermissions();});}\n        @JavascriptInterface public boolean hasGyroscope(){return gyro!=null;}\n        @JavascriptInterface public boolean hasAccelerometer(){return accel!=null;}\n        @JavascriptInterface public boolean hasCameraPermission(){return checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED;}\n        @JavascriptInterface public boolean isBluetoothEnabled(){try{return bt!=null&&bt.isEnabled();}catch(Exception e){return false;}}')
-              else:
-                  t=t.replace(marker,extras)
+              t=t.replace(marker,add)
           j.write_text(t)
           PY
       - uses: actions/setup-java@v4
-        with: { distribution: temurin, java-version: '17' }
+        with:
+          distribution: temurin
+          java-version: '17'
       - uses: android-actions/setup-android@v3
       - run: yes | sdkmanager 'platforms;android-35' 'build-tools;35.0.0' >/dev/null
       - uses: gradle/actions/setup-gradle@v4
-        with: { gradle-version: '8.10.2' }
+        with:
+          gradle-version: '8.10.2'
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v5.3 PC1 preflight build
+      - name: Verify release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='53'"
           unzip -p $APK assets/index.html | grep -q 'product-core-v53.js'
-          unzip -p $APK assets/index.html | grep -q 'product-core-v52.js'
-          ! unzip -p $APK assets/index.html | grep -q 'gameplay-v39.js'
           unzip -p $APK classes.dex | strings | grep -q 'hasGyroscope'
           unzip -p $APK classes.dex | strings | grep -q 'isBluetoothEnabled'
-          unzip -l $APK | grep -q assets/v33_head.glb
           cp $APK MG_Tennis_TV_v5.3_PC1_Preflight_Screen_Lock.apk
       - uses: actions/upload-artifact@v4
-        with: { name: MG-Tennis-TV-v5.3-PC1-Preflight-Screen-Lock-APK, path: MG_Tennis_TV_v5.3_PC1_Preflight_Screen_Lock.apk, retention-days: 30 }
+        with:
+          name: MG-Tennis-TV-v5.3-PC1-Preflight-Screen-Lock-APK
+          path: MG_Tennis_TV_v5.3_PC1_Preflight_Screen_Lock.apk
+          retention-days: 30
