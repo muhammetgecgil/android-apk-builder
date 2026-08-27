@@ -39,4 +39,22 @@ public class ProceduralFighterMeshTest {
         assertTrue("canopy crown too tall", canopyMaxY < 1.45f);
         assertTrue("canopy base must sit on sill", canopyMinY > 0.70f);
     }
+
+    @Test public void avm3EngineAirPathPartsExist() {
+        ProceduralFighterMesh.Mesh mesh = ProceduralFighterMesh.build();
+        int ducts=0, compressors=0, petals=0, inner=0, flame=0;
+        for (int i=0; i<mesh.data.length; i+=7) {
+            float part=mesh.data[i+6];
+            if (Math.abs(part-ProceduralFighterMesh.PART_INTAKE_DUCT)<0.1f) ducts++;
+            else if (Math.abs(part-ProceduralFighterMesh.PART_COMPRESSOR_FACE)<0.1f) compressors++;
+            else if (Math.abs(part-ProceduralFighterMesh.PART_NOZZLE_PETAL)<0.1f) petals++;
+            else if (Math.abs(part-ProceduralFighterMesh.PART_NOZZLE_INNER)<0.1f) inner++;
+            else if (Math.abs(part-ProceduralFighterMesh.PART_AFTERBURNER)<0.1f) flame++;
+        }
+        assertTrue("intake ducts missing", ducts >= 48);
+        assertTrue("compressor faces missing", compressors >= 80);
+        assertTrue("nozzle petals missing", petals >= 120);
+        assertTrue("nozzle inner geometry missing", inner >= 120);
+        assertTrue("afterburner geometry missing", flame >= 90);
+    }
 }
