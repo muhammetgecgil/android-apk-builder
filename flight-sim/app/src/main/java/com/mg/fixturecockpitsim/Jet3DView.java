@@ -14,20 +14,28 @@ import javax.microedition.khronos.opengles.GL10;
 
 /** v20 transition renderer until the production GLB replaces it. */
 public final class Jet3DView extends GLSurfaceView {
+    public static final int CAMERA_CHASE=0;
+    public static final int CAMERA_REAR=1;
+    public static final int CAMERA_RIGHT_QUARTER=2;
+    public static final int CAMERA_LEFT_QUARTER=3;
     private final JetRenderer renderer;
     public Jet3DView(Context context){super(context);setEGLContextClientVersion(2);renderer=new JetRenderer();setRenderer(renderer);setRenderMode(RENDERMODE_CONTINUOUSLY);setPreserveEGLContextOnPause(true);}
     public void setTelemetry(float roll,float pitch,float yaw,float throttle,float linkHz,int drops,boolean live){renderer.setTelemetry(roll,pitch,yaw,throttle,live);}
     public void setSimulationState(float gear,float mainCompression,float noseCompression,float brake,boolean onGround){renderer.setSimulationState(gear,mainCompression,noseCompression,brake,onGround);}
+    public void setCameraMode(int mode){renderer.setCameraMode(mode);}
+    public int getCameraMode(){return renderer.getCameraMode();}
     @Override public boolean onTouchEvent(MotionEvent e){if(e.getAction()==MotionEvent.ACTION_UP)renderer.nextCamera();return true;}
 
     private static final class JetRenderer implements GLSurfaceView.Renderer{
         private final float[] projection=new float[16],view=new float[16],model=new float[16],vp=new float[16],mvp=new float[16];
         private volatile float targetRoll,targetPitch,targetYaw,throttle=.62f,targetGear=1f,targetMainComp,targetNoseComp,targetBrake;private volatile boolean live,onGround;
-        private float roll,pitch,yaw,gear=1f,mainComp,noseComp,brake;private int cameraMode;
+        private float roll,pitch,yaw,gear=1f,mainComp,noseComp,brake;private volatile int cameraMode;
         private int program,aPos,aNormal,aPart,uMvp,uModel,uColor,uLightDir,uThrottle,uSurfPitch,uSurfRoll,uSurfYaw,uGear,uMainComp,uNoseComp;
         private FloatBuffer vertices;private int vertexCount;private long lastNs;
         void setTelemetry(float r,float p,float y,float t,boolean l){targetRoll=r;targetPitch=p;targetYaw=y;throttle=Math.max(0f,Math.min(1f,t));live=l;}
         void setSimulationState(float g,float mc,float nc,float b,boolean ground){targetGear=clamp(g,0f,1f);targetMainComp=clamp(mc,0f,1f);targetNoseComp=clamp(nc,0f,1f);targetBrake=clamp(b,0f,1f);onGround=ground;}
+        void setCameraMode(int mode){cameraMode=Math.max(0,Math.min(3,mode));}
+        int getCameraMode(){return cameraMode;}
         void nextCamera(){cameraMode=(cameraMode+1)%4;}
         @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){
             GLES20.glClearColor(.018f,.045f,.075f,1f);GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glEnable(GLES20.GL_CULL_FACE);GLES20.glCullFace(GLES20.GL_BACK);
