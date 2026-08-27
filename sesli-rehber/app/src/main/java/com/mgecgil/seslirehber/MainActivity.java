@@ -21,6 +21,7 @@ import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.mgecgil.seslirehber.core.AnnouncementGate;
+import com.mgecgil.seslirehber.core.GuidanceModels.GroundObservation;
 import com.mgecgil.seslirehber.core.GuidanceModels.GuidanceDecision;
 import com.mgecgil.seslirehber.core.GuidanceModels.MotionObservation;
 import com.mgecgil.seslirehber.core.GuidanceModels.ObjectObservation;
@@ -78,7 +79,7 @@ public final class MainActivity extends ComponentActivity {
 
         setContentView(buildUi());
         requestPermissionsAndStart();
-        speaker.speak("Sesli Rehber sürüm sıfır nokta üç. Dinamik çarpışma koridoru, yaklaşma ve yanal geçiş takibi açılıyor. Kesin mesafe ve çukur algısı henüz doğrulanmadı.");
+        speaker.speak("Sesli Rehber sürüm sıfır nokta dört. Nesne yaklaşma, çarpışma koridoru ve zemin sürekliliği kanıtı açılıyor. Zemin kanalı çukur veya kaldırım adı söylemez.");
     }
 
     private View buildUi() {
@@ -187,6 +188,11 @@ public final class MainActivity extends ComponentActivity {
                         handleDecision(safetyGate.evaluateObject(observation, sensors.stability()));
                     }
 
+                    @Override public void onGround(GroundObservation observation) {
+                        if (!guidanceEnabled) return;
+                        handleDecision(safetyGate.evaluateGround(observation, sensors.stability()));
+                    }
+
                     @Override public void onVisionError(String message) {
                         long now = System.currentTimeMillis();
                         if (now - lastVisionErrorMs > 8000L) {
@@ -199,7 +205,7 @@ public final class MainActivity extends ComponentActivity {
 
                 provider.unbindAll();
                 provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis);
-                updateStatus("Kamera aktif. Dinamik çarpışma koridoru + yaklaşma takibi çalışıyor.", false);
+                updateStatus("Kamera aktif. Nesne yaklaşma + çarpışma koridoru + zemin sürekliliği kanıtı çalışıyor.", false);
             } catch (Exception error) {
                 guidanceEnabled = false;
                 updateStatus("Kamera başlatılamadı: " + error.getClass().getSimpleName(), true);
@@ -215,7 +221,7 @@ public final class MainActivity extends ComponentActivity {
         runOnUiThread(() -> {
             boolean urgent = decision.risk() == Risk.STOP;
             updateStatus(
-                    decision.speech() + "  Görsel güven: " + Math.round(decision.confidence() * 100) + "%",
+                    decision.speech() + "  Güven: " + Math.round(decision.confidence() * 100) + "%",
                     urgent);
             speaker.announce(decision);
         });
@@ -235,7 +241,7 @@ public final class MainActivity extends ComponentActivity {
             }
             case REPEAT -> speaker.repeat();
             case DESCRIBE_SCENE -> speaker.speak(
-                    "Genel nesne, yaklaşma ve yürüyüş koridoru takibi çalışıyor. Nesne sınıfları ve ayrıntılı sahne anlatımı doğrulanmış özel model eklendiğinde açılacak.");
+                    "Nesne yaklaşma ve ön zemin sürekliliği izleniyor. Zemin kanalı henüz çukur, kaldırım veya basamak adı söylemiyor. Derinlik doğrulaması sonraki güvenlik katmanıdır.");
             case HELP -> speaker.speak(
                     "Komutlar: rehberliği başlat, rehberliği durdur, tekrar et, çevremi anlat.");
             case UNKNOWN -> speaker.speak("Komutu anlayamadım.");
