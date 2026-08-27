@@ -16,7 +16,7 @@ import java.util.function.BooleanSupplier;
 /**
  * Turkish voice controller with two modes:
  *  - explicit one-shot command,
- *  - best-effort hands-free "Hey Rehber" listening cycles.
+ *  - best-effort foreground hands-free "Hey Rehber" listening cycles.
  *
  * Android's platform SpeechRecognizer is not a true low-power hotword DSP. When API 31+ exposes
  * an on-device recognizer we prefer it; otherwise hands-free mode is not automatically enabled.
@@ -46,6 +46,7 @@ public final class VoiceCommandController implements RecognitionListener {
     private boolean manualOneShot;
     private boolean listening;
     private boolean destroyed;
+    private boolean hostActive;
     private long lastSpokenErrorMs;
 
     public VoiceCommandController(Context context, Listener listener) {
@@ -101,11 +102,21 @@ public final class VoiceCommandController implements RecognitionListener {
         manualOneShot = false;
         if (!enabled) {
             mainHandler.post(this::cancelCurrent);
-        } else {
+        } else if (hostActive) {
             mainHandler.post(() -> startListeningWhenReady(120L));
         }
         listener.onWakeModeChanged(enabled, onDeviceRecognizer);
         return enabled;
+    }
+
+    public void onHostStart() {
+        hostActive = true;
+        if (handsFreeEnabled) mainHandler.post(() -> startListeningWhenReady(180L));
+    }
+
+    public void onHostStop() {
+        hostActive = false;
+        mainHandler.post(this::cancelCurrent);
     }
 
     public boolean isHandsFreeEnabled() { return handsFreeEnabled; }
@@ -130,7 +141,8 @@ public final class VoiceCommandController implements RecognitionListener {
     private void startListeningWhenReady(long delayMs) {
         mainHandler.removeCallbacksAndMessages(null);
         mainHandler.postDelayed(() -> {
-            if (destroyed || (!handsFreeEnabled && !manualOneShot)) return;
+            if (destroyed) return;
+            if (!manualOneShot && (!handsFreeEnabled || !hostActive)) return;
             if (safeSpeechBusy()) {
                 startListeningWhenReady(300L);
                 return;
@@ -141,8 +153,8 @@ public final class VoiceCommandController implements RecognitionListener {
                 if (manualOneShot) listener.onVoiceState("Dinliyorum.");
             } catch (Throwable error) {
                 listening = false;
-                if (handsFreeEnabled) startListeningWhenReady(HARD_ERROR_RESTART_MS);
-                else listener.onVoiceError("Sesli komut başlatılamadı.");
+                if (handsFreeEnabled && hostActive) startListeningWhenReady(HARD_ERROR_RESTART_MS);
+                else if (manualOneShot) listener.onVoiceError("Sesli komut başlatılamadı.");
             }
         }, Math.max(0L, delayMs));
     }
@@ -166,11 +178,11 @@ public final class VoiceCommandController implements RecognitionListener {
             manualOneShot = false;
             if (!best.isEmpty()) listener.onVoiceText(best);
             else listener.onVoiceError("Ses anlaşılamadı.");
-            if (handsFreeEnabled) startListeningWhenReady(NORMAL_RESTART_MS);
+            if (handsFreeEnabled && hostActive) startListeningWhenReady(NORMAL_RESTART_MS);
             return;
         }
 
-        if (!handsFreeEnabled) return;
+        if (!handsFreeEnabled || !hostActive) return;
         if (best.isEmpty()) {
             startListeningWhenReady(NORMAL_RESTART_MS);
             return;
@@ -212,10 +224,10 @@ public final class VoiceCommandController implements RecognitionListener {
         if (manualOneShot) {
             manualOneShot = false;
             listener.onVoiceError(errorMessage(error));
-            if (handsFreeEnabled) startListeningWhenReady(NORMAL_RESTART_MS);
+            if (handsFreeEnabled && hostActive) startListeningWhenReady(NORMAL_RESTART_MS);
             return;
         }
-        if (!handsFreeEnabled) return;
+        if (!handsFreeEnabled || !hostActive) return;
 
         long delay = switch (error) {
             case SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> NORMAL_RESTART_MS;
@@ -250,6 +262,7 @@ public final class VoiceCommandController implements RecognitionListener {
 
     public void destroy() {
         destroyed = true;
+        hostActive = false;
         handsFreeEnabled = false;
         manualOneShot = false;
         mainHandler.removeCallbacksAndMessages(null);
