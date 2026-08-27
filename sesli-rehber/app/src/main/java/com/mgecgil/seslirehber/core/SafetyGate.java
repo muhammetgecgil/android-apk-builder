@@ -81,6 +81,40 @@ public final class SafetyGate {
         return quiet(fused);
     }
 
+    /**
+     * Ground continuity is only an appearance/geometric evidence channel in v0.4. It is allowed
+     * to raise CAUTION after persistence, but never STOP and never a semantic "hole/curb" claim.
+     */
+    public GuidanceDecision evaluateGround(GroundObservation observation, float deviceStability) {
+        if (deviceStability < 0.35f) return unstable(deviceStability);
+
+        float fused = clamp(observation.viewConfidence() * (0.52f + 0.48f * deviceStability));
+        if (observation.viewConfidence() < 0.34f) return quiet(fused);
+
+        boolean persistent = observation.persistenceScore() >= 0.58f;
+        boolean strong = observation.anomalyScore() >= 0.62f
+                && observation.broadBoundaryScore() >= 0.50f;
+        if (persistent && strong && fused >= 0.46f) {
+            return new GuidanceDecision(
+                    Risk.CAUTION,
+                    Direction.CENTER,
+                    "Ön zeminde süreklilik bozuluyor. Yavaşla ve bastonla doğrula.",
+                    fused);
+        }
+
+        if (observation.persistenceScore() >= 0.82f
+                && observation.anomalyScore() >= 0.54f
+                && observation.broadBoundaryScore() >= 0.42f
+                && fused >= 0.44f) {
+            return new GuidanceDecision(
+                    Risk.CAUTION,
+                    Direction.CENTER,
+                    "Ön zemin belirsiz. Yavaşla ve bastonla doğrula.",
+                    fused);
+        }
+        return quiet(fused);
+    }
+
     public CorridorAssessment assessCorridor(ObjectObservation observation, float deviceStability) {
         return collisionCorridor.assess(observation, deviceStability);
     }
