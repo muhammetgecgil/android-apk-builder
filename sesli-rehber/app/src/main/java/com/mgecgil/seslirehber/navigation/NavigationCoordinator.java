@@ -35,7 +35,7 @@ public final class NavigationCoordinator implements AutoCloseable {
     private final ValhallaPedestrianRouteClient routeClient = new ValhallaPedestrianRouteClient();
     private final NavigationProgressEngine progress = new NavigationProgressEngine();
     private final LocationTracker locationTracker;
-    private final NavigationVoiceBridge.Handler voiceHandler = this::handleVoiceWhilePending;
+    private final NavigationVoiceBridge.Handler voiceHandler = this::handleNavigationVoice;
 
     private GeocodeCandidate confirmedDestination;
     private GeocodeCandidate pendingCandidate;
@@ -68,6 +68,7 @@ public final class NavigationCoordinator implements AutoCloseable {
         stopRouteOnly();
         pendingCandidate = null;
         confirmedDestination = null;
+        NavigationVoiceBridge.clear(voiceHandler);
         output.speakSystem(target + " hedefini arıyorum.");
         geocoder.resolve(target, new AndroidGeocodeResolver.Listener() {
             @Override public void onCandidates(List<GeocodeCandidate> candidates) {
@@ -89,14 +90,15 @@ public final class NavigationCoordinator implements AutoCloseable {
         });
     }
 
-    private boolean handleVoiceWhilePending(String rawText) {
+    private boolean handleNavigationVoice(String rawText) {
         if (closed) return false;
         String normalized = normalize(rawText);
         if (pendingCandidate != null) {
             if (equalsAny(normalized, "evet", "dogru", "evet dogru", "onayliyorum", "baslat")) {
                 confirmedDestination = pendingCandidate;
                 pendingCandidate = null;
-                NavigationVoiceBridge.clear(voiceHandler);
+                // Keep the bridge installed while navigation is active so explicit route-stop
+                // commands remain available hands-free. Unrelated commands fall through to M2.
                 mainHandler.post(this::ensureLocationPermissionAndStart);
                 return true;
             }
@@ -105,9 +107,19 @@ public final class NavigationCoordinator implements AutoCloseable {
                 return true;
             }
         }
-        if (equalsAny(normalized, "navigasyonu durdur", "rotayi durdur", "rotayi iptal", "navigasyonu iptal")) {
+
+        if (equalsAny(normalized,
+                "navigasyonu durdur", "rotayi durdur", "rotayi iptal", "navigasyonu iptal")) {
             cancelAll("Yaya navigasyonu durduruldu.");
             return true;
+        }
+
+        // A global guidance-stop command must also stop navigation, but return false so the main
+        // offline intent parser can disable the camera guidance in the same utterance.
+        if (equalsAny(normalized,
+                "rehberligi durdur", "yonlendirmeyi durdur", "yurumeyi durdur", "dur")) {
+            cancelAll(null);
+            return false;
         }
         return false;
     }
@@ -138,6 +150,7 @@ public final class NavigationCoordinator implements AutoCloseable {
         }
         if (attempt >= 24) {
             output.speakSystem("Hassas konum izni verilmedi. Yaya rotası başlatılmadı.");
+            cancelAll(null);
             return;
         }
         mainHandler.postDelayed(() -> pollPermission(attempt + 1), 500L);
@@ -176,6 +189,7 @@ public final class NavigationCoordinator implements AutoCloseable {
                     output.speakNavigation(event.speech());
                     stopRouteOnly();
                     confirmedDestination = null;
+                    NavigationVoiceBridge.clear(voiceHandler);
                 }
             }
         }
