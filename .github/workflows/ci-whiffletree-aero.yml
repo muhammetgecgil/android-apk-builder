@@ -46,3 +46,4 @@ jobs:
           name: whiffletree-aero-v7.18.0
           if-no-files-found: error
           path: Whiffletree-Aero-v7.18.0.apk
+      # v7.18 simplified AUTO WHIFFLETREE wizard build
