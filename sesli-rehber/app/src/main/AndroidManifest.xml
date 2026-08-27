@@ -9,6 +9,13 @@
     <!-- Depth is optional: unsupported devices keep the CameraX safety pipeline. -->
     <uses-feature android:name="com.google.ar.core.depth" android:required="false" />
 
+    <!-- Required on Android 11+ for interaction with installed RecognitionService providers. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:label="Sesli Rehber"
