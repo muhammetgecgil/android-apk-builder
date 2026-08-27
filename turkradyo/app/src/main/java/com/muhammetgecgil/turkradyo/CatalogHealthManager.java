@@ -8,15 +8,44 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Full-catalog background validator + conservative self-healing.
  * Scans in small batches to avoid disturbing foreground playback. */
 public final class CatalogHealthManager {
     private static final String P="catalog_health_v3", KEY="report", CURSOR="cursor";
     private static final int BATCH=12, THREADS=3;
+    private static final AtomicBoolean FULL_SWEEP_RUNNING=new AtomicBoolean(false);
     private CatalogHealthManager(){}
 
     public static void scanAsync(Context c,String queueJson){new Thread(()->scan(c.getApplicationContext(),queueJson),"catalog-health").start();}
+
+    /** Starts one controlled end-to-end sweep. Duplicate requests are ignored. */
+    public static void fullSweepAsync(Context c,String queueJson){
+        final Context app=c.getApplicationContext();
+        if(!FULL_SWEEP_RUNNING.compareAndSet(false,true))return;
+        new Thread(()->{
+            try{
+                JSONArray q=new JSONArray(queueJson==null?"[]":queueJson); if(q.length()==0)return;
+                SharedPreferences p=app.getSharedPreferences(P,Context.MODE_PRIVATE);
+                p.edit().putBoolean("fullSweepRunning",true).putLong("fullSweepRequestedAt",System.currentTimeMillis()).apply();
+                long startCycle=p.getLong("cycle",1); int safety=(int)Math.ceil(q.length()/(double)BATCH)+2;
+                for(int i=0;i<safety;i++){
+                    scan(app,queueJson);
+                    long nowCycle=p.getLong("cycle",1);
+                    if(nowCycle>startCycle)break;
+                    try{Thread.sleep(1400);}catch(InterruptedException e){Thread.currentThread().interrupt();break;}
+                }
+            }catch(Exception ignored){}
+            finally{app.getSharedPreferences(P,Context.MODE_PRIVATE).edit().putBoolean("fullSweepRunning",false).apply();FULL_SWEEP_RUNNING.set(false);}
+        },"catalog-full-sweep").start();
+    }
+
+    /** Auto-sweep at most once per 24h, normally after the catalog is loaded. */
+    public static void autoSweepIfDue(Context c,String queueJson){
+        SharedPreferences p=c.getSharedPreferences(P,Context.MODE_PRIVATE); long last=p.getLong("lastFullSweep",0),now=System.currentTimeMillis();
+        if(last==0||now-last>=24*60*60_000L)fullSweepAsync(c,queueJson);
+    }
 
     private static void scan(Context c,String queueJson){
         try{
@@ -85,8 +114,10 @@ public final class CatalogHealthManager {
                 int qs=x.optInt("qualityScore",0); qSum+=qs; if(qs>=90)excellent++; if(qs>0&&qs<60)weak++;
             }
             int checked=healthy+bad,total=p.getInt("catalogSize",0),coverage=total>0?Math.min(100,Math.round(checked*100f/total)):0,avg=checked>0?Math.round(qSum/(float)checked):0;
+            long lastFull=p.getLong("lastFullSweep",0); boolean verified=total>0&&coverage>=100&&lastFull>0;
             o.put("healthy",healthy).put("bad",bad).put("checked",checked).put("catalogSize",total).put("coveragePct",coverage).put("averageQuality",avg).put("excellent",excellent).put("weak",weak)
-             .put("repaired",repaired).put("repairPending",pending).put("lastScan",p.getLong("lastScan",0)).put("lastFullSweep",p.getLong("lastFullSweep",0)).put("lastFullSweepDurationMs",p.getLong("lastFullSweepDurationMs",0)).put("cycle",p.getLong("cycle",1)).put("stations",r);
+             .put("repaired",repaired).put("repairPending",pending).put("lastScan",p.getLong("lastScan",0)).put("lastFullSweep",lastFull).put("lastFullSweepDurationMs",p.getLong("lastFullSweepDurationMs",0)).put("cycle",p.getLong("cycle",1))
+             .put("fullSweepRunning",p.getBoolean("fullSweepRunning",false)||FULL_SWEEP_RUNNING.get()).put("verified",verified).put("stations",r);
             return o.toString();
         }catch(Exception e){return"{}";}
     }
