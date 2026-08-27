@@ -1,70 +1,103 @@
 package com.mgecgil.seslirehber.core;
 
 import android.media.Image;
+import com.google.ar.core.Coordinates2d;
+import com.google.ar.core.Frame;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import static com.mgecgil.seslirehber.core.GuidanceModels.DepthObservation;
 
-/** Decodes ARCore 16-bit depth images into an upright grid for the geometry estimator. */
+/**
+ * Decodes ARCore Depth16. The live path maps upright CPU-camera coordinates through ARCore's
+ * IMAGE_PIXELS -> TEXTURE_NORMALIZED transform because the depth image may be a crop of the CPU
+ * camera image and can have a different aspect ratio.
+ */
 public final class DepthImageAdapter {
-    private static final int MAX_UPRIGHT_W = 72;
-    private static final int MAX_UPRIGHT_H = 96;
+    private static final int GRID_W = 72;
+    private static final int GRID_H = 96;
     private final DepthGeometryEstimator estimator = new DepthGeometryEstimator();
 
+    /** Legacy/direct decoder used by pure image adapters and compatibility tests. */
     public DepthObservation analyze(Image image, long timestampMs) {
-        return analyze(image, 0, timestampMs);
-    }
-
-    public DepthObservation analyze(Image image, int rotationDegrees, long timestampMs) {
         if (image == null || image.getPlanes().length == 0) {
             return estimator.analyze(new short[0], 0, 0, timestampMs);
         }
-
-        int sourceWidth = image.getWidth();
-        int sourceHeight = image.getHeight();
-        boolean quarterTurn = rotationDegrees == 90 || rotationDegrees == 270;
-        int uprightSourceWidth = quarterTurn ? sourceHeight : sourceWidth;
-        int uprightSourceHeight = quarterTurn ? sourceWidth : sourceHeight;
-        int gridWidth = Math.max(8, Math.min(MAX_UPRIGHT_W, uprightSourceWidth));
-        int gridHeight = Math.max(8, Math.min(MAX_UPRIGHT_H, uprightSourceHeight));
-        short[] depth = new short[gridWidth * gridHeight];
-
+        short[] grid = new short[Math.max(8, Math.min(96, image.getWidth()))
+                * Math.max(8, Math.min(72, image.getHeight()))];
+        int width = Math.max(8, Math.min(96, image.getWidth()));
+        int height = Math.max(8, Math.min(72, image.getHeight()));
         Image.Plane plane = image.getPlanes()[0];
-        ByteBuffer buffer = plane.getBuffer().duplicate().order(ByteOrder.LITTLE_ENDIAN);
-        int rowStride = plane.getRowStride();
-        int pixelStride = plane.getPixelStride();
-
-        for (int gy = 0; gy < gridHeight; gy++) {
-            float uy = gridHeight == 1 ? 0f : gy / (float) (gridHeight - 1);
-            for (int gx = 0; gx < gridWidth; gx++) {
-                float ux = gridWidth == 1 ? 0f : gx / (float) (gridWidth - 1);
-                float rx;
-                float ry;
-                switch (rotationDegrees) {
-                    case 90 -> {
-                        rx = uy;
-                        ry = 1f - ux;
-                    }
-                    case 180 -> {
-                        rx = 1f - ux;
-                        ry = 1f - uy;
-                    }
-                    case 270 -> {
-                        rx = 1f - uy;
-                        ry = ux;
-                    }
-                    default -> {
-                        rx = ux;
-                        ry = uy;
-                    }
-                }
-                int sx = Math.min(sourceWidth - 1, Math.max(0, Math.round(rx * (sourceWidth - 1))));
-                int sy = Math.min(sourceHeight - 1, Math.max(0, Math.round(ry * (sourceHeight - 1))));
-                int offset = sy * rowStride + sx * pixelStride;
-                if (offset < 0 || offset + 1 >= buffer.limit()) continue;
-                depth[gy * gridWidth + gx] = buffer.getShort(offset);
+        ByteBuffer buffer = plane.getBuffer().duplicate().order(ByteOrder.nativeOrder());
+        for (int y = 0; y < height; y++) {
+            int sy = Math.min(image.getHeight() - 1, y * image.getHeight() / height);
+            for (int x = 0; x < width; x++) {
+                int sx = Math.min(image.getWidth() - 1, x * image.getWidth() / width);
+                grid[y * width + x] = readDepth(plane, buffer, sx, sy);
             }
         }
-        return estimator.analyze(depth, gridWidth, gridHeight, timestampMs);
+        return estimator.analyze(grid, width, height, timestampMs);
+    }
+
+    /**
+     * Produces an upright, CPU-camera-aligned depth grid. Invalid/cropped mappings remain zero and
+     * therefore lower the depth coverage/confidence rather than being treated as geometry.
+     */
+    public DepthObservation analyzeAligned(
+            Frame frame,
+            Image depthImage,
+            int cpuWidth,
+            int cpuHeight,
+            int rotationDegrees,
+            long timestampMs) {
+        if (frame == null || depthImage == null || depthImage.getPlanes().length == 0
+                || cpuWidth <= 0 || cpuHeight <= 0) {
+            return estimator.analyze(new short[0], 0, 0, timestampMs);
+        }
+
+        short[] grid = new short[GRID_W * GRID_H];
+        Image.Plane plane = depthImage.getPlanes()[0];
+        ByteBuffer buffer = plane.getBuffer().duplicate().order(ByteOrder.nativeOrder());
+        float[] cpuPoint = new float[2];
+        float[] depthUv = new float[2];
+
+        for (int gy = 0; gy < GRID_H; gy++) {
+            float uy = gy / (float) (GRID_H - 1);
+            for (int gx = 0; gx < GRID_W; gx++) {
+                float ux = gx / (float) (GRID_W - 1);
+                float[] raw = uprightToRawNormalized(ux, uy, rotationDegrees);
+                cpuPoint[0] = raw[0] * (cpuWidth - 1f);
+                cpuPoint[1] = raw[1] * (cpuHeight - 1f);
+                frame.transformCoordinates2d(
+                        Coordinates2d.IMAGE_PIXELS,
+                        cpuPoint,
+                        Coordinates2d.TEXTURE_NORMALIZED,
+                        depthUv);
+
+                if (depthUv[0] < 0f || depthUv[1] < 0f || depthUv[0] > 1f || depthUv[1] > 1f) {
+                    continue;
+                }
+                int dx = Math.min(depthImage.getWidth() - 1,
+                        Math.max(0, Math.round(depthUv[0] * (depthImage.getWidth() - 1f))));
+                int dy = Math.min(depthImage.getHeight() - 1,
+                        Math.max(0, Math.round(depthUv[1] * (depthImage.getHeight() - 1f))));
+                grid[gy * GRID_W + gx] = readDepth(plane, buffer, dx, dy);
+            }
+        }
+        return estimator.analyze(grid, GRID_W, GRID_H, timestampMs);
+    }
+
+    static float[] uprightToRawNormalized(float ux, float uy, int rotationDegrees) {
+        return switch (rotationDegrees) {
+            case 90 -> new float[]{uy, 1f - ux};
+            case 180 -> new float[]{1f - ux, 1f - uy};
+            case 270 -> new float[]{1f - uy, ux};
+            default -> new float[]{ux, uy};
+        };
+    }
+
+    private static short readDepth(Image.Plane plane, ByteBuffer buffer, int x, int y) {
+        int offset = y * plane.getRowStride() + x * plane.getPixelStride();
+        if (offset < 0 || offset + 1 >= buffer.limit()) return 0;
+        return buffer.getShort(offset);
     }
 }
