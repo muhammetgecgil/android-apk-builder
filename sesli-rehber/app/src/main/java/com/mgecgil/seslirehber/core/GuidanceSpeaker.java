@@ -20,6 +20,7 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
     private final TextToSpeech tts;
     private final Vibrator vibrator;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final Runnable navigationRetry = this::deliverPendingNavigation;
     private final NavigationCoordinator navigation;
     private volatile boolean ready;
     private String lastSpeech = "";
@@ -81,6 +82,7 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
     private void speakNavigation(String text) {
         if (text == null || text.trim().isEmpty()) return;
         pendingNavigationText = text.trim();
+        mainHandler.removeCallbacks(navigationRetry);
         deliverPendingNavigation();
     }
 
@@ -89,10 +91,11 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
         long now = System.currentTimeMillis();
         if (now < navigationBlockedUntilMs) {
             long delay = Math.max(120L, navigationBlockedUntilMs - now + 80L);
-            mainHandler.removeCallbacks(this::deliverPendingNavigation);
-            mainHandler.postDelayed(this::deliverPendingNavigation, delay);
+            mainHandler.removeCallbacks(navigationRetry);
+            mainHandler.postDelayed(navigationRetry, delay);
             return;
         }
+        mainHandler.removeCallbacks(navigationRetry);
         String text = pendingNavigationText;
         pendingNavigationText = "";
         speakRaw(text, "navigation");
