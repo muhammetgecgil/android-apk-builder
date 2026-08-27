@@ -29,6 +29,12 @@ public final class SparsePcgSolver {
             for(int r=0;r<n;r++) if(r!=dof) rows[r].remove(dof);
             rows[dof].clear(); rows[dof].put(dof,1.0); rhs[dof]=0.0;
         }
+        /** Sparse structural copy; avoids the former O(n^2) scan when refining mobile meshes. */
+        public Matrix copy(){
+            Matrix b=new Matrix(n);
+            for(int r=0;r<n;r++) b.rows[r].putAll(rows[r]);
+            return b;
+        }
         public int nonZeros(){ int c=0; for(Map<Integer,Double> r:rows) c+=r.size(); return c; }
     }
 
