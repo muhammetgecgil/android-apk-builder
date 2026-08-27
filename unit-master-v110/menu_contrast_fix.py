@@ -8,10 +8,10 @@ if not main.exists():
 a = main.read_text(encoding='utf-8')
 
 # Explicit popup palette. Do not depend on Samsung/system theme colors.
-# Surface #10243A, primary text #F5F9FF, cyan accent #27D3FF.
-helper = r'''    private static final int MENU_BG=Color.rgb(16,36,58);
-    private static final int MENU_TEXT=Color.rgb(245,249,255);
-    private static final int MENU_DIVIDER=Color.rgb(40,76,108);
+# White surface, near-black primary text, soft gray dividers.
+helper = r'''    private static final int MENU_BG=Color.rgb(255,255,255);
+    private static final int MENU_TEXT=Color.rgb(20,24,28);
+    private static final int MENU_DIVIDER=Color.rgb(224,229,235);
     private void styleMenuTree(View v){
         if(v==null)return;
         v.setBackgroundColor(MENU_BG);
@@ -90,8 +90,9 @@ for pattern in patterns:
 a = a.replace('list.setBackgroundColor(Color.TRANSPARENT);', 'list.setBackgroundColor(MENU_BG);')
 a = a.replace('list.setBackgroundColor(CARD);', 'list.setBackgroundColor(MENU_BG);')
 
-# Readable system dialogs, independent of One UI light/dark choice.
-a = a.replace('new AlertDialog.Builder(this)', 'new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_DARK)')
+# Keep system dialogs readable in the same white-menu language.
+a = a.replace('new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_DARK)', 'new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)')
+a = a.replace('new AlertDialog.Builder(this)', 'new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)')
 
 # Remove the stale stability label inherited by the RC build.
 a = a.replace('Akıllı Birim Dönüştürücü • Stability 1.0.2', 'Akıllı Birim Dönüştürücü • RC 1.1')
@@ -102,7 +103,7 @@ if changed == 0:
     for line in a.splitlines():
         if any(k in line for k in ('ListView','ArrayAdapter','picker','Picker','AlertDialog')):
             print(line[:1200])
-    raise SystemExit('No picker ListView creation found; menu contrast patch not applied')
+    raise SystemExit('No picker ListView creation found; white menu patch not applied')
 
 main.write_text(a, encoding='utf-8')
-print(f'Applied deterministic menu contrast to {changed} ListView picker(s): #10243A surface, #F5F9FF text, 18sp/60dp rows')
+print(f'Applied deterministic white menus to {changed} ListView picker(s): white surface, dark text, 18sp/60dp rows')
