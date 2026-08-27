@@ -76,6 +76,12 @@ public final class GuidanceModels {
         }
     }
 
+    /** Ground and depth observations are only fused when their timestamps are close enough. */
+    public record GroundDepthEvidence(
+            GroundObservation ground,
+            DepthObservation depth,
+            long timestampSkewMs) {}
+
     public record CorridorAssessment(
             float corridorHalfWidth,
             float pathOverlap,
