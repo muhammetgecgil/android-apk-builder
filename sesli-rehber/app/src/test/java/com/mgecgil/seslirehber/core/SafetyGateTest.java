@@ -45,4 +45,18 @@ public class SafetyGateTest {
                 0.50f, 0.50f, 0.90f, 0.30f, 0.30f, 0.00f, 9, 0.90f, 1000L);
         assertEquals(Risk.STOP, gate.evaluateObject(o, 0.20f).risk());
     }
+
+    @Test public void persistentGroundDiscontinuityProducesCautionNotStop() {
+        SafetyGate gate = new SafetyGate();
+        GroundObservation o = new GroundObservation(
+                0.72f, 0.71f, 0.55f, 0.18f, 0.84f, 0.82f, 0.73f, 1000L);
+        assertEquals(Risk.CAUTION, gate.evaluateGround(o, 0.90f).risk());
+    }
+
+    @Test public void weakOrUncertainGroundEvidenceStaysQuiet() {
+        SafetyGate gate = new SafetyGate();
+        GroundObservation o = new GroundObservation(
+                0.66f, 0.62f, 0.50f, 0.10f, 0.88f, 0.20f, 0.70f, 1000L);
+        assertEquals(Risk.INFO, gate.evaluateGround(o, 0.90f).risk());
+    }
 }
