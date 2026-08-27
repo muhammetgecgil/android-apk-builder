@@ -45,6 +45,10 @@ jobs:
         working-directory: flight-sim
         run: gradle --no-daemon :app:dependencies --configuration debugRuntimeClasspath
 
+      - name: Verify autonomous mission
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --tests com.mg.fixturecockpitsim.sim.AutonomousFlightMissionTest --stacktrace
+
       - name: Build debug APK
         working-directory: flight-sim
         run: gradle --no-daemon :app:assembleDebug --stacktrace
