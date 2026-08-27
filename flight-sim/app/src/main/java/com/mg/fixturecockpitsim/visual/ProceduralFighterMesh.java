@@ -24,7 +24,8 @@ public final class ProceduralFighterMesh {
         AirframeShapeProfile.validate();
         ProceduralFighterMesh b=new ProceduralFighterMesh();
         b.part=PART_SKIN;
-        b.fuselage(); b.chine(-1f); b.chine(1f); b.noseCrown(); b.upperDeck(); b.wing(-1f); b.wing(1f); b.aftShoulderBridge();
+        b.fuselage(); b.chine(-1f); b.chine(1f); b.noseCrown(); b.upperDeck(); b.canopySill();
+        b.wing(-1f); b.wing(1f); b.aftShoulderBridge(); b.boatTail();
         b.part=PART_FLAPERON_L; b.flaperon(-1f); b.part=PART_FLAPERON_R; b.flaperon(1f);
         b.part=PART_STAB_L; b.stabilator(-1f); b.part=PART_STAB_R; b.stabilator(1f);
         b.part=PART_RUDDER_L; b.verticalTail(-1f); b.part=PART_RUDDER_R; b.verticalTail(1f);
@@ -69,7 +70,6 @@ public final class ProceduralFighterMesh {
     }
 
     private void noseCrown(){
-        // A shallow faceted crown removes the tube-like nose appearance and flows into the canopy sill.
         prism(new float[][]{
                 {-.035f,.04f,-6.12f},{.035f,.04f,-6.12f},{.17f,.18f,-5.18f},{.34f,.35f,-4.30f},
                 {.50f,.49f,-3.48f},{.56f,.57f,-2.76f},{-.56f,.57f,-2.76f},{-.50f,.49f,-3.48f},
@@ -77,12 +77,23 @@ public final class ProceduralFighterMesh {
     }
 
     private void upperDeck(){
-        // Cockpit hump is broad at the shoulders but tapers smoothly into the aft spine.
         prism(new float[][]{
                 {-.48f,.55f,-2.82f},{.48f,.55f,-2.82f},{.69f,.70f,-1.82f},{.79f,.84f,-.72f},
                 {.82f,.88f,.34f},{.75f,.84f,1.30f},{.61f,.76f,2.18f},{.43f,.64f,2.78f},
                 {-.43f,.64f,2.78f},{-.61f,.76f,2.18f},{-.75f,.84f,1.30f},{-.82f,.88f,.34f},
                 {-.79f,.84f,-.72f},{-.69f,.70f,-1.82f}},.18f);
+    }
+
+    private void canopySill(){
+        // AVM-1 final acceptance feature: one continuous structural seat for the canopy.
+        // It removes the floating-glass impression and establishes the AVM-2 interface.
+        prism(new float[][]{
+                {-.60f,.73f,-2.04f},{.60f,.73f,-2.04f},{.64f,.78f,-1.55f},{.61f,.82f,-.78f},
+                {.53f,.84f,.02f},{.42f,.80f,.72f},{-.42f,.80f,.72f},{-.53f,.84f,.02f},
+                {-.61f,.82f,-.78f},{-.64f,.78f,-1.55f}},.115f);
+        // Forward brow ties the sill into the nose crown instead of ending abruptly at the windshield.
+        prism(new float[][]{
+                {-.50f,.60f,-2.82f},{.50f,.60f,-2.82f},{.59f,.72f,-2.04f},{-.59f,.72f,-2.04f}},.10f);
     }
 
     private void wing(float side){
@@ -93,10 +104,18 @@ public final class ProceduralFighterMesh {
     }
 
     private void aftShoulderBridge(){
-        // Fill the visual valley between central spine and engine pods before the nozzles.
         prism(new float[][]{
                 {-1.30f,.38f,.72f},{1.30f,.38f,.72f},{1.25f,.43f,1.62f},{1.16f,.39f,2.48f},
                 {.98f,.28f,3.12f},{-.98f,.28f,3.12f},{-1.16f,.39f,2.48f},{-1.25f,.43f,1.62f}},.20f);
+    }
+
+    private void boatTail(){
+        // Close the aft-body volume around both engines so the nozzles emerge from a body, not a gap.
+        prism(new float[][]{
+                {-1.12f,.24f,2.66f},{1.12f,.24f,2.66f},{1.04f,.18f,3.05f},{.94f,.10f,3.38f},
+                {.38f,.02f,3.48f},{-.38f,.02f,3.48f},{-.94f,.10f,3.38f},{-1.04f,.18f,3.05f}},.24f);
+        prism(new float[][]{
+                {-.20f,.11f,2.72f},{.20f,.11f,2.72f},{.28f,.06f,3.40f},{-.28f,.06f,3.40f}},.19f);
     }
 
     private void flaperon(float side){float y=.16f,t=.07f;prism(new float[][]{{1.62f*side,y+t,.70f},{3.56f*side,y+t,.78f},{3.34f*side,y+t,1.34f},{1.46f*side,y+t,1.48f}},t*2f);}
@@ -111,7 +130,6 @@ public final class ProceduralFighterMesh {
     }
 
     private void intakeLip(float side){
-        // A real mouth/lip gives the intake a readable dark opening rather than a flat side prism.
         float x0=1.03f*side,x1=1.47f*side;
         prism(new float[][]{
                 {x0,.35f,-2.90f},{x1,.31f,-2.54f},{1.58f*side,.13f,-2.34f},{1.18f*side,.10f,-2.58f}},.095f);
