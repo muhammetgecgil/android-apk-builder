@@ -14,19 +14,22 @@ public final class ProductionMeshGate {
             MeshModel beam=box(0,100,-10,10,-5,5);
             MeshFeatureSizingAdvisor.Result sizing=MeshFeatureSizingAdvisor.evaluate(beam,16);
             SmartTetMesher.Result coarse=SmartTetMesher.generate(beam,16,0.001);
-            SmartTetMesher.Result fine=SmartTetMesher.generate(beam,24,0.001);
+            SmartTetMesher.Result medium=SmartTetMesher.generate(beam,24,0.001);
+            SmartTetMesher.Result fine=SmartTetMesher.generate(beam,32,0.001);
             LinearElasticMaterial steel=new LinearElasticMaterial("MeshGateSteel",210e9,0.30,7850,355e6);
             StaticFemSolver.Result rc=solveBeam(beam,coarse.mesh,steel);
+            StaticFemSolver.Result rm=solveBeam(beam,medium.mesh,steel);
             StaticFemSolver.Result rf=solveBeam(beam,fine.mesh,steel);
-            double du=rel(rf.maxDisplacementM,rc.maxDisplacementM);
-            boolean independence=du<=0.15;
-            boolean quality=coarse.quality.pass&&fine.quality.pass&&coarse.quality.minMeanRatio>=0.12&&fine.quality.minMeanRatio>=0.12;
-            boolean conformity=fine.conformity.maxDistanceM<=coarse.conformity.maxDistanceM*1.10;
+            double duCM=rel(rm.maxDisplacementM,rc.maxDisplacementM);
+            double duMF=rel(rf.maxDisplacementM,rm.maxDisplacementM);
+            boolean monotonicImprovement=duMF<duCM;
+            boolean independence=duMF<=0.15&&monotonicImprovement;
+            boolean quality=coarse.quality.pass&&medium.quality.pass&&fine.quality.pass&&coarse.quality.minMeanRatio>=0.12&&medium.quality.minMeanRatio>=0.12&&fine.quality.minMeanRatio>=0.12;
+            boolean conformity=medium.conformity.maxDistanceM<=coarse.conformity.maxDistanceM*1.10&&fine.conformity.maxDistanceM<=medium.conformity.maxDistanceM*1.10;
 
             MeshModel thin=box(0,100,-25,25,-0.5,0.5);
             MeshFeatureSizingAdvisor.Result ts=MeshFeatureSizingAdvisor.evaluate(thin,16);
             boolean thinDetected=ts.thinLike&&ts.slenderness>=50;
-            // Mobile TET4 solid meshing must not pretend to resolve a 100:1 thin solid with <=56 longest-axis cells.
             boolean thinSafelyBlocked=thinDetected && ts.recommendedLongestAxisCells>=56;
 
             MeshModel corner=stepped();
@@ -35,9 +38,10 @@ public final class ProductionMeshGate {
 
             boolean pass=quality&&conformity&&independence&&thinSafelyBlocked&&featureAware;
             String txt=String.format(Locale.US,
-                "PRODUCTION MESH GATE %s\nbeamSizing: %s\ncoarse: %s | conformity max=%.6g mm\nfine: %s | conformity max=%.6g mm\nmeshIndependence ΔU=%.2f%% (gate<=15%%)\nthinWallDetection: %s | safeSolidBlock=%s\nsharpFeatureSizing: %s | featureAware=%s",
+                "PRODUCTION MESH GATE %s\nbeamSizing: %s\ncoarse16: %s | conformity max=%.6g mm\nmedium24: %s | conformity max=%.6g mm\nfine32: %s | conformity max=%.6g mm\nmeshIndependence ΔU16→24=%.2f%% | ΔU24→32=%.2f%% (final gate<=15%%, improving=%s)\nthinWallDetection: %s | safeSolidBlock=%s\nsharpFeatureSizing: %s | featureAware=%s",
                 pass?"PASS":"FAIL",sizing.summary,coarse.quality.summary(),coarse.conformity.maxDistanceM*1000,
-                fine.quality.summary(),fine.conformity.maxDistanceM*1000,du*100,ts.summary,thinSafelyBlocked,cs.summary,featureAware);
+                medium.quality.summary(),medium.conformity.maxDistanceM*1000,fine.quality.summary(),fine.conformity.maxDistanceM*1000,
+                duCM*100,duMF*100,monotonicImprovement,ts.summary,thinSafelyBlocked,cs.summary,featureAware);
             return cached=new Result(pass,txt);
         }catch(Throwable t){return cached=new Result(false,"PRODUCTION MESH GATE ERROR: "+t.getMessage());}
     }
