@@ -34,6 +34,19 @@ public class NavigationProgressEngineTest {
         assertTrue(now.stream().anyMatch(e -> e.type() == EventType.MANEUVER));
     }
 
+    @Test public void finalApproachIsAnnouncedOnceAndDoesNotClaimEntrance() {
+        NavigationProgressEngine engine = new NavigationProgressEngine();
+        engine.setRoute(route());
+        List<NavigationEvent> first = engine.update(fix(point(5), 5f));
+        NavigationEvent finalApproach = first.stream()
+                .filter(e -> e.type() == EventType.FINAL_APPROACH).findFirst().orElseThrow();
+        assertTrue(finalApproach.speech().toLowerCase().contains("gps"));
+        assertTrue(finalApproach.speech().toLowerCase().contains("doğrula"));
+        assertFalse(finalApproach.speech().toLowerCase().contains("giriş burası"));
+        List<NavigationEvent> second = engine.update(fix(point(6), 5f));
+        assertFalse(second.stream().anyMatch(e -> e.type() == EventType.FINAL_APPROACH));
+    }
+
     @Test public void arrivalRequiresCloseAccurateFixAndUsesVerificationLanguage() {
         NavigationProgressEngine engine = new NavigationProgressEngine();
         engine.setRoute(route());
