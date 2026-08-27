@@ -9,18 +9,14 @@ import android.os.Looper;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
+import com.mgecgil.seslirehber.navigation.NavigationVoiceBridge;
 import java.util.ArrayList;
 import java.util.Locale;
 import java.util.function.BooleanSupplier;
 
 /**
- * Turkish voice controller with two modes:
- *  - explicit one-shot command,
- *  - best-effort foreground hands-free "Hey Rehber" listening cycles.
- *
- * Android's platform SpeechRecognizer is not a true low-power hotword DSP. When API 31+ exposes
- * an on-device recognizer we prefer it; otherwise hands-free mode is not automatically enabled.
- * This keeps the product claim narrower than the platform can guarantee.
+ * Turkish voice controller with explicit one-shot and best-effort foreground hands-free cycles.
+ * Navigation confirmation gets first refusal while a destination question is active.
  */
 public final class VoiceCommandController implements RecognitionListener {
     public interface Listener {
@@ -74,7 +70,6 @@ public final class VoiceCommandController implements RecognitionListener {
         speechBusy = supplier == null ? () -> false : supplier;
     }
 
-    /** Explicit push-to-talk. Wake phrase is not required. */
     public void listenOnce() {
         mainHandler.post(() -> {
             if (destroyed) return;
@@ -85,10 +80,6 @@ public final class VoiceCommandController implements RecognitionListener {
         });
     }
 
-    /**
-     * Enables best-effort foreground hands-free cycles only when an on-device recognizer exists.
-     * Returns false rather than silently falling back to an online continuous recognizer.
-     */
     public boolean setHandsFreeEnabled(boolean enabled) {
         if (destroyed) return false;
         if (enabled && !onDeviceRecognizer) {
@@ -100,11 +91,8 @@ public final class VoiceCommandController implements RecognitionListener {
         handsFreeEnabled = enabled;
         awaitingCommand = false;
         manualOneShot = false;
-        if (!enabled) {
-            mainHandler.post(this::cancelCurrent);
-        } else if (hostActive) {
-            mainHandler.post(() -> startListeningWhenReady(120L));
-        }
+        if (!enabled) mainHandler.post(this::cancelCurrent);
+        else if (hostActive) mainHandler.post(() -> startListeningWhenReady(120L));
         listener.onWakeModeChanged(enabled, onDeviceRecognizer);
         return enabled;
     }
@@ -169,6 +157,11 @@ public final class VoiceCommandController implements RecognitionListener {
         listening = false;
     }
 
+    private void dispatchRecognized(String text) {
+        if (text == null || text.trim().isEmpty()) return;
+        if (!NavigationVoiceBridge.tryHandle(text)) listener.onVoiceText(text);
+    }
+
     @Override public void onResults(Bundle results) {
         listening = false;
         ArrayList<String> items = results.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
@@ -176,7 +169,7 @@ public final class VoiceCommandController implements RecognitionListener {
 
         if (manualOneShot) {
             manualOneShot = false;
-            if (!best.isEmpty()) listener.onVoiceText(best);
+            if (!best.isEmpty()) dispatchRecognized(best);
             else listener.onVoiceError("Ses anlaşılamadı.");
             if (handsFreeEnabled && hostActive) startListeningWhenReady(NORMAL_RESTART_MS);
             return;
@@ -190,7 +183,7 @@ public final class VoiceCommandController implements RecognitionListener {
 
         if (awaitingCommand) {
             awaitingCommand = false;
-            listener.onVoiceText(best);
+            dispatchRecognized(best);
             startListeningWhenReady(NORMAL_RESTART_MS);
             return;
         }
@@ -198,9 +191,8 @@ public final class VoiceCommandController implements RecognitionListener {
         int wakeEnd = wakePhraseEnd(best);
         if (wakeEnd >= 0) {
             String remainder = best.substring(Math.min(wakeEnd, best.length())).trim();
-            if (!remainder.isEmpty()) {
-                listener.onVoiceText(remainder);
-            } else {
+            if (!remainder.isEmpty()) dispatchRecognized(remainder);
+            else {
                 awaitingCommand = true;
                 listener.onVoiceState("Dinliyorum.");
             }
