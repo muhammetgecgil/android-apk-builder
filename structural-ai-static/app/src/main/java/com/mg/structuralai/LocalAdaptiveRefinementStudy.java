@@ -11,7 +11,8 @@ public final class LocalAdaptiveRefinementStudy {
     }
     public static final class Result {
         public final List<Step> steps; public final boolean converged; public final double displacementChange,stressChange,hotspotShiftM; public final Step finalStep;
-        Result(List<Step> s,boolean ok,double du,double ds,double hs){steps=s;converged=ok;displacementChange=du;stressChange=ds;hotspotShiftM=hs;finalStep=s.get(s.size()-1);}
+        public final boolean meshQaBlocked;
+        Result(List<Step> s,boolean ok,double du,double ds,double hs,boolean blocked){steps=s;converged=ok;displacementChange=du;stressChange=ds;hotspotShiftM=hs;finalStep=s.get(s.size()-1);meshQaBlocked=blocked;}
     }
     private LocalAdaptiveRefinementStudy(){}
 
@@ -21,10 +22,13 @@ public final class LocalAdaptiveRefinementStudy {
         List<Step> steps=new ArrayList<>();
         Step cur=solve(0,base.mesh,base.quality,surface,scale,mat,supports,loads,fx,fy,fz,pressurePa,gravity,rho,0);
         steps.add(cur);
-        boolean ok=false;double du=Double.POSITIVE_INFINITY,ds=Double.POSITIVE_INFINITY,shift=Double.POSITIVE_INFINITY;
+        boolean ok=false,blocked=false;double du=Double.POSITIVE_INFINITY,ds=Double.POSITIVE_INFINITY,shift=Double.POSITIVE_INFINITY;
         for(int cycle=1;cycle<=3;cycle++){
             Set<Integer> pick=LocalTetRefiner.selectHighStress(cur.mesh,cur.fem,cycle==1?0.12:0.08,1);
-            LocalTetRefiner.Result rr=LocalTetRefiner.refine(cur.mesh,pick);
+            LocalTetRefiner.Result rr;
+            try{ rr=LocalTetRefiner.refine(cur.mesh,pick); }
+            catch(RuntimeException ex){ blocked=true; break; }
+            if(!rr.quality.pass){ blocked=true; break; }
             Step next=solve(cycle,rr.mesh,rr.quality,surface,scale,mat,supports,loads,fx,fy,fz,pressurePa,gravity,rho,rr.refinedParents);
             steps.add(next);
             du=rel(next.fem.maxDisplacementM,cur.fem.maxDisplacementM);
@@ -36,7 +40,7 @@ public final class LocalAdaptiveRefinementStudy {
             if(next.quality.pass&&numerical&&stable){ok=true;cur=next;break;}
             cur=next;
         }
-        return new Result(steps,ok,du,ds,shift);
+        return new Result(steps,ok,du,ds,shift,blocked);
     }
 
     private static Step solve(int cycle,TetMeshData mesh,MeshQualityReport q,MeshModel surface,double scale,LinearElasticMaterial mat,List<MeshModel.V3> supports,List<MeshModel.V3> loads,
