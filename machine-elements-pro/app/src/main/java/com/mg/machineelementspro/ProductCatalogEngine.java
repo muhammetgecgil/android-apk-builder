@@ -57,5 +57,27 @@ public final class ProductCatalogEngine {
         return out;
     }
 
+    public static List<CatalogMatch> beltMatches(double powerKw,double smallPulleyMm,double rpm,double requiredT1N){
+        if(powerKw<=0||smallPulleyMm<=0||rpm<=0||requiredT1N<=0) throw new IllegalArgumentException("Kayış girdileri pozitif olmalı.");
+        double speed=Math.PI*(smallPulleyMm/1000.0)*rpm/60.0;
+        String family=powerKw<=3?"SPZ / XPZ":powerKw<=12?"SPA / XPA":powerKw<=35?"SPB / XPB":"SPC / XPC";
+        String selection=String.format(java.util.Locale.US,"Aday profil ailesi: %s • P=%.2f kW • v=%.2f m/s • T1≥%.0f N",family,powerKw,speed,requiredT1N);
+        List<CatalogMatch> out=new ArrayList<>();
+        out.add(new CatalogMatch("Kayış",selection,"Optibelt","Türkiye","Türkiye ürün kataloğu","https://web.optibelt.com/en-tr/all-products/v-belts","Kasnak çapı, sarım açısı, servis faktörü, kayış sayısı ve seçilen profil için güç tablosunu resmi katalogda doğrulayın."));
+        out.add(new CatalogMatch("Kayış",selection,"Optibelt","Avrupa","Product Finder","https://www.optibelt.com/en/microsites/product-finder/","Profil ailesi bir ön eşleştirmedir; nihai uzunluk ve kayış adedi ürün seçiciyle doğrulanmalıdır."));
+        return out;
+    }
+
+    public static List<CatalogMatch> chainMatches(double powerKw,double rpm,double chainPullN,double serviceFactor){
+        if(powerKw<=0||rpm<=0||chainPullN<=0||serviceFactor<=0) throw new IllegalArgumentException("Zincir girdileri pozitif olmalı.");
+        double designPull=chainPullN*serviceFactor;
+        String family=designPull<=4000?"08B":designPull<=7000?"10B":designPull<=11000?"12B":designPull<=18000?"16B":"20B ve üzeri";
+        String selection=String.format(java.util.Locale.US,"Aday roller-chain ailesi: %s • P=%.2f kW • n=%.0f rpm • Fdesign=%.0f N",family,powerKw,rpm,designPull);
+        List<CatalogMatch> out=new ArrayList<>();
+        out.add(new CatalogMatch("Zincir",selection,"iwis","Türkiye / Avrupa","Sales Partner & Distributor Locator","https://www.iwis.com/en-en/about-us/locations/sales-distribution-organization","ISO/BS zincir serisi, dişli diş sayısı, hız, yağlama ve yorulma kapasitesi üretici tablosunda doğrulanmalıdır."));
+        out.add(new CatalogMatch("Zincir",selection,"iwis drive systems","Avrupa","Drive chains","https://www.iwis.com/","Aday aile yalnız ön seçimdir; gerçek kopma yükü değil izin verilen çalışma yükü ve servis koşulları esas alınmalıdır."));
+        return out;
+    }
+
     private ProductCatalogEngine(){}
 }
