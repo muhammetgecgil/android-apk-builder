@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 42
-        versionName = "1.11.0-production-mesh-gate"
+        versionCode = 43
+        versionName = "1.11.1-zip-cad-browser"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
