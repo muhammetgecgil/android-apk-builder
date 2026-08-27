@@ -1,11 +1,12 @@
-name: Unit Master X Android 16 Stability Build
+name: Unit Master X 1.1 Production Quality Gate
 
 on:
   workflow_dispatch:
   push:
-    branches: [ unit-master-stability-v102 ]
+    branches: [ unit-master-production-v110 ]
     paths:
       - 'unit-master-v102/**'
+      - 'unit-master-v110/**'
       - 'unit-master-source.part*'
       - 'unit-master-stability-patch.py'
       - '.github/workflows/unit-master.yml'
@@ -13,14 +14,16 @@ on:
     branches: [ main ]
     paths:
       - 'unit-master-v102/**'
+      - 'unit-master-v110/**'
       - 'unit-master-source.part*'
       - 'unit-master-stability-patch.py'
       - '.github/workflows/unit-master.yml'
 
 jobs:
-  build-and-smoke-test:
+  build_quality:
+    name: Build + math + lint quality gate
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,14 +34,12 @@ jobs:
           unzip -q unit-master-source.zip
           test -f unit-master/app/build.gradle
 
-      - name: Apply previous data patch
+      - name: Apply stability and production patches
         run: |
-          if [ -f unit-master-stability-patch.py ]; then python unit-master-stability-patch.py; fi
-
-      - name: Apply v1.0.2 safe activity
-        run: |
+          python unit-master-stability-patch.py
           python unit-master-v102/apply_v102.py
           python unit-master-v102/fix_clipboard.py
+          python unit-master-v110/apply_v110.py
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -54,13 +55,59 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Run conversion tests
+      - name: Unit tests — debug and release
         working-directory: unit-master
-        run: gradle testDebugUnitTest --stacktrace
+        run: gradle testDebugUnitTest testReleaseUnitTest --stacktrace --no-daemon
 
-      - name: Build debug APK and release AAB
+      - name: Release lint
         working-directory: unit-master
-        run: gradle assembleDebug bundleRelease --stacktrace
+        run: gradle lintRelease --stacktrace --no-daemon
+
+      - name: Build APK and AAB candidates
+        working-directory: unit-master
+        run: gradle assembleDebug assembleRelease bundleRelease --stacktrace --no-daemon
+
+      - name: Verify release policy and artifact integrity
+        run: python unit-master-v110/verify_release.py
+
+      - name: Normalize candidate outputs
+        run: |
+          mkdir -p candidate
+          cp unit-master/app/build/outputs/apk/debug/app-debug.apk candidate/UnitMasterX-RC-v1.1.0.apk
+          cp unit-master/app/build/outputs/apk/release/app-release.apk candidate/UnitMasterX-v1.1.0-release.apk
+          cp unit-master/app/build/outputs/bundle/release/app-release.aab candidate/UnitMasterX-v1.1.0-release.aab
+          cp unit-master/build/product-quality-report.json candidate/product-quality-report.json
+          sha256sum candidate/UnitMasterX-* > candidate/SHA256SUMS.txt
+          unzip -t candidate/UnitMasterX-RC-v1.1.0.apk >/dev/null
+          unzip -t candidate/UnitMasterX-v1.1.0-release.apk >/dev/null
+          unzip -t candidate/UnitMasterX-v1.1.0-release.aab >/dev/null
+
+      - name: Upload candidate for device matrix
+        uses: actions/upload-artifact@v4
+        with:
+          name: UnitMasterX-v110-candidate
+          path: candidate/*
+          if-no-files-found: error
+          retention-days: 14
+
+  device_matrix:
+    name: Android API ${{ matrix.api }} runtime gate
+    needs: build_quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [29, 33, 35, 36]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download exact candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: UnitMasterX-v110-candidate
+          path: candidate
 
       - name: Enable KVM
         run: |
@@ -68,45 +115,113 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Android 16 launch smoke test
+      - name: Lifecycle + interaction smoke test
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 36
+          api-level: ${{ matrix.api }}
           arch: x86_64
           profile: pixel_7
           disable-animations: true
           script: |
-            adb install -r unit-master/app/build/outputs/apk/debug/app-debug.apk
+            set -eu
+            PKG=com.mg.unitmasterx.rc110
+            ACT=com.mg.unitmasterx.MainActivity
+            APK=candidate/UnitMasterX-RC-v1.1.0.apk
+
+            adb install -r "$APK"
             adb logcat -c
-            adb shell am force-stop com.mg.unitmasterx.stable2 || true
-            adb shell am start -W -n com.mg.unitmasterx.stable2/com.mg.unitmasterx.MainActivity
-            sleep 6
-            echo '=== UNIT MASTER PROCESSES ==='
-            adb shell ps -A | grep -i unitmaster || true
-            echo '=== ACTIVITY STATE ==='
-            adb shell dumpsys activity activities | grep -A30 -B10 -i unitmaster || true
-            echo '=== WINDOW STATE ==='
-            adb shell dumpsys window windows | grep -A20 -B10 -i unitmaster || true
-            adb logcat -d > full-logcat.txt || true
-            echo '=== RELEVANT LOGCAT ==='
-            grep -A120 -B30 -E 'FATAL EXCEPTION|AndroidRuntime|unitmaster|am_crash|am_kill|am_proc_died|Force finishing|WIN DEATH|Process .*died|Killing .*unitmaster' full-logcat.txt || true
-            echo '=== UI DUMP ==='
-            adb shell uiautomator dump /sdcard/umx.xml || true
-            adb pull /sdcard/umx.xml umx.xml || true
-            grep -o 'text="[^"]*"' umx.xml | head -40 || true
-            adb shell pidof com.mg.unitmasterx.stable2 | grep -q .
+
+            echo '=== cold start ==='
+            adb shell am force-stop "$PKG" || true
+            adb shell am start -W -n "$PKG/$ACT"
+            sleep 4
+            adb shell pidof "$PKG" | grep -q .
+
+            echo '=== UI present ==='
+            adb shell uiautomator dump /sdcard/umx.xml >/dev/null
+            adb pull /sdcard/umx.xml umx.xml >/dev/null
             grep -q 'Unit Master X' umx.xml
 
-      - name: Normalize outputs
-        run: |
-          mkdir -p unit-master/dist
-          cp unit-master/app/build/outputs/apk/debug/app-debug.apk unit-master/dist/UnitMasterX-Stability-v1.0.2.apk
-          cp unit-master/app/build/outputs/bundle/release/app-release.aab unit-master/dist/UnitMasterX-v1.0.2-release.aab
-          sha256sum unit-master/dist/* > unit-master/dist/SHA256SUMS.txt
+            echo '=== background/resume ==='
+            adb shell input keyevent KEYCODE_HOME
+            sleep 2
+            adb shell am send-trim-memory "$PKG" UI_HIDDEN || true
+            adb shell am start -W -n "$PKG/$ACT"
+            sleep 2
+            adb shell pidof "$PKG" | grep -q .
 
-      - name: Upload verified artifacts
+            echo '=== orientation lifecycle ==='
+            adb shell settings put system accelerometer_rotation 0 || true
+            adb shell settings put system user_rotation 1 || true
+            sleep 2
+            adb shell pidof "$PKG" | grep -q .
+            adb shell settings put system user_rotation 0 || true
+            adb shell settings put system accelerometer_rotation 1 || true
+            sleep 2
+            adb shell pidof "$PKG" | grep -q .
+
+            echo '=== repeated cold launches ==='
+            for n in 1 2 3; do
+              adb shell am force-stop "$PKG" || true
+              adb shell am start -W -n "$PKG/$ACT" >/dev/null
+              sleep 2
+              adb shell pidof "$PKG" | grep -q .
+            done
+
+            echo '=== constrained interaction fuzz ==='
+            adb shell monkey -p "$PKG" --pct-syskeys 0 --pct-appswitch 0 --pct-nav 0 --pct-majornav 0 --throttle 25 200 >/dev/null 2>&1 || true
+            adb shell am start -W -n "$PKG/$ACT" >/dev/null
+            sleep 2
+            adb shell pidof "$PKG" | grep -q .
+
+            adb logcat -d > device-logcat.txt || true
+            if grep -E "am_crash.*$PKG|Process: $PKG" device-logcat.txt; then
+              echo 'Application crash detected'
+              exit 1
+            fi
+
+            adb shell uiautomator dump /sdcard/umx-final.xml >/dev/null
+            adb pull /sdcard/umx-final.xml umx-final.xml >/dev/null
+            grep -q 'Unit Master X' umx-final.xml
+            echo "API ${{ matrix.api }} RUNTIME GATE PASS"
+
+      - name: Upload runtime diagnostics
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: UnitMasterX-Stability-v102-Android16-Verified
-          path: unit-master/dist/*
+          name: UnitMasterX-v110-api-${{ matrix.api }}-diagnostics
+          path: |
+            umx.xml
+            umx-final.xml
+            device-logcat.txt
+          if-no-files-found: ignore
+          retention-days: 14
+
+  publish_verified:
+    name: Publish verified production candidate
+    needs: [build_quality, device_matrix]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download tested candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: UnitMasterX-v110-candidate
+          path: verified
+
+      - name: Mark device matrix verified
+        run: |
+          cat > verified/DEVICE_MATRIX_PASS.txt <<'EOF'
+          Unit Master X 1.1.0 Production Candidate
+          Automated runtime gates passed on Android API 29, 33, 35 and 36.
+          Gates: install, cold start, process alive, UI presence, background/resume,
+          orientation lifecycle, repeated cold start, constrained interaction fuzz.
+          EOF
+          sha256sum verified/UnitMasterX-* > verified/SHA256SUMS.txt
+
+      - name: Upload production candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: UnitMasterX-v1.1.0-Production-Candidate-Verified
+          path: verified/*
           if-no-files-found: error
+          retention-days: 90
