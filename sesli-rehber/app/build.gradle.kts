@@ -10,8 +10,8 @@ android {
         applicationId = "com.mgecgil.seslirehber"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.4.0"
+        versionCode = 5
+        versionName = "0.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -37,5 +37,6 @@ dependencies {
     implementation("androidx.camera:camera-view:1.4.2")
     implementation("androidx.lifecycle:lifecycle-runtime:2.9.1")
     implementation("com.google.mlkit:object-detection:17.0.2")
+    implementation("com.google.ar:core:1.54.0")
     testImplementation("junit:junit:4.13.2")
 }
