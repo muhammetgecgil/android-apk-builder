@@ -6,7 +6,7 @@ Kullanıcı ekrana bakmadan "Hey Rehber, beni <hedef> adresine götür" dediğin
 
 Bu hedef, yalnız CI veya kamera demosuyla tamamlanmış sayılmaz. Her seviye kod + otomatik test + cihaz testi + kontrollü saha kabul kriterine sahiptir.
 
-## M0 — Temel algı çekirdeği — mevcut
+## M0 — Temel algı çekirdeği — DONE-CI
 - CameraX + ARCore Depth16 çalışma yolları
 - nesne tracking/geometri yaklaşma
 - IMU kararlılık füzyonu
@@ -15,7 +15,7 @@ Bu hedef, yalnız CI veya kamera demosuyla tamamlanmış sayılmaz. Her seviye k
 - runtime watchdog + CameraX fallback
 - Gate-C cihaz ölçüm CSV'si
 
-## M1 — Yürüyüş güvenliği / v0.8 — aktif geliştirme
+## M1 — Yürüyüş güvenliği / v0.8 — DONE-CI, DEVICE-TEST bekliyor
 - sol/orta/sağ göreli yürünebilir koridor
 - yön adayı için çoklu kare kalıcılık
 - karanlık, aşırı pozlama ve örtülü/düz kamera sağlık kanalı
@@ -23,16 +23,22 @@ Bu hedef, yalnız CI veya kamera demosuyla tamamlanmış sayılmaz. Her seviye k
 - hiçbir koridor "güvenli yol" diye sınıflandırılmaz; yalnız "daha açık görünüyor" denir
 - Safety > navigation > scene konuşma öncelik sözleşmesi
 
-**Çıkış kapısı:** gerçek Depth verisinde yön hizası + kamera sağlık yanlış alarm testi + kontrollü koridor senaryoları.
+**Cihaz çıkış kapısı:** gerçek Depth verisinde yön hizası + kamera sağlık yanlış alarm testi + kontrollü koridor senaryoları.
 
-## M2 — Eller serbest erişim / hedef v0.9
-- sürekli düşük güç "Hey Rehber" wake-word
-- mikrofon izni kamera rehberliğinden bağımsız
-- Türkçe doğal niyet: başlat/durdur/tekrar/çevremi anlat/hedefe götür/yardım
-- kısa sahne özeti, OCR/tabela/kapı numarası bağlantı noktası
-- çevrimdışı temel komutlar; internet/AI yalnız ek katman
+## M2 — Eller serbest erişim / v0.9 — DONE-CI, DEVICE-TEST bekliyor
+- API 31+ cihazda on-device `SpeechRecognizer` varsa foreground eller-serbest "Hey Rehber" dinleme döngüsü
+- platform on-device tanıma yoksa çevrimiçi sürekli dinlemeye sessizce düşmez; tek-seferlik `Sesli Komut` fallback'i kalır
+- uygulama arka plana geçince eller-serbest mikrofon oturumu kapanır; öne gelince kullanıcı modu açıksa devam eder
+- mikrofon izni kamera rehberliğinden bağımsızdır
+- Türkçe doğal niyet: başlat/durdur/tekrar/çevremi anlat/yazıyı oku/hedefe götür/yardım/Hey Rehber aç-kapat
+- kısa sahne özeti yalnız taze algı kanıtlarından oluşturulur; semantik nesne veya güvenli yol uydurmaz
+- CameraX ve ARCore CPU kamera yolunda isteğe bağlı bundled ML Kit OCR (`text-recognition:16.0.1`)
+- hedef/adres komutundan destination çıkarımı; hedef M3 rota motoruna hazırlanır fakat rota yokken navigasyon başlamış gibi davranılmaz
+- safety konuşması OCR/sahne/navigasyon konuşmasından yüksek öncelikte kalır
 
-## M3 — Gerçek yaya navigasyonu / hedef v1.0-pre
+**Sınır:** Android platform `SpeechRecognizer` gerçek düşük-güç hotword DSP değildir ve Android dokümanı sürekli tanıma için tasarlanmadığını belirtir. Bu nedenle M2 kodu "düşük güç wake-word tamam" iddiası yapmaz; gerçek cihaz pil/ısınma, Türkçe yerel model ve wake doğruluk testi gerekir.
+
+## M3 — Gerçek yaya navigasyonu / sıradaki seviye
 - adres/hedef çözümü
 - yaya rota motoru
 - kavşak ve dönüş olayı modeli
