@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Fast in-app regression that catches broken FEM mapping and contact recognition before user analyses. */
+/** Fast in-app regression that catches broken FEM mapping, theory drift and contact recognition before user analyses. */
 public final class AutonomousRegressionGate {
     public static final class Result {
         public final boolean pass;
@@ -31,13 +31,15 @@ public final class AutonomousRegressionGate {
             boolean solve=r.linearSolve.converged && r.forceEquilibriumRelativeError<1e-5;
             boolean femPass=mapOk&&response&&solve;
             String femMsg=String.format(Locale.US,
-                "Cantilever regression %s | fixed=%d loaded=%d | F=(%.4g,%.4g,%.4g) N | U=%.6g mm | VM=%.6g MPa | eqErr=%.3e | residual=%.3e",
+                "Cantilever mapping regression %s | fixed=%d loaded=%d | F=(%.4g,%.4g,%.4g) N | U=%.6g mm | VM=%.6g MPa | eqErr=%.3e | residual=%.3e",
                 femPass?"PASS":"FAIL",map.fixedNodes,map.loadedNodes,map.resultantFx,map.resultantFy,map.resultantFz,
                 r.maxDisplacementM*1000,r.maxVonMisesPa/1e6,r.forceEquilibriumRelativeError,r.linearSolve.relativeResidual);
 
+            FemBenchmarks.BenchmarkResult tet=FemBenchmarks.unitTetSanity();
+            FemBenchmarks.BenchmarkResult theory=FemBenchmarks.cantileverTheory();
             ContactRegressionGate.Result cr=ContactRegressionGate.run();
-            boolean pass=femPass&&cr.pass;
-            return cached=new Result(pass,femMsg+"\n"+cr.summary);
+            boolean pass=femPass&&tet.pass&&theory.pass&&cr.pass;
+            return cached=new Result(pass,femMsg+"\n"+tet.message+"\n"+theory.message+"\n"+cr.summary);
         }catch(Throwable t){return cached=new Result(false,"REGRESSION ERROR: "+t.getMessage());}
     }
 
