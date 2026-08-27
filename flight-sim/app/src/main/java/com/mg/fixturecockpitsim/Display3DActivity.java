@@ -9,16 +9,25 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.Gravity;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.TextView;
 import android.widget.Toast;
+
+import com.mg.fixturecockpitsim.sim.AutonomousFlightMission;
+import com.mg.fixturecockpitsim.sim.FlightControls;
+import com.mg.fixturecockpitsim.sim.FlightDynamicsEngine;
+import com.mg.fixturecockpitsim.sim.FlightState;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -27,6 +36,11 @@ public final class Display3DActivity extends Activity {
     private static final UUID SIM_UUID = UUID.fromString("6d9b6c72-4d47-4d8e-9b58-b5e7465b4a22");
     private static final int REQ_BT = 61;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
+    private final Handler simHandler = new Handler(Looper.getMainLooper());
+    private final FlightDynamicsEngine dynamics = new FlightDynamicsEngine();
+    private final FlightState simState = new FlightState();
+    private final FlightControls simControls = new FlightControls();
+    private final AutonomousFlightMission mission = new AutonomousFlightMission();
     private volatile boolean running = true, connected;
     private volatile long lastPacketMs;
     private volatile float roll, pitch, yaw, throttle = 0.62f, linkHz;
@@ -37,20 +51,55 @@ public final class Display3DActivity extends Activity {
     private BluetoothSocket socket;
     private BufferedWriter writer;
     private Jet3DView jetView;
+    private TextView missionHud;
+    private long lastSimNs;
+
+    private final Runnable simTick = new Runnable() {
+        @Override public void run() {
+            if (!running) return;
+            long now = System.nanoTime();
+            double dt = lastSimNs == 0 ? 0.02 : Math.min(0.05, Math.max(0.005, (now-lastSimNs)/1_000_000_000.0));
+            lastSimNs = now;
+            if (!connected) {
+                mission.update(simState, simControls, dt);
+                dynamics.step(simState, simControls, dt);
+                roll=(float)simState.rollDeg; pitch=(float)simState.pitchDeg; yaw=(float)simState.headingDeg; throttle=(float)simState.throttle;
+                jetView.setTelemetry(roll,pitch,yaw,throttle,50f,0,true);
+                updateMissionHud();
+            }
+            simHandler.postDelayed(this,20);
+        }
+    };
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN, android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN);
         bt = BluetoothAdapter.getDefaultAdapter();
+        mission.reset(simState);
+        simControls.gearDown=true;
         jetView = new Jet3DView(this);
         FrameLayout root = new FrameLayout(this);
         root.addView(jetView, new FrameLayout.LayoutParams(-1,-1));
+
+        missionHud=new TextView(this);
+        missionHud.setTextColor(0xffffffff); missionHud.setTextSize(14f); missionHud.setPadding(dp(12),dp(8),dp(12),dp(8));
+        missionHud.setBackgroundColor(0x66000000);
+        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT); hp.setMargins(dp(10),dp(10),0,0); root.addView(missionHud,hp);
+
         Button back = new Button(this); back.setText("MOD"); back.setAllCaps(false);
         FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(dp(96),dp(48), Gravity.TOP|Gravity.RIGHT); bp.setMargins(0,10,10,0); root.addView(back,bp);
         back.setOnClickListener(v -> finish());
         setContentView(root);
+        updateMissionHud();
+        simHandler.post(simTick);
         requestBtThenStart();
+    }
+
+    private void updateMissionHud(){
+        String phase=mission.getPhase().name().replace('_',' ');
+        String extra=mission.getPhase()== AutonomousFlightMission.Phase.ORBIT ? String.format(Locale.US,"  TUR %.0f/300 s",mission.getOrbitTimeSec()) : "";
+        missionHud.setText(String.format(Locale.US,"AUTO %s%s\nALT %.0f m   SPD %.0f m/s   GEAR %.0f%%",phase,extra,simState.altitudeM,simState.trueAirspeedMps,simState.gearPosition*100.0));
     }
 
     private void requestBtThenStart(){
@@ -62,18 +111,18 @@ public final class Display3DActivity extends Activity {
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
         super.onRequestPermissionsResult(requestCode,permissions,grantResults);
         if(requestCode==REQ_BT && grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED) startServer();
-        else Toast.makeText(this,"Bluetooth izni gerekli",Toast.LENGTH_LONG).show();
+        else Toast.makeText(this,"Bluetooth izni gerekli — otomatik demo çalışmaya devam eder",Toast.LENGTH_LONG).show();
     }
 
     private void startServer(){
-        if(bt==null){Toast.makeText(this,"Bluetooth donanımı yok",Toast.LENGTH_LONG).show();return;}
-        if(!bt.isEnabled()){startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE));Toast.makeText(this,"Bluetooth'u aç, sonra bu moda tekrar gir",Toast.LENGTH_LONG).show();return;}
+        if(bt==null){Toast.makeText(this,"Bluetooth yok — otomatik uçuş aktif",Toast.LENGTH_LONG).show();return;}
+        if(!bt.isEnabled()){Toast.makeText(this,"Bluetooth kapalı — otomatik uçuş aktif",Toast.LENGTH_SHORT).show();return;}
         io.execute(() -> {
             while(running){
                 try{
                     server=bt.listenUsingRfcommWithServiceRecord("FixtureCockpit3D",SIM_UUID);
-                    runOnUiThread(() -> Toast.makeText(this,"3D uçak ekranı hazır — pilot bağlantısı bekleniyor",Toast.LENGTH_SHORT).show());
                     socket=server.accept(); connected=true; lastPacketMs=System.currentTimeMillis();
+                    runOnUiThread(() -> missionHud.setText("MANUAL COCKPIT LINK"));
                     writer=new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8));
                     BufferedReader r=new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8));
                     String line;
@@ -82,7 +131,7 @@ public final class Display3DActivity extends Activity {
                         try{
                             int seq=Integer.parseInt(a[1]); float nr=Float.parseFloat(a[3]),np=Float.parseFloat(a[4]),ny=Float.parseFloat(a[5]),nt=Float.parseFloat(a[6]); long now=System.currentTimeMillis();
                             if(lastSeq>0 && seq>lastSeq+1)drops+=seq-lastSeq-1; lastSeq=seq;
-                            if(previousRxMs>0){float dt=Math.max(1,now-previousRxMs);linkHz=linkHz+(1000f/dt-linkHz)*0.15f;}previousRxMs=now;
+                            if(previousRxMs>0){float d=Math.max(1,now-previousRxMs);linkHz=linkHz+(1000f/d-linkHz)*0.15f;}previousRxMs=now;
                             roll=approach(roll,nr,7.5f);pitch=approach(pitch,np,5f);yaw=angleLerp(yaw,ny,0.24f);throttle+=(nt-throttle)*0.20f;lastPacketMs=now;
                             jetView.setTelemetry(roll,pitch,yaw,throttle,linkHz,drops,true);
                             synchronized(this){writer.write("A,"+seq+"\n");writer.flush();}
@@ -97,8 +146,8 @@ public final class Display3DActivity extends Activity {
     private static float approach(float c,float t,float step){float d=t-c;if(d>step)d=step;if(d<-step)d=-step;return c+d;}
     private static float angleLerp(float a,float b,float k){float d=b-a;while(d>180)d-=360;while(d<-180)d+=360;return a+d*k;}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
-    private void closeLink(){try{if(socket!=null)socket.close();}catch(Exception ignored){}try{if(server!=null)server.close();}catch(Exception ignored){}socket=null;server=null;writer=null;connected=false;if(jetView!=null)jetView.setTelemetry(roll,pitch,yaw,throttle,linkHz,drops,false);}
+    private void closeLink(){try{if(socket!=null)socket.close();}catch(Exception ignored){}try{if(server!=null)server.close();}catch(Exception ignored){}socket=null;server=null;writer=null;connected=false;}
     @Override protected void onPause(){super.onPause();jetView.onPause();}
-    @Override protected void onResume(){super.onResume();jetView.onResume();}
-    @Override protected void onDestroy(){running=false;closeLink();io.shutdownNow();super.onDestroy();}
+    @Override protected void onResume(){super.onResume();jetView.onResume();lastSimNs=0;}
+    @Override protected void onDestroy(){running=false;simHandler.removeCallbacks(simTick);closeLink();io.shutdownNow();super.onDestroy();}
 }
