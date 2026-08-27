@@ -21,9 +21,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
 /**
- * Headless ARCore camera owner for v0.6. ARCore supplies CPU camera frames plus Depth16; no visual
- * rendering is required for blind guidance. If initialization/runtime fails, the owner must fall
- * back to CameraX instead of leaving the user without guidance.
+ * Headless ARCore camera owner for v0.6. It consumes CPU camera frames and aligned Depth16 without
+ * visual rendering. A fatal callback is emitted only after the ARCore Session has released the
+ * camera, so CameraX fallback can safely bind the rear camera.
  */
 public final class ArCoreLiveVisionEngine implements AutoCloseable {
     public interface Listener {
@@ -73,6 +73,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
 
     private void runLoop() {
         Session localSession = null;
+        String fatalMessage = null;
         try {
             localSession = new Session(context);
             if (!localSession.isDepthModeSupported(Config.DepthMode.AUTOMATIC)) {
@@ -99,15 +100,12 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                     continue;
                 }
                 lastFrameTimestampNs = frameTimestampNs;
-                long nowMs = System.currentTimeMillis();
-
-                if (frame.getCamera().getTrackingState() == TrackingState.TRACKING) {
-                    processDepth(frame, imageRotationDegrees, nowMs);
-                }
-                processCamera(frame, imageRotationDegrees, nowMs);
+                processFrame(frame, imageRotationDegrees, System.currentTimeMillis());
             }
         } catch (Throwable error) {
-            if (running.get()) listener.onFatal("ARCore canlı derinlik modu kullanılamadı. CameraX güvenli moda dönülüyor.");
+            if (running.get()) {
+                fatalMessage = "ARCore canlı derinlik modu kullanılamadı. CameraX güvenli moda dönülüyor.";
+            }
         } finally {
             running.set(false);
             session = null;
@@ -115,26 +113,13 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                 try { localSession.pause(); } catch (Throwable ignored) {}
                 try { localSession.close(); } catch (Throwable ignored) {}
             }
+            if (fatalMessage != null) listener.onFatal(fatalMessage);
         }
     }
 
-    private void processDepth(Frame frame, int rotationDegrees, long nowMs) {
-        Image depth = null;
-        try {
-            depth = frame.acquireDepthImage16Bits();
-            DepthObservation observation = depthAdapter.analyze(depth, rotationDegrees, nowMs);
-            if (observation.validRatio() > 0.04f) listener.onDepth(observation);
-        } catch (NotYetAvailableException ignored) {
-            // Normal during startup, low motion or weak visual tracking.
-        } catch (Throwable ignored) {
-            // Depth is an additional channel; transient loss must not kill Camera/ground guidance.
-        } finally {
-            if (depth != null) depth.close();
-        }
-    }
-
-    private void processCamera(Frame frame, int rotationDegrees, long nowMs) {
+    private void processFrame(Frame frame, int rotationDegrees, long nowMs) {
         Image cameraImage = null;
+        Image depthImage = null;
         try {
             cameraImage = frame.acquireCameraImage();
             sampleLuma(cameraImage, lumaGrid);
@@ -142,11 +127,23 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             if (evidence.motion().changedAreaRatio() > 0f) listener.onMotion(evidence.motion());
             if (evidence.ground().viewConfidence() > 0.08f) listener.onGround(evidence.ground());
 
-            if (!detectorBusy.compareAndSet(false, true)) {
-                cameraImage.close();
-                return;
+            if (frame.getCamera().getTrackingState() == TrackingState.TRACKING) {
+                try {
+                    depthImage = frame.acquireDepthImage16Bits();
+                    DepthObservation depth = depthAdapter.analyzeAligned(
+                            frame,
+                            depthImage,
+                            cameraImage.getWidth(),
+                            cameraImage.getHeight(),
+                            rotationDegrees,
+                            nowMs);
+                    if (depth.validRatio() > 0.04f) listener.onDepth(depth);
+                } catch (NotYetAvailableException ignored) {
+                    // Normal at startup, low motion, weak texture or temporary tracking loss.
+                }
             }
 
+            if (!detectorBusy.compareAndSet(false, true)) return;
             final Image heldImage = cameraImage;
             cameraImage = null;
             int sourceWidth = heldImage.getWidth();
@@ -166,9 +163,10 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                     });
         } catch (NotYetAvailableException ignored) {
             // CPU camera image may not be ready on every ARCore frame.
-        } catch (Throwable error) {
-            detectorBusy.set(false);
+        } catch (Throwable ignored) {
+            // Transient frame acquisition loss does not justify abandoning ARCore immediately.
         } finally {
+            if (depthImage != null) depthImage.close();
             if (cameraImage != null) cameraImage.close();
         }
     }
