@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Fast in-app regression that catches broken FEM mapping, theory drift and contact recognition before user analyses. */
+/** Fast in-app regression that catches broken FEM mapping, theory drift, contact and production-mesh regressions before user analyses. */
 public final class AutonomousRegressionGate {
     public static final class Result {
         public final boolean pass;
@@ -39,8 +39,9 @@ public final class AutonomousRegressionGate {
             FemBenchmarks.BenchmarkResult theory=FemBenchmarks.cantileverTheory();
             AxialSolidBenchmark.Result axial=AxialSolidBenchmark.run();
             ContactRegressionGate.Result cr=ContactRegressionGate.run();
-            boolean pass=femPass&&tet.pass&&theory.pass&&axial.pass&&cr.pass;
-            return cached=new Result(pass,femMsg+"\n"+tet.message+"\n"+theory.message+"\n"+axial.message+"\n"+cr.summary);
+            ProductionMeshGate.Result pm=ProductionMeshGate.run();
+            boolean pass=femPass&&tet.pass&&theory.pass&&axial.pass&&cr.pass&&pm.pass;
+            return cached=new Result(pass,femMsg+"\n"+tet.message+"\n"+theory.message+"\n"+axial.message+"\n"+cr.summary+"\n"+pm.summary);
         }catch(Throwable t){return cached=new Result(false,"REGRESSION ERROR: "+t.getMessage());}
     }
 
