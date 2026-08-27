@@ -14,6 +14,12 @@
                 android:resource="@xml/file_paths" />
         </provider>
         <activity android:name=".MachineElementStudioActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".MachineElementVisualLabActivity" android:screenOrientation="unspecified" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
         <activity android:name=".EngineeringReportActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".DesignReviewActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".ProjectManagerActivity" android:screenOrientation="unspecified" android:exported="false" />
@@ -27,11 +33,6 @@
         <activity android:name=".AssemblyActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".DrivetrainActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".AdvancedActivity" android:screenOrientation="unspecified" android:exported="false" />
-        <activity android:name=".MainActivity" android:screenOrientation="unspecified" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+        <activity android:name=".MainActivity" android:screenOrientation="unspecified" android:exported="false" />
     </application>
 </manifest>
