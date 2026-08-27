@@ -18,6 +18,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         void onMotion(MotionObservation observation);
         void onObject(ObjectObservation observation);
         void onGround(GroundObservation observation);
+        void onSceneHealth(SceneHealthObservation observation);
         void onVisionError(String message);
     }
 
@@ -50,6 +51,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
             long nowMs = System.currentTimeMillis();
             sampleLuma(imageProxy);
             GridEvidenceEstimator.Result evidence = gridEstimator.analyze(current, rotation, nowMs);
+            listener.onSceneHealth(evidence.sceneHealth());
             if (evidence.motion().changedAreaRatio() > 0f) listener.onMotion(evidence.motion());
             if (evidence.ground().viewConfidence() > 0.08f) listener.onGround(evidence.ground());
 
