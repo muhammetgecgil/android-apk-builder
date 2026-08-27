@@ -16,7 +16,7 @@ public final class ContactRegressionGate {
             AssemblyTetContactBuilder.Result asm=AssemblyTetContactBuilder.build(touching,8,0.001);
             if(asm.constraints.bondedCount()<3)return new Result(false,"CONTACT REGRESSION FAIL: tiedNodePairs="+asm.constraints.bondedCount()+" | "+asm.summary);
 
-            LinearElasticMaterial mat=new LinearElasticMaterial(70e9,0.33,2700,250e6);
+            LinearElasticMaterial mat=new LinearElasticMaterial("ContactRegressionAl",70e9,0.33,2700.0,250e6);
             StaticFemSolver s=new StaticFemSolver(asm.mesh,mat);s.addContactConstraints(asm.constraints);
             double xmin=Double.POSITIVE_INFINITY,xmax=Double.NEGATIVE_INFINITY;
             for(MeshModel.V3 p:asm.mesh.nodes){xmin=Math.min(xmin,p.x);xmax=Math.max(xmax,p.x);}double tol=Math.max((xmax-xmin)*0.04,1e-8);
