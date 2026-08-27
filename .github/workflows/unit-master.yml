@@ -144,63 +144,53 @@ jobs:
           profile: pixel_7
           disable-animations: true
           script: |
-            set -eu
-            PKG=com.mg.unitmasterx.rc110
-            ACT=com.mg.unitmasterx.MainActivity
-            APK=candidate/UnitMasterX-RC-v1.1.0.apk
-
-            adb install -r "$APK"
+            adb install -r candidate/UnitMasterX-RC-v1.1.0.apk
             adb logcat -c
-
             echo '=== cold start ==='
-            adb shell am force-stop "$PKG" || true
-            adb shell am start -W -n "$PKG/$ACT"
+            adb shell am force-stop com.mg.unitmasterx.rc110 || true
+            adb shell am start -W -n com.mg.unitmasterx.rc110/com.mg.unitmasterx.MainActivity
             sleep 4
-            adb shell pidof "$PKG" | grep -q .
-
+            adb shell pidof com.mg.unitmasterx.rc110 | grep -q .
             echo '=== UI present ==='
             adb shell uiautomator dump /sdcard/umx.xml >/dev/null
             adb pull /sdcard/umx.xml umx.xml >/dev/null
             grep -q 'Unit Master X' umx.xml
-
             echo '=== background/resume ==='
             adb shell input keyevent KEYCODE_HOME
             sleep 2
-            adb shell am send-trim-memory "$PKG" UI_HIDDEN || true
-            adb shell am start -W -n "$PKG/$ACT"
+            adb shell am send-trim-memory com.mg.unitmasterx.rc110 UI_HIDDEN || true
+            adb shell am start -W -n com.mg.unitmasterx.rc110/com.mg.unitmasterx.MainActivity
             sleep 2
-            adb shell pidof "$PKG" | grep -q .
-
+            adb shell pidof com.mg.unitmasterx.rc110 | grep -q .
             echo '=== orientation lifecycle ==='
             adb shell settings put system accelerometer_rotation 0 || true
             adb shell settings put system user_rotation 1 || true
             sleep 2
-            adb shell pidof "$PKG" | grep -q .
+            adb shell pidof com.mg.unitmasterx.rc110 | grep -q .
             adb shell settings put system user_rotation 0 || true
             adb shell settings put system accelerometer_rotation 1 || true
             sleep 2
-            adb shell pidof "$PKG" | grep -q .
-
+            adb shell pidof com.mg.unitmasterx.rc110 | grep -q .
             echo '=== repeated cold launches ==='
-            for n in 1 2 3; do
-              adb shell am force-stop "$PKG" || true
-              adb shell am start -W -n "$PKG/$ACT" >/dev/null
-              sleep 2
-              adb shell pidof "$PKG" | grep -q .
-            done
-
-            echo '=== constrained interaction fuzz ==='
-            adb shell monkey -p "$PKG" --pct-syskeys 0 --pct-appswitch 0 --pct-nav 0 --pct-majornav 0 --throttle 25 200 >/dev/null 2>&1 || true
-            adb shell am start -W -n "$PKG/$ACT" >/dev/null
+            adb shell am force-stop com.mg.unitmasterx.rc110 || true
+            adb shell am start -W -n com.mg.unitmasterx.rc110/com.mg.unitmasterx.MainActivity >/dev/null
             sleep 2
-            adb shell pidof "$PKG" | grep -q .
-
+            adb shell pidof com.mg.unitmasterx.rc110 | grep -q .
+            adb shell am force-stop com.mg.unitmasterx.rc110 || true
+            adb shell am start -W -n com.mg.unitmasterx.rc110/com.mg.unitmasterx.MainActivity >/dev/null
+            sleep 2
+            adb shell pidof com.mg.unitmasterx.rc110 | grep -q .
+            adb shell am force-stop com.mg.unitmasterx.rc110 || true
+            adb shell am start -W -n com.mg.unitmasterx.rc110/com.mg.unitmasterx.MainActivity >/dev/null
+            sleep 2
+            adb shell pidof com.mg.unitmasterx.rc110 | grep -q .
+            echo '=== constrained interaction fuzz ==='
+            adb shell monkey -p com.mg.unitmasterx.rc110 --pct-syskeys 0 --pct-appswitch 0 --pct-nav 0 --pct-majornav 0 --throttle 25 200 >/dev/null 2>&1 || true
+            adb shell am start -W -n com.mg.unitmasterx.rc110/com.mg.unitmasterx.MainActivity >/dev/null
+            sleep 2
+            adb shell pidof com.mg.unitmasterx.rc110 | grep -q .
             adb logcat -d > device-logcat.txt || true
-            if grep -E "am_crash.*$PKG|Process: $PKG" device-logcat.txt; then
-              echo 'Application crash detected'
-              exit 1
-            fi
-
+            if grep -E 'am_crash.*com.mg.unitmasterx.rc110|Process: com.mg.unitmasterx.rc110' device-logcat.txt; then echo 'Application crash detected'; exit 1; fi
             adb shell uiautomator dump /sdcard/umx-final.xml >/dev/null
             adb pull /sdcard/umx-final.xml umx-final.xml >/dev/null
             grep -q 'Unit Master X' umx-final.xml
