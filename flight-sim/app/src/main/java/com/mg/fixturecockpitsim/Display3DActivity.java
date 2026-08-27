@@ -61,8 +61,6 @@ public final class Display3DActivity extends Activity {
             long now = System.nanoTime();
             double dt = lastSimNs == 0 ? 0.02 : Math.min(0.05, Math.max(0.005, (now-lastSimNs)/1_000_000_000.0));
             lastSimNs = now;
-
-            // Demo is deliberately isolated from Bluetooth so an incoming cockpit link cannot interrupt the show.
             if (demoMode || !connected) {
                 mission.update(simState, simControls, dt);
                 dynamics.step(simState, simControls, dt);
@@ -86,12 +84,15 @@ public final class Display3DActivity extends Activity {
         bt = BluetoothAdapter.getDefaultAdapter();
         mission.reset(simState);
         simControls.gearDown=true;
-        jetView = new Jet3DView(this);
+
         runwayView = new RunwayHudView(this);
         runwayView.setDemoMode(demoMode);
+        jetView = new Jet3DView(this);
+
         FrameLayout root = new FrameLayout(this);
-        root.addView(jetView, new FrameLayout.LayoutParams(-1,-1));
+        // Scenery is intentionally behind the translucent GL surface so it can never wash over the aircraft skin.
         root.addView(runwayView, new FrameLayout.LayoutParams(-1,-1));
+        root.addView(jetView, new FrameLayout.LayoutParams(-1,-1));
 
         missionHud=new TextView(this);
         missionHud.setTextColor(0xffffffff); missionHud.setTextSize(14f); missionHud.setPadding(dp(12),dp(8),dp(12),dp(8));
@@ -143,7 +144,7 @@ public final class Display3DActivity extends Activity {
     private void updateMissionHud(){
         String phase=mission.getPhase().name().replace('_',' ');
         String extra=mission.getPhase()== AutonomousFlightMission.Phase.ORBIT ? String.format(Locale.US,"  GEZİ %.0f/300 s",mission.getOrbitTimeSec()) : "";
-        String mode=demoMode?"DEMO":"AUTO / LINK WAIT";
+        String mode=demoMode?"DEMO":"UÇAK EKRANI / PILOT BEKLENİYOR";
         missionHud.setText(String.format(Locale.US,
                 "%s  %s%s   CAM %s\nALT %.0f m   SPD %.0f m/s   HDG %03.0f\nGEAR %.0f%%   BRK %.0f%%   WOW %s\nSTRUT M %.0f%% N %.0f%%   SINK %.1f m/s",
                 mode,phase,extra,cameraName(),simState.altitudeM,simState.trueAirspeedMps,simState.headingDeg,
@@ -160,18 +161,18 @@ public final class Display3DActivity extends Activity {
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
         super.onRequestPermissionsResult(requestCode,permissions,grantResults);
         if(requestCode==REQ_BT && grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED) startServer();
-        else Toast.makeText(this,"Bluetooth izni yok — otomatik uçuş devam eder",Toast.LENGTH_LONG).show();
+        else Toast.makeText(this,"Bluetooth izni yok — uçak ekranı pilot bağlantısını bekleyemez",Toast.LENGTH_LONG).show();
     }
 
     private void startServer(){
-        if(bt==null){Toast.makeText(this,"Bluetooth yok — otomatik uçuş aktif",Toast.LENGTH_LONG).show();return;}
-        if(!bt.isEnabled()){Toast.makeText(this,"Bluetooth kapalı — otomatik uçuş aktif",Toast.LENGTH_SHORT).show();return;}
+        if(bt==null){Toast.makeText(this,"Bluetooth donanımı yok",Toast.LENGTH_LONG).show();return;}
+        if(!bt.isEnabled()){Toast.makeText(this,"Bluetooth kapalı — uçak ekranı pilotu bekliyor",Toast.LENGTH_SHORT).show();return;}
         io.execute(() -> {
             while(running && !demoMode){
                 try{
                     server=bt.listenUsingRfcommWithServiceRecord("FixtureCockpit3D",SIM_UUID);
                     socket=server.accept(); connected=true;
-                    runOnUiThread(() -> missionHud.setText("PILOT / MANUAL COCKPIT LINK"));
+                    runOnUiThread(() -> missionHud.setText("UÇAK EKRANI — PILOT BAĞLANDI"));
                     writer=new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8));
                     BufferedReader r=new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8));
                     String line;
