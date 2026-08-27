@@ -52,18 +52,9 @@ public final class StaticFemSolver {
     public void addNodalForce(int node,double fx,double fy,double fz){ addForce(3*node,fx); addForce(3*node+1,fy); addForce(3*node+2,fz); }
     public void addForce(int dof,double value){ checkDof(dof); force[dof]+=value; }
 
-    /** Adds uA=uB in X/Y/Z through a symmetric penalty tie. */
-    public void addBondedTie(int nodeA,int nodeB,double factor){
-        checkPair(nodeA,nodeB); bondedTies.add(new Tie(nodeA,nodeB,Math.max(10.0,Math.min(1e6,factor))));
-    }
-    /** Bilateral normal constraint: no separation and no penetration, tangential motion remains free. */
-    public void addNoSeparationNormal(int nodeA,int nodeB,MeshModel.V3 normal,double factor,double gapM){
-        checkPair(nodeA,nodeB); normalConstraints.add(new NormalConstraint(nodeA,nodeB,normal,factor,gapM,false));
-    }
-    /** Unilateral frictionless contact: compression can be carried, opening is released by active-set iteration. */
-    public void addFrictionlessNormal(int nodeA,int nodeB,MeshModel.V3 normal,double factor,double gapM){
-        checkPair(nodeA,nodeB); normalConstraints.add(new NormalConstraint(nodeA,nodeB,normal,factor,gapM,true));
-    }
+    public void addBondedTie(int nodeA,int nodeB,double factor){ checkPair(nodeA,nodeB); bondedTies.add(new Tie(nodeA,nodeB,Math.max(10.0,Math.min(1e6,factor)))); }
+    public void addNoSeparationNormal(int nodeA,int nodeB,MeshModel.V3 normal,double factor,double gapM){ checkPair(nodeA,nodeB); normalConstraints.add(new NormalConstraint(nodeA,nodeB,normal,factor,gapM,false)); }
+    public void addFrictionlessNormal(int nodeA,int nodeB,MeshModel.V3 normal,double factor,double gapM){ checkPair(nodeA,nodeB); normalConstraints.add(new NormalConstraint(nodeA,nodeB,normal,factor,gapM,true)); }
     public void addContactConstraints(ContactConstraintSet set){
         if(set==null)return;
         for(ContactConstraintSet.Pair p:set.pairs){
@@ -80,7 +71,7 @@ public final class StaticFemSolver {
         SparsePcgSolver.Result ls=null;double[] u=null;SparsePcgSolver.Matrix raw=null;int iterations=0;
         for(int contactIt=0;contactIt<Math.max(1,unilateralCount>0?10:1);contactIt++){
             iterations=contactIt+1;raw=assembleGlobal();double diagScale=averageDiagonal(raw);applyBondedTies(raw,diagScale);applyNormalConstraints(raw,diagScale,active);
-            double[] rhs=force.clone();SparsePcgSolver.Matrix constrained=copy(raw);for(int i=0;i<mesh.dofCount();i++)if(fixed[i])constrained.applyZeroDirichlet(i,rhs);
+            double[] rhs=force.clone();SparsePcgSolver.Matrix constrained=raw.copy();for(int i=0;i<mesh.dofCount();i++)if(fixed[i])constrained.applyZeroDirichlet(i,rhs);
             ls=SparsePcgSolver.solve(constrained,rhs,1e-10,Math.max(500,mesh.dofCount()*20));
             if(!ls.converged)throw new IllegalStateException("PCG did not converge: relResidual="+ls.relativeResidual);
             u=ls.x;if(unilateralCount==0)break;
@@ -114,7 +105,6 @@ public final class StaticFemSolver {
     private double relativeNormalDisplacement(NormalConstraint c,double[] u){double ax=u[3*c.a],ay=u[3*c.a+1],az=u[3*c.a+2],bx=u[3*c.b],by=u[3*c.b+1],bz=u[3*c.b+2];return c.nx*(bx-ax)+c.ny*(by-ay)+c.nz*(bz-az);}
     private double averageDiagonal(SparsePcgSolver.Matrix K){double s=0;int n=0;for(int i=0;i<K.n;i++){double d=Math.abs(K.get(i,i));if(d>0){s+=d;n++;}}return n>0?s/n:1.0;}
     private double characteristicLength(){double xmin=Double.POSITIVE_INFINITY,ymin=Double.POSITIVE_INFINITY,zmin=Double.POSITIVE_INFINITY,xmax=Double.NEGATIVE_INFINITY,ymax=Double.NEGATIVE_INFINITY,zmax=Double.NEGATIVE_INFINITY;for(MeshModel.V3 p:mesh.nodes){xmin=Math.min(xmin,p.x);ymin=Math.min(ymin,p.y);zmin=Math.min(zmin,p.z);xmax=Math.max(xmax,p.x);ymax=Math.max(ymax,p.y);zmax=Math.max(zmax,p.z);}double dx=xmax-xmin,dy=ymax-ymin,dz=zmax-zmin;return Math.max(Math.sqrt(dx*dx+dy*dy+dz*dz),1e-9);}
-    private static SparsePcgSolver.Matrix copy(SparsePcgSolver.Matrix a){SparsePcgSolver.Matrix b=new SparsePcgSolver.Matrix(a.n);for(int i=0;i<a.n;i++)for(int j=0;j<a.n;j++){double v=a.get(i,j);if(Math.abs(v)>0)b.set(i,j,v);}return b;}
     private void checkDof(int d){if(d<0||d>=mesh.dofCount())throw new IllegalArgumentException("DOF outside system");}
     private void checkPair(int a,int b){if(a<0||a>=mesh.nodes.size()||b<0||b>=mesh.nodes.size()||a==b)throw new IllegalArgumentException("Invalid contact node pair");}
 }
