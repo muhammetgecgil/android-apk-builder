@@ -23,19 +23,24 @@ jobs:
           curl --retry 4 -fL $BASE/vitruvian_head.glb -o $A/v33_head.glb
           curl --retry 4 -fL $BASE/vitruvian_hair_rigged.glb -o $A/v33_hair.glb
           for f in vit_body_bc.png vit_body_n.png vit_body_rough.png vit_face_bc.png vit_face_n.png vit_face_rough.png vit_fabric_n.png vit_hair_ao.png vit_hair_atlas.png vit_hair_diffuse.png vit_hair_normal.png vit_hair_opacity.png vit_iris.png vit_lash_atlas.png vit_mouth.png vit_sclera.png; do curl --retry 4 -fL $BASE/$f -o $A/$f; done
-          for f in product-core-v41.js gameplay-v42.js gameplay-v43.js gameplay-v44.js product-core-v45.js product-core-v46.js product-core-v47.js product-core-v48.js product-core-v49.js; do test -s $A/$f; done
-      - name: Inject product layers
+          for f in product-core-v41.js gameplay-v42.js gameplay-v43.js gameplay-v44.js product-core-v45.js product-core-v46.js product-core-v47.js product-core-v48.js product-core-v49.js product-core-v50.js; do test -s $A/$f; done
+      - name: Inject product layers and native TV policy bridge
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('mg-tennis-tv/app/src/main/assets/index.html'); s=p.read_text()
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];')
-          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','clean-core-v37.js','gameplay-v40.js','product-core-v41.js','gameplay-v42.js','gameplay-v43.js','gameplay-v44.js','product-core-v45.js','product-core-v46.js','product-core-v47.js','product-core-v48.js','product-core-v49.js']
+          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','clean-core-v37.js','gameplay-v40.js','product-core-v41.js','gameplay-v42.js','gameplay-v43.js','gameplay-v44.js','product-core-v45.js','product-core-v46.js','product-core-v47.js','product-core-v48.js','product-core-v49.js','product-core-v50.js']
           for obsolete in ['match-start-v34.js','role-start-v38.js','gameplay-v36.js','gameplay-v39.js']:
               s=s.replace(f'<script src="{obsolete}"></script>','')
           for fn in scripts:
               if fn not in s:s=s.replace('</body>',f'<script src="{fn}"></script></body>')
           p.write_text(s)
+          j=Path('mg-tennis-tv/app/src/main/java/com/mg/tennistv/MainActivity.java'); t=j.read_text()
+          marker='@JavascriptInterface public long getRacketLatencyMs(){return latencyMs;}'
+          bridge=marker+'\n        @JavascriptInterface public void stopVision(){runOnUiThread(()->{if(poseTracker!=null)poseTracker.stop();});}\n        @JavascriptInterface public void startVisionMode(){runOnUiThread(()->{if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)startVision();else askPermissions();});}'
+          if 'public void stopVision()' not in t:t=t.replace(marker,bridge)
+          j.write_text(t)
           PY
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: '17' }
@@ -46,15 +51,17 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v4.9 release
+      - name: Verify v5.0 PC1 release candidate
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='49'"
-          unzip -p $APK assets/index.html | grep -q 'product-core-v49.js'
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='50'"
+          unzip -p $APK assets/index.html | grep -q 'product-core-v50.js'
           ! unzip -p $APK assets/index.html | grep -q 'gameplay-v39.js'
+          unzip -p $APK classes.dex | strings | grep -q 'startVisionMode'
+          unzip -p $APK classes.dex | strings | grep -q 'stopVision'
           unzip -l $APK | grep -q assets/v33_head.glb
-          cp $APK MG_Tennis_TV_v4.9_PC1_Self_Test_Policy_Verification.apk
+          cp $APK MG_Tennis_TV_v5.0_PC1_Release_Candidate.apk
       - uses: actions/upload-artifact@v4
-        with: { name: MG-Tennis-TV-v4.9-PC1-Self-Test-Policy-Verification-APK, path: MG_Tennis_TV_v4.9_PC1_Self_Test_Policy_Verification.apk, retention-days: 30 }
+        with: { name: MG-Tennis-TV-v5.0-PC1-Release-Candidate-APK, path: MG_Tennis_TV_v5.0_PC1_Release_Candidate.apk, retention-days: 30 }
