@@ -10,7 +10,9 @@ build = root / 'app/build.gradle'
 manifest = root / 'app/src/main/AndroidManifest.xml'
 main_activity = root / 'app/src/main/java/com/mg/unitmasterx/MainActivity.java'
 apk_debug = root / 'app/build/outputs/apk/debug/app-debug.apk'
-apk_release = root / 'app/build/outputs/apk/release/app-release.apk'
+release_dir = root / 'app/build/outputs/apk/release'
+release_apks = sorted(release_dir.glob('*.apk')) if release_dir.exists() else []
+apk_release = release_apks[0] if release_apks else None
 aab_release = root / 'app/build/outputs/bundle/release/app-release.aab'
 
 errors = []
@@ -31,8 +33,17 @@ require("applicationIdSuffix '.rc110'" in b, 'debug package must be isolated wit
 require('<uses-permission' not in m, 'Unit Master X should not request Android permissions')
 require('android.webkit.WebView' not in a and 'WebView' not in a, 'WebView is not allowed in production converter shell')
 require('android:exported="true"' in m, 'launcher activity must explicitly declare exported=true')
+require('android:screenOrientation=' not in m, 'launcher activity must not force screen orientation')
+require('.commit()' not in a, 'blocking SharedPreferences.commit() is not allowed in production UI code')
 
-for path, kind in [(apk_debug, 'debug APK'), (apk_release, 'release APK'), (aab_release, 'release AAB')]:
+artifacts = [(apk_debug, 'debug APK')]
+if apk_release is None:
+    errors.append(f'Missing release APK in {release_dir}')
+else:
+    artifacts.append((apk_release, 'release APK'))
+artifacts.append((aab_release, 'release AAB'))
+
+for path, kind in artifacts:
     require(path.exists(), f'Missing {kind}: {path}')
     if path.exists():
         require(path.stat().st_size > 20_000, f'{kind} is unexpectedly small')
@@ -50,7 +61,7 @@ for path, kind in [(apk_debug, 'debug APK'), (apk_release, 'release APK'), (aab_
         except zipfile.BadZipFile:
             errors.append(f'{kind} is not a valid ZIP container')
 
-# Aggregate unit-test results into a machine-readable quality report.
+# Aggregate both debug and release unit-test results into a machine-readable quality report.
 test_root = root / 'app/build/test-results'
 summary = {'test_suites': 0, 'tests': 0, 'failures': 0, 'errors': 0, 'skipped': 0}
 for xml in test_root.rglob('*.xml') if test_root.exists() else []:
@@ -62,9 +73,10 @@ for xml in test_root.rglob('*.xml') if test_root.exists() else []:
     except Exception as exc:
         errors.append(f'Cannot parse test result {xml}: {exc}')
 
-require(summary['tests'] >= 10, f'Expected at least 10 automated tests, found {summary["tests"]}')
+require(summary['tests'] >= 20, f'Expected at least 20 automated debug+release tests, found {summary["tests"]}')
 require(summary['failures'] == 0, f'Unit test failures={summary["failures"]}')
 require(summary['errors'] == 0, f'Unit test errors={summary["errors"]}')
+require(summary['skipped'] == 0, f'Unit test skipped={summary["skipped"]}')
 
 report = {
     'product': 'Unit Master X',
@@ -77,7 +89,8 @@ report = {
     'unit_test_summary': summary,
     'artifact_checks': {
         'debug_apk': apk_debug.exists(),
-        'release_apk': apk_release.exists(),
+        'release_apk': bool(apk_release and apk_release.exists()),
+        'release_apk_name': apk_release.name if apk_release else None,
         'release_aab': aab_release.exists(),
     },
     'status': 'PASS' if not errors else 'FAIL',
