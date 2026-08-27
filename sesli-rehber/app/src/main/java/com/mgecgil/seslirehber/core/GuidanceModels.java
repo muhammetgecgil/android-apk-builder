@@ -56,6 +56,26 @@ public final class GuidanceModels {
         }
     }
 
+    /**
+     * Internal metric evidence derived from a depth image. Millimetres are kept internally only;
+     * user-facing metric distance is forbidden until device calibration and field validation pass.
+     */
+    public record DepthObservation(
+            float validRatio,
+            float centerMedianMm,
+            float nearBandMedianMm,
+            float farBandMedianMm,
+            float maxBandJumpMm,
+            float discontinuityScore,
+            float depthConfidence,
+            long timestampMs) {
+        public boolean strongDiscontinuity() {
+            return validRatio >= 0.42f
+                    && discontinuityScore >= 0.62f
+                    && depthConfidence >= 0.58f;
+        }
+    }
+
     public record CorridorAssessment(
             float corridorHalfWidth,
             float pathOverlap,
