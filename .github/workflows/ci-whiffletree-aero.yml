@@ -29,13 +29,13 @@ jobs:
       - name: Compile-check engineering source
         working-directory: whiffletree-aero
         run: gradle --no-daemon clean compileDebugJavaWithJavac --stacktrace
-      - name: Restore stable Whiffletree signing key
+      - name: Restore stable Whiffletree signing key when available
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
           key: whiffletree-aero-debug-signing-v1
-          fail-on-cache-miss: true
-      - name: Build signed debug APK
+          fail-on-cache-miss: false
+      - name: Build installable test APK
         working-directory: whiffletree-aero
         run: gradle --no-daemon assembleDebug --stacktrace
       - name: Rename APK
@@ -46,16 +46,3 @@ jobs:
           name: whiffletree-aero-v7.15.0
           if-no-files-found: error
           path: Whiffletree-Aero-v7.15.0.apk
-      - name: Publish updater payload
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: |
-          mkdir -p whiffletree-aero/update
-          base64 -w0 Whiffletree-Aero-v7.15.0.apk > whiffletree-aero/update/latest.apk.b64
-          cat > whiffletree-aero/update/latest.json <<'EOF'
-          {"versionCode":76,"versionName":"7.15.0","encoding":"base64","url":"https://raw.githubusercontent.com/muhammetgecgil/android-apk-builder/main/whiffletree-aero/update/latest.apk.b64"}
-          EOF
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add whiffletree-aero/update/latest.apk.b64 whiffletree-aero/update/latest.json
-          git diff --cached --quiet || git commit -m "Publish Whiffletree v7.15.0 updater payload [skip ci]"
-          git push
