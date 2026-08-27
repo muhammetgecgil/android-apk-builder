@@ -2,16 +2,38 @@ from pathlib import Path
 import re
 
 main = Path('unit-master/app/src/main/java/com/mg/unitmasterx/MainActivity.java')
+gradle = Path('unit-master/app/build.gradle')
+res_layout = Path('unit-master/app/src/main/res/layout')
 if not main.exists():
     raise SystemExit('MainActivity.java not found')
 
+# Product-level menu fix: do not rely on Android/One UI list-row colors at all.
+# Every ArrayAdapter menu row is inflated from our own white resource.
+res_layout.mkdir(parents=True, exist_ok=True)
+row = res_layout / 'white_menu_row.xml'
+row.write_text('''<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@android:id/text1"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="60dp"
+    android:gravity="center_vertical"
+    android:paddingStart="18dp"
+    android:paddingEnd="18dp"
+    android:paddingTop="10dp"
+    android:paddingBottom="10dp"
+    android:background="#FFFFFFFF"
+    android:textColor="#FF14181C"
+    android:textSize="18sp"
+    android:maxLines="2"
+    android:ellipsize="end" />
+''', encoding='utf-8')
+
 a = main.read_text(encoding='utf-8')
 
-# Explicit popup palette. Do not depend on Samsung/system theme colors.
-# White surface, near-black primary text, soft gray dividers.
-helper = r'''    private static final int MENU_BG=Color.rgb(255,255,255);
+helper = r'''    private static final int MENU_BG=Color.WHITE;
     private static final int MENU_TEXT=Color.rgb(20,24,28);
-    private static final int MENU_DIVIDER=Color.rgb(224,229,235);
+    private static final int MENU_DIVIDER=Color.rgb(226,232,240);
     private void styleMenuTree(View v){
         if(v==null)return;
         v.setBackgroundColor(MENU_BG);
@@ -21,7 +43,7 @@ helper = r'''    private static final int MENU_BG=Color.rgb(255,255,255);
             t.setTextSize(TypedValue.COMPLEX_UNIT_SP,18);
             t.setGravity(Gravity.CENTER_VERTICAL);
             t.setMinHeight(dp(60));
-            t.setPadding(dp(18),dp(12),dp(18),dp(12));
+            t.setPadding(dp(18),dp(10),dp(18),dp(10));
             t.setAlpha(1f);
         }
         if(v instanceof ViewGroup){
@@ -31,6 +53,8 @@ helper = r'''    private static final int MENU_BG=Color.rgb(255,255,255);
     }
     private void refreshMenuContrast(final ListView list){
         if(list==null)return;
+        list.setBackgroundColor(MENU_BG);
+        list.setCacheColorHint(MENU_BG);
         styleMenuTree(list);
         list.post(new Runnable(){@Override public void run(){styleMenuTree(list);}});
         list.postDelayed(new Runnable(){@Override public void run(){styleMenuTree(list);}},80);
@@ -43,7 +67,7 @@ helper = r'''    private static final int MENU_BG=Color.rgb(255,255,255);
 
 '''
 
-# Idempotently remove older helper versions from the generated activity.
+# Remove an older generated helper when this script is run repeatedly.
 a = re.sub(r'    private static final int MENU_BG=.*?\n    \}\n\n', '', a, flags=re.S)
 a = re.sub(r'    private void styleMenuTree\(View v\)\{.*?\n    \}\n\n', '', a, flags=re.S)
 
@@ -61,17 +85,23 @@ for marker in markers:
 if not inserted:
     raise SystemExit('Could not locate helper insertion point in MainActivity')
 
-# Remove previous menu styling injection if present.
+# Force ArrayAdapter rows to use an app-owned white TextView instead of Samsung/system layouts.
+layout_patterns = [
+    'android.R.layout.simple_list_item_1',
+    'android.R.layout.simple_spinner_item',
+    'android.R.layout.simple_spinner_dropdown_item'
+]
+row_replacements = 0
+for old in layout_patterns:
+    n = a.count(old)
+    if n:
+        a = a.replace(old, 'R.layout.white_menu_row')
+        row_replacements += n
+
+# Remove any older list styling injection before adding the current one.
 a = re.sub(
     r'list\.setBackgroundColor\([^;]+\);list\.setCacheColorHint\([^;]+\);list\.setDivider\(new android\.graphics\.drawable\.ColorDrawable\([^\)]+\)\);list\.setDividerHeight\([^;]+\);list\.setOnHierarchyChangeListener\(new ViewGroup\.OnHierarchyChangeListener\(\)\{public void onChildViewAdded\(View parent,View child\)\{styleMenuTree\(child\);\}public void onChildViewRemoved\(View parent,View child\)\{\}\}\);refreshMenuContrast\(list\);',
-    '',
-    a,
-)
-a = re.sub(
-    r'list\.setBackgroundColor\(CARD\);list\.setDivider\(new android\.graphics\.drawable\.ColorDrawable\(LINE\)\);list\.setDividerHeight\(1\);list\.setOnHierarchyChangeListener\(new ViewGroup\.OnHierarchyChangeListener\(\)\{public void onChildViewAdded\(View parent,View child\)\{styleMenuTree\(child\);\}public void onChildViewRemoved\(View parent,View child\)\{\}\}\);',
-    '',
-    a,
-)
+    '', a)
 
 listener = r'''list.setBackgroundColor(MENU_BG);list.setCacheColorHint(MENU_BG);list.setDivider(new android.graphics.drawable.ColorDrawable(MENU_DIVIDER));list.setDividerHeight(dp(1));list.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener(){public void onChildViewAdded(View parent,View child){styleMenuTree(child);}public void onChildViewRemoved(View parent,View child){}});refreshMenuContrast(list);'''
 
@@ -79,31 +109,49 @@ patterns = [
     r'(final\s+ListView\s+list\s*=\s*new\s+ListView\(this\);)',
     r'(?<!final\s)(ListView\s+list\s*=\s*new\s+ListView\(this\);)'
 ]
-changed = 0
+list_count = 0
 for pattern in patterns:
     matches = len(re.findall(pattern, a))
     if matches:
         a = re.sub(pattern, lambda m: m.group(1) + listener, a)
-        changed += matches
+        list_count += matches
 
-# Explicitly replace transparent/list surface variants from older code.
+# Eliminate dark/transparent menu surfaces inherited from the app theme.
 a = a.replace('list.setBackgroundColor(Color.TRANSPARENT);', 'list.setBackgroundColor(MENU_BG);')
 a = a.replace('list.setBackgroundColor(CARD);', 'list.setBackgroundColor(MENU_BG);')
 
-# Keep system dialogs readable in the same white-menu language.
+# The dialog window itself must be light as well as its rows.
 a = a.replace('new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_DARK)', 'new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)')
 a = a.replace('new AlertDialog.Builder(this)', 'new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_LIGHT)')
 
-# Remove the stale stability label inherited by the RC build.
-a = a.replace('Akıllı Birim Dönüştürücü • Stability 1.0.2', 'Akıllı Birim Dönüştürücü • RC 1.1')
-a = a.replace('Stability 1.0.2', 'RC 1.1')
+# Make the installed build unmistakably newer so Android cannot leave the old RC in place.
+a = a.replace('Akıllı Birim Dönüştürücü • Stability 1.0.2', 'Akıllı Birim Dönüştürücü • RC 1.1.1')
+a = a.replace('Akıllı Birim Dönüştürücü • RC 1.1', 'Akıllı Birim Dönüştürücü • RC 1.1.1')
+a = a.replace('Stability 1.0.2', 'RC 1.1.1')
 
-if changed == 0:
+if list_count == 0:
     print('--- MainActivity menu-related source lines ---')
     for line in a.splitlines():
-        if any(k in line for k in ('ListView','ArrayAdapter','picker','Picker','AlertDialog')):
-            print(line[:1200])
+        if any(k in line for k in ('ListView','ArrayAdapter','setAdapter','AlertDialog')):
+            print(line[:1600])
     raise SystemExit('No picker ListView creation found; white menu patch not applied')
+if row_replacements == 0:
+    print('--- Adapter diagnostics ---')
+    for line in a.splitlines():
+        if 'setAdapter' in line or 'ArrayAdapter' in line:
+            print(line[:1600])
+    raise SystemExit('No system ArrayAdapter row layouts found; refusing to publish an unverified menu-color patch')
 
 main.write_text(a, encoding='utf-8')
-print(f'Applied deterministic white menus to {changed} ListView picker(s): white surface, dark text, 18sp/60dp rows')
+
+if gradle.exists():
+    g = gradle.read_text(encoding='utf-8')
+    g, vc = re.subn(r'\bversionCode\s+\d+', 'versionCode 111', g)
+    g, vn = re.subn(r'\bversionName\s+[\"\'][^\"\']+[\"\']', 'versionName "1.1.1"', g)
+    gradle.write_text(g, encoding='utf-8')
+    print(f'Version bump: versionCode replacements={vc}, versionName replacements={vn}')
+
+print(f'WHITE MENU FIX VERIFIED IN SOURCE: {list_count} ListView picker(s), {row_replacements} adapter row layout replacement(s), app-owned white_menu_row.xml')
+for line in a.splitlines():
+    if 'setAdapter' in line and ('list.' in line or 'ArrayAdapter' in line):
+        print('ADAPTER:', line.strip()[:1600])
