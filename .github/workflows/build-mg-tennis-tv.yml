@@ -23,14 +23,14 @@ jobs:
           curl --retry 4 -fL $BASE/vitruvian_head.glb -o $A/v33_head.glb
           curl --retry 4 -fL $BASE/vitruvian_hair_rigged.glb -o $A/v33_hair.glb
           for f in vit_body_bc.png vit_body_n.png vit_body_rough.png vit_face_bc.png vit_face_n.png vit_face_rough.png vit_fabric_n.png vit_hair_ao.png vit_hair_atlas.png vit_hair_diffuse.png vit_hair_normal.png vit_hair_opacity.png vit_iris.png vit_lash_atlas.png vit_mouth.png vit_sclera.png; do curl --retry 4 -fL $BASE/$f -o $A/$f; done
-          for f in product-core-v41.js gameplay-v42.js gameplay-v43.js gameplay-v44.js product-core-v45.js product-core-v46.js product-core-v47.js product-core-v48.js product-core-v49.js product-core-v50.js; do test -s $A/$f; done
+          for f in product-core-v41.js gameplay-v42.js gameplay-v43.js gameplay-v44.js product-core-v45.js product-core-v46.js product-core-v47.js product-core-v48.js product-core-v49.js product-core-v50.js product-core-v51.js; do test -s $A/$f; done
       - name: Inject product layers and native TV policy bridge
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('mg-tennis-tv/app/src/main/assets/index.html'); s=p.read_text()
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];')
-          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','clean-core-v37.js','gameplay-v40.js','product-core-v41.js','gameplay-v42.js','gameplay-v43.js','gameplay-v44.js','product-core-v45.js','product-core-v46.js','product-core-v47.js','product-core-v48.js','product-core-v49.js','product-core-v50.js']
+          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','clean-core-v37.js','gameplay-v40.js','product-core-v41.js','gameplay-v42.js','gameplay-v43.js','gameplay-v44.js','product-core-v45.js','product-core-v46.js','product-core-v47.js','product-core-v48.js','product-core-v49.js','product-core-v50.js','product-core-v51.js']
           for obsolete in ['match-start-v34.js','role-start-v38.js','gameplay-v36.js','gameplay-v39.js']:
               s=s.replace(f'<script src="{obsolete}"></script>','')
           for fn in scripts:
@@ -51,17 +51,18 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v5.0 PC1 release candidate
+      - name: Verify v5.1 PC1 qualification build
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='50'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='51'"
+          unzip -p $APK assets/index.html | grep -q 'product-core-v51.js'
           unzip -p $APK assets/index.html | grep -q 'product-core-v50.js'
           ! unzip -p $APK assets/index.html | grep -q 'gameplay-v39.js'
           unzip -p $APK classes.dex | strings | grep -q 'startVisionMode'
           unzip -p $APK classes.dex | strings | grep -q 'stopVision'
           unzip -l $APK | grep -q assets/v33_head.glb
-          cp $APK MG_Tennis_TV_v5.0_PC1_Release_Candidate.apk
+          cp $APK MG_Tennis_TV_v5.1_PC1_Device_Qualification.apk
       - uses: actions/upload-artifact@v4
-        with: { name: MG-Tennis-TV-v5.0-PC1-Release-Candidate-APK, path: MG_Tennis_TV_v5.0_PC1_Release_Candidate.apk, retention-days: 30 }
+        with: { name: MG-Tennis-TV-v5.1-PC1-Device-Qualification-APK, path: MG_Tennis_TV_v5.1_PC1_Device_Qualification.apk, retention-days: 30 }
