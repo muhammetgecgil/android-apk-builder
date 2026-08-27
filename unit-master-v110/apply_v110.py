@@ -15,7 +15,6 @@ b = b.replace("applicationIdSuffix '.stable2'", "applicationIdSuffix '.rc110'")
 b = b.replace("versionNameSuffix '-stable2'", "versionNameSuffix '-rc110'")
 b = b.replace("manifestPlaceholders = [appLabel: 'Unit Master X Stable 2']", "manifestPlaceholders = [appLabel: 'Unit Master X RC 1.1']")
 
-# Keep release optimization mandatory without duplicating declarations.
 if 'minifyEnabled true' not in b:
     raise SystemExit('Release minification unexpectedly disabled')
 
@@ -27,30 +26,42 @@ quality_test.write_text(r'''package com.mg.unitmasterx;
 
 import org.junit.Test;
 import static org.junit.Assert.*;
+import java.util.Arrays;
 
 public class ProductQualityTest {
-    private static ConverterData.Category category(String name) {
-        for (ConverterData.Category c : ConverterData.CATEGORIES) {
-            if (name.equals(c.name)) return c;
-        }
-        fail("Missing category: " + name);
-        return null;
-    }
-
-    private static int unit(ConverterData.Category c, String symbol) {
+    private static int unitOrMinusOne(ConverterData.Category c, String symbol) {
+        if (c == null || c.units == null) return -1;
         for (int i = 0; i < c.units.size(); i++) {
             if (symbol.equals(c.units.get(i).symbol)) return i;
         }
-        fail("Missing unit " + symbol + " in " + c.name);
         return -1;
     }
 
-    private static void reference(String category, String from, String to,
+    private static int unit(ConverterData.Category c, String symbol) {
+        int i = unitOrMinusOne(c, symbol);
+        if (i >= 0) return i;
+        fail("Missing unit " + symbol + " in " + (c == null ? "<null>" : c.name));
+        return -1;
+    }
+
+    private static ConverterData.Category categoryWith(String... symbols) {
+        for (ConverterData.Category c : ConverterData.CATEGORIES) {
+            boolean all = true;
+            for (String symbol : symbols) {
+                if (unitOrMinusOne(c, symbol) < 0) { all = false; break; }
+            }
+            if (all) return c;
+        }
+        fail("Missing category containing units " + Arrays.toString(symbols));
+        return null;
+    }
+
+    private static void reference(String from, String to,
                                   double input, double expected, double tolerance) {
-        ConverterData.Category c = category(category);
+        ConverterData.Category c = categoryWith(from, to);
         int f = unit(c, from), t = unit(c, to);
         double actual = ConverterData.convert(c, f, t, input);
-        assertEquals(category + " " + from + "->" + to, expected, actual, tolerance);
+        assertEquals(c.name + " " + from + "->" + to, expected, actual, tolerance);
     }
 
     @Test public void catalogHasProductScale() {
@@ -91,7 +102,6 @@ public class ProductQualityTest {
     }
 
     @Test public void everyPairRoundTripsAcrossCatalog() {
-        // Positive non-zero values also cover reciprocal converters such as fuel economy.
         double[] values = {0.000001, 0.001, 1.0, 123.456789, 1000.0, 1000000.0};
         long operations = 0;
         for (ConverterData.Category c : ConverterData.CATEGORIES) {
@@ -118,11 +128,11 @@ public class ProductQualityTest {
     }
 
     @Test public void engineeringReferenceValuesAreCorrect() {
-        reference("Uzunluk", "m", "mm", 1.0, 1000.0, 1e-9);
-        reference("Kuvvet", "N", "kgf", 500.0, 50.98581064889642, 1e-9);
-        reference("Basınç / Gerilme", "psi", "bar", 100.0, 6.894757293168, 1e-9);
-        reference("Sıcaklık", "°C", "°F", 20.0, 68.0, 1e-9);
-        reference("Dönme Hızı", "rpm", "rad/s", 60.0, 6.283185307179586, 1e-9);
+        reference("m", "mm", 1.0, 1000.0, 1e-9);
+        reference("N", "kgf", 500.0, 50.98581064889642, 1e-9);
+        reference("psi", "bar", 100.0, 6.894757293168, 1e-9);
+        reference("°C", "°F", 20.0, 68.0, 1e-9);
+        reference("rpm", "rad/s", 60.0, 6.283185307179586, 1e-9);
     }
 }
 ''', encoding='utf-8')
