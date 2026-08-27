@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 28
-        versionName = "1.7.2-mesh-qa-milestone"
+        versionCode = 29
+        versionName = "1.7.3-mesh-rollback"
     }
 
     buildTypes {
