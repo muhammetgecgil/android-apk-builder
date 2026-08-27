@@ -1,43 +1,59 @@
 # Sesli Rehber — Gereksinim Uygulama Durumu
 
-Bu dosya `PRODUCT_REQUIREMENTS.md` ile birlikte okunur. `DONE` yalnız kod yazıldığı anlamına gelmez; CI ve ilgili kabul kriteri de geçmelidir. S24 Ultra saha doğrulaması gerektiren maddeler cihaz testi yapılana kadar `DEVICE-TEST` kalır.
+Bu dosya `PRODUCT_REQUIREMENTS.md` ile birlikte okunur. `DONE-CI` yalnız kodun ve otomatik kabul testlerinin geçtiğini gösterir. Gerçek cihaz/saha doğrulaması gereken maddeler Gate C / Gate D tamamlanana kadar ürün güvenilirliği iddiası değildir.
 
-## v0.3 kapsamı
+## Çekirdek durum
 
-| ID | Durum | Not |
+| ID / Alan | Durum | Not |
 |---|---|---|
 | VIS-001 | DONE-CI | CameraX arka kamera analiz akışı |
-| VIS-002 | DONE-CI | `STRATEGY_KEEP_ONLY_LATEST` |
-| VIS-003 | DONE-CI | Target rotation + analiz `rotationDegrees`; hareket centroid dönüşümü testli |
+| VIS-002 | DONE-CI | KEEP_ONLY_LATEST backpressure |
+| VIS-003 | DONE-CI | Portre rotation + 0/90/180/270 koordinat testleri |
 | IMU-001 | DONE-CI | İvmeölçer + jiroskop kararlılık skoru |
-| IMU-002 | DONE-CI | Görsel karar güveni IMU kararlılığıyla düşürülüyor |
-| IMU-004 | DONE-CI | Eksik/stale sensör artık tam güvenli kabul edilmiyor |
-| OBJ-001 | DONE-CI | ML Kit STREAM_MODE bounding box + tracking ID |
-| OBJ-002 | DONE-CI | LEFT/CENTER/RIGHT yönü |
-| OBJ-003 | DONE-CI | Takip ID bazlı EMA kutu büyüme hızı |
-| OBJ-004 | DONE-CI | Merkez koridorda büyük/hızlı yaklaşan nesne STOP |
-| OBJ-005 | DONE-CI | Bounding-box büyümesi metre mesafesi diye sunulmuyor |
-| TTC-001 | PARTIAL-CI | Yaklaşma + yanal merkeze giriş + geometri + IMU risk skoru var; kalibre fiziksel TTC yok |
+| IMU-002 | DONE-CI | Görsel karar güveni IMU ile füzyon |
+| IMU-004 | DONE-CI | Eksik/stale sensör fail-safe |
+| OBJ-001..005 | DONE-CI | Generic tracking, yön, büyüme/yaklaşma; kalibrasyonsuz metre yok |
+| TTC-001 | PARTIAL-CI | Göreli yaklaşma/risk var; fiziksel TTC kalibrasyonu yok |
 | TTC-002 | DONE-CI | Dinamik merkez çarpışma koridoru |
-| DEC-001..004 | DONE-CI | INFO/CAUTION/STOP, fail-safe ve düşük güven dili |
-| DEC-005 | DONE-CI | AnnouncementGate ile STOP önceliği/cooldown |
-| A11Y-001..004 | PARTIAL-CI | Büyük kontroller + açıklamalar + ses/metin/titreşim; tam TalkBack cihaz testi bekliyor |
-| GROUND-001..005 | NOT-STARTED | v0.4 hedefi: zemin/serbest alan/merdiven/kaldırım/çukur çoklu kanıt |
-| DEPTH-001..002 | NOT-STARTED | v0.4/v0.5; kalibrasyonsuz metre söylenmeyecek |
-| VOICE-002 | NOT-STARTED | Sürekli yerel “Hey Rehber” |
+| GROUND-001 | DONE-CI | Alt-merkez yürüyüş koridoru zemin sürekliliği kanıtı |
+| GROUND-002..005 | PARTIAL-CI | Çoklu kanıt altyapısı var; semantik çukur/kaldırım/merdiven sınıfı cihaz/saha doğrulaması bekliyor |
+| DEPTH-001 | DEVICE-TEST | ARCore canlı Depth16 yolu kodlandı/CI geçti; gerçek cihaz Depth coverage testi bekliyor |
+| DEPTH-002 | DONE-CI | Kalibrasyon olmadan kullanıcıya metre söylenmiyor |
+| DEC-001..005 | DONE-CI | INFO/CAUTION/STOP, fail-safe, STOP önceliği/cooldown |
+| A11Y-001..004 | PARTIAL-CI | Büyük kontroller, açıklamalar, ses/metin/titreşim; TalkBack cihaz testi bekliyor |
+| HEALTH-001 | DONE-CI | Vision akış watchdog: stale kamera güvenli sayılmaz |
+| HEALTH-002 | DONE-CI | Uzun Depth kaybında CameraX fallback politikası |
+| VALID-001 | DONE-CI | Gate C CSV kayıt/özet altyapısı |
+| VALID-002 | DONE-CI | P95 karar gecikmesi + Depth coverage + fallback + termal ölçüm özeti |
+| VALID-003 | DONE-CI | Rapor FileProvider ile kullanıcı onayıyla paylaşılabilir |
+| VOICE-002 | NOT-STARTED | Sürekli yerel “Hey Rehber” wake-word |
 
 ## Release kapıları
 
-- **Gate A — CI:** unit test + debug APK başarılı olmalı.
-- **Gate B — algoritma:** yapay senaryolarda merkez yaklaşma STOP, yan küçük nesne INFO, koridora giren yan nesne CAUTION testleri geçmeli.
-- **Gate C — cihaz:** S24 Ultra kamera yönü, yanlış alarm, kaçırma, gecikme ve ısınma ölçülmeli.
+- **Gate A — CI:** unit test + debug APK + artifact başarılı olmalı.
+- **Gate B — algoritma:** sentetik merkez yaklaşma STOP, yan küçük nesne INFO, yandan koridora giriş CAUTION, zemin/depth çift-kanal davranışı ve stale-sensor testleri geçmeli.
+- **Gate C — cihaz:** gerçek cihazda ARCore↔CameraX handoff, Depth coverage, portre hizası, yanlış alarm/kaçırma, karar gecikmesi, ısınma ve 30 dk kararlılık ölçülmeli.
 - **Gate D — saha:** kontrollü kapalı alanda bastonlu senaryolar geçmeden “güvenilir yaya yardımcısı” iddiası yapılmaz.
 
-## v0.4 hedefi
+## v0.4 — zemin sürekliliği
 
-1. Yürünebilir alan maskesi için on-device segmentasyon bağlantı noktası.
-2. Zemin sürekliliği ve perspektif/geometri kanalı.
-3. Monoküler göreli derinlik bağlantı noktası.
-4. Çukur/aşağı basamak için en az iki bağımsız kanıt + IMU yönelimi şartı.
-5. Merdiven/kaldırım adaylarını semantik model doğrulamasına hazırlayan olay modeli.
-6. P95 algı+karar gecikmesi ölçümü.
+- Alt-merkez zemin sürekliliği, geniş yatay sınır, doku ve zamansal kalıcılık kanıtları.
+- Tek kare/gölge doğrudan STOP vermez.
+
+## v0.5 — Depth hazır füzyon
+
+- ARCore optional + Depth16 decoder + geometri analizörü.
+- Ground+Depth <=280 ms senkronize edilmeden çift-kanal STOP yok.
+
+## v0.6 — canlı ARCore Depth16
+
+- ARCore kamera CPU görüntüsü + canlı Depth16 + ortak nesne/zemin çekirdeği.
+- CameraX→ARCore kontrollü handoff; ARCore hata verirse CameraX fallback.
+- ARCore resmi koordinat dönüşümüyle CPU kamera/Depth crop hizası.
+
+## v0.7 — Gate C cihaz doğrulama ve çalışma sağlığı
+
+- `VisionHealthWatchdog`: 1.8 s vision stale => STOP/fail-safe; uzun Depth kaybı => fallback önerisi.
+- Gate C kayıt: mod geçişleri, observation yaşları, IMU kararlılığı, Depth coverage/confidence, zemin/nesne metrikleri, CAUTION/STOP, fallback, P95 karar gecikmesi, batarya sıcaklığı ve Android thermal status.
+- CSV yalnız uygulama özel cache alanında tutulur; dışarı ancak kullanıcı “Raporu Paylaş” dediğinde FileProvider ile çıkar.
+- Gate C cihaz sonucu hâlâ `DEVICE-TEST`; CI gerçek telefon sensörünü emüle etmez.
