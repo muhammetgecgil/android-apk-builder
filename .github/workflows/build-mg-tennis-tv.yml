@@ -29,13 +29,14 @@ jobs:
           test -s $A/product-core-v41.js
           test -s $A/gameplay-v42.js
           test -s $A/gameplay-v43.js
+          test -s $A/gameplay-v44.js
       - name: Inject patches
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('mg-tennis-tv/app/src/main/assets/index.html'); s=p.read_text()
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];')
-          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','gameplay-v36.js','clean-core-v37.js','gameplay-v39.js','gameplay-v40.js','product-core-v41.js','gameplay-v42.js','gameplay-v43.js']
+          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','gameplay-v36.js','clean-core-v37.js','gameplay-v39.js','gameplay-v40.js','product-core-v41.js','gameplay-v42.js','gameplay-v43.js','gameplay-v44.js']
           for obsolete in ['match-start-v34.js','role-start-v38.js']:
               s=s.replace(f'<script src="{obsolete}"></script>','')
           for fn in scripts:
@@ -51,17 +52,15 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v4.3 release
+      - name: Verify v4.4 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='43'"
-          unzip -p $APK assets/index.html | grep -q 'product-core-v41.js'
-          unzip -p $APK assets/index.html | grep -q 'gameplay-v42.js'
-          unzip -p $APK assets/index.html | grep -q 'gameplay-v43.js'
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='44'"
+          unzip -p $APK assets/index.html | grep -q 'gameplay-v44.js'
           ! unzip -p $APK assets/index.html | grep -q 'role-start-v38.js'
           unzip -l $APK | grep -q assets/v33_head.glb
-          cp $APK MG_Tennis_TV_v4.3_PC1_Reconnect_Stability.apk
+          cp $APK MG_Tennis_TV_v4.4_PC1_Racket_Contact_TV_Clean.apk
       - uses: actions/upload-artifact@v4
-        with: { name: MG-Tennis-TV-v4.3-PC1-Reconnect-Stability-APK, path: MG_Tennis_TV_v4.3_PC1_Reconnect_Stability.apk, retention-days: 30 }
+        with: { name: MG-Tennis-TV-v4.4-PC1-Racket-Contact-TV-Clean-APK, path: MG_Tennis_TV_v4.4_PC1_Racket_Contact_TV_Clean.apk, retention-days: 30 }
