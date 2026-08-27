@@ -8,6 +8,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 import androidx.core.content.ContextCompat;
+import com.mgecgil.seslirehber.core.VisionTextContext;
 import java.lang.ref.WeakReference;
 import java.text.Normalizer;
 import java.util.List;
@@ -15,8 +16,8 @@ import java.util.Locale;
 import static com.mgecgil.seslirehber.navigation.NavigationModels.*;
 
 /**
- * M3 pedestrian-navigation coordinator: geocode -> spoken confirmation -> precise location ->
- * pedestrian route -> maneuver progress -> persistent off-route reroute.
+ * M4 pedestrian-navigation coordinator: confirmed destination -> precise location -> pedestrian
+ * route -> safety-arbitrated maneuvers -> final-approach OCR handoff -> persistent off-route reroute.
  */
 public final class NavigationCoordinator implements AutoCloseable {
     public interface Output {
@@ -65,7 +66,7 @@ public final class NavigationCoordinator implements AutoCloseable {
             return;
         }
         final int requestGeneration = ++generation;
-        stopRouteOnly();
+        stopRouteOnly(false);
         pendingCandidate = null;
         confirmedDestination = null;
         NavigationVoiceBridge.clear(voiceHandler);
@@ -167,6 +168,12 @@ public final class NavigationCoordinator implements AutoCloseable {
             output.speakSystem("Hassas konum alınamadı. GPS ve konum hizmetlerini aç.");
             return;
         }
+        boolean serviceStarted = NavigationForegroundService.start(
+                appContext,
+                "Hedef: " + spokenLabel(confirmedDestination.label()));
+        if (!serviceStarted) {
+            output.speakSystem("Ekran kapalı navigasyon servisi başlatılamadı. Bu yürüyüşte uygulamayı açık tut.");
+        }
         output.speakSystem("Konum alınıyor. Rota, yeterli GPS doğruluğu oluşunca hesaplanacak.");
         if (lastFix != null) maybeRequestRoute(lastFix, false);
     }
@@ -185,9 +192,16 @@ public final class NavigationCoordinator implements AutoCloseable {
                 case PREPARE, MANEUVER -> output.speakNavigation(event.speech());
                 case OFF_ROUTE -> output.speakNavigation(event.speech());
                 case REROUTE_REQUEST -> maybeRequestRoute(fix, true);
-                case ARRIVED -> {
+                case FINAL_APPROACH -> {
+                    VisionTextContext.activateFinalApproach(currentRoute.destinationLabel(), System.currentTimeMillis());
+                    NavigationForegroundService.update(appContext,
+                            "Son yaklaşım — giriş ve kapı numarası doğrulanıyor");
                     output.speakNavigation(event.speech());
-                    stopRouteOnly();
+                }
+                case ARRIVED -> {
+                    VisionTextContext.activateFinalApproach(currentRoute.destinationLabel(), System.currentTimeMillis());
+                    output.speakNavigation(event.speech());
+                    stopRouteOnly(true);
                     confirmedDestination = null;
                     NavigationVoiceBridge.clear(voiceHandler);
                 }
@@ -209,9 +223,12 @@ public final class NavigationCoordinator implements AutoCloseable {
                     routeRequestInFlight = false;
                     if (closed || confirmedDestination == null) return;
                     currentRoute = route;
+                    VisionTextContext.deactivateFinalApproach();
                     progress.setRoute(route);
                     int meters = (int) Math.round(route.distanceMeters());
                     int minutes = Math.max(1, (int) Math.round(route.durationSeconds() / 60d));
+                    NavigationForegroundService.update(appContext,
+                            "Yaya rotası aktif — " + readableDistance(meters) + " — " + spokenLabel(route.destinationLabel()));
                     output.speakNavigation((reroute ? "Yeni rota hazır. " : "Yaya rotası hazır. ")
                             + "Yaklaşık " + readableDistance(meters) + ", " + minutes + " dakika. "
                             + "Engel ve zemin uyarıları rota talimatlarından önceliklidir.");
@@ -235,15 +252,17 @@ public final class NavigationCoordinator implements AutoCloseable {
         NavigationVoiceBridge.clear(voiceHandler);
         pendingCandidate = null;
         confirmedDestination = null;
-        stopRouteOnly();
+        stopRouteOnly(false);
         if (speech != null && !speech.isEmpty()) output.speakSystem(speech);
     }
 
-    private void stopRouteOnly() {
+    private void stopRouteOnly(boolean keepFinalApproach) {
         locationTracker.stop();
         currentRoute = null;
         routeRequestInFlight = false;
         progress.setRoute(null);
+        NavigationForegroundService.stop(appContext);
+        if (!keepFinalApproach) VisionTextContext.deactivateFinalApproach();
     }
 
     private static String readableDistance(int meters) {
@@ -280,6 +299,8 @@ public final class NavigationCoordinator implements AutoCloseable {
         generation++;
         NavigationVoiceBridge.clear(voiceHandler);
         mainHandler.removeCallbacksAndMessages(null);
+        NavigationForegroundService.stop(appContext);
+        VisionTextContext.deactivateFinalApproach();
         locationTracker.close();
         routeClient.close();
         geocoder.close();
