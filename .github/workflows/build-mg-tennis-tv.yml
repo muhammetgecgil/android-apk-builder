@@ -24,17 +24,18 @@ jobs:
           curl --retry 4 -fL $BASE/vitruvian_hair_rigged.glb -o $A/v33_hair.glb
           for f in vit_body_bc.png vit_body_n.png vit_body_rough.png vit_face_bc.png vit_face_n.png vit_face_rough.png vit_fabric_n.png vit_hair_ao.png vit_hair_atlas.png vit_hair_diffuse.png vit_hair_normal.png vit_hair_opacity.png vit_iris.png vit_lash_atlas.png vit_mouth.png vit_sclera.png; do curl --retry 4 -fL $BASE/$f -o $A/$f; done
           test -s $A/clean-core-v37.js
-          test -s $A/role-start-v38.js
           test -s $A/gameplay-v39.js
           test -s $A/gameplay-v40.js
+          test -s $A/product-core-v41.js
       - name: Inject patches
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('mg-tennis-tv/app/src/main/assets/index.html'); s=p.read_text()
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];')
-          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','gameplay-v36.js','clean-core-v37.js','role-start-v38.js','gameplay-v39.js','gameplay-v40.js']
-          s=s.replace('<script src="match-start-v34.js"></script>','')
+          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','gameplay-v36.js','clean-core-v37.js','gameplay-v39.js','gameplay-v40.js','product-core-v41.js']
+          for obsolete in ['match-start-v34.js','role-start-v38.js']:
+              s=s.replace(f'<script src="{obsolete}"></script>','')
           for fn in scripts:
               if fn not in s:s=s.replace('</body>',f'<script src="{fn}"></script></body>')
           p.write_text(s)
@@ -48,15 +49,15 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v4.0 release
+      - name: Verify v4.1 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='40'"
-          unzip -p $APK assets/index.html | grep -q 'gameplay-v40.js'
-          unzip -p $APK assets/index.html | grep -q 'gameplay-v39.js'
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='41'"
+          unzip -p $APK assets/index.html | grep -q 'product-core-v41.js'
+          ! unzip -p $APK assets/index.html | grep -q 'role-start-v38.js'
           unzip -l $APK | grep -q assets/v33_head.glb
-          cp $APK MG_Tennis_TV_v4.0_Serve_State_Opponent_Motion.apk
+          cp $APK MG_Tennis_TV_v4.1_Four_Mode_Product_Core.apk
       - uses: actions/upload-artifact@v4
-        with: { name: MG-Tennis-TV-v4.0-Serve-State-Opponent-Motion-APK, path: MG_Tennis_TV_v4.0_Serve_State_Opponent_Motion.apk, retention-days: 30 }
+        with: { name: MG-Tennis-TV-v4.1-Four-Mode-Product-Core-APK, path: MG_Tennis_TV_v4.1_Four_Mode_Product_Core.apk, retention-days: 30 }
