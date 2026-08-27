@@ -76,11 +76,11 @@ jobs:
       - name: Build debug APK with OCCT exact CAD kernel
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk Structural_AI_Static_v1.11.0_PRODUCTION_MESH_GATE_DEBUG.apk
+        run: cp app/build/outputs/apk/debug/app-debug.apk Structural_AI_Static_v1.11.1_ZIP_CAD_BROWSER_DEBUG.apk
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Structural-AI-Static-v1.11.0-PRODUCTION-MESH-GATE-DEBUG
-          path: structural-ai-static/Structural_AI_Static_v1.11.0_PRODUCTION_MESH_GATE_DEBUG.apk
+          name: Structural-AI-Static-v1.11.1-ZIP-CAD-BROWSER-DEBUG
+          path: structural-ai-static/Structural_AI_Static_v1.11.1_ZIP_CAD_BROWSER_DEBUG.apk
           if-no-files-found: error
           retention-days: 30
