@@ -51,6 +51,7 @@ public final class Display3DActivity extends Activity {
     private BluetoothSocket socket;
     private BufferedWriter writer;
     private Jet3DView jetView;
+    private RunwayHudView runwayView;
     private TextView missionHud;
     private long lastSimNs;
 
@@ -65,6 +66,8 @@ public final class Display3DActivity extends Activity {
                 dynamics.step(simState, simControls, dt);
                 roll=(float)simState.rollDeg; pitch=(float)simState.pitchDeg; yaw=(float)simState.headingDeg; throttle=(float)simState.throttle;
                 jetView.setTelemetry(roll,pitch,yaw,throttle,50f,0,true);
+                jetView.setSimulationState((float)simState.gearPosition,(float)simState.mainStrutCompression01,(float)simState.noseStrutCompression01,(float)simState.brake01,simState.onGround);
+                runwayView.setFlightState(simState.altitudeM,simState.trueAirspeedMps,simState.onGround,mission.getPhase().name());
                 updateMissionHud();
             }
             simHandler.postDelayed(this,20);
@@ -79,8 +82,10 @@ public final class Display3DActivity extends Activity {
         mission.reset(simState);
         simControls.gearDown=true;
         jetView = new Jet3DView(this);
+        runwayView = new RunwayHudView(this);
         FrameLayout root = new FrameLayout(this);
         root.addView(jetView, new FrameLayout.LayoutParams(-1,-1));
+        root.addView(runwayView, new FrameLayout.LayoutParams(-1,-1));
 
         missionHud=new TextView(this);
         missionHud.setTextColor(0xffffffff); missionHud.setTextSize(14f); missionHud.setPadding(dp(12),dp(8),dp(12),dp(8));
@@ -91,6 +96,8 @@ public final class Display3DActivity extends Activity {
         FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(dp(96),dp(48), Gravity.TOP|Gravity.RIGHT); bp.setMargins(0,10,10,0); root.addView(back,bp);
         back.setOnClickListener(v -> finish());
         setContentView(root);
+        jetView.setSimulationState((float)simState.gearPosition,0f,0f,0f,true);
+        runwayView.setFlightState(0,0,true,mission.getPhase().name());
         updateMissionHud();
         simHandler.post(simTick);
         requestBtThenStart();
@@ -99,7 +106,11 @@ public final class Display3DActivity extends Activity {
     private void updateMissionHud(){
         String phase=mission.getPhase().name().replace('_',' ');
         String extra=mission.getPhase()== AutonomousFlightMission.Phase.ORBIT ? String.format(Locale.US,"  TUR %.0f/300 s",mission.getOrbitTimeSec()) : "";
-        missionHud.setText(String.format(Locale.US,"AUTO %s%s\nALT %.0f m   SPD %.0f m/s   GEAR %.0f%%",phase,extra,simState.altitudeM,simState.trueAirspeedMps,simState.gearPosition*100.0));
+        missionHud.setText(String.format(Locale.US,
+                "AUTO %s%s\nALT %.0f m   SPD %.0f m/s   HDG %03.0f\nGEAR %.0f%%   BRK %.0f%%   WOW %s\nSTRUT M %.0f%% N %.0f%%   SINK %.1f m/s",
+                phase,extra,simState.altitudeM,simState.trueAirspeedMps,simState.headingDeg,
+                simState.gearPosition*100.0,simState.brake01*100.0,simState.onGround?"GROUND":"AIR",
+                simState.mainStrutCompression01*100.0,simState.noseStrutCompression01*100.0,simState.touchdownSinkMps));
     }
 
     private void requestBtThenStart(){
