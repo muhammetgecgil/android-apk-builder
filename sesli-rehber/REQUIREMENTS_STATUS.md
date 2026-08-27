@@ -82,4 +82,5 @@ Bu dosya `PRODUCT_REQUIREMENTS.md` ve `GUIDE_MATURITY_ROADMAP.md` ile birlikte o
 - `SceneSummaryState`: yalnız taze algı kanıtlarından kısa, semantik iddiası sınırlı çevre özeti.
 - Bundled ML Kit OCR hem CameraX hem ARCore kamera yolunda bir sonraki kareyi okuyabilir; safety luma/zemin heartbeat’i OCR sırasında korunur.
 - Hedef metni M3 rota motoruna hazırlanır; rota olmadığı halde yönlendirme başlamış gibi konuşulmaz.
+- **Final Gate A:** GitHub Actions run `33102884137`, head `0f9cb09d0f177017e6aa74d1d67d60648090e0fe`: unit test SUCCESS, debug APK SUCCESS, artifact SUCCESS.
 - Gate C / saha sonucu hâlâ `DEVICE-TEST`; CI gerçek telefon, ses modeli ve gerçek yürüyüş güvenilirliğini kanıtlamaz.
