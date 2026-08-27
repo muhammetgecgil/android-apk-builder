@@ -15,7 +15,8 @@ public final class RegionalHotspotAnalyzer {
         public final double p95Change,p99Change,centroidShiftM;
         public final boolean regionalConverged;
         public final boolean isolatedPeakSuspected;
-        Result(Stats a,Stats b,double c95,double c99,double shift,boolean ok,boolean isolated){previous=a;current=b;p95Change=c95;p99Change=c99;centroidShiftM=shift;regionalConverged=ok;isolatedPeakSuspected=isolated;}
+        public final String decision;
+        Result(Stats a,Stats b,double c95,double c99,double shift,boolean ok,boolean isolated,String d){previous=a;current=b;p95Change=c95;p99Change=c99;centroidShiftM=shift;regionalConverged=ok;isolatedPeakSuspected=isolated;decision=d;}
     }
     private RegionalHotspotAnalyzer(){}
 
@@ -25,12 +26,26 @@ public final class RegionalHotspotAnalyzer {
         Stats ps=stats(p.mesh,p.fem),cs=stats(c.mesh,c.fem);
         double c95=rel(ps.p95Pa,cs.p95Pa),c99=rel(ps.p99Pa,cs.p99Pa);
         double shift=dist(ps.highStressCentroid,cs.highStressCentroid);
-        double diag=diag(c.mesh);
-        boolean location=shift<=Math.max(diag*0.06,1e-9);
-        boolean ok=c95<=0.08&&c99<=0.12&&location;
+        double diag=Math.max(diag(c.mesh),1e-12);
+        double shiftRatio=shift/diag;
+
+        // Standard regional gate.
+        boolean standard=c95<=0.08&&c99<=0.12&&shiftRatio<=0.06;
+        // Strong-field gate: when both robust percentiles are already highly stable, allow modest
+        // centroid movement because the top-5% population changes as local h-refinement inserts new TETs.
+        boolean strongField=c95<=0.03&&c99<=0.05&&shiftRatio<=0.10;
+        // Intermediate gate for normally stable fields.
+        boolean stableField=c95<=0.05&&c99<=0.08&&shiftRatio<=0.08;
+        boolean ok=standard||stableField||strongField;
+
         double rawChange=rel(ps.maxPa,cs.maxPa);
-        boolean isolated=ok&&rawChange>0.18&&cs.maxPa>cs.p99Pa*1.20;
-        return new Result(ps,cs,c95,c99,shift,ok,isolated);
+        // A growing single-element peak is treated as a singularity advisory, not as failure of a
+        // demonstrably converged regional field. Capacity must use a robust/structural stress measure,
+        // never the singular raw maximum.
+        boolean isolated=ok&&rawChange>0.12&&cs.maxPa>cs.p99Pa*1.18;
+        String d=ok?(isolated?"REGIONAL_CONVERGED / RAW_PEAK_SINGULAR_ADVISORY":"REGIONAL_CONVERGED"):
+                "REGIONAL_UNRESOLVED";
+        return new Result(ps,cs,c95,c99,shift,ok,isolated,d);
     }
 
     public static Stats stats(TetMeshData mesh,StaticFemSolver.Result fem){
