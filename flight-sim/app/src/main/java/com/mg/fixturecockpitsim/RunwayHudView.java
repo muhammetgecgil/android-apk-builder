@@ -6,14 +6,16 @@ import android.graphics.Paint;
 import android.graphics.Path;
 import android.view.View;
 
-/** Lightweight runway/ground perspective cue driven by the autonomous mission state. */
+/** Lightweight runway/ground perspective cue plus scenic demo terrain. */
 public final class RunwayHudView extends View {
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path runway = new Path();
+    private final Path mountains = new Path();
     private volatile float altitudeM, speedMps;
-    private volatile boolean onGround;
+    private volatile boolean onGround, demoMode;
     private volatile String phase = "PREFLIGHT";
+    private volatile float demoProgressSec;
     private float scroll;
     private long lastNs;
 
@@ -24,6 +26,9 @@ public final class RunwayHudView extends View {
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeCap(Paint.Cap.ROUND);
     }
+
+    public void setDemoMode(boolean enabled){demoMode=enabled;postInvalidateOnAnimation();}
+    public void setDemoProgress(double sec){demoProgressSec=(float)Math.max(0,sec);postInvalidateOnAnimation();}
 
     public void setFlightState(double altitude, double speed, boolean ground, String missionPhase) {
         altitudeM=(float)Math.max(0,altitude);
@@ -45,13 +50,17 @@ public final class RunwayHudView extends View {
         float near=1f-Math.min(1f,alt/1200f);
         float horizon=h*(.50f + .08f*Math.min(1f,alt/1000f));
 
-        // Subtle terrain/horizon cue in every airborne phase.
-        fill.setColor(0x20384a38);
-        c.drawRect(0,horizon,w,h,fill);
-        line.setColor(0x554d6b78); line.setStrokeWidth(2f);
-        c.drawLine(0,horizon,w,horizon,line);
+        // Sky / horizon / terrain base.
+        fill.setColor(0x14344f64); c.drawRect(0,0,w,horizon,fill);
+        fill.setColor(0x30384a38); c.drawRect(0,horizon,w,h,fill);
+        line.setColor(0x554d6b78); line.setStrokeWidth(2f); c.drawLine(0,horizon,w,horizon,line);
 
-        if(!runwayPhase && !onGround) return;
+        if(demoMode && phase.contains("ORBIT")) drawScenery(c,w,h,horizon);
+
+        if(!runwayPhase && !onGround) {
+            if(speedMps>1f) postInvalidateOnAnimation();
+            return;
+        }
 
         float farHalf=w*(.018f + .012f*near);
         float nearHalf=w*(onGround?.40f:(.15f+.22f*near));
@@ -64,7 +73,6 @@ public final class RunwayHudView extends View {
         line.setColor(0xccd7dde0); line.setStrokeWidth(Math.max(2f,w*.003f));
         c.drawLine(cx-farHalf,farY,cx-nearHalf,nearY,line); c.drawLine(cx+farHalf,farY,cx+nearHalf,nearY,line);
 
-        // Perspective centerline dashes; scroll produces runway-speed motion on the ground.
         for(int i=0;i<13;i++){
             float q=(i+scroll)/13f; q=q-(float)Math.floor(q);
             float p=q*q;
@@ -76,7 +84,6 @@ public final class RunwayHudView extends View {
             c.drawLine(cx,y,cx,Math.min(nearY,y+dashH),line);
         }
 
-        // Threshold bars become prominent in flare/rollout.
         if(phase.contains("APPROACH")||phase.contains("FLARE")||phase.contains("ROLLOUT")){
             float p=.78f+.16f*near, y=farY+(nearY-farY)*p;
             float half=farHalf+(nearHalf-farHalf)*p;
@@ -84,5 +91,41 @@ public final class RunwayHudView extends View {
             for(int i=-4;i<=4;i+=2){float x=cx+i*half*.105f;c.drawLine(x,y,x,y+18f+30f*near,line);}
         }
         if(speedMps>1f) postInvalidateOnAnimation();
+    }
+
+    private void drawScenery(Canvas c,int w,int h,float horizon){
+        float cycle=(demoProgressSec%75f)/75f;
+        float offset=(cycle*1.8f-.9f)*w;
+
+        // Layered mountains moving slowly under the aircraft.
+        mountains.reset(); mountains.moveTo(-w*.2f-offset,horizon+h*.08f);
+        mountains.lineTo(w*.08f-offset,horizon-h*.08f);
+        mountains.lineTo(w*.25f-offset,horizon+h*.04f);
+        mountains.lineTo(w*.48f-offset,horizon-h*.12f);
+        mountains.lineTo(w*.72f-offset,horizon+h*.05f);
+        mountains.lineTo(w*1.08f-offset,horizon-h*.06f);
+        mountains.lineTo(w*1.3f-offset,horizon+h*.10f); mountains.lineTo(w*1.3f,h); mountains.lineTo(-w*.3f,h); mountains.close();
+        fill.setColor(0x704d5b4a); c.drawPath(mountains,fill);
+
+        // Water / valley segment.
+        float waterTop=horizon+h*.18f;
+        fill.setColor(0x50355f73); c.drawRect(0,waterTop,w,h,fill);
+        line.setColor(0x665e91a3); line.setStrokeWidth(2f);
+        for(int i=0;i<6;i++){float y=waterTop+i*h*.045f; c.drawLine(0,y,w,y,line);}
+
+        // Small city/settlement silhouettes to make the demo feel like a tour.
+        fill.setColor(0x70424a47);
+        float cityX=w*(.15f+.60f*((demoProgressSec%110f)/110f));
+        for(int i=0;i<11;i++){
+            float bw=w*(.012f+(i%3)*.004f), bh=h*(.035f+(i%4)*.012f);
+            float x=cityX+i*w*.025f, y=horizon+h*.13f-bh;
+            c.drawRect(x,y,x+bw,y+bh,fill);
+        }
+
+        line.setStyle(Paint.Style.FILL); line.setColor(0xb8ffffff); line.setTextSize(Math.max(20f,w*.022f));
+        String scene;
+        float q=demoProgressSec%300f;
+        if(q<75)scene="DAĞ ROTASI"; else if(q<150)scene="VADİ / GÖL"; else if(q<225)scene="ŞEHİR ÜZERİ"; else scene="DÖNÜŞ ROTASI";
+        c.drawText(scene,w*.04f,h*.88f,line); line.setStyle(Paint.Style.STROKE);
     }
 }
