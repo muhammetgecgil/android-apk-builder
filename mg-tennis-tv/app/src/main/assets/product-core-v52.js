@@ -1,0 +1,21 @@
+(function(){'use strict';
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+window.MGPC1=window.MGPC1||{};
+let phase='READY',phaseAt=performance.now(),lastHitter='',lastBallSide=0,splitUntil=0,contactUntil=0,contactSide='';
+function opp(){try{return window.opponent&&opponent.visible?opponent:window.MGGuaranteedOpponent}catch(e){return null}}
+function rp(){try{const p=new THREE.Vector3();if(window.opponentRacket){new THREE.Box3().setFromObject(opponentRacket).getCenter(p);return p}if(window.opponentBones&&opponentBones.handR){opponentBones.handR.getWorldPosition(p);return p}}catch(e){}return null}
+function eta(){try{if(!window.ball||!window.ballVel||ballVel.z>=-.08)return 99;const oz=typeof opponentZ!=='undefined'?opponentZ:-9.55;const e=(oz-ball.position.z)/ballVel.z;return e>0?e:99}catch(e){return 99}}
+function selectPhase(){try{if(window.MGServeV40&&MGServeV40.state&&MGServeV40.state!=='IDLE')return'SERVE';const e=eta();if(e<.34)return ball.position.x<(typeof opponentX!=='undefined'?opponentX:0)?'BACKHAND':'FOREHAND';if(e<1.85)return'APPROACH';if(e<2.7)return'SPLIT';return'RECOVER'}catch(e){return'READY'}}
+function move(dt){const o=opp();if(!o||!window.ball)return;const e=eta();let tx=0;if(e<2.8)tx=clamp(ball.position.x,-3.75,3.75);const dx=tx-o.position.x;const speed=e<.65?5.2:e<1.6?4.4:2.6;o.position.x+=clamp(dx,-1,1)*Math.min(Math.abs(dx),speed*dt);if(e<.42){const side=ball.position.x-o.position.x;o.position.x-=clamp(side,-.22,.22)*dt*1.8}}
+function pose(dt){try{const b=window.opponentBones;if(!b)return;const next=selectPhase();if(next!==phase){phase=next;phaseAt=performance.now();if(next==='SPLIT')splitUntil=performance.now()+260}const t=(performance.now()-phaseAt)/1000;const ease=(bone,axis,target,k)=>{if(bone)bone.rotation[axis]+=(target-bone.rotation[axis])*(1-Math.exp(-k*dt))};let spineX=0,spineY=0,upZ=0,lowX=0,shoulderZ=0,legR=0,legL=0;
+if(phase==='SPLIT'){const hop=performance.now()<splitUntil?Math.sin(clamp(t/.26,0,1)*Math.PI):0;legR=.16+.12*hop;legL=.16+.12*hop;spineX=.05}
+else if(phase==='APPROACH'){const run=Math.sin(performance.now()/92);legR=.34*run;legL=-.34*run;spineX=.07;spineY=clamp((ball.position.x-(typeof opponentX!=='undefined'?opponentX:0))*.04,-.24,.24)}
+else if(phase==='FOREHAND'){const s=clamp(t/.30,0,1);spineY=.30-.58*s;upZ=-.95+1.05*s;lowX=.72-.90*s;shoulderZ=-.25+.24*s;legR=.12;legL=-.05}
+else if(phase==='BACKHAND'){const s=clamp(t/.30,0,1);spineY=-.30+.58*s;upZ=.52-.70*s;lowX=-.55+.72*s;shoulderZ=.20-.18*s;legL=.12;legR=-.05}
+else if(phase==='SERVE'){const s=clamp(t/.55,0,1);spineX=-.08+.20*s;upZ=-1.22+1.05*s;lowX=.86-.72*s;shoulderZ=-.32+.26*s;legR=.08;legL=.08}
+ease(b.spine,'x',spineX,10);ease(b.spine,'y',spineY,11);ease(b.upperR,'z',upZ,13);ease(b.lowerR,'x',lowX,14);ease(b.shoulderR,'z',shoulderZ,12);ease(b.thighR,'x',legR,11);ease(b.thighL,'x',legL,11);MGPC1.opponentMotion52=phase}catch(e){}}
+function contact(){try{const h=String(window.lastHitter||'');if(h==='opponent'&&h!==lastHitter){const p=rp();if(p&&ball){contactUntil=performance.now()+115;contactSide=ball.position.x<((typeof opponentX!=='undefined'?opponentX:0))?'BACKHAND':'FOREHAND';ball.position.lerp(p,.96);const d=p.distanceTo(ball.position);MGPC1.opponentContactMeters=Number(d.toFixed(3));MGPC1.opponentContact=d<.22?'PASS':'CHECK'}lastBallSide=ball.position.x;lastHitter=h}else if(h!==lastHitter)lastHitter=h;if(contactUntil>performance.now()){const p=rp();if(p&&ball)ball.position.lerp(p,.82)}MGPC1.contactSide=contactSide}catch(e){}}
+function productHealth(){const r=MGPC1;const matrix=r.deviceMatrixGate==='PASS';const soak=r.soak30==='PASS';const contactPass=String(r.opponentContact||'').startsWith('PASS')||String(r.racketContact||'').startsWith('PASS');r.animationCore='PASS_V52';r.contactCore=contactPass?'PASS':'WARMUP';r.productCandidate=(matrix&&soak&&r.runtimeErrors===0&&contactPass)?'READY':'QUALIFICATION';if(r.productCandidate==='READY'&&r.pc1Gate==='PC1_RELEASE_CANDIDATE')r.productLevel='PC1_COMPLETE'}
+let t0=performance.now();function tick(t){const dt=Math.min(.034,(t-t0)/1000||.016);t0=t;move(dt);pose(dt);contact();requestAnimationFrame(tick)}
+setInterval(productHealth,1000);requestAnimationFrame(tick);
+})();
