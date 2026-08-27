@@ -35,6 +35,7 @@ Bu hedef, yalnız CI veya kamera demosuyla tamamlanmış sayılmaz. Her seviye k
 - CameraX ve ARCore CPU kamera yolunda isteğe bağlı bundled ML Kit OCR (`text-recognition:16.0.1`)
 - hedef/adres komutundan destination çıkarımı; hedef M3 rota motoruna hazırlanır fakat rota yokken navigasyon başlamış gibi davranılmaz
 - safety konuşması OCR/sahne/navigasyon konuşmasından yüksek öncelikte kalır
+- final head `0b75f7decc51437ea897fd7f4215d4c44e402de1` için GitHub Actions run `33103209738`: unit tests, debug APK ve artifact SUCCESS
 
 **Sınır:** Android platform `SpeechRecognizer` gerçek düşük-güç hotword DSP değildir ve Android dokümanı sürekli tanıma için tasarlanmadığını belirtir. Bu nedenle M2 kodu "düşük güç wake-word tamam" iddiası yapmaz; gerçek cihaz pil/ısınma, Türkçe yerel model ve wake doğruluk testi gerekir.
 
