@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 47
-        versionName = "1.14.0-contact-evidence-gate"
+        versionCode = 48
+        versionName = "1.14.1-coulomb-contact"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
