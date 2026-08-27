@@ -26,13 +26,14 @@ jobs:
           test -s $A/clean-core-v37.js
           test -s $A/role-start-v38.js
           test -s $A/gameplay-v39.js
+          test -s $A/gameplay-v40.js
       - name: Inject patches
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('mg-tennis-tv/app/src/main/assets/index.html'); s=p.read_text()
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];')
-          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','gameplay-v36.js','clean-core-v37.js','role-start-v38.js','gameplay-v39.js']
+          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','gameplay-v36.js','clean-core-v37.js','role-start-v38.js','gameplay-v39.js','gameplay-v40.js']
           s=s.replace('<script src="match-start-v34.js"></script>','')
           for fn in scripts:
               if fn not in s:s=s.replace('</body>',f'<script src="{fn}"></script></body>')
@@ -47,15 +48,15 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v3.9 release
+      - name: Verify v4.0 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='39'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='40'"
+          unzip -p $APK assets/index.html | grep -q 'gameplay-v40.js'
           unzip -p $APK assets/index.html | grep -q 'gameplay-v39.js'
-          unzip -p $APK assets/index.html | grep -q 'role-start-v38.js'
           unzip -l $APK | grep -q assets/v33_head.glb
-          cp $APK MG_Tennis_TV_v3.9_Bluetooth_Realism_Polish.apk
+          cp $APK MG_Tennis_TV_v4.0_Serve_State_Opponent_Motion.apk
       - uses: actions/upload-artifact@v4
-        with: { name: MG-Tennis-TV-v3.9-Bluetooth-Realism-Polish-APK, path: MG_Tennis_TV_v3.9_Bluetooth_Realism_Polish.apk, retention-days: 30 }
+        with: { name: MG-Tennis-TV-v4.0-Serve-State-Opponent-Motion-APK, path: MG_Tennis_TV_v4.0_Serve_State_Opponent_Motion.apk, retention-days: 30 }
