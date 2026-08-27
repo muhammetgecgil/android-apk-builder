@@ -1,9 +1,14 @@
 package com.mgecgil.seslirehber;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.SystemClock;
 import android.view.Gravity;
 import android.view.Surface;
 import android.view.View;
@@ -19,10 +24,12 @@ import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
+import androidx.core.content.FileProvider;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.mgecgil.seslirehber.core.AnnouncementGate;
 import com.mgecgil.seslirehber.core.ArCoreDepthCapability;
 import com.mgecgil.seslirehber.core.ArCoreLiveVisionEngine;
+import com.mgecgil.seslirehber.core.GateCRecorder;
 import com.mgecgil.seslirehber.core.GroundDepthSynchronizer;
 import com.mgecgil.seslirehber.core.GuidanceModels.DepthObservation;
 import com.mgecgil.seslirehber.core.GuidanceModels.GroundDepthEvidence;
@@ -36,7 +43,9 @@ import com.mgecgil.seslirehber.core.OfflineIntentParser;
 import com.mgecgil.seslirehber.core.SafetyGate;
 import com.mgecgil.seslirehber.core.SensorFusionManager;
 import com.mgecgil.seslirehber.core.VisionFusionAnalyzer;
+import com.mgecgil.seslirehber.core.VisionHealthWatchdog;
 import com.mgecgil.seslirehber.core.VoiceCommandController;
+import java.io.File;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -46,6 +55,9 @@ public final class MainActivity extends ComponentActivity {
     private PreviewView previewView;
     private TextView statusView;
     private TextView depthStatusView;
+    private TextView gateCStatusView;
+    private Button gateCButton;
+    private Button shareReportButton;
     private GuidanceSpeaker speaker;
     private VoiceCommandController voice;
     private SensorFusionManager sensors;
@@ -53,18 +65,31 @@ public final class MainActivity extends ComponentActivity {
     private ArCoreLiveVisionEngine arCoreEngine;
     private ProcessCameraProvider cameraProvider;
     private ExecutorService cameraExecutor;
+    private GateCRecorder gateCRecorder;
 
     private final SafetyGate safetyGate = new SafetyGate();
     private final AnnouncementGate announcementGate = new AnnouncementGate();
     private final OfflineIntentParser intentParser = new OfflineIntentParser();
     private final GroundDepthSynchronizer groundDepthSynchronizer = new GroundDepthSynchronizer();
+    private final VisionHealthWatchdog visionWatchdog = new VisionHealthWatchdog();
+    private final Handler healthHandler = new Handler(Looper.getMainLooper());
 
     private volatile boolean guidanceEnabled = true;
     private volatile ArCoreDepthCapability.Result depthCapability;
     private volatile VisionMode visionMode = VisionMode.STARTING;
     private volatile boolean arCoreSwitchAttempted;
     private volatile boolean destroyed;
+    private boolean watchdogRecoveryInProgress;
+    private VisionHealthWatchdog.Health lastWatchdogHealth = VisionHealthWatchdog.Health.STARTING;
     private long lastVisionErrorMs;
+
+    private final Runnable healthTick = new Runnable() {
+        @Override public void run() {
+            if (destroyed) return;
+            checkVisionHealth();
+            healthHandler.postDelayed(this, 500L);
+        }
+    };
 
     private final ActivityResultLauncher<String[]> permissions = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -83,6 +108,7 @@ public final class MainActivity extends ComponentActivity {
         super.onCreate(state);
         speaker = new GuidanceSpeaker(this);
         sensors = new SensorFusionManager(this);
+        gateCRecorder = new GateCRecorder(this);
         cameraExecutor = Executors.newSingleThreadExecutor();
         voice = new VoiceCommandController(this, new VoiceCommandController.Listener() {
             @Override public void onVoiceText(String text) { handleVoice(text); }
@@ -95,7 +121,7 @@ public final class MainActivity extends ComponentActivity {
         setContentView(buildUi());
         probeDepthCapability();
         requestPermissionsAndStart();
-        speaker.speak("Sesli Rehber sürüm sıfır nokta altı. Güvenli kamera rehberliği başlıyor; destek varsa canlı ARCore derinlik moduna geçilecek ve sorun olursa CameraX geri dönüşü yapılacak.");
+        speaker.speak("Sesli Rehber sürüm sıfır nokta yedi. Canlı görüş güvenliği, akış donma koruması ve Gate C cihaz doğrulama kaydı hazır.");
     }
 
     private View buildUi() {
@@ -121,6 +147,14 @@ public final class MainActivity extends ComponentActivity {
         depthStatusView.setContentDescription("Derinlik sistemi durumu");
         root.addView(depthStatusView, new LinearLayout.LayoutParams(-1, -2));
 
+        gateCStatusView = new TextView(this);
+        gateCStatusView.setText("Gate C: kayıt kapalı");
+        gateCStatusView.setTextColor(Color.LTGRAY);
+        gateCStatusView.setTextSize(15f);
+        gateCStatusView.setMinHeight(dp(40));
+        gateCStatusView.setContentDescription("Gate C cihaz doğrulama durumu");
+        root.addView(gateCStatusView, new LinearLayout.LayoutParams(-1, -2));
+
         previewView = new PreviewView(this);
         previewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         previewView.setContentDescription("Canlı kamera görüntüsü. ARCore derinlik modunda görsel önizleme enerji tasarrufu için kapatılabilir.");
@@ -141,6 +175,15 @@ public final class MainActivity extends ComponentActivity {
         });
         root.addView(toggleButton);
 
+        gateCButton = bigButton("Gate C Testini Başlat", "Cihaz doğrulama ölçüm kaydını başlat veya durdur");
+        gateCButton.setOnClickListener(v -> toggleGateCTest());
+        root.addView(gateCButton);
+
+        shareReportButton = bigButton("Gate C Raporunu Paylaş", "Son Gate C CSV raporunu paylaş");
+        shareReportButton.setEnabled(false);
+        shareReportButton.setOnClickListener(v -> shareGateCReport());
+        root.addView(shareReportButton);
+
         Button stopButton = bigButton("ACİL DUR", "Rehberliği hemen durdur ve güvenlik uyarısı ver");
         stopButton.setOnClickListener(v -> {
             guidanceEnabled = false;
@@ -149,7 +192,7 @@ public final class MainActivity extends ComponentActivity {
                     com.mgecgil.seslirehber.core.GuidanceModels.Direction.UNKNOWN,
                     "Dur. Bastonla çevreni doğrula.",
                     1f);
-            speaker.announce(decision);
+            recordAndAnnounceDecision(decision, "MANUAL", System.currentTimeMillis());
             updateStatus(decision.speech(), true);
         });
         root.addView(stopButton);
@@ -168,6 +211,53 @@ public final class MainActivity extends ComponentActivity {
         return button;
     }
 
+    private void toggleGateCTest() {
+        if (gateCRecorder.isActive()) {
+            String summary = gateCRecorder.stop();
+            gateCButton.setText("Gate C Testini Başlat");
+            gateCStatusView.setText(summary);
+            shareReportButton.setEnabled(gateCRecorder.lastReportFile() != null);
+            speaker.speak("Gate C testi durduruldu. " + summary);
+            return;
+        }
+
+        boolean started = gateCRecorder.start("0.7.0", modeName());
+        if (!started) {
+            gateCStatusView.setText("Gate C: kayıt dosyası açılamadı");
+            speaker.speak("Gate C kayıt dosyası açılamadı.");
+            return;
+        }
+        gateCButton.setText("Gate C Testini Durdur");
+        shareReportButton.setEnabled(false);
+        gateCStatusView.setText("Gate C: kayıt aktif — kontrollü test alanında kullan");
+        gateCRecorder.recordMode(modeName(), "test_started");
+        speaker.speak("Gate C cihaz doğrulama kaydı başladı.");
+    }
+
+    private void shareGateCReport() {
+        if (gateCRecorder.isActive()) {
+            String summary = gateCRecorder.stop();
+            gateCButton.setText("Gate C Testini Başlat");
+            gateCStatusView.setText(summary);
+        }
+        File file = gateCRecorder.lastReportFile();
+        if (file == null) {
+            speaker.speak("Paylaşılacak Gate C raporu yok.");
+            return;
+        }
+        try {
+            Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", file);
+            Intent send = new Intent(Intent.ACTION_SEND);
+            send.setType("text/csv");
+            send.putExtra(Intent.EXTRA_STREAM, uri);
+            send.putExtra(Intent.EXTRA_SUBJECT, "Sesli Rehber Gate C cihaz doğrulama raporu");
+            send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            startActivity(Intent.createChooser(send, "Gate C raporunu paylaş"));
+        } catch (Throwable error) {
+            speaker.speak("Gate C raporu paylaşılamadı.");
+        }
+    }
+
     private void probeDepthCapability() {
         ArCoreDepthCapability.probe(this, result -> {
             depthCapability = result;
@@ -175,6 +265,7 @@ public final class MainActivity extends ComponentActivity {
                 if (destroyed) return;
                 depthStatusView.setText("Derinlik: " + result.status());
                 depthStatusView.setContentDescription("Derinlik sistemi: " + result.status());
+                if (gateCRecorder.isActive()) gateCRecorder.recordMode(modeName(), "depth_capability=" + result.status());
                 maybeSwitchToArCore();
             });
         });
@@ -202,6 +293,9 @@ public final class MainActivity extends ComponentActivity {
         visionMode = VisionMode.STARTING;
         previewView.setVisibility(View.VISIBLE);
         groundDepthSynchronizer.reset();
+        visionWatchdog.beginMode(SystemClock.elapsedRealtime(), false);
+        lastWatchdogHealth = VisionHealthWatchdog.Health.STARTING;
+        if (gateCRecorder.isActive()) gateCRecorder.recordMode("STARTING", "CameraX_start_requested");
 
         ListenableFuture<ProcessCameraProvider> future = ProcessCameraProvider.getInstance(this);
         future.addListener(() -> {
@@ -239,10 +333,14 @@ public final class MainActivity extends ComponentActivity {
                 provider.unbindAll();
                 provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis);
                 visionMode = VisionMode.CAMERAX;
+                watchdogRecoveryInProgress = false;
+                visionWatchdog.beginMode(SystemClock.elapsedRealtime(), false);
+                if (gateCRecorder.isActive()) gateCRecorder.recordMode("CAMERAX", "camera_bound");
                 updateStatus("CameraX güvenli mod aktif. Nesne + çarpışma koridoru + zemin sürekliliği çalışıyor.", false);
                 maybeSwitchToArCore();
             } catch (Exception error) {
                 guidanceEnabled = false;
+                if (gateCRecorder.isActive()) gateCRecorder.recordWatchdog("CAMERAX", "camera_start_failed=" + error.getClass().getSimpleName(), -1L, sensors.stability());
                 updateStatus("Kamera başlatılamadı: " + error.getClass().getSimpleName(), true);
                 speaker.speak("Kamera başlatılamadı. Rehberlik kapatıldı.");
             }
@@ -259,18 +357,18 @@ public final class MainActivity extends ComponentActivity {
         groundDepthSynchronizer.reset();
         if (cameraProvider != null) cameraProvider.unbindAll();
         closeCameraXAnalyzer();
+        visionWatchdog.beginMode(SystemClock.elapsedRealtime(), true);
+        if (gateCRecorder.isActive()) gateCRecorder.recordMode("HANDOFF", "CameraX_to_ARCore");
         updateStatus("Canlı ARCore Depth16 moduna geçiliyor…", false);
         depthStatusView.setText("Derinlik: kamera ARCore'a devrediliyor…");
-
-        // CameraX unbind is synchronous at the use-case layer but the camera device can need a short
-        // release interval before ARCore Session.resume(). A small deterministic handoff reduces
-        // spurious CameraNotAvailable fallbacks without hiding a persistent failure.
-        previewView.postDelayed(() -> startArCore(), 220L);
+        previewView.postDelayed(this::startArCore, 220L);
     }
 
     private void startArCore() {
         if (destroyed) return;
         if (arCoreEngine != null) arCoreEngine.close();
+        visionWatchdog.beginMode(SystemClock.elapsedRealtime(), true);
+        lastWatchdogHealth = VisionHealthWatchdog.Health.STARTING;
         arCoreEngine = new ArCoreLiveVisionEngine(this, new ArCoreLiveVisionEngine.Listener() {
             @Override public void onMotion(MotionObservation observation) { handleMotion(observation); }
             @Override public void onObject(ObjectObservation observation) { handleObject(observation); }
@@ -281,9 +379,11 @@ public final class MainActivity extends ComponentActivity {
                 runOnUiThread(() -> {
                     if (destroyed) return;
                     visionMode = VisionMode.ARCORE;
+                    watchdogRecoveryInProgress = false;
                     previewView.setVisibility(View.GONE);
                     depthStatusView.setText("Derinlik: canlı Depth16 aktif");
                     depthStatusView.setContentDescription("Derinlik sistemi: canlı Depth16 aktif");
+                    if (gateCRecorder.isActive()) gateCRecorder.recordMode("ARCORE", "live_depth_active");
                     updateStatus(status, false);
                 });
             }
@@ -291,57 +391,69 @@ public final class MainActivity extends ComponentActivity {
             @Override public void onFatal(String message) {
                 runOnUiThread(() -> {
                     if (destroyed) return;
-                    visionMode = VisionMode.STARTING;
-                    groundDepthSynchronizer.reset();
-                    if (arCoreEngine != null) {
-                        arCoreEngine.close();
-                        arCoreEngine = null;
-                    }
-                    previewView.setVisibility(View.VISIBLE);
-                    depthStatusView.setText("Derinlik: canlı mod kapandı; CameraX yedek aktif");
-                    updateStatus(message, true);
-                    speaker.speak("Derinlik modu kapandı. Kamera rehberliği devam ediyor.");
-                    startCameraX();
+                    if (gateCRecorder.isActive()) gateCRecorder.recordFallback("ARCORE", "engine_fatal");
+                    fallbackToCameraX(message, true);
                 });
             }
         });
         if (!arCoreEngine.start(currentDisplayRotation())) {
-            previewView.setVisibility(View.VISIBLE);
-            startCameraX();
+            if (gateCRecorder.isActive()) gateCRecorder.recordFallback("ARCORE", "start_rejected");
+            fallbackToCameraX("ARCore canlı mod başlatılamadı. CameraX güvenli moda dönülüyor.", true);
         }
     }
 
     private void handleMotion(MotionObservation observation) {
+        long elapsed = SystemClock.elapsedRealtime();
+        visionWatchdog.noteVision(elapsed);
+        float stability = sensors.stability();
+        if (gateCRecorder.isActive()) gateCRecorder.recordMotion(modeName(), observation, stability);
         if (!guidanceEnabled) return;
-        handleDecision(safetyGate.evaluate(observation, sensors.stability()));
+        recordAndAnnounceDecision(safetyGate.evaluate(observation, stability), "MOTION", observation.timestampMs());
     }
 
     private void handleObject(ObjectObservation observation) {
+        float stability = sensors.stability();
+        if (gateCRecorder.isActive()) gateCRecorder.recordObject(modeName(), observation, stability);
         if (!guidanceEnabled) return;
-        handleDecision(safetyGate.evaluateObject(observation, sensors.stability()));
+        recordAndAnnounceDecision(safetyGate.evaluateObject(observation, stability), "OBJECT", observation.timestampMs());
     }
 
     private void handleGround(GroundObservation observation) {
+        float stability = sensors.stability();
+        if (gateCRecorder.isActive()) gateCRecorder.recordGround(modeName(), observation, stability);
         if (!guidanceEnabled) return;
-        handleDecision(safetyGate.evaluateGround(observation, sensors.stability()));
+        recordAndAnnounceDecision(safetyGate.evaluateGround(observation, stability), "GROUND", observation.timestampMs());
         GroundDepthEvidence evidence = groundDepthSynchronizer.offerGround(observation);
         if (evidence != null) {
-            handleDecision(safetyGate.evaluateGroundWithDepth(
-                    evidence.ground(), evidence.depth(), sensors.stability()));
+            long sourceTs = Math.max(evidence.ground().timestampMs(), evidence.depth().timestampMs());
+            recordAndAnnounceDecision(
+                    safetyGate.evaluateGroundWithDepth(evidence.ground(), evidence.depth(), stability),
+                    "GROUND_DEPTH",
+                    sourceTs);
         }
     }
 
     private void handleDepth(DepthObservation observation) {
+        visionWatchdog.noteDepth(SystemClock.elapsedRealtime());
+        float stability = sensors.stability();
+        if (gateCRecorder.isActive()) gateCRecorder.recordDepth(modeName(), observation, stability);
         if (!guidanceEnabled) return;
-        handleDecision(safetyGate.evaluateDepth(observation, sensors.stability()));
+        recordAndAnnounceDecision(safetyGate.evaluateDepth(observation, stability), "DEPTH", observation.timestampMs());
         GroundDepthEvidence evidence = groundDepthSynchronizer.offerDepth(observation);
         if (evidence != null) {
-            handleDecision(safetyGate.evaluateGroundWithDepth(
-                    evidence.ground(), evidence.depth(), sensors.stability()));
+            long sourceTs = Math.max(evidence.ground().timestampMs(), evidence.depth().timestampMs());
+            recordAndAnnounceDecision(
+                    safetyGate.evaluateGroundWithDepth(evidence.ground(), evidence.depth(), stability),
+                    "GROUND_DEPTH",
+                    sourceTs);
         }
     }
 
-    private void handleDecision(GuidanceDecision decision) {
+    private void recordAndAnnounceDecision(GuidanceDecision decision, String source, long sourceTimestampMs) {
+        float stability = sensors != null ? sensors.stability() : 0f;
+        if (gateCRecorder != null && gateCRecorder.isActive()) {
+            gateCRecorder.recordDecision(source, modeName(), decision, sourceTimestampMs, stability);
+        }
         long now = System.currentTimeMillis();
         if (!announcementGate.shouldAnnounce(decision, now)) return;
         runOnUiThread(() -> {
@@ -349,6 +461,59 @@ public final class MainActivity extends ComponentActivity {
             updateStatus(decision.speech() + "  Güven: " + Math.round(decision.confidence() * 100) + "%", urgent);
             speaker.announce(decision);
         });
+    }
+
+    private void checkVisionHealth() {
+        if (!guidanceEnabled || visionMode == VisionMode.STARTING || destroyed) return;
+        VisionHealthWatchdog.Snapshot snapshot = visionWatchdog.snapshot(SystemClock.elapsedRealtime());
+        if (snapshot.health() == VisionHealthWatchdog.Health.HEALTHY) {
+            lastWatchdogHealth = snapshot.health();
+            return;
+        }
+        if (snapshot.health() == VisionHealthWatchdog.Health.STARTING) return;
+
+        boolean firstIncident = snapshot.health() != lastWatchdogHealth;
+        lastWatchdogHealth = snapshot.health();
+        if (firstIncident && gateCRecorder.isActive()) {
+            long age = snapshot.health() == VisionHealthWatchdog.Health.VISION_STALE
+                    ? snapshot.visionAgeMs() : snapshot.depthAgeMs();
+            gateCRecorder.recordWatchdog(modeName(), snapshot.health().name(), age, sensors.stability());
+        }
+
+        if (snapshot.health() == VisionHealthWatchdog.Health.VISION_STALE && firstIncident) {
+            GuidanceDecision decision = new GuidanceDecision(
+                    Risk.STOP,
+                    com.mgecgil.seslirehber.core.GuidanceModels.Direction.UNKNOWN,
+                    "Dur. Görüntü akışı kesildi. Bastonla doğrula.",
+                    1f);
+            recordAndAnnounceDecision(decision, "WATCHDOG", System.currentTimeMillis());
+        }
+
+        if (snapshot.health() == VisionHealthWatchdog.Health.DEPTH_STALE && firstIncident) {
+            depthStatusView.setText("Derinlik: veri geçici olarak kesildi");
+            updateStatus("Derinlik verisi güncel değil; kamera tabanlı rehberlik sürüyor.", false);
+        }
+
+        if (snapshot.failoverRecommended() && !watchdogRecoveryInProgress) {
+            watchdogRecoveryInProgress = true;
+            if (gateCRecorder.isActive()) gateCRecorder.recordFallback(modeName(), "watchdog_" + snapshot.health().name());
+            fallbackToCameraX("Algı akışı sağlık denetimi CameraX güvenli moda dönüyor.", snapshot.health() == VisionHealthWatchdog.Health.VISION_STALE);
+        }
+    }
+
+    private void fallbackToCameraX(String message, boolean urgent) {
+        if (destroyed) return;
+        visionMode = VisionMode.STARTING;
+        groundDepthSynchronizer.reset();
+        if (arCoreEngine != null) {
+            arCoreEngine.close();
+            arCoreEngine = null;
+        }
+        previewView.setVisibility(View.VISIBLE);
+        depthStatusView.setText("Derinlik: CameraX yedek mod");
+        updateStatus(message, urgent);
+        if (urgent) speaker.speak("Güvenli kamera moduna dönülüyor.");
+        startCameraX();
     }
 
     private void handleVoice(String text) {
@@ -370,13 +535,18 @@ public final class MainActivity extends ComponentActivity {
                     case CAMERAX -> " CameraX zemin, nesne ve hareket kanalları çalışıyor; canlı derinlik aktif değil.";
                     default -> " Görüş sistemi başlatılıyor.";
                 };
-                speaker.speak("Ön çevre güvenlik kanalları izleniyor." + modeText
+                String testText = gateCRecorder.isActive() ? " Gate C doğrulama kaydı açık." : "";
+                speaker.speak("Ön çevre güvenlik kanalları izleniyor." + modeText + testText
                         + " Çukur veya kaldırım adı saha doğrulaması olmadan kesin söylenmez.");
             }
-            case HELP -> speaker.speak("Komutlar: rehberliği başlat, rehberliği durdur, tekrar et, çevremi anlat.");
+            case HELP -> speaker.speak("Komutlar: rehberliği başlat, rehberliği durdur, tekrar et, çevremi anlat. Cihaz testi için ekrandaki Gate C düğmesi kullanılabilir.");
             case UNKNOWN -> speaker.speak("Komutu anlayamadım.");
         }
         updateStatus("Komut: " + text, false);
+    }
+
+    private String modeName() {
+        return visionMode.name();
     }
 
     private void updateStatus(String text, boolean urgent) {
@@ -409,13 +579,17 @@ public final class MainActivity extends ComponentActivity {
     protected void onStart() {
         super.onStart();
         if (sensors != null) sensors.start();
+        healthHandler.removeCallbacks(healthTick);
+        healthHandler.postDelayed(healthTick, 500L);
         if (visionMode == VisionMode.ARCORE && arCoreEngine != null && !arCoreEngine.isRunning()) {
+            visionWatchdog.beginMode(SystemClock.elapsedRealtime(), true);
             arCoreEngine.start(currentDisplayRotation());
         }
     }
 
     @Override
     protected void onStop() {
+        healthHandler.removeCallbacks(healthTick);
         if (arCoreEngine != null) arCoreEngine.stop();
         if (sensors != null) sensors.stop();
         super.onStop();
@@ -424,12 +598,14 @@ public final class MainActivity extends ComponentActivity {
     @Override
     protected void onDestroy() {
         destroyed = true;
+        healthHandler.removeCallbacksAndMessages(null);
         if (cameraProvider != null) cameraProvider.unbindAll();
         closeCameraXAnalyzer();
         if (arCoreEngine != null) {
             arCoreEngine.close();
             arCoreEngine = null;
         }
+        if (gateCRecorder != null) gateCRecorder.close();
         if (voice != null) voice.destroy();
         if (speaker != null) speaker.shutdown();
         if (cameraExecutor != null) cameraExecutor.shutdownNow();
