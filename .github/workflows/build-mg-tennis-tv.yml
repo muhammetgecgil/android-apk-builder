@@ -25,7 +25,7 @@ jobs:
           curl --retry 4 -fL $BASE/vitruvian_head.glb -o $A/v33_head.glb
           curl --retry 4 -fL $BASE/vitruvian_hair_rigged.glb -o $A/v33_hair.glb
           for f in vit_body_bc.png vit_body_n.png vit_body_rough.png vit_face_bc.png vit_face_n.png vit_face_rough.png vit_fabric_n.png vit_hair_ao.png vit_hair_atlas.png vit_hair_diffuse.png vit_hair_normal.png vit_hair_opacity.png vit_iris.png vit_lash_atlas.png vit_mouth.png vit_sclera.png; do curl --retry 4 -fL $BASE/$f -o $A/$f; done
-          test -s $A/product-core-v54.js
+          test -s $A/product-core-v55.js
       - name: Inject product layers
         run: |
           python3 - <<'PY'
@@ -33,7 +33,7 @@ jobs:
           p=Path('mg-tennis-tv/app/src/main/assets/index.html')
           s=p.read_text()
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];')
-          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','clean-core-v37.js','gameplay-v40.js','product-core-v41.js','gameplay-v42.js','gameplay-v43.js','gameplay-v44.js','product-core-v45.js','product-core-v46.js','product-core-v47.js','product-core-v48.js','product-core-v49.js','product-core-v50.js','product-core-v51.js','product-core-v52.js','product-core-v53.js','product-core-v54.js']
+          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','clean-core-v37.js','gameplay-v40.js','product-core-v41.js','gameplay-v42.js','gameplay-v43.js','gameplay-v44.js','product-core-v45.js','product-core-v46.js','product-core-v47.js','product-core-v48.js','product-core-v49.js','product-core-v50.js','product-core-v51.js','product-core-v52.js','product-core-v53.js','product-core-v54.js','product-core-v55.js']
           for old in ['match-start-v34.js','role-start-v38.js','gameplay-v36.js','gameplay-v39.js']:
               s=s.replace(f'<script src="{old}"></script>','')
           for fn in scripts:
@@ -65,13 +65,13 @@ jobs:
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='54'"
-          unzip -p $APK assets/index.html | grep -q 'product-core-v54.js'
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='55'"
+          unzip -p $APK assets/index.html | grep -q 'product-core-v55.js'
           unzip -p $APK classes.dex | strings | grep -q 'hasGyroscope'
           unzip -p $APK classes.dex | strings | grep -q 'isBluetoothEnabled'
-          cp $APK MG_Tennis_TV_v5.4_Single_Phone_Anti_Stick.apk
+          cp $APK MG_Tennis_TV_v5.5_Single_Phone_Buffered_Contact.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v5.4-Single-Phone-Anti-Stick-APK
-          path: MG_Tennis_TV_v5.4_Single_Phone_Anti_Stick.apk
+          name: MG-Tennis-TV-v5.5-Single-Phone-Buffered-Contact-APK
+          path: MG_Tennis_TV_v5.5_Single_Phone_Buffered_Contact.apk
           retention-days: 30
