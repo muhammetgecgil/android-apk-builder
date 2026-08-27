@@ -13,6 +13,7 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+        <activity android:name=".MachineElementStudioActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".EngineeringReportActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".DesignReviewActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".ProjectManagerActivity" android:screenOrientation="unspecified" android:exported="false" />
