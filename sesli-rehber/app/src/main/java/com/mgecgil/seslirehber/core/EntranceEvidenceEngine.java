@@ -1,9 +1,7 @@
 package com.mgecgil.seslirehber.core;
 
 import java.text.Normalizer;
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -93,7 +91,10 @@ public final class EntranceEvidenceEngine {
         }
         lastCandidateMs = nowMs;
 
-        if (candidateStreak < 2 || nowMs - lastSpokenMs < SPEECH_COOLDOWN_MS) return "";
+        // The cooldown applies only after an advisory has actually been spoken. This keeps the
+        // first persistent candidate responsive while still suppressing repeated OCR chatter.
+        if (candidateStreak < 2
+                || (lastSpokenMs > 0L && nowMs - lastSpokenMs < SPEECH_COOLDOWN_MS)) return "";
         lastSpokenMs = nowMs;
         candidateStreak = 0;
 
