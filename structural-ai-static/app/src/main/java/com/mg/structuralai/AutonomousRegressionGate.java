@@ -39,12 +39,13 @@ public final class AutonomousRegressionGate {
             FemBenchmarks.BenchmarkResult theory=FemBenchmarks.cantileverTheory();
             AxialSolidBenchmark.Result axial=AxialSolidBenchmark.run();
             ContactRegressionGate.Result cr=ContactRegressionGate.run();
+            FrictionalContactRegressionGate.Result fcr=FrictionalContactRegressionGate.run();
             ProductionMeshGate.Result pm=ProductionMeshGate.run();
             BoundaryLoadRegressionGate.Result bc=BoundaryLoadRegressionGate.run();
             MaterialEvidenceGate.Result mg=MaterialEvidenceGate.run();
             ContactEvidenceRegressionGate.Result ceg=ContactEvidenceRegressionGate.run();
-            boolean pass=femPass&&tet.pass&&theory.pass&&axial.pass&&cr.pass&&pm.pass&&bc.pass&&mg.pass&&ceg.pass;
-            return cached=new Result(pass,femMsg+"\n"+tet.message+"\n"+theory.message+"\n"+axial.message+"\n"+cr.summary+"\n"+pm.summary+"\n"+bc.summary+"\n"+mg.summary+"\n"+ceg.summary);
+            boolean pass=femPass&&tet.pass&&theory.pass&&axial.pass&&cr.pass&&fcr.pass&&pm.pass&&bc.pass&&mg.pass&&ceg.pass;
+            return cached=new Result(pass,femMsg+"\n"+tet.message+"\n"+theory.message+"\n"+axial.message+"\n"+cr.summary+"\n"+fcr.summary+"\n"+pm.summary+"\n"+bc.summary+"\n"+mg.summary+"\n"+ceg.summary);
         }catch(Throwable t){return cached=new Result(false,"REGRESSION ERROR: "+t.getMessage());}
     }
 
