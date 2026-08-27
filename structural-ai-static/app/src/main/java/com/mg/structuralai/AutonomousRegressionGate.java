@@ -37,9 +37,10 @@ public final class AutonomousRegressionGate {
 
             FemBenchmarks.BenchmarkResult tet=FemBenchmarks.unitTetSanity();
             FemBenchmarks.BenchmarkResult theory=FemBenchmarks.cantileverTheory();
+            AxialSolidBenchmark.Result axial=AxialSolidBenchmark.run();
             ContactRegressionGate.Result cr=ContactRegressionGate.run();
-            boolean pass=femPass&&tet.pass&&theory.pass&&cr.pass;
-            return cached=new Result(pass,femMsg+"\n"+tet.message+"\n"+theory.message+"\n"+cr.summary);
+            boolean pass=femPass&&tet.pass&&theory.pass&&axial.pass&&cr.pass;
+            return cached=new Result(pass,femMsg+"\n"+tet.message+"\n"+theory.message+"\n"+axial.message+"\n"+cr.summary);
         }catch(Throwable t){return cached=new Result(false,"REGRESSION ERROR: "+t.getMessage());}
     }
 
