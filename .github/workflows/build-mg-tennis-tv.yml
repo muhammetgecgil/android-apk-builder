@@ -43,13 +43,7 @@ jobs:
           j=Path('mg-tennis-tv/app/src/main/java/com/mg/tennistv/MainActivity.java')
           t=j.read_text()
           marker='@JavascriptInterface public long getRacketLatencyMs(){return latencyMs;}'
-          add='''@JavascriptInterface public long getRacketLatencyMs(){return latencyMs;}
-        @JavascriptInterface public void stopVision(){runOnUiThread(()->{if(poseTracker!=null)poseTracker.stop();});}
-        @JavascriptInterface public void startVisionMode(){runOnUiThread(()->{if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)startVision();else askPermissions();});}
-        @JavascriptInterface public boolean hasGyroscope(){return gyro!=null;}
-        @JavascriptInterface public boolean hasAccelerometer(){return accel!=null;}
-        @JavascriptInterface public boolean hasCameraPermission(){return checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED;}
-        @JavascriptInterface public boolean isBluetoothEnabled(){try{return bt!=null&&bt.isEnabled();}catch(Exception e){return false;}}'''
+          add=(marker+'\\n        @JavascriptInterface public void stopVision(){runOnUiThread(()->{if(poseTracker!=null)poseTracker.stop();});}'+'\\n        @JavascriptInterface public void startVisionMode(){runOnUiThread(()->{if(checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED)startVision();else askPermissions();});}'+'\\n        @JavascriptInterface public boolean hasGyroscope(){return gyro!=null;}'+'\\n        @JavascriptInterface public boolean hasAccelerometer(){return accel!=null;}'+'\\n        @JavascriptInterface public boolean hasCameraPermission(){return checkSelfPermission(Manifest.permission.CAMERA)==PackageManager.PERMISSION_GRANTED;}'+'\\n        @JavascriptInterface public boolean isBluetoothEnabled(){try{return bt!=null&&bt.isEnabled();}catch(Exception e){return false;}}')
           if 'public boolean hasGyroscope()' not in t:
               t=t.replace(marker,add)
           j.write_text(t)
