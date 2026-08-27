@@ -2,16 +2,13 @@ from pathlib import Path
 import re
 
 main = Path('unit-master/app/src/main/java/com/mg/unitmasterx/MainActivity.java')
-styles = Path('unit-master/app/src/main/res/values/styles.xml')
 if not main.exists():
     raise SystemExit('MainActivity.java not found')
-if not styles.exists():
-    raise SystemExit('styles.xml not found')
 
 a = main.read_text(encoding='utf-8')
 
 # Explicit popup palette. Do not depend on Samsung/system theme colors.
-# Surface #10243A, primary text #F5F9FF, secondary #B8C7D9, cyan #27D3FF.
+# Surface #10243A, primary text #F5F9FF, cyan accent #27D3FF.
 helper = r'''    private static final int MENU_BG=Color.rgb(16,36,58);
     private static final int MENU_TEXT=Color.rgb(245,249,255);
     private static final int MENU_DIVIDER=Color.rgb(40,76,108);
@@ -46,30 +43,30 @@ helper = r'''    private static final int MENU_BG=Color.rgb(16,36,58);
 
 '''
 
-# Remove any previous version of the helper so the patch is idempotent across rebuilds.
+# Idempotently remove older helper versions from the generated activity.
+a = re.sub(r'    private static final int MENU_BG=.*?\n    \}\n\n', '', a, flags=re.S)
+a = re.sub(r'    private void styleMenuTree\(View v\)\{.*?\n    \}\n\n', '', a, flags=re.S)
+
+markers = [
+    '    private void showAllResults(){',
+    '    private void openSettings(){',
+    '    private void copyResult(){'
+]
+inserted = False
+for marker in markers:
+    if marker in a:
+        a = a.replace(marker, helper + marker, 1)
+        inserted = True
+        break
+if not inserted:
+    raise SystemExit('Could not locate helper insertion point in MainActivity')
+
+# Remove previous menu styling injection if present.
 a = re.sub(
-    r'    private void styleMenuTree\(View v\)\{.*?\n    \}\n\n',
+    r'list\.setBackgroundColor\([^;]+\);list\.setCacheColorHint\([^;]+\);list\.setDivider\(new android\.graphics\.drawable\.ColorDrawable\([^\)]+\)\);list\.setDividerHeight\([^;]+\);list\.setOnHierarchyChangeListener\(new ViewGroup\.OnHierarchyChangeListener\(\)\{public void onChildViewAdded\(View parent,View child\)\{styleMenuTree\(child\);\}public void onChildViewRemoved\(View parent,View child\)\{\}\}\);refreshMenuContrast\(list\);',
     '',
     a,
-    flags=re.S,
 )
-if 'private void refreshMenuContrast(final ListView list)' not in a:
-    markers = [
-        '    private void showAllResults(){',
-        '    private void openSettings(){',
-        '    private void copyResult(){'
-    ]
-    inserted = False
-    for marker in markers:
-        if marker in a:
-            a = a.replace(marker, helper + marker, 1)
-            inserted = True
-            break
-    if not inserted:
-        raise SystemExit('Could not locate helper insertion point in MainActivity')
-
-# Remove the previous listener injection if present, then inject a deterministic styling hook
-# immediately after the reusable picker ListView is created.
 a = re.sub(
     r'list\.setBackgroundColor\(CARD\);list\.setDivider\(new android\.graphics\.drawable\.ColorDrawable\(LINE\)\);list\.setDividerHeight\(1\);list\.setOnHierarchyChangeListener\(new ViewGroup\.OnHierarchyChangeListener\(\)\{public void onChildViewAdded\(View parent,View child\)\{styleMenuTree\(child\);\}public void onChildViewRemoved\(View parent,View child\)\{\}\}\);',
     '',
@@ -89,7 +86,7 @@ for pattern in patterns:
         a = re.sub(pattern, lambda m: m.group(1) + listener, a)
         changed += matches
 
-# Explicitly replace transparent/list surface variants that may be added by older patches.
+# Explicitly replace transparent/list surface variants from older code.
 a = a.replace('list.setBackgroundColor(Color.TRANSPARENT);', 'list.setBackgroundColor(MENU_BG);')
 a = a.replace('list.setBackgroundColor(CARD);', 'list.setBackgroundColor(MENU_BG);')
 
@@ -108,29 +105,4 @@ if changed == 0:
     raise SystemExit('No picker ListView creation found; menu contrast patch not applied')
 
 main.write_text(a, encoding='utf-8')
-
-# Also force the app theme's primary text colors to light values. Android's
-# simple_list_item_1 reads theme text colors on some Samsung/One UI builds.
-s = styles.read_text(encoding='utf-8')
-style_blocks = re.findall(r'<style\b[^>]*>.*?</style>', s, flags=re.S)
-if not style_blocks:
-    raise SystemExit('No style block found in styles.xml')
-for block in style_blocks:
-    new = block
-    attrs = {
-        'android:textColor': '#F5F9FF',
-        'android:textColorPrimary': '#F5F9FF',
-        'android:textColorSecondary': '#B8C7D9',
-        'android:colorAccent': '#27D3FF',
-    }
-    for name, value in attrs.items():
-        pattern = rf'<item\s+name="{re.escape(name)}">.*?</item>'
-        item = f'<item name="{name}">{value}</item>'
-        if re.search(pattern, new):
-            new = re.sub(pattern, item, new)
-        else:
-            new = new.replace('</style>', f'    {item}\n</style>')
-    s = s.replace(block, new, 1)
-styles.write_text(s, encoding='utf-8')
-
 print(f'Applied deterministic menu contrast to {changed} ListView picker(s): #10243A surface, #F5F9FF text, 18sp/60dp rows')
