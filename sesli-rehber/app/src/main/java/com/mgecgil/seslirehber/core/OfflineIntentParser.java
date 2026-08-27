@@ -93,7 +93,8 @@ public final class OfflineIntentParser {
 
         target = target.replaceFirst("^(beni|bizi)\\s+", "").trim();
         target = target.replaceFirst("\\s+(adresine|konumuna)$", "").trim();
-        target = target.replaceFirst("\\s+(e|a|ye|ya)$", "").trim();
+        // Apostrophes are normalized to spaces, so Taksim'e / Meydanı'na become trailing e/na.
+        target = target.replaceFirst("\\s+(e|a|ye|ya|ne|na)$", "").trim();
 
         if (target.length() < 2 || equalsAny(target,
                 "rehberligi", "yonlendirmeyi", "yurumeyi", "buraya", "oraya")) return "";
