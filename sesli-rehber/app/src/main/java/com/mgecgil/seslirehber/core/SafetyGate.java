@@ -81,6 +81,61 @@ public final class SafetyGate {
         return quiet(fused);
     }
 
+    /** Camera usability is a P0 prerequisite. Persistent unusable imagery fails safe to STOP. */
+    public GuidanceDecision evaluateSceneHealth(SceneHealthObservation observation, float deviceStability) {
+        float fused = clamp((1f - observation.qualityScore()) * (0.72f + 0.28f * (1f - deviceStability)));
+        if (!observation.persistentlyUnusable()) return quiet(1f - fused);
+
+        String reason;
+        if (observation.darkRatio() >= 0.78f) {
+            reason = "Dur. Kamera görüntüsü çok karanlık veya kapalı. Bastonla doğrula.";
+        } else if (observation.brightRatio() >= 0.78f) {
+            reason = "Dur. Kamera görüntüsü aşırı parlak. Bastonla doğrula.";
+        } else {
+            reason = "Dur. Kamera görüntüsü güvenilir değil. Bastonla doğrula.";
+        }
+        return new GuidanceDecision(Risk.STOP, Direction.UNKNOWN, reason,
+                clamp(Math.max(0.68f, observation.unusableScore())));
+    }
+
+    /**
+     * Relative openness is advisory only. It may say one side appears more open after persistence,
+     * but never instructs the user to turn or calls that lane safe.
+     */
+    public GuidanceDecision evaluateWalkable(
+            WalkableCorridorObservation observation,
+            float deviceStability) {
+        if (deviceStability < 0.35f) return unstable(deviceStability);
+        float fused = clamp(observation.confidence() * (0.58f + 0.42f * deviceStability));
+        if (fused < 0.52f || observation.persistenceScore() < 0.54f) return quiet(fused);
+
+        if (observation.centerOpenScore() <= 0.24f
+                && observation.leftOpenScore() <= 0.30f
+                && observation.rightOpenScore() <= 0.30f) {
+            return new GuidanceDecision(
+                    Risk.CAUTION,
+                    Direction.CENTER,
+                    "Ön geçiş alanı dar görünüyor. Yavaşla ve bastonla doğrula.",
+                    fused);
+        }
+
+        if (observation.hasPersistentCandidate()) {
+            Direction direction = observation.moreOpenDirection();
+            float sideScore = observation.score(direction);
+            if (observation.centerOpenScore() <= 0.52f
+                    && sideScore - observation.centerOpenScore() >= 0.18f) {
+                return new GuidanceDecision(
+                        Risk.CAUTION,
+                        direction,
+                        direction == Direction.LEFT
+                                ? "Ön koridor daralıyor. Sol taraf daha açık görünüyor; bastonla doğrula."
+                                : "Ön koridor daralıyor. Sağ taraf daha açık görünüyor; bastonla doğrula.",
+                        fused);
+            }
+        }
+        return quiet(fused);
+    }
+
     /**
      * Ground continuity is an appearance/geometric evidence channel. Without depth it may raise
      * CAUTION after persistence, but never STOP and never a semantic "hole/curb" claim.
@@ -131,9 +186,8 @@ public final class SafetyGate {
     }
 
     /**
-     * P0 fusion gate for the future live Depth16 stream. STOP requires two independent channels:
-     * persistent ground discontinuity AND strong depth discontinuity, plus stable device evidence.
-     * It still does not call the event a hole, curb or stair.
+     * STOP requires two independent channels: persistent ground discontinuity AND strong depth
+     * discontinuity, plus stable device evidence. It still does not call the event a hole/curb.
      */
     public GuidanceDecision evaluateGroundWithDepth(
             GroundObservation ground,
