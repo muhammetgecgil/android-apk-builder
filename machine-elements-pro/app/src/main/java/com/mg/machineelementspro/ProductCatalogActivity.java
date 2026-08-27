@@ -34,7 +34,9 @@ public class ProductCatalogActivity extends Activity {
             {"Bore / mil çapı (mm)","Gerekli dinamik C (N)","",""},
             {"Hesaplanan min. nominal çap (mm)","Property class (örn. 10.9)","",""},
             {"Tasarım torku (Nm)","Mil çapı / gerekli bore (mm)","",""},
-            {"Motor gücü (kW)","Giriş devri (rpm)","Çıkış devri (rpm)","Gerekli çıkış torku (Nm)"}
+            {"Motor gücü (kW)","Giriş devri (rpm)","Çıkış devri (rpm)","Gerekli çıkış torku (Nm)"},
+            {"Güç P (kW)","Küçük kasnak çapı (mm)","Devir (rpm)","Gerekli sıkı taraf T1 (N)"},
+            {"Güç P (kW)","Devir (rpm)","Hesaplanan zincir çekmesi (N)","Servis katsayısı Ks"}
     };
 
     @Override protected void onCreate(Bundle b){super.onCreate(b);setContentView(ui());applyIntentPreset();}
@@ -44,7 +46,7 @@ public class ProductCatalogActivity extends Activity {
         LinearLayout r=new LinearLayout(this);r.setOrientation(LinearLayout.VERTICAL);r.setPadding(dp(18),dp(20),dp(18),dp(32));s.addView(r);
         r.addView(text("TÜRKİYE + AVRUPA ÜRÜN SEÇİMİ",22,true,Color.rgb(15,23,42)));
         TextView sub=text("Hesap sonucunu standart ürüne çevirir ve resmi üretici kataloglarına yönlendirir. Fiyat/stok canlı doğrulama gerektirir.",13,false,Color.rgb(71,85,105));sub.setPadding(0,dp(5),0,dp(12));r.addView(sub);
-        type=new Spinner(this);String[] types={"Rulman","Civata","Kaplin","Redüktör"};type.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,types));r.addView(type,lp(-1,dp(54),0));
+        type=new Spinner(this);String[] types={"Rulman","Civata","Kaplin","Redüktör","Kayış","Zincir"};type.setAdapter(new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,types));r.addView(type,lp(-1,dp(54),0));
         for(int i=0;i<4;i++){in[i]=new EditText(this);in[i].setTextSize(16);in[i].setSingleLine(true);in[i].setPadding(dp(12),dp(8),dp(12),dp(8));r.addView(in[i],lp(-1,dp(58),dp(8)));}
         Button calc=new Button(this);calc.setText("TEKNİK ADAYLARI BUL");calc.setAllCaps(false);calc.setTypeface(Typeface.DEFAULT,Typeface.BOLD);calc.setTextColor(Color.WHITE);calc.setBackgroundColor(Color.rgb(5,150,105));r.addView(calc,lp(-1,dp(56),dp(14)));
         results=new LinearLayout(this);results.setOrientation(LinearLayout.VERTICAL);r.addView(results,lp(-1,-2,dp(14)));
@@ -55,7 +57,7 @@ public class ProductCatalogActivity extends Activity {
     private void applyIntentPreset(){
         Intent intent=getIntent();
         if(intent==null||!intent.hasExtra(EXTRA_TYPE))return;
-        int p=Math.max(0,Math.min(3,intent.getIntExtra(EXTRA_TYPE,0)));
+        int p=Math.max(0,Math.min(5,intent.getIntExtra(EXTRA_TYPE,0)));
         applyingPreset=true;type.setSelection(p);update(p);
         String[] keys={EXTRA_V0,EXTRA_V1,EXTRA_V2,EXTRA_V3};
         for(int i=0;i<4;i++)if(intent.hasExtra(keys[i]))in[i].setText(intent.getStringExtra(keys[i]));
@@ -80,7 +82,9 @@ public class ProductCatalogActivity extends Activity {
             if(p==0)m=ProductCatalogEngine.bearingMatches(d(0),d(1));
             else if(p==1)m=ProductCatalogEngine.boltMatches(d(0),in[1].getText().toString());
             else if(p==2)m=ProductCatalogEngine.couplingMatches(d(0),d(1));
-            else m=ProductCatalogEngine.gearboxMatches(d(0),d(1),d(2),d(3));
+            else if(p==3)m=ProductCatalogEngine.gearboxMatches(d(0),d(1),d(2),d(3));
+            else if(p==4)m=ProductCatalogEngine.beltMatches(d(0),d(1),d(2),d(3));
+            else m=ProductCatalogEngine.chainMatches(d(0),d(1),d(2),d(3));
             show(m);
         }catch(Exception e){Toast.makeText(this,e.getMessage()==null?"Girdileri kontrol edin.":e.getMessage(),Toast.LENGTH_LONG).show();}
     }
