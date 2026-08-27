@@ -22,6 +22,10 @@ import androidx.core.content.ContextCompat;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.mgecgil.seslirehber.core.AnnouncementGate;
 import com.mgecgil.seslirehber.core.ArCoreDepthCapability;
+import com.mgecgil.seslirehber.core.ArCoreLiveVisionEngine;
+import com.mgecgil.seslirehber.core.GroundDepthSynchronizer;
+import com.mgecgil.seslirehber.core.GuidanceModels.DepthObservation;
+import com.mgecgil.seslirehber.core.GuidanceModels.GroundDepthEvidence;
 import com.mgecgil.seslirehber.core.GuidanceModels.GroundObservation;
 import com.mgecgil.seslirehber.core.GuidanceModels.GuidanceDecision;
 import com.mgecgil.seslirehber.core.GuidanceModels.MotionObservation;
@@ -37,6 +41,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class MainActivity extends ComponentActivity {
+    private enum VisionMode { STARTING, CAMERAX, ARCORE }
+
     private PreviewView previewView;
     private TextView statusView;
     private TextView depthStatusView;
@@ -44,21 +50,27 @@ public final class MainActivity extends ComponentActivity {
     private VoiceCommandController voice;
     private SensorFusionManager sensors;
     private VisionFusionAnalyzer visionAnalyzer;
+    private ArCoreLiveVisionEngine arCoreEngine;
+    private ProcessCameraProvider cameraProvider;
     private ExecutorService cameraExecutor;
 
     private final SafetyGate safetyGate = new SafetyGate();
     private final AnnouncementGate announcementGate = new AnnouncementGate();
     private final OfflineIntentParser intentParser = new OfflineIntentParser();
+    private final GroundDepthSynchronizer groundDepthSynchronizer = new GroundDepthSynchronizer();
 
     private volatile boolean guidanceEnabled = true;
     private volatile ArCoreDepthCapability.Result depthCapability;
+    private volatile VisionMode visionMode = VisionMode.STARTING;
+    private volatile boolean arCoreSwitchAttempted;
+    private volatile boolean destroyed;
     private long lastVisionErrorMs;
 
     private final ActivityResultLauncher<String[]> permissions = registerForActivityResult(
             new ActivityResultContracts.RequestMultiplePermissions(), result -> {
                 boolean camera = Boolean.TRUE.equals(result.get(Manifest.permission.CAMERA));
                 if (camera) {
-                    startCamera();
+                    startCameraX();
                 } else {
                     guidanceEnabled = false;
                     updateStatus("Kamera izni olmadan çevre algısı çalışamaz.", true);
@@ -83,7 +95,7 @@ public final class MainActivity extends ComponentActivity {
         setContentView(buildUi());
         probeDepthCapability();
         requestPermissionsAndStart();
-        speaker.speak("Sesli Rehber sürüm sıfır nokta beş. Mevcut güvenli kamera rehberliği çalışırken ARCore derinlik yeteneği ayrıca doğrulanıyor. Canlı derinlik kararına geçmeden önce kamera sahipliği güvenli şekilde değiştirilecek.");
+        speaker.speak("Sesli Rehber sürüm sıfır nokta altı. Güvenli kamera rehberliği başlıyor; destek varsa canlı ARCore derinlik moduna geçilecek ve sorun olursa CameraX geri dönüşü yapılacak.");
     }
 
     private View buildUi() {
@@ -111,7 +123,7 @@ public final class MainActivity extends ComponentActivity {
 
         previewView = new PreviewView(this);
         previewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
-        previewView.setContentDescription("Canlı kamera görüntüsü. Kullanmak için görsel etkileşim gerekmez.");
+        previewView.setContentDescription("Canlı kamera görüntüsü. ARCore derinlik modunda görsel önizleme enerji tasarrufu için kapatılabilir.");
         root.addView(previewView, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         Button voiceButton = bigButton("Sesli Komut", "Bir kez sesli komut dinle");
@@ -160,10 +172,10 @@ public final class MainActivity extends ComponentActivity {
         ArCoreDepthCapability.probe(this, result -> {
             depthCapability = result;
             runOnUiThread(() -> {
-                if (depthStatusView != null) {
-                    depthStatusView.setText("Derinlik: " + result.status());
-                    depthStatusView.setContentDescription("Derinlik sistemi: " + result.status());
-                }
+                if (destroyed) return;
+                depthStatusView.setText("Derinlik: " + result.status());
+                depthStatusView.setContentDescription("Derinlik sistemi: " + result.status());
+                maybeSwitchToArCore();
             });
         });
     }
@@ -173,22 +185,31 @@ public final class MainActivity extends ComponentActivity {
                 == PackageManager.PERMISSION_GRANTED;
         boolean audioOk = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
                 == PackageManager.PERMISSION_GRANTED;
-
         if (cameraOk && audioOk) {
-            startCamera();
+            startCameraX();
         } else {
             permissions.launch(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO});
         }
     }
 
-    private void startCamera() {
+    private boolean cameraPermissionGranted() {
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private void startCameraX() {
+        if (destroyed || !cameraPermissionGranted()) return;
+        visionMode = VisionMode.STARTING;
+        previewView.setVisibility(View.VISIBLE);
+        groundDepthSynchronizer.reset();
+
         ListenableFuture<ProcessCameraProvider> future = ProcessCameraProvider.getInstance(this);
         future.addListener(() -> {
             try {
+                if (destroyed || visionMode == VisionMode.ARCORE) return;
                 ProcessCameraProvider provider = future.get();
-                int targetRotation = previewView.getDisplay() != null
-                        ? previewView.getDisplay().getRotation()
-                        : Surface.ROTATION_0;
+                cameraProvider = provider;
+                int targetRotation = currentDisplayRotation();
 
                 Preview preview = new Preview.Builder()
                         .setTargetRotation(targetRotation)
@@ -200,23 +221,11 @@ public final class MainActivity extends ComponentActivity {
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
-                if (visionAnalyzer != null) visionAnalyzer.close();
+                closeCameraXAnalyzer();
                 visionAnalyzer = new VisionFusionAnalyzer(new VisionFusionAnalyzer.Listener() {
-                    @Override public void onMotion(MotionObservation observation) {
-                        if (!guidanceEnabled) return;
-                        handleDecision(safetyGate.evaluate(observation, sensors.stability()));
-                    }
-
-                    @Override public void onObject(ObjectObservation observation) {
-                        if (!guidanceEnabled) return;
-                        handleDecision(safetyGate.evaluateObject(observation, sensors.stability()));
-                    }
-
-                    @Override public void onGround(GroundObservation observation) {
-                        if (!guidanceEnabled) return;
-                        handleDecision(safetyGate.evaluateGround(observation, sensors.stability()));
-                    }
-
+                    @Override public void onMotion(MotionObservation observation) { handleMotion(observation); }
+                    @Override public void onObject(ObjectObservation observation) { handleObject(observation); }
+                    @Override public void onGround(GroundObservation observation) { handleGround(observation); }
                     @Override public void onVisionError(String message) {
                         long now = System.currentTimeMillis();
                         if (now - lastVisionErrorMs > 8000L) {
@@ -229,7 +238,9 @@ public final class MainActivity extends ComponentActivity {
 
                 provider.unbindAll();
                 provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis);
-                updateStatus("Kamera aktif. Nesne yaklaşma + çarpışma koridoru + zemin sürekliliği çalışıyor.", false);
+                visionMode = VisionMode.CAMERAX;
+                updateStatus("CameraX güvenli mod aktif. Nesne + çarpışma koridoru + zemin sürekliliği çalışıyor.", false);
+                maybeSwitchToArCore();
             } catch (Exception error) {
                 guidanceEnabled = false;
                 updateStatus("Kamera başlatılamadı: " + error.getClass().getSimpleName(), true);
@@ -238,15 +249,104 @@ public final class MainActivity extends ComponentActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
+    private void maybeSwitchToArCore() {
+        if (destroyed || arCoreSwitchAttempted || visionMode != VisionMode.CAMERAX || !cameraPermissionGranted()) return;
+        ArCoreDepthCapability.Result capability = depthCapability;
+        if (capability == null || !capability.depthSupported() || !capability.hardwareBufferModeSupported()) return;
+
+        arCoreSwitchAttempted = true;
+        visionMode = VisionMode.STARTING;
+        groundDepthSynchronizer.reset();
+        if (cameraProvider != null) cameraProvider.unbindAll();
+        closeCameraXAnalyzer();
+        updateStatus("Canlı ARCore Depth16 moduna geçiliyor…", false);
+        depthStatusView.setText("Derinlik: kamera ARCore'a devrediliyor…");
+
+        // CameraX unbind is synchronous at the use-case layer but the camera device can need a short
+        // release interval before ARCore Session.resume(). A small deterministic handoff reduces
+        // spurious CameraNotAvailable fallbacks without hiding a persistent failure.
+        previewView.postDelayed(() -> startArCore(), 220L);
+    }
+
+    private void startArCore() {
+        if (destroyed) return;
+        if (arCoreEngine != null) arCoreEngine.close();
+        arCoreEngine = new ArCoreLiveVisionEngine(this, new ArCoreLiveVisionEngine.Listener() {
+            @Override public void onMotion(MotionObservation observation) { handleMotion(observation); }
+            @Override public void onObject(ObjectObservation observation) { handleObject(observation); }
+            @Override public void onGround(GroundObservation observation) { handleGround(observation); }
+            @Override public void onDepth(DepthObservation observation) { handleDepth(observation); }
+
+            @Override public void onStatus(String status) {
+                runOnUiThread(() -> {
+                    if (destroyed) return;
+                    visionMode = VisionMode.ARCORE;
+                    previewView.setVisibility(View.GONE);
+                    depthStatusView.setText("Derinlik: canlı Depth16 aktif");
+                    depthStatusView.setContentDescription("Derinlik sistemi: canlı Depth16 aktif");
+                    updateStatus(status, false);
+                });
+            }
+
+            @Override public void onFatal(String message) {
+                runOnUiThread(() -> {
+                    if (destroyed) return;
+                    visionMode = VisionMode.STARTING;
+                    groundDepthSynchronizer.reset();
+                    if (arCoreEngine != null) {
+                        arCoreEngine.close();
+                        arCoreEngine = null;
+                    }
+                    previewView.setVisibility(View.VISIBLE);
+                    depthStatusView.setText("Derinlik: canlı mod kapandı; CameraX yedek aktif");
+                    updateStatus(message, true);
+                    speaker.speak("Derinlik modu kapandı. Kamera rehberliği devam ediyor.");
+                    startCameraX();
+                });
+            }
+        });
+        if (!arCoreEngine.start(currentDisplayRotation())) {
+            previewView.setVisibility(View.VISIBLE);
+            startCameraX();
+        }
+    }
+
+    private void handleMotion(MotionObservation observation) {
+        if (!guidanceEnabled) return;
+        handleDecision(safetyGate.evaluate(observation, sensors.stability()));
+    }
+
+    private void handleObject(ObjectObservation observation) {
+        if (!guidanceEnabled) return;
+        handleDecision(safetyGate.evaluateObject(observation, sensors.stability()));
+    }
+
+    private void handleGround(GroundObservation observation) {
+        if (!guidanceEnabled) return;
+        handleDecision(safetyGate.evaluateGround(observation, sensors.stability()));
+        GroundDepthEvidence evidence = groundDepthSynchronizer.offerGround(observation);
+        if (evidence != null) {
+            handleDecision(safetyGate.evaluateGroundWithDepth(
+                    evidence.ground(), evidence.depth(), sensors.stability()));
+        }
+    }
+
+    private void handleDepth(DepthObservation observation) {
+        if (!guidanceEnabled) return;
+        handleDecision(safetyGate.evaluateDepth(observation, sensors.stability()));
+        GroundDepthEvidence evidence = groundDepthSynchronizer.offerDepth(observation);
+        if (evidence != null) {
+            handleDecision(safetyGate.evaluateGroundWithDepth(
+                    evidence.ground(), evidence.depth(), sensors.stability()));
+        }
+    }
+
     private void handleDecision(GuidanceDecision decision) {
         long now = System.currentTimeMillis();
         if (!announcementGate.shouldAnnounce(decision, now)) return;
-
         runOnUiThread(() -> {
             boolean urgent = decision.risk() == Risk.STOP;
-            updateStatus(
-                    decision.speech() + "  Güven: " + Math.round(decision.confidence() * 100) + "%",
-                    urgent);
+            updateStatus(decision.speech() + "  Güven: " + Math.round(decision.confidence() * 100) + "%", urgent);
             speaker.announce(decision);
         });
     }
@@ -265,17 +365,15 @@ public final class MainActivity extends ComponentActivity {
             }
             case REPEAT -> speaker.repeat();
             case DESCRIBE_SCENE -> {
-                String depthText;
-                ArCoreDepthCapability.Result result = depthCapability;
-                if (result != null && result.depthSupported()) {
-                    depthText = " Bu cihazda ARCore derinlik desteği doğrulandı; canlı güvenlik füzyonu için kamera geçiş katmanı hazırlanıyor.";
-                } else {
-                    depthText = " Derinlik desteği canlı rehberliğe bağlı değil; mevcut kamera güvenlik kanalları çalışıyor.";
-                }
-                speaker.speak("Nesne yaklaşma ve ön zemin sürekliliği izleniyor." + depthText);
+                String modeText = switch (visionMode) {
+                    case ARCORE -> " Canlı ARCore derinlik, zemin, nesne ve hareket kanalları birlikte çalışıyor.";
+                    case CAMERAX -> " CameraX zemin, nesne ve hareket kanalları çalışıyor; canlı derinlik aktif değil.";
+                    default -> " Görüş sistemi başlatılıyor.";
+                };
+                speaker.speak("Ön çevre güvenlik kanalları izleniyor." + modeText
+                        + " Çukur veya kaldırım adı saha doğrulaması olmadan kesin söylenmez.");
             }
-            case HELP -> speaker.speak(
-                    "Komutlar: rehberliği başlat, rehberliği durdur, tekrar et, çevremi anlat.");
+            case HELP -> speaker.speak("Komutlar: rehberliği başlat, rehberliği durdur, tekrar et, çevremi anlat.");
             case UNKNOWN -> speaker.speak("Komutu anlayamadım.");
         }
         updateStatus("Komut: " + text, false);
@@ -283,10 +381,24 @@ public final class MainActivity extends ComponentActivity {
 
     private void updateStatus(String text, boolean urgent) {
         runOnUiThread(() -> {
+            if (destroyed || statusView == null) return;
             statusView.setText(text);
             statusView.setTextColor(urgent ? Color.rgb(255, 210, 80) : Color.WHITE);
             statusView.announceForAccessibility(text);
         });
+    }
+
+    private int currentDisplayRotation() {
+        return previewView != null && previewView.getDisplay() != null
+                ? previewView.getDisplay().getRotation()
+                : Surface.ROTATION_0;
+    }
+
+    private void closeCameraXAnalyzer() {
+        if (visionAnalyzer != null) {
+            visionAnalyzer.close();
+            visionAnalyzer = null;
+        }
     }
 
     private int dp(int value) {
@@ -297,17 +409,27 @@ public final class MainActivity extends ComponentActivity {
     protected void onStart() {
         super.onStart();
         if (sensors != null) sensors.start();
+        if (visionMode == VisionMode.ARCORE && arCoreEngine != null && !arCoreEngine.isRunning()) {
+            arCoreEngine.start(currentDisplayRotation());
+        }
     }
 
     @Override
     protected void onStop() {
+        if (arCoreEngine != null) arCoreEngine.stop();
         if (sensors != null) sensors.stop();
         super.onStop();
     }
 
     @Override
     protected void onDestroy() {
-        if (visionAnalyzer != null) visionAnalyzer.close();
+        destroyed = true;
+        if (cameraProvider != null) cameraProvider.unbindAll();
+        closeCameraXAnalyzer();
+        if (arCoreEngine != null) {
+            arCoreEngine.close();
+            arCoreEngine = null;
+        }
         if (voice != null) voice.destroy();
         if (speaker != null) speaker.shutdown();
         if (cameraExecutor != null) cameraExecutor.shutdownNow();
