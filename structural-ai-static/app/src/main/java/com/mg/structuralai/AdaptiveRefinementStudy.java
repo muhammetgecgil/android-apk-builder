@@ -3,61 +3,81 @@ package com.mg.structuralai;
 import java.util.*;
 
 /**
- * Safe adaptive escalation for the current conforming voxel-TET4 mesher.
- * Refines the whole conforming grid progressively (16->20->24->28->32) until response stabilizes.
- * This deliberately avoids non-conforming local hanging-node refinement in the current kernel.
+ * Autonomous refinement orchestrator.
+ * First attempts stress-driven conforming local TET4 refinement on a SmartTetMesher base mesh.
+ * Only if local refinement does not converge does it fall back to global SmartTetMesher escalation.
  */
 public final class AdaptiveRefinementStudy {
     public static final class Step {
-        public final int cells;
+        public final int cells,nodes,tets;
         public final TetMeshData mesh;
         public final StaticFemSolver.Result fem;
         public final AdvancedFemLoads.Result setup;
         public final MeshQualityReport quality;
         public final MeshModel.V3 hotspot;
-        Step(int c,VoxelTetMesher.Result mr,StaticFemSolver.Result f,AdvancedFemLoads.Result s,MeshModel.V3 h){cells=c;mesh=mr.mesh;quality=mr.quality;fem=f;setup=s;hotspot=h;}
+        public final String meshMode;
+        Step(int c,TetMeshData m,StaticFemSolver.Result f,AdvancedFemLoads.Result s,MeshQualityReport q,MeshModel.V3 h,String mode){
+            cells=c;mesh=m;nodes=m.nodes.size();tets=m.tets.size();quality=q;fem=f;setup=s;hotspot=h;meshMode=mode;
+        }
     }
     public static final class Result {
         public final List<Step> steps;
         public final boolean converged;
         public final double displacementChange,stressChange,hotspotShiftM;
         public final Step finalStep;
-        Result(List<Step> s,boolean ok,double du,double ds,double hs){steps=s;converged=ok;finalStep=s.get(s.size()-1);displacementChange=du;stressChange=ds;hotspotShiftM=hs;}
+        public final boolean localAttempted,localConverged,globalFallbackUsed;
+        public final int localCycles;
+        Result(List<Step> s,boolean ok,double du,double ds,double hs,boolean la,boolean lc,boolean gf,int cycles){
+            steps=s;converged=ok;finalStep=s.get(s.size()-1);displacementChange=du;stressChange=ds;hotspotShiftM=hs;
+            localAttempted=la;localConverged=lc;globalFallbackUsed=gf;localCycles=cycles;
+        }
     }
     private AdaptiveRefinementStudy(){}
 
     public static Result run(MeshModel surface,double scale,LinearElasticMaterial mat,List<MeshModel.V3> supports,List<MeshModel.V3> loads,
                              double fx,double fy,double fz,double pressurePa,boolean gravity,double rho){
-        int[] levels={16,20,24,28,32};
         List<Step> out=new ArrayList<>();
-        double du=Double.POSITIVE_INFINITY,ds=Double.POSITIVE_INFINITY,shift=Double.POSITIVE_INFINITY;
-        boolean ok=false;
-        for(int c:levels){
-            Step cur=solve(surface,scale,mat,supports,loads,fx,fy,fz,pressurePa,gravity,rho,c);
-            out.add(cur);
-            if(out.size()>=2){
-                Step prev=out.get(out.size()-2);
-                du=rel(cur.fem.maxDisplacementM,prev.fem.maxDisplacementM);
-                ds=rel(cur.fem.maxVonMisesPa,prev.fem.maxVonMisesPa);
-                shift=dist(cur.hotspot,prev.hotspot);
-                double diag=meshDiag(cur.mesh);
-                boolean response=cur.fem.maxDisplacementM>1e-15 && cur.fem.maxVonMisesPa>1e-6;
-                boolean qa=cur.quality.pass && prev.quality.pass && cur.fem.linearSolve.converged && prev.fem.linearSolve.converged && cur.fem.forceEquilibriumRelativeError<1e-5;
-                boolean stableLocation=shift<=Math.max(diag*0.08,1e-9);
-                if(response&&qa&&du<=0.05&&ds<=0.10&&stableLocation){ok=true;break;}
-            }
+
+        // Primary path: stress-driven local refinement. This preserves the external faces of refined TETs
+        // and therefore remains conforming without hanging nodes.
+        LocalAdaptiveRefinementStudy.Result local=LocalAdaptiveRefinementStudy.run(surface,scale,mat,supports,loads,fx,fy,fz,pressurePa,gravity,rho,16);
+        for(LocalAdaptiveRefinementStudy.Step s:local.steps){
+            out.add(new Step(16,s.mesh,s.fem,s.setup,s.quality,s.hotspot,"LOCAL_CENTROID cycle="+s.cycle+" refinedParents="+s.refinedParents));
         }
-        return new Result(out,ok,du,ds,shift);
+        if(local.converged){
+            return new Result(out,true,local.displacementChange,local.stressChange,local.hotspotShiftM,true,true,false,Math.max(0,local.steps.size()-1));
+        }
+
+        // Conservative fallback: globally increase SmartTetMesher resolution. We start above the
+        // local base so the same coarse solution is not repeated.
+        int[] levels={20,24,28,32};
+        double du=local.displacementChange,ds=local.stressChange,shift=local.hotspotShiftM;
+        boolean ok=false;
+        Step prev=out.get(out.size()-1);
+        for(int c:levels){
+            Step cur=solveGlobal(surface,scale,mat,supports,loads,fx,fy,fz,pressurePa,gravity,rho,c);
+            out.add(cur);
+            du=rel(cur.fem.maxDisplacementM,prev.fem.maxDisplacementM);
+            ds=rel(cur.fem.maxVonMisesPa,prev.fem.maxVonMisesPa);
+            shift=dist(cur.hotspot,prev.hotspot);
+            double diag=meshDiag(cur.mesh);
+            boolean response=cur.fem.maxDisplacementM>1e-15&&cur.fem.maxVonMisesPa>1e-6;
+            boolean qa=cur.quality.pass&&prev.quality.pass&&cur.fem.linearSolve.converged&&prev.fem.linearSolve.converged&&cur.fem.forceEquilibriumRelativeError<1e-5;
+            boolean stableLocation=shift<=Math.max(diag*0.08,1e-9);
+            if(response&&qa&&du<=0.05&&ds<=0.10&&stableLocation){ok=true;break;}
+            prev=cur;
+        }
+        return new Result(out,ok,du,ds,shift,true,false,true,Math.max(0,local.steps.size()-1));
     }
 
-    private static Step solve(MeshModel surface,double scale,LinearElasticMaterial mat,List<MeshModel.V3> supports,List<MeshModel.V3> loads,
-                              double fx,double fy,double fz,double pressurePa,boolean gravity,double rho,int cells){
-        VoxelTetMesher.Result mr=VoxelTetMesher.generate(surface,cells,scale);
+    private static Step solveGlobal(MeshModel surface,double scale,LinearElasticMaterial mat,List<MeshModel.V3> supports,List<MeshModel.V3> loads,
+                                    double fx,double fy,double fz,double pressurePa,boolean gravity,double rho,int cells){
+        SmartTetMesher.Result mr=SmartTetMesher.generate(surface,cells,scale);
         if(!mr.quality.pass)throw new IllegalStateException("Adaptive mesh QA failed @"+cells+": "+mr.quality.summary());
         StaticFemSolver solver=new StaticFemSolver(mr.mesh,mat);
         AdvancedFemLoads.Result setup=AdvancedFemLoads.apply(solver,mr.mesh,surface,supports,loads,scale,fx,fy,fz,pressurePa,gravity,rho);
         StaticFemSolver.Result fem=solver.solve();
-        return new Step(cells,mr,fem,setup,hotspot(mr.mesh,fem));
+        return new Step(cells,mr.mesh,fem,setup,mr.quality,hotspot(mr.mesh,fem),"GLOBAL_SMART "+mr.mode);
     }
 
     private static MeshModel.V3 hotspot(TetMeshData m,StaticFemSolver.Result f){
