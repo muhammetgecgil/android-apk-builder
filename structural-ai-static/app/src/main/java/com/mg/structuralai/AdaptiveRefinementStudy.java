@@ -4,8 +4,8 @@ import java.util.*;
 
 /**
  * Autonomous refinement orchestrator.
- * First attempts stress-driven conforming local TET4 refinement on a SmartTetMesher base mesh.
- * Only if local refinement does not converge does it fall back to global SmartTetMesher escalation.
+ * Local refinement is opportunistic only: any local-mesh QA failure is rejected and rolled back.
+ * The analysis then continues on the last known-good SmartTetMesher mesh using global escalation.
  */
 public final class AdaptiveRefinementStudy {
     public static final class Step {
@@ -27,9 +27,10 @@ public final class AdaptiveRefinementStudy {
         public final Step finalStep;
         public final boolean localAttempted,localConverged,globalFallbackUsed;
         public final int localCycles;
-        Result(List<Step> s,boolean ok,double du,double ds,double hs,boolean la,boolean lc,boolean gf,int cycles){
+        public final String localDecision;
+        Result(List<Step> s,boolean ok,double du,double ds,double hs,boolean la,boolean lc,boolean gf,int cycles,String decision){
             steps=s;converged=ok;finalStep=s.get(s.size()-1);displacementChange=du;stressChange=ds;hotspotShiftM=hs;
-            localAttempted=la;localConverged=lc;globalFallbackUsed=gf;localCycles=cycles;
+            localAttempted=la;localConverged=lc;globalFallbackUsed=gf;localCycles=cycles;localDecision=decision;
         }
     }
     private AdaptiveRefinementStudy(){}
@@ -37,23 +38,45 @@ public final class AdaptiveRefinementStudy {
     public static Result run(MeshModel surface,double scale,LinearElasticMaterial mat,List<MeshModel.V3> supports,List<MeshModel.V3> loads,
                              double fx,double fy,double fz,double pressurePa,boolean gravity,double rho){
         List<Step> out=new ArrayList<>();
+        boolean localAttempted=true, localConverged=false;
+        int localCycles=0;
+        String localDecision="LOCAL refinement attempted.";
+        double du=Double.POSITIVE_INFINITY,ds=Double.POSITIVE_INFINITY,shift=Double.POSITIVE_INFINITY;
 
-        // Primary path: stress-driven local refinement. This preserves the external faces of refined TETs
-        // and therefore remains conforming without hanging nodes.
-        LocalAdaptiveRefinementStudy.Result local=LocalAdaptiveRefinementStudy.run(surface,scale,mat,supports,loads,fx,fy,fz,pressurePa,gravity,rho,16);
-        for(LocalAdaptiveRefinementStudy.Step s:local.steps){
-            out.add(new Step(16,s.mesh,s.fem,s.setup,s.quality,s.hotspot,"LOCAL_CENTROID cycle="+s.cycle+" refinedParents="+s.refinedParents));
-        }
-        if(local.converged){
-            return new Result(out,true,local.displacementChange,local.stressChange,local.hotspotShiftM,true,true,false,Math.max(0,local.steps.size()-1));
+        // Local refinement is never allowed to take the whole autonomous run down. Any exception or
+        // mesh-QA rejection means rollback to a freshly generated, known-good SmartTetMesher base.
+        try{
+            LocalAdaptiveRefinementStudy.Result local=LocalAdaptiveRefinementStudy.run(surface,scale,mat,supports,loads,fx,fy,fz,pressurePa,gravity,rho,16);
+            for(LocalAdaptiveRefinementStudy.Step s:local.steps){
+                out.add(new Step(16,s.mesh,s.fem,s.setup,s.quality,s.hotspot,"LOCAL cycle="+s.cycle+" refinedParents="+s.refinedParents));
+            }
+            localCycles=Math.max(0,local.steps.size()-1);
+            du=local.displacementChange;ds=local.stressChange;shift=local.hotspotShiftM;
+            if(local.converged){
+                localConverged=true;
+                localDecision="LOCAL refinement accepted: convergence and mesh-QA gates passed.";
+                return new Result(out,true,du,ds,shift,true,true,false,localCycles,localDecision);
+            }
+            localDecision=local.meshQaBlocked?
+                "LOCAL refinement REJECTED by mesh QA; rolled back automatically to global SmartTetMesher fallback.":
+                "LOCAL refinement did not converge; rolled back automatically to global SmartTetMesher fallback.";
+        }catch(RuntimeException ex){
+            localDecision="LOCAL refinement REJECTED safely ("+ex.getMessage()+"); global SmartTetMesher fallback engaged.";
         }
 
-        // Conservative fallback: globally increase SmartTetMesher resolution. We start above the
-        // local base so the same coarse solution is not repeated.
-        int[] levels={20,24,28,32};
-        double du=local.displacementChange,ds=local.stressChange,shift=local.hotspotShiftM;
-        boolean ok=false;
+        // If the rejected local path produced no usable step, establish a clean 16-cell SmartTet base.
+        if(out.isEmpty()) out.add(solveGlobal(surface,scale,mat,supports,loads,fx,fy,fz,pressurePa,gravity,rho,16));
+
+        // Global escalation always starts from a known-good accepted mesh, never from a rejected local mesh.
         Step prev=out.get(out.size()-1);
+        if(!prev.quality.pass){
+            out.clear();
+            prev=solveGlobal(surface,scale,mat,supports,loads,fx,fy,fz,pressurePa,gravity,rho,16);
+            out.add(prev);
+        }
+
+        int[] levels={20,24,28,32};
+        boolean ok=false;
         for(int c:levels){
             Step cur=solveGlobal(surface,scale,mat,supports,loads,fx,fy,fz,pressurePa,gravity,rho,c);
             out.add(cur);
@@ -67,7 +90,7 @@ public final class AdaptiveRefinementStudy {
             if(response&&qa&&du<=0.05&&ds<=0.10&&stableLocation){ok=true;break;}
             prev=cur;
         }
-        return new Result(out,ok,du,ds,shift,true,false,true,Math.max(0,local.steps.size()-1));
+        return new Result(out,ok,du,ds,shift,localAttempted,localConverged,true,localCycles,localDecision);
     }
 
     private static Step solveGlobal(MeshModel surface,double scale,LinearElasticMaterial mat,List<MeshModel.V3> supports,List<MeshModel.V3> loads,
@@ -77,8 +100,8 @@ public final class AdaptiveRefinementStudy {
         StaticFemSolver solver=new StaticFemSolver(mr.mesh,mat);
         AdvancedFemLoads.Result setup=AdvancedFemLoads.apply(solver,mr.mesh,surface,supports,loads,scale,fx,fy,fz,pressurePa,gravity,rho);
         StaticFemSolver.Result fem=solver.solve();
-        String smartMode=mr.snapped?"BOUNDARY_SNAP":"VOXEL_FALLBACK";
-        return new Step(cells,mr.mesh,fem,setup,mr.quality,hotspot(mr.mesh,fem),"GLOBAL_SMART "+smartMode+" | "+mr.decision);
+        String mode="GLOBAL_SMART "+(mr.snapped?"BOUNDARY_SNAP":"VOXEL_FALLBACK")+" | "+mr.decision;
+        return new Step(cells,mr.mesh,fem,setup,mr.quality,hotspot(mr.mesh,fem),mode);
     }
 
     private static MeshModel.V3 hotspot(TetMeshData m,StaticFemSolver.Result f){
