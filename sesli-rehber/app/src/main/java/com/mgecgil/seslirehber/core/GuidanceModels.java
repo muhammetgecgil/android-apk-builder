@@ -57,6 +57,24 @@ public final class GuidanceModels {
     }
 
     /**
+     * Image usability evidence. It is intentionally about sensing quality, not scene semantics.
+     * Persistent darkness, saturation or near-flat texture can make camera guidance unreliable.
+     */
+    public record SceneHealthObservation(
+            float meanLuma,
+            float contrastScore,
+            float darkRatio,
+            float brightRatio,
+            float qualityScore,
+            float unusableScore,
+            float persistenceScore,
+            long timestampMs) {
+        public boolean persistentlyUnusable() {
+            return unusableScore >= 0.72f && persistenceScore >= 0.58f;
+        }
+    }
+
+    /**
      * Internal metric evidence derived from a depth image. Millimetres are kept internally only;
      * user-facing metric distance is forbidden until device calibration and field validation pass.
      */
@@ -73,6 +91,35 @@ public final class GuidanceModels {
             return validRatio >= 0.42f
                     && discontinuityScore >= 0.62f
                     && depthConfidence >= 0.58f;
+        }
+    }
+
+    /**
+     * Relative openness of three forward depth corridors. This does NOT certify a safe path.
+     * A direction is only a persistent "more open" candidate and must be paired with cane/other
+     * evidence until controlled field validation is complete.
+     */
+    public record WalkableCorridorObservation(
+            float leftOpenScore,
+            float centerOpenScore,
+            float rightOpenScore,
+            float centerBlockedScore,
+            Direction moreOpenDirection,
+            float confidence,
+            float persistenceScore,
+            long timestampMs) {
+        public float score(Direction direction) {
+            return switch (direction) {
+                case LEFT -> leftOpenScore;
+                case CENTER -> centerOpenScore;
+                case RIGHT -> rightOpenScore;
+                default -> 0f;
+            };
+        }
+        public boolean hasPersistentCandidate() {
+            return moreOpenDirection != Direction.UNKNOWN
+                    && confidence >= 0.54f
+                    && persistenceScore >= 0.56f;
         }
     }
 
