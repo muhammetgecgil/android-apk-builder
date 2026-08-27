@@ -14,7 +14,6 @@ public final class FlightDynamicsEngine {
         dtSec = Math.min(dtSec, 0.05);
         in.clamp();
 
-        // Landing gear actuator: approximately 1.8 s full travel.
         double gearTarget = in.gearDown ? 1.0 : 0.0;
         s.gearPosition = approach(s.gearPosition, gearTarget, GEAR_RATE_PER_SEC * dtSec);
         s.brake01 += (in.brake - s.brake01) * Math.min(1.0, dtSec * 7.0);
@@ -26,7 +25,8 @@ public final class FlightDynamicsEngine {
         s.headingDeg = wrap360(s.headingDeg + Math.sin(Math.toRadians(s.rollDeg)) * 28.0 * dtSec + in.yaw * 18.0 * dtSec);
 
         s.throttle += (in.throttle - s.throttle) * Math.min(1.0, dtSec * 2.0);
-        double targetSpeed = 55.0 + s.throttle * 250.0;
+        // Ground propulsion starts at zero; airborne model keeps a minimum flying-speed tendency.
+        double targetSpeed = s.onGround ? s.throttle * 125.0 : 55.0 + s.throttle * 250.0;
         s.trueAirspeedMps += (targetSpeed - s.trueAirspeedMps) * Math.min(1.0, dtSec * 0.55);
 
         double airborneVs = s.trueAirspeedMps * Math.sin(Math.toRadians(s.pitchDeg));
@@ -40,7 +40,6 @@ public final class FlightDynamicsEngine {
             s.altitudeM = GROUND_HEIGHT_M;
             s.verticalSpeedMps = 0.0;
 
-            // Simple spring/damper visual state. Harder touchdown = deeper first compression.
             double touchdownLoad = clamp01(s.touchdownSinkMps / 4.5);
             double speedLoad = clamp01(s.trueAirspeedMps / 95.0) * 0.18;
             double targetMainCompression = clamp01(0.16 + touchdownLoad * 0.72 + speedLoad);
@@ -48,13 +47,10 @@ public final class FlightDynamicsEngine {
             s.mainStrutCompression01 += (targetMainCompression - s.mainStrutCompression01) * Math.min(1.0, dtSec * 7.5);
             s.noseStrutCompression01 += (targetNoseCompression - s.noseStrutCompression01) * Math.min(1.0, dtSec * 6.0);
 
-            // Rolling + brake drag. Keeps a little idle rolling resistance even without brakes.
             double rollingDecel = 0.55 + 9.0 * s.brake01;
             s.trueAirspeedMps = Math.max(0.0, s.trueAirspeedMps - rollingDecel * dtSec);
-            // Nose wheel steering influence is strongest at low speed.
             double steerAuthority = 20.0 * clamp01(1.0 - s.trueAirspeedMps / 85.0);
             s.headingDeg = wrap360(s.headingDeg + in.yaw * steerAuthority * dtSec);
-            // Ground attitude gradually settles without snapping.
             s.rollDeg += (0.0 - s.rollDeg) * Math.min(1.0, dtSec * 2.8);
             s.pitchDeg += (0.0 - s.pitchDeg) * Math.min(1.0, dtSec * 1.4);
         } else {
