@@ -6,8 +6,7 @@ public final class ProjectIntegration {
     private ProjectIntegration(){}
 
     public static EngineeringProject active(Context c){
-        String id=EngineeringProjectRepository.getActiveProjectId(c);
-        return id==null?null:EngineeringProjectRepository.load(c,id);
+        return EngineeringProjectRepository.active(c);
     }
 
     public static String saveShaftBearing(Context c,SystemSelectionEngine.ShaftBearingFitResult r,double radialN,double axialN,double rpm,double targetLifeH){
