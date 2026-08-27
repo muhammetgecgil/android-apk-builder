@@ -30,9 +30,9 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         void onMotion(MotionObservation observation);
         void onObject(ObjectObservation observation);
         void onGround(GroundObservation observation);
-        void onSceneHealth(SceneHealthObservation observation);
+        default void onSceneHealth(SceneHealthObservation observation) {}
         void onDepth(DepthObservation observation);
-        void onWalkable(WalkableCorridorObservation observation);
+        default void onWalkable(WalkableCorridorObservation observation) {}
         void onStatus(String status);
         void onFatal(String message);
     }
@@ -127,7 +127,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             sampleLuma(cameraImage, lumaGrid);
             GridEvidenceEstimator.Result evidence = gridEstimator.analyze(lumaGrid, rotationDegrees, nowMs);
             listener.onSceneHealth(evidence.sceneHealth());
-            if (evidence.motion().changedAreaRatio() > 0f) listener.onMotion(evidence.motion());
+            listener.onMotion(evidence.motion());
             if (evidence.ground().viewConfidence() > 0.08f) listener.onGround(evidence.ground());
 
             if (frame.getCamera().getTrackingState() == TrackingState.TRACKING) {
