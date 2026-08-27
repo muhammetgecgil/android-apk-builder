@@ -42,19 +42,27 @@ public class ProceduralFighterMeshTest {
 
     @Test public void avm3EngineAirPathPartsExist() {
         ProceduralFighterMesh.Mesh mesh = ProceduralFighterMesh.build();
-        int ducts=0, compressors=0, petals=0, inner=0, flame=0;
+        int ducts=0, compressors=0, petals=0, inner=0, flame=0, core=0;
+        float ductMinZ=Float.POSITIVE_INFINITY, ductMaxZ=Float.NEGATIVE_INFINITY;
+        float flameMaxZ=Float.NEGATIVE_INFINITY, coreMaxZ=Float.NEGATIVE_INFINITY;
         for (int i=0; i<mesh.data.length; i+=7) {
-            float part=mesh.data[i+6];
-            if (Math.abs(part-ProceduralFighterMesh.PART_INTAKE_DUCT)<0.1f) ducts++;
-            else if (Math.abs(part-ProceduralFighterMesh.PART_COMPRESSOR_FACE)<0.1f) compressors++;
+            float z=mesh.data[i+2], part=mesh.data[i+6];
+            if (Math.abs(part-ProceduralFighterMesh.PART_INTAKE_DUCT)<0.1f) {
+                ducts++; ductMinZ=Math.min(ductMinZ,z); ductMaxZ=Math.max(ductMaxZ,z);
+            } else if (Math.abs(part-ProceduralFighterMesh.PART_COMPRESSOR_FACE)<0.1f) compressors++;
             else if (Math.abs(part-ProceduralFighterMesh.PART_NOZZLE_PETAL)<0.1f) petals++;
             else if (Math.abs(part-ProceduralFighterMesh.PART_NOZZLE_INNER)<0.1f) inner++;
-            else if (Math.abs(part-ProceduralFighterMesh.PART_AFTERBURNER)<0.1f) flame++;
+            else if (Math.abs(part-ProceduralFighterMesh.PART_AFTERBURNER)<0.1f) {flame++; flameMaxZ=Math.max(flameMaxZ,z);}
+            else if (Math.abs(part-ProceduralFighterMesh.PART_FLAME_CORE)<0.1f) {core++; coreMaxZ=Math.max(coreMaxZ,z);}
         }
-        assertTrue("intake ducts missing", ducts >= 48);
-        assertTrue("compressor faces missing", compressors >= 80);
-        assertTrue("nozzle petals missing", petals >= 120);
-        assertTrue("nozzle inner geometry missing", inner >= 120);
-        assertTrue("afterburner geometry missing", flame >= 90);
+        assertTrue("intake ducts missing", ducts >= 90);
+        assertTrue("S-duct path too short", ductMaxZ-ductMinZ > 1.15f);
+        assertTrue("compressor faces missing", compressors >= 180);
+        assertTrue("nozzle petals need thickness", petals >= 600);
+        assertTrue("nozzle inner geometry missing", inner >= 140);
+        assertTrue("afterburner geometry missing", flame >= 100);
+        assertTrue("afterburner plume too short", flameMaxZ > 5.0f);
+        assertTrue("flame core missing", core >= 70);
+        assertTrue("flame core too short", coreMaxZ > 4.6f);
     }
 }
