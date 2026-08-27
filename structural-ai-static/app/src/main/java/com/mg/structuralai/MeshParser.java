@@ -13,13 +13,18 @@ public final class MeshParser {
 
     public static MeshModel parse(String name, InputStream in) throws IOException {
         String n=name==null?"":name.toLowerCase(Locale.ROOT);
-        if(n.endsWith(".obj")) return parseObj(in);
+        if(n.endsWith(".obj")){
+            MeshModel m=parseObj(in);
+            m.setImportMetadata("OBJ",false,Double.NaN,"OBJ does not define an authoritative physical length unit; scale is inferred only for the 1 N parametric study");
+            return m;
+        }
         if(n.endsWith(".stl")){
             byte[] data=readBounded(in,MAX_BYTES);
-            if(looksBinaryStl(data)) return parseBinaryStl(data);
-            return parseAsciiStl(new ByteArrayInputStream(data));
+            MeshModel m=looksBinaryStl(data)?parseBinaryStl(data):parseAsciiStl(new ByteArrayInputStream(data));
+            m.setImportMetadata("STL",false,Double.NaN,"STL does not define an authoritative physical length unit; scale is inferred only for the 1 N parametric study");
+            return m;
         }
-        throw new IOException("Desteklenen yüzey formatları: OBJ, ASCII STL, Binary STL. STEP/IGES CAD çekirdeği sonraki katmandadır.");
+        throw new IOException("Desteklenen yüzey formatları: OBJ, ASCII STL, Binary STL. STEP/IGES exact CAD yolu OCCT katmanından açılmalıdır.");
     }
 
     private static byte[] readBounded(InputStream in,int max) throws IOException{
@@ -41,7 +46,7 @@ public final class MeshParser {
         if(count>2_000_000L) throw new IOException("Binary STL triangle count mobile limitini aşıyor: "+count);
         MeshModel m=new MeshModel();
         for(long f=0;f<count;f++){
-            b.getFloat(); b.getFloat(); b.getFloat(); // normal
+            b.getFloat(); b.getFloat(); b.getFloat();
             int[] tri=new int[3];
             for(int i=0;i<3;i++){
                 MeshModel.V3 v=new MeshModel.V3(b.getFloat(),b.getFloat(),b.getFloat());
