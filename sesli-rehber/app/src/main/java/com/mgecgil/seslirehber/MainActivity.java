@@ -21,6 +21,7 @@ import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.mgecgil.seslirehber.core.AnnouncementGate;
+import com.mgecgil.seslirehber.core.ArCoreDepthCapability;
 import com.mgecgil.seslirehber.core.GuidanceModels.GroundObservation;
 import com.mgecgil.seslirehber.core.GuidanceModels.GuidanceDecision;
 import com.mgecgil.seslirehber.core.GuidanceModels.MotionObservation;
@@ -38,6 +39,7 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends ComponentActivity {
     private PreviewView previewView;
     private TextView statusView;
+    private TextView depthStatusView;
     private GuidanceSpeaker speaker;
     private VoiceCommandController voice;
     private SensorFusionManager sensors;
@@ -49,6 +51,7 @@ public final class MainActivity extends ComponentActivity {
     private final OfflineIntentParser intentParser = new OfflineIntentParser();
 
     private volatile boolean guidanceEnabled = true;
+    private volatile ArCoreDepthCapability.Result depthCapability;
     private long lastVisionErrorMs;
 
     private final ActivityResultLauncher<String[]> permissions = registerForActivityResult(
@@ -78,8 +81,9 @@ public final class MainActivity extends ComponentActivity {
         });
 
         setContentView(buildUi());
+        probeDepthCapability();
         requestPermissionsAndStart();
-        speaker.speak("Sesli Rehber sürüm sıfır nokta dört. Nesne yaklaşma, çarpışma koridoru ve zemin sürekliliği kanıtı açılıyor. Zemin kanalı çukur veya kaldırım adı söylemez.");
+        speaker.speak("Sesli Rehber sürüm sıfır nokta beş. Mevcut güvenli kamera rehberliği çalışırken ARCore derinlik yeteneği ayrıca doğrulanıyor. Canlı derinlik kararına geçmeden önce kamera sahipliği güvenli şekilde değiştirilecek.");
     }
 
     private View buildUi() {
@@ -94,8 +98,16 @@ public final class MainActivity extends ComponentActivity {
         statusView.setTextSize(20f);
         statusView.setGravity(Gravity.CENTER_VERTICAL);
         statusView.setMinHeight(dp(70));
-        statusView.setContentDescription("Durum bilgisi");
+        statusView.setContentDescription("Rehberlik durum bilgisi");
         root.addView(statusView, new LinearLayout.LayoutParams(-1, -2));
+
+        depthStatusView = new TextView(this);
+        depthStatusView.setText("Derinlik: kontrol ediliyor…");
+        depthStatusView.setTextColor(Color.LTGRAY);
+        depthStatusView.setTextSize(16f);
+        depthStatusView.setMinHeight(dp(44));
+        depthStatusView.setContentDescription("Derinlik sistemi durumu");
+        root.addView(depthStatusView, new LinearLayout.LayoutParams(-1, -2));
 
         previewView = new PreviewView(this);
         previewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
@@ -142,6 +154,18 @@ public final class MainActivity extends ComponentActivity {
         button.setContentDescription(description);
         button.setFocusable(true);
         return button;
+    }
+
+    private void probeDepthCapability() {
+        ArCoreDepthCapability.probe(this, result -> {
+            depthCapability = result;
+            runOnUiThread(() -> {
+                if (depthStatusView != null) {
+                    depthStatusView.setText("Derinlik: " + result.status());
+                    depthStatusView.setContentDescription("Derinlik sistemi: " + result.status());
+                }
+            });
+        });
     }
 
     private void requestPermissionsAndStart() {
@@ -205,7 +229,7 @@ public final class MainActivity extends ComponentActivity {
 
                 provider.unbindAll();
                 provider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, analysis);
-                updateStatus("Kamera aktif. Nesne yaklaşma + çarpışma koridoru + zemin sürekliliği kanıtı çalışıyor.", false);
+                updateStatus("Kamera aktif. Nesne yaklaşma + çarpışma koridoru + zemin sürekliliği çalışıyor.", false);
             } catch (Exception error) {
                 guidanceEnabled = false;
                 updateStatus("Kamera başlatılamadı: " + error.getClass().getSimpleName(), true);
@@ -240,8 +264,16 @@ public final class MainActivity extends ComponentActivity {
                 speaker.speak("Rehberlik durduruldu.");
             }
             case REPEAT -> speaker.repeat();
-            case DESCRIBE_SCENE -> speaker.speak(
-                    "Nesne yaklaşma ve ön zemin sürekliliği izleniyor. Zemin kanalı henüz çukur, kaldırım veya basamak adı söylemiyor. Derinlik doğrulaması sonraki güvenlik katmanıdır.");
+            case DESCRIBE_SCENE -> {
+                String depthText;
+                ArCoreDepthCapability.Result result = depthCapability;
+                if (result != null && result.depthSupported()) {
+                    depthText = " Bu cihazda ARCore derinlik desteği doğrulandı; canlı güvenlik füzyonu için kamera geçiş katmanı hazırlanıyor.";
+                } else {
+                    depthText = " Derinlik desteği canlı rehberliğe bağlı değil; mevcut kamera güvenlik kanalları çalışıyor.";
+                }
+                speaker.speak("Nesne yaklaşma ve ön zemin sürekliliği izleniyor." + depthText);
+            }
             case HELP -> speaker.speak(
                     "Komutlar: rehberliği başlat, rehberliği durdur, tekrar et, çevremi anlat.");
             case UNKNOWN -> speaker.speak("Komutu anlayamadım.");
