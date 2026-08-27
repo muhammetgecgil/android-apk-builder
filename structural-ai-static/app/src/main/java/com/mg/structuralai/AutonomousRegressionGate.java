@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Fast in-app regression that catches broken support/load-to-volume mapping before user analyses. */
+/** Fast in-app regression that catches broken FEM mapping and contact recognition before user analyses. */
 public final class AutonomousRegressionGate {
     public static final class Result {
         public final boolean pass;
@@ -29,12 +29,15 @@ public final class AutonomousRegressionGate {
             boolean mapOk=map.fixedNodes>=3 && map.loadedNodes>0;
             boolean response=Double.isFinite(r.maxDisplacementM)&&Double.isFinite(r.maxVonMisesPa)&&r.maxDisplacementM>1e-15&&r.maxVonMisesPa>1e-6;
             boolean solve=r.linearSolve.converged && r.forceEquilibriumRelativeError<1e-5;
-            boolean pass=mapOk&&response&&solve;
-            String msg=String.format(Locale.US,
+            boolean femPass=mapOk&&response&&solve;
+            String femMsg=String.format(Locale.US,
                 "Cantilever regression %s | fixed=%d loaded=%d | F=(%.4g,%.4g,%.4g) N | U=%.6g mm | VM=%.6g MPa | eqErr=%.3e | residual=%.3e",
-                pass?"PASS":"FAIL",map.fixedNodes,map.loadedNodes,map.resultantFx,map.resultantFy,map.resultantFz,
+                femPass?"PASS":"FAIL",map.fixedNodes,map.loadedNodes,map.resultantFx,map.resultantFy,map.resultantFz,
                 r.maxDisplacementM*1000,r.maxVonMisesPa/1e6,r.forceEquilibriumRelativeError,r.linearSolve.relativeResidual);
-            return cached=new Result(pass,msg);
+
+            ContactRegressionGate.Result cr=ContactRegressionGate.run();
+            boolean pass=femPass&&cr.pass;
+            return cached=new Result(pass,femMsg+"\n"+cr.summary);
         }catch(Throwable t){return cached=new Result(false,"REGRESSION ERROR: "+t.getMessage());}
     }
 
