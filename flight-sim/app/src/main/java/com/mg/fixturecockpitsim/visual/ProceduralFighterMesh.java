@@ -51,8 +51,8 @@ public final class ProceduralFighterMesh {
     private void chine(float side){float[][] src=AirframeShapeProfile.CHINE,top=new float[src.length][3];for(int i=0;i<src.length;i++)top[i]=new float[]{src[i][0]*side,src[i][1],src[i][2]};prism(top,.095f);}
     private void noseCrown(){prism(new float[][]{{-.035f,.04f,-6.12f},{.035f,.04f,-6.12f},{.17f,.18f,-5.18f},{.34f,.35f,-4.30f},{.50f,.49f,-3.48f},{.56f,.57f,-2.76f},{-.56f,.57f,-2.76f},{-.50f,.49f,-3.48f},{-.34f,.35f,-4.30f},{-.17f,.18f,-5.18f}},.075f);}
     private void upperDeck(){prism(new float[][]{{-.48f,.55f,-2.82f},{.48f,.55f,-2.82f},{.69f,.70f,-1.82f},{.79f,.84f,-.72f},{.82f,.88f,.34f},{.75f,.84f,1.30f},{.61f,.76f,2.18f},{.43f,.64f,2.78f},{-.43f,.64f,2.78f},{-.61f,.76f,2.18f},{-.75f,.84f,1.30f},{-.82f,.88f,.34f},{-.79f,.84f,-.72f},{-.69f,.70f,-1.82f}},.18f);}
-    private void canopySill(){prism(new float[][]{{-.60f,.73f,-2.04f},{.60f,.73f,-2.04f},{.64f,.78f,-1.55f},{.61f,.82f,-.78f},{.53f,.84f,.02f},{.42f,.80f,.72f},{-.42f,.80f,.72f},{-.53f,.84f,.02f},{-.61f,.82f,-.78f},{-.64f,.78f,-1.55f}},.115f);prism(new float[][]{{-.50f,.60f,-2.82f},{.50f,.60f,-2.82f},{.59f,.72f,-2.04f},{-.59f,.72f,-2.04f}},.10f);}
-    private void cockpitRearDeck(){prism(new float[][]{{-.43f,.80f,.55f},{.43f,.80f,.55f},{.50f,.83f,.86f},{.46f,.81f,1.20f},{.34f,.75f,1.53f},{-.34f,.75f,1.53f},{-.46f,.81f,1.20f},{-.50f,.83f,.86f}},.13f);}
+    private void canopySill(){prism(new float[][]{{-.60f,.73f,-2.16f},{.60f,.73f,-2.16f},{.64f,.78f,-1.62f},{.61f,.82f,-.78f},{.53f,.84f,.06f},{.41f,.80f,.82f},{-.41f,.80f,.82f},{-.53f,.84f,.06f},{-.61f,.82f,-.78f},{-.64f,.78f,-1.62f}},.115f);prism(new float[][]{{-.50f,.60f,-2.82f},{.50f,.60f,-2.82f},{.59f,.72f,-2.16f},{-.59f,.72f,-2.16f}},.10f);}
+    private void cockpitRearDeck(){prism(new float[][]{{-.41f,.80f,.68f},{.41f,.80f,.68f},{.49f,.83f,.98f},{.45f,.81f,1.30f},{.34f,.75f,1.58f},{-.34f,.75f,1.58f},{-.45f,.81f,1.30f},{-.49f,.83f,.98f}},.13f);}
     private void wing(float side){float[][] src=AirframeShapeProfile.WING_ROOT,top=new float[src.length][3];for(int i=0;i<src.length;i++)top[i]=new float[]{src[i][0]*side,src[i][1],src[i][2]};prism(top,.30f);}
     private void aftShoulderBridge(){prism(new float[][]{{-1.30f,.38f,.72f},{1.30f,.38f,.72f},{1.25f,.43f,1.62f},{1.16f,.39f,2.48f},{.98f,.28f,3.12f},{-.98f,.28f,3.12f},{-1.16f,.39f,2.48f},{-1.25f,.43f,1.62f}},.20f);}
     private void boatTail(){prism(new float[][]{{-1.12f,.24f,2.66f},{1.12f,.24f,2.66f},{1.04f,.18f,3.05f},{.94f,.10f,3.38f},{.38f,.02f,3.48f},{-.38f,.02f,3.48f},{-.94f,.10f,3.38f},{-1.04f,.18f,3.05f}},.24f);prism(new float[][]{{-.20f,.11f,2.72f},{.20f,.11f,2.72f},{.28f,.06f,3.40f},{-.28f,.06f,3.40f}},.19f);}
@@ -69,28 +69,28 @@ public final class ProceduralFighterMesh {
     private void afterburner(float x){float z0=3.74f,z1=5.10f,r0=.20f,r1=.035f;int sides=16;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;quad(new float[]{x+r0*(float)Math.cos(a0),-.10f+r0*.55f*(float)Math.sin(a0),z0},new float[]{x+r1*(float)Math.cos(a0),-.10f+r1*(float)Math.sin(a0),z1},new float[]{x+r1*(float)Math.cos(a1),-.10f+r1*(float)Math.sin(a1),z1},new float[]{x+r0*(float)Math.cos(a1),-.10f+r0*.55f*(float)Math.sin(a1),z0});}}
 
     private void cockpitTub(){
-        prism(new float[][]{{-.43f,.76f,-1.62f},{.43f,.76f,-1.62f},{.46f,.77f,-.36f},{.38f,.76f,.38f},{-.38f,.76f,.38f},{-.46f,.77f,-.36f}},.22f);
-        prism(new float[][]{{-.41f,.82f,-1.48f},{-.30f,.84f,-1.38f},{-.28f,.86f,.24f},{-.38f,.83f,.30f}},.05f);
-        prism(new float[][]{{.30f,.84f,-1.38f},{.41f,.82f,-1.48f},{.38f,.83f,.30f},{.28f,.86f,.24f}},.05f);
+        prism(new float[][]{{-.43f,.75f,-1.78f},{.43f,.75f,-1.78f},{.46f,.77f,-.36f},{.37f,.76f,.50f},{-.37f,.76f,.50f},{-.46f,.77f,-.36f}},.22f);
+        prism(new float[][]{{-.41f,.82f,-1.58f},{-.30f,.84f,-1.46f},{-.28f,.86f,.34f},{-.37f,.83f,.42f}},.05f);
+        prism(new float[][]{{.30f,.84f,-1.46f},{.41f,.82f,-1.58f},{.37f,.83f,.42f},{.28f,.86f,.34f}},.05f);
     }
     private void ejectionSeat(){
-        box(0f,.79f,-.05f,.34f,.34f,.48f);
-        prism(new float[][]{{-.18f,.95f,-.05f},{.18f,.95f,-.05f},{.16f,1.18f,.28f},{-.16f,1.18f,.28f}},.10f);
-        box(0f,1.16f,.31f,.28f,.16f,.15f);
+        box(0f,.77f,.05f,.32f,.31f,.45f);
+        prism(new float[][]{{-.17f,.91f,.02f},{.17f,.91f,.02f},{.15f,1.11f,.34f},{-.15f,1.11f,.34f}},.09f);
+        box(0f,1.08f,.37f,.26f,.14f,.14f);
     }
     private void instrumentCoaming(){
-        prism(new float[][]{{-.38f,.88f,-1.62f},{.38f,.88f,-1.62f},{.32f,.96f,-1.27f},{-.32f,.96f,-1.27f}},.08f);
-        box(0f,.91f,-1.22f,.30f,.12f,.10f);
+        prism(new float[][]{{-.37f,.87f,-1.78f},{.37f,.87f,-1.78f},{.31f,.94f,-1.38f},{-.31f,.94f,-1.38f}},.075f);
+        box(0f,.89f,-1.32f,.28f,.10f,.10f);
     }
 
-    private void canopy(){float[] z={-2.02f,-1.60f,-.98f,-.28f,.36f,.68f};float[] rx={.43f,.53f,.57f,.53f,.42f,.27f};float[] base={.79f,.82f,.84f,.85f,.83f,.79f};float[] crown={1.02f,1.18f,1.30f,1.32f,1.18f,.98f};int arcs=14;for(int s=0;s<z.length-1;s++)for(int i=0;i<arcs;i++){double a0=Math.PI*i/arcs,a1=Math.PI*(i+1)/arcs;float y00=base[s]+(crown[s]-base[s])*(float)Math.sin(a0),y01=base[s]+(crown[s]-base[s])*(float)Math.sin(a1),y10=base[s+1]+(crown[s+1]-base[s+1])*(float)Math.sin(a0),y11=base[s+1]+(crown[s+1]-base[s+1])*(float)Math.sin(a1);quad(new float[]{rx[s]*(float)Math.cos(a0),y00,z[s]},new float[]{rx[s+1]*(float)Math.cos(a0),y10,z[s+1]},new float[]{rx[s+1]*(float)Math.cos(a1),y11,z[s+1]},new float[]{rx[s]*(float)Math.cos(a1),y01,z[s]});}}
+    private void canopy(){float[] z={-2.16f,-1.72f,-1.10f,-.40f,.28f,.82f};float[] rx={.39f,.50f,.56f,.54f,.43f,.24f};float[] base={.78f,.81f,.83f,.84f,.82f,.79f};float[] crown={.94f,1.10f,1.22f,1.25f,1.13f,.94f};int arcs=14;for(int s=0;s<z.length-1;s++)for(int i=0;i<arcs;i++){double a0=Math.PI*i/arcs,a1=Math.PI*(i+1)/arcs;float y00=base[s]+(crown[s]-base[s])*(float)Math.sin(a0),y01=base[s]+(crown[s]-base[s])*(float)Math.sin(a1),y10=base[s+1]+(crown[s+1]-base[s+1])*(float)Math.sin(a0),y11=base[s+1]+(crown[s+1]-base[s+1])*(float)Math.sin(a1);quad(new float[]{rx[s]*(float)Math.cos(a0),y00,z[s]},new float[]{rx[s+1]*(float)Math.cos(a0),y10,z[s+1]},new float[]{rx[s+1]*(float)Math.cos(a1),y11,z[s+1]},new float[]{rx[s]*(float)Math.cos(a1),y01,z[s]});}}
     private void canopyFrame(){
-        prism(new float[][]{{-.455f,.80f,-2.04f},{.455f,.80f,-2.04f},{.405f,.90f,-1.89f},{-.405f,.90f,-1.89f}},.050f);
-        prism(new float[][]{{-.515f,.84f,-1.04f},{.515f,.84f,-1.04f},{.455f,.99f,-.89f},{-.455f,.99f,-.89f}},.045f);
-        prism(new float[][]{{-.405f,.82f,.35f},{.405f,.82f,.35f},{.34f,.95f,.53f},{-.34f,.95f,.53f}},.045f);
-        prism(new float[][]{{-.55f,.79f,-1.92f},{-.46f,.82f,.46f},{-.38f,.79f,.69f},{-.47f,.77f,-1.90f}},.040f);
-        prism(new float[][]{{.47f,.77f,-1.90f},{.38f,.79f,.69f},{.46f,.82f,.46f},{.55f,.79f,-1.92f}},.040f);
-        prism(new float[][]{{-.026f,1.03f,-1.88f},{.026f,1.03f,-1.88f},{.022f,1.19f,.48f},{-.022f,1.19f,.48f}},.018f);
+        prism(new float[][]{{-.425f,.79f,-2.16f},{.425f,.79f,-2.16f},{.385f,.88f,-1.96f},{-.385f,.88f,-1.96f}},.047f);
+        prism(new float[][]{{-.505f,.83f,-1.10f},{.505f,.83f,-1.10f},{.45f,.97f,-.92f},{-.45f,.97f,-.92f}},.043f);
+        prism(new float[][]{{-.40f,.81f,.28f},{.40f,.81f,.28f},{.33f,.93f,.49f},{-.33f,.93f,.49f}},.043f);
+        prism(new float[][]{{-.53f,.78f,-2.04f},{-.45f,.81f,.58f},{-.37f,.78f,.81f},{-.46f,.76f,-2.02f}},.038f);
+        prism(new float[][]{{.46f,.76f,-2.02f},{.37f,.78f,.81f},{.45f,.81f,.58f},{.53f,.78f,-2.04f}},.038f);
+        prism(new float[][]{{-.023f,.99f,-1.96f},{.023f,.99f,-1.96f},{.020f,1.14f,.62f},{-.020f,1.14f,.62f}},.016f);
     }
 
     private void gearStruts(){box(-.075f,-1.52f,-3.72f,.15f,1.10f,.16f);box(-1.72f,-1.48f,.62f,.18f,1.18f,.18f);box(1.54f,-1.48f,.62f,.18f,1.18f,.18f);box(-1.70f,-.98f,.55f,.16f,.18f,.84f);box(1.54f,-.98f,.55f,.16f,.18f,.84f);}
