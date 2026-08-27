@@ -23,10 +23,12 @@ public final class StaticFemSolver {
         }
     }
 
+    private static final class Tie { final int a,b; final double factor; Tie(int a,int b,double f){this.a=a;this.b=b;factor=f;} }
     private final TetMeshData mesh;
     private final LinearElasticMaterial material;
     private final boolean[] fixed;
     private final double[] force;
+    private final List<Tie> bondedTies=new ArrayList<>();
 
     public StaticFemSolver(TetMeshData mesh, LinearElasticMaterial material){
         mesh.validate(); this.mesh=mesh; this.material=material;
@@ -40,9 +42,20 @@ public final class StaticFemSolver {
     }
     public void addForce(int dof,double value){ checkDof(dof); force[dof]+=value; }
 
+    /** Adds uA=uB in X/Y/Z through a symmetric penalty tie. factor should normally be 1e3..1e5. */
+    public void addBondedTie(int nodeA,int nodeB,double factor){
+        if(nodeA<0||nodeA>=mesh.nodes.size()||nodeB<0||nodeB>=mesh.nodes.size()||nodeA==nodeB)throw new IllegalArgumentException("Invalid bonded tie node pair");
+        bondedTies.add(new Tie(nodeA,nodeB,Math.max(10.0,Math.min(1e6,factor))));
+    }
+    public void addContactConstraints(ContactConstraintSet set){
+        if(set==null)return;
+        for(ContactConstraintSet.Pair p:set.pairs)if(p.kind==ContactConstraintSet.Kind.BONDED_TIE)addBondedTie(p.nodeA,p.nodeB,1e4);
+    }
+
     public Result solve(){
         int ndof=mesh.dofCount();
         SparsePcgSolver.Matrix raw=assembleGlobal();
+        applyBondedTies(raw);
         double[] rhs=force.clone();
         SparsePcgSolver.Matrix constrained=copy(raw);
         for(int i=0;i<ndof;i++) if(fixed[i]) constrained.applyZeroDirichlet(i,rhs);
@@ -94,6 +107,13 @@ public final class StaticFemSolver {
             }
         }
         return K;
+    }
+    private void applyBondedTies(SparsePcgSolver.Matrix K){
+        if(bondedTies.isEmpty())return;
+        double diagScale=0;int n=0;
+        for(int i=0;i<K.n;i++){double d=Math.abs(K.get(i,i));if(d>0){diagScale+=d;n++;}}
+        diagScale=n>0?diagScale/n:1.0;
+        for(Tie t:bondedTies){double kp=diagScale*t.factor;for(int c=0;c<3;c++){int ia=3*t.a+c,ib=3*t.b+c;K.add(ia,ia,kp);K.add(ib,ib,kp);K.add(ia,ib,-kp);K.add(ib,ia,-kp);}}
     }
 
     private static SparsePcgSolver.Matrix copy(SparsePcgSolver.Matrix a){
