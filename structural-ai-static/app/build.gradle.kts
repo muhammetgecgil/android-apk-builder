@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 40
-        versionName = "1.9.4-rotation-state-fix"
+        versionCode = 41
+        versionName = "1.10.0-engineering-session"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
