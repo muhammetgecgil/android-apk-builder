@@ -92,4 +92,7 @@ for name in ('ic_launcher.xml', 'ic_launcher_round.xml'):
         x = x.replace('</adaptive-icon>', mono + '</adaptive-icon>')
     p.write_text(x, encoding='utf-8')
 
-print('Applied Unit Master X production polish: nonblocking prefs, resource strings, flexible orientation, clean resources, monochrome icons')
+# 8) Apply consistent high-contrast styling to every picker/dialog menu.
+exec(Path('unit-master-v110/menu_contrast_fix.py').read_text(encoding='utf-8'))
+
+print('Applied Unit Master X production polish: nonblocking prefs, resource strings, flexible orientation, clean resources, monochrome icons, menu contrast')
