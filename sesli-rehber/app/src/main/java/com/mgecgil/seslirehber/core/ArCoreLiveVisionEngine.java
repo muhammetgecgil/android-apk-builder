@@ -14,6 +14,9 @@ import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.objects.ObjectDetection;
 import com.google.mlkit.vision.objects.ObjectDetector;
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -33,6 +36,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         default void onSceneHealth(SceneHealthObservation observation) {}
         void onDepth(DepthObservation observation);
         default void onWalkable(WalkableCorridorObservation observation) {}
+        default void onTextRecognized(String text) {}
         void onStatus(String status);
         void onFatal(String message);
     }
@@ -44,11 +48,13 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean running = new AtomicBoolean(false);
     private final AtomicBoolean detectorBusy = new AtomicBoolean(false);
+    private final AtomicBoolean textScanRequested = new AtomicBoolean(false);
     private final byte[] lumaGrid = new byte[GRID_W * GRID_H];
     private final GridEvidenceEstimator gridEstimator = new GridEvidenceEstimator(GRID_W, GRID_H);
     private final ObjectObservationTracker objectTracker = new ObjectObservationTracker();
     private final DepthImageAdapter depthAdapter = new DepthImageAdapter();
     private final ObjectDetector objectDetector;
+    private final TextRecognizer textRecognizer;
     private volatile Session session;
     private volatile int displayRotation = Surface.ROTATION_0;
 
@@ -60,6 +66,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                 .enableMultipleObjects()
                 .build();
         objectDetector = ObjectDetection.getClient(options);
+        textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
     }
 
     public boolean start(int displayRotation) {
@@ -69,9 +76,10 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         return true;
     }
 
-    public boolean isRunning() {
-        return running.get();
-    }
+    public boolean isRunning() { return running.get(); }
+
+    /** Requests OCR on the next CPU camera frame; luma/depth safety evidence still runs first. */
+    public void requestTextScan() { textScanRequested.set(true); }
 
     private void runLoop() {
         Session localSession = null;
@@ -140,12 +148,8 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                             cameraImage.getHeight(),
                             rotationDegrees,
                             nowMs);
-                    if (depthEvidence.depth().validRatio() > 0.04f) {
-                        listener.onDepth(depthEvidence.depth());
-                    }
-                    if (depthEvidence.walkable().confidence() > 0.20f) {
-                        listener.onWalkable(depthEvidence.walkable());
-                    }
+                    if (depthEvidence.depth().validRatio() > 0.04f) listener.onDepth(depthEvidence.depth());
+                    if (depthEvidence.walkable().confidence() > 0.20f) listener.onWalkable(depthEvidence.walkable());
                 } catch (NotYetAvailableException ignored) {
                     // Normal at startup, low motion, weak texture or temporary tracking loss.
                 }
@@ -159,6 +163,20 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             int uprightWidth = (rotationDegrees == 90 || rotationDegrees == 270) ? sourceHeight : sourceWidth;
             int uprightHeight = (rotationDegrees == 90 || rotationDegrees == 270) ? sourceWidth : sourceHeight;
             InputImage input = InputImage.fromMediaImage(heldImage, rotationDegrees);
+
+            if (textScanRequested.getAndSet(false)) {
+                textRecognizer.process(input)
+                        .addOnSuccessListener(result -> {
+                            String text = result.getText() == null ? "" : result.getText().trim();
+                            listener.onTextRecognized(text);
+                        })
+                        .addOnCompleteListener(task -> {
+                            heldImage.close();
+                            detectorBusy.set(false);
+                        });
+                return;
+            }
+
             objectDetector.process(input)
                     .addOnSuccessListener(objects -> {
                         ObjectObservation best = objectTracker.selectMostRelevant(
@@ -216,9 +234,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         }
     }
 
-    public void stop() {
-        running.set(false);
-    }
+    public void stop() { running.set(false); }
 
     private static void sleepQuietly(long ms) {
         try { Thread.sleep(ms); } catch (InterruptedException interrupted) {
@@ -234,5 +250,6 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         gridEstimator.reset();
         depthAdapter.reset();
         try { objectDetector.close(); } catch (Throwable ignored) {}
+        try { textRecognizer.close(); } catch (Throwable ignored) {}
     }
 }
