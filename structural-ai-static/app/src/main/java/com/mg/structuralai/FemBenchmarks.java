@@ -1,5 +1,9 @@
 package com.mg.structuralai;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
 /** Deterministic solver checks used by QA and later CI regression. */
 public final class FemBenchmarks {
     public static final class BenchmarkResult {
@@ -28,5 +32,46 @@ public final class FemBenchmarks {
             " Pa, residual="+r.linearSolve.relativeResidual+", forceEqErr="+r.forceEquilibriumRelativeError+
             ", iterations="+r.linearSolve.iterations;
         return new BenchmarkResult(pass,msg);
+    }
+
+    /**
+     * Rectangular cantilever benchmark against Euler-Bernoulli closed-form tip deflection.
+     * Geometry is 100 x 20 x 10 mm, E=210 GPa and a 1 N transverse tip influence load.
+     * This is intentionally a numerical-verification gate, not a material/design certification.
+     */
+    public static BenchmarkResult cantileverTheory(){
+        try{
+            final double L=0.100,b=0.020,h=0.010,E=210e9,F=1.0;
+            MeshModel surface=beamSurfaceMm();
+            VoxelTetMesher.Result mr=VoxelTetMesher.generate(surface,18,0.001);
+            if(!mr.quality.pass)return new BenchmarkResult(false,"cantileverTheory FAIL meshQA: "+mr.quality.summary());
+            LinearElasticMaterial mat=new LinearElasticMaterial("Benchmark steel",E,0.30,7850,355e6);
+            StaticFemSolver solver=new StaticFemSolver(mr.mesh,mat);
+            List<MeshModel.V3> sup=new ArrayList<>(),load=new ArrayList<>();
+            for(MeshModel.V3 v:surface.vertices){if(Math.abs(v.x)<=1e-9)sup.add(v);if(Math.abs(v.x-100.0)<=1e-9)load.add(v);}
+            AdvancedFemLoads.Result map=AdvancedFemLoads.apply(solver,mr.mesh,surface,sup,load,0.001,0,0,-F,0,false,7850);
+            StaticFemSolver.Result r=solver.solve();
+            double I=b*h*h*h/12.0;
+            double theory=F*L*L*L/(3.0*E*I);
+            double err=Math.abs(r.maxDisplacementM-theory)/theory;
+            boolean mapping=map.fixedNodes>=3&&map.loadedNodes>0;
+            boolean numerical=r.linearSolve.converged&&r.forceEquilibriumRelativeError<1e-5&&Double.isFinite(r.maxDisplacementM)&&r.maxDisplacementM>0;
+            // Voxel TET4 is a screening discretization; <=60% error is the current alpha acceptance band.
+            // Tighten this gate as boundary-conforming tetra quality improves.
+            boolean pass=mapping&&numerical&&err<=0.60;
+            String msg=String.format(Locale.US,
+                "cantileverTheory %s | U_FEM=%.6g mm | U_theory=%.6g mm | error=%.2f%% | cells=18 | fixed=%d loaded=%d | eqErr=%.3e | residual=%.3e",
+                pass?"PASS":"FAIL",r.maxDisplacementM*1000,theory*1000,err*100,map.fixedNodes,map.loadedNodes,r.forceEquilibriumRelativeError,r.linearSolve.relativeResidual);
+            return new BenchmarkResult(pass,msg);
+        }catch(Throwable t){return new BenchmarkResult(false,"cantileverTheory ERROR: "+t.getMessage());}
+    }
+
+    private static MeshModel beamSurfaceMm(){
+        MeshModel m=new MeshModel();
+        double[][] v={{0,-10,-5},{0,10,-5},{0,10,5},{0,-10,5},{100,-10,-5},{100,10,-5},{100,10,5},{100,-10,5}};
+        for(double[] p:v)m.addVertex(new MeshModel.V3(p[0],p[1],p[2]));
+        int[][] f={{0,2,1},{0,3,2},{4,5,6},{4,6,7},{0,1,5},{0,5,4},{3,7,6},{3,6,2},{0,4,7},{0,7,3},{1,2,6},{1,6,5}};
+        for(int[] t:f)m.triangles.add(t);
+        return m;
     }
 }
