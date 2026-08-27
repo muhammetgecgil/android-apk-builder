@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 main = Path('unit-master/app/src/main/java/com/mg/unitmasterx/MainActivity.java')
 if not main.exists():
@@ -6,52 +7,76 @@ if not main.exists():
 
 a = main.read_text(encoding='utf-8')
 
-old_adapter = 'ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_list_item_1,new ArrayList<>());'
-count = a.count(old_adapter)
-if count != 3:
-    raise SystemExit(f'Expected 3 picker adapters, found {count}')
-a = a.replace(old_adapter, 'ArrayAdapter<String> adapter=menuAdapter();')
-
-old_list = 'list.setBackgroundColor(Color.TRANSPARENT);'
-if old_list not in a:
-    raise SystemExit('Picker ListView background pattern not found')
-a = a.replace(old_list, 'list.setBackgroundColor(CARD);')
-
-marker = '    private interface QueryListener{void changed(String q);}'
-if marker not in a:
-    raise SystemExit('QueryListener insertion marker not found')
-menu_method = r'''    private ArrayAdapter<String> menuAdapter(){
-        return new ArrayAdapter<String>(this,android.R.layout.simple_list_item_1,new ArrayList<String>()){
-            private TextView styleMenuRow(View view){
-                TextView t=(TextView)view;
-                t.setTextColor(TEXT);
-                t.setTextSize(TypedValue.COMPLEX_UNIT_SP,17);
-                t.setGravity(Gravity.CENTER_VERTICAL);
-                t.setMinHeight(dp(56));
-                t.setPadding(dp(18),dp(12),dp(18),dp(12));
-                t.setBackgroundColor(CARD);
-                return t;
-            }
-            @Override public View getView(int position,View convertView,ViewGroup parent){
-                return styleMenuRow(super.getView(position,convertView,parent));
-            }
-            @Override public View getDropDownView(int position,View convertView,ViewGroup parent){
-                return styleMenuRow(super.getDropDownView(position,convertView,parent));
-            }
-        };
+# Style any row that a ListView attaches. This is deliberately adapter-independent:
+# it also covers future filtered/category/unit/search adapters.
+helper = r'''    private void styleMenuTree(View v){
+        if(v==null)return;
+        v.setBackgroundColor(CARD);
+        if(v instanceof TextView){
+            TextView t=(TextView)v;
+            t.setTextColor(TEXT);
+            t.setTextSize(TypedValue.COMPLEX_UNIT_SP,17);
+            t.setGravity(Gravity.CENTER_VERTICAL);
+            t.setMinHeight(dp(56));
+            t.setPadding(dp(18),dp(12),dp(18),dp(12));
+        }
+        if(v instanceof ViewGroup){
+            ViewGroup g=(ViewGroup)v;
+            for(int i=0;i<g.getChildCount();i++)styleMenuTree(g.getChildAt(i));
+        }
     }
 
 '''
-a = a.replace(marker, menu_method + marker)
 
-# Force the two system dialogs to a readable dark theme with light text.
-a = a.replace('new AlertDialog.Builder(this).setTitle("Ayarlar")',
-              'new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_DARK).setTitle("Ayarlar")')
-a = a.replace('new AlertDialog.Builder(this).setTitle("Unit Master X")',
-              'new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_DARK).setTitle("Unit Master X")')
+if 'private void styleMenuTree(View v)' not in a:
+    markers = [
+        '    private void showAllResults(){',
+        '    private void openSettings(){',
+        '    private void copyResult(){'
+    ]
+    inserted = False
+    for marker in markers:
+        if marker in a:
+            a = a.replace(marker, helper + marker, 1)
+            inserted = True
+            break
+    if not inserted:
+        raise SystemExit('Could not locate helper insertion point in MainActivity')
 
-# The RC inherited the old stability subtitle. Keep the user-visible build label accurate.
+listener = r'''list.setBackgroundColor(CARD);list.setDivider(new android.graphics.drawable.ColorDrawable(LINE));list.setDividerHeight(1);list.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener(){public void onChildViewAdded(View parent,View child){styleMenuTree(child);}public void onChildViewRemoved(View parent,View child){}});'''
+
+# Inject the styling immediately after every reusable picker ListView is created.
+patterns = [
+    r'(ListView\s+list\s*=\s*new\s+ListView\(this\);)',
+    r'(final\s+ListView\s+list\s*=\s*new\s+ListView\(this\);)'
+]
+changed = 0
+for pattern in patterns:
+    def repl(m):
+        nonlocal_holder[0] += 1
+        return m.group(1) + listener
+    nonlocal_holder = [0]
+    a = re.sub(pattern, repl, a)
+    changed += nonlocal_holder[0]
+
+# If the safe activity uses an existing pickerDialog with explicit transparent background,
+# force it to the app card surface too.
+a = a.replace('list.setBackgroundColor(Color.TRANSPARENT);', 'list.setBackgroundColor(CARD);')
+
+# Readable system dialogs: dark surface + light text, consistent with the app.
+a = a.replace('new AlertDialog.Builder(this)', 'new AlertDialog.Builder(this,AlertDialog.THEME_DEVICE_DEFAULT_DARK)')
+
+# Remove the stale stability label inherited by the RC build.
 a = a.replace('Akıllı Birim Dönüştürücü • Stability 1.0.2', 'Akıllı Birim Dönüştürücü • RC 1.1')
+a = a.replace('Stability 1.0.2', 'RC 1.1')
+
+# A ListView creation must have been found; otherwise do not silently ship the visual bug.
+if changed == 0:
+    print('--- MainActivity menu-related source lines ---')
+    for line in a.splitlines():
+        if any(k in line for k in ('ListView','ArrayAdapter','picker','Picker','AlertDialog')):
+            print(line[:1200])
+    raise SystemExit('No picker ListView creation found; menu contrast patch not applied')
 
 main.write_text(a, encoding='utf-8')
-print('Applied menu contrast fix: navy picker surfaces, white text, dark readable system dialogs')
+print(f'Applied menu contrast fix to {changed} ListView picker(s): navy surfaces + white text + readable dark dialogs')
