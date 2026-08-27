@@ -164,11 +164,14 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             int uprightHeight = (rotationDegrees == 90 || rotationDegrees == 270) ? sourceWidth : sourceHeight;
             InputImage input = InputImage.fromMediaImage(heldImage, rotationDegrees);
 
-            if (textScanRequested.getAndSet(false)) {
+            boolean doTextScan = textScanRequested.getAndSet(false)
+                    || VisionTextContext.shouldAutoScan(nowMs);
+            if (doTextScan) {
                 textRecognizer.process(input)
                         .addOnSuccessListener(result -> {
                             String text = result.getText() == null ? "" : result.getText().trim();
-                            listener.onTextRecognized(text);
+                            listener.onTextRecognized(
+                                    VisionTextContext.enrichOcr(text, System.currentTimeMillis()));
                         })
                         .addOnCompleteListener(task -> {
                             heldImage.close();
