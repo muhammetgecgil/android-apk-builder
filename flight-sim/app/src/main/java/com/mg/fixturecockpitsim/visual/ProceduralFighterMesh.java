@@ -24,11 +24,11 @@ public final class ProceduralFighterMesh {
         AirframeShapeProfile.validate();
         ProceduralFighterMesh b=new ProceduralFighterMesh();
         b.part=PART_SKIN;
-        b.fuselage(); b.chine(-1f); b.chine(1f); b.upperDeck(); b.wing(-1f); b.wing(1f);
+        b.fuselage(); b.chine(-1f); b.chine(1f); b.noseCrown(); b.upperDeck(); b.wing(-1f); b.wing(1f); b.aftShoulderBridge();
         b.part=PART_FLAPERON_L; b.flaperon(-1f); b.part=PART_FLAPERON_R; b.flaperon(1f);
         b.part=PART_STAB_L; b.stabilator(-1f); b.part=PART_STAB_R; b.stabilator(1f);
         b.part=PART_RUDDER_L; b.verticalTail(-1f); b.part=PART_RUDDER_R; b.verticalTail(1f);
-        b.part=PART_INTAKE; b.intake(-1f); b.intake(1f);
+        b.part=PART_INTAKE; b.intake(-1f); b.intake(1f); b.intakeLip(-1f); b.intakeLip(1f);
         b.part=PART_SKIN; b.enginePod(-.70f); b.enginePod(.70f);
         b.part=PART_NOZZLE; b.nozzle(-.70f); b.nozzle(.70f);
         b.part=PART_NOZZLE_INNER; b.nozzleInner(-.70f); b.nozzleInner(.70f);
@@ -51,7 +51,6 @@ public final class ProceduralFighterMesh {
         final int sides=28;
         for(int s=0;s<z.length-1;s++) for(int i=0;i<sides;i++){
             double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;
-            // Slightly flatten top/belly while retaining rounded shoulder volume.
             float sy0=sectionY((float)Math.sin(a0)), sy1=sectionY((float)Math.sin(a1));
             quad(new float[]{rx[s]*(float)Math.cos(a0),cy[s]+ry[s]*sy0,z[s]},
                  new float[]{rx[s+1]*(float)Math.cos(a0),cy[s+1]+ry[s+1]*sy0,z[s+1]},
@@ -60,11 +59,7 @@ public final class ProceduralFighterMesh {
         }
     }
 
-    private float sectionY(float s){
-        float a=Math.abs(s);
-        float shaped=(float)Math.pow(a,.82);
-        return Math.signum(s)*shaped;
-    }
+    private float sectionY(float s){float a=Math.abs(s);float shaped=(float)Math.pow(a,.82);return Math.signum(s)*shaped;}
 
     private void chine(float side){
         float[][] src=AirframeShapeProfile.CHINE;
@@ -73,12 +68,21 @@ public final class ProceduralFighterMesh {
         prism(top,.095f);
     }
 
-    private void upperDeck(){
-        // Continuous crown bridging nose shoulder, canopy sill and aft spine.
+    private void noseCrown(){
+        // A shallow faceted crown removes the tube-like nose appearance and flows into the canopy sill.
         prism(new float[][]{
-                {-.38f,.51f,-2.75f},{.38f,.51f,-2.75f},{.66f,.67f,-1.72f},{.78f,.80f,-.55f},
-                {.79f,.83f,.58f},{.68f,.79f,1.58f},{.50f,.70f,2.52f},{-.50f,.70f,2.52f},
-                {-.68f,.79f,1.58f},{-.79f,.83f,.58f},{-.78f,.80f,-.55f},{-.66f,.67f,-1.72f}},.17f);
+                {-.035f,.04f,-6.12f},{.035f,.04f,-6.12f},{.17f,.18f,-5.18f},{.34f,.35f,-4.30f},
+                {.50f,.49f,-3.48f},{.56f,.57f,-2.76f},{-.56f,.57f,-2.76f},{-.50f,.49f,-3.48f},
+                {-.34f,.35f,-4.30f},{-.17f,.18f,-5.18f}},.075f);
+    }
+
+    private void upperDeck(){
+        // Cockpit hump is broad at the shoulders but tapers smoothly into the aft spine.
+        prism(new float[][]{
+                {-.48f,.55f,-2.82f},{.48f,.55f,-2.82f},{.69f,.70f,-1.82f},{.79f,.84f,-.72f},
+                {.82f,.88f,.34f},{.75f,.84f,1.30f},{.61f,.76f,2.18f},{.43f,.64f,2.78f},
+                {-.43f,.64f,2.78f},{-.61f,.76f,2.18f},{-.75f,.84f,1.30f},{-.82f,.88f,.34f},
+                {-.79f,.84f,-.72f},{-.69f,.70f,-1.82f}},.18f);
     }
 
     private void wing(float side){
@@ -86,6 +90,13 @@ public final class ProceduralFighterMesh {
         float[][] top=new float[src.length][3];
         for(int i=0;i<src.length;i++) top[i]=new float[]{src[i][0]*side,src[i][1],src[i][2]};
         prism(top,.30f);
+    }
+
+    private void aftShoulderBridge(){
+        // Fill the visual valley between central spine and engine pods before the nozzles.
+        prism(new float[][]{
+                {-1.30f,.38f,.72f},{1.30f,.38f,.72f},{1.25f,.43f,1.62f},{1.16f,.39f,2.48f},
+                {.98f,.28f,3.12f},{-.98f,.28f,3.12f},{-1.16f,.39f,2.48f},{-1.25f,.43f,1.62f}},.20f);
     }
 
     private void flaperon(float side){float y=.16f,t=.07f;prism(new float[][]{{1.62f*side,y+t,.70f},{3.56f*side,y+t,.78f},{3.34f*side,y+t,1.34f},{1.46f*side,y+t,1.48f}},t*2f);}
@@ -99,10 +110,17 @@ public final class ProceduralFighterMesh {
         prism(top,.34f);
     }
 
+    private void intakeLip(float side){
+        // A real mouth/lip gives the intake a readable dark opening rather than a flat side prism.
+        float x0=1.03f*side,x1=1.47f*side;
+        prism(new float[][]{
+                {x0,.35f,-2.90f},{x1,.31f,-2.54f},{1.58f*side,.13f,-2.34f},{1.18f*side,.10f,-2.58f}},.095f);
+        prism(new float[][]{
+                {1.17f*side,.09f,-2.59f},{1.57f*side,.12f,-2.34f},{1.50f*side,-.13f,-2.20f},{1.16f*side,-.16f,-2.42f}},.055f);
+    }
+
     private void enginePod(float x){
-        float[] z=AirframeShapeProfile.ENGINE_Z;
-        float[] r=AirframeShapeProfile.ENGINE_R;
-        int sides=22;
+        float[] z=AirframeShapeProfile.ENGINE_Z;float[] r=AirframeShapeProfile.ENGINE_R;int sides=22;
         for(int s=0;s<z.length-1;s++)for(int i=0;i<sides;i++){
             double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;
             quad(new float[]{x+r[s]*(float)Math.cos(a0),-.11f+r[s]*.58f*(float)Math.sin(a0),z[s]},
