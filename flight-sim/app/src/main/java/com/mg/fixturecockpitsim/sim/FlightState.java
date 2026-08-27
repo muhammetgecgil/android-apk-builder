@@ -15,12 +15,22 @@ public final class FlightState {
     public double angleOfAttackDeg;
     public double loadFactor = 1.0;
 
+    // Ground / landing system state.
+    public double gearPosition = 1.0; // 0=retracted, 1=extended
+    public boolean onGround;
+    public double mainStrutCompression01;
+    public double noseStrutCompression01;
+    public double brake01;
+    public double touchdownSinkMps;
+
     public FlightState copy() {
         FlightState c = new FlightState();
         c.timeSec=timeSec; c.latitudeDeg=latitudeDeg; c.longitudeDeg=longitudeDeg;
         c.altitudeM=altitudeM; c.trueAirspeedMps=trueAirspeedMps; c.verticalSpeedMps=verticalSpeedMps;
         c.headingDeg=headingDeg; c.pitchDeg=pitchDeg; c.rollDeg=rollDeg; c.throttle=throttle;
         c.angleOfAttackDeg=angleOfAttackDeg; c.loadFactor=loadFactor;
+        c.gearPosition=gearPosition; c.onGround=onGround; c.mainStrutCompression01=mainStrutCompression01;
+        c.noseStrutCompression01=noseStrutCompression01; c.brake01=brake01; c.touchdownSinkMps=touchdownSinkMps;
         return c;
     }
 }
