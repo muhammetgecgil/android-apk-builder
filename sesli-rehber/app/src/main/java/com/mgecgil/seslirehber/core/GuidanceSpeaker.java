@@ -74,7 +74,7 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
         if (clean.startsWith("Sesli Rehber sürüm sıfır nokta dokuz.")) {
             clean = clean.replaceFirst(
                     "Sesli Rehber sürüm sıfır nokta dokuz\\.",
-                    "Sesli Rehber sürüm sıfır nokta on. Yaya rota motoru ve rota sapması takibi eklendi.");
+                    "Sesli Rehber sürüm sıfır nokta on bir. Ekran kapalı yaya rota takibi ve son yaklaşım giriş doğrulama desteği eklendi.");
         }
         speakRaw(clean, "speech");
     }
