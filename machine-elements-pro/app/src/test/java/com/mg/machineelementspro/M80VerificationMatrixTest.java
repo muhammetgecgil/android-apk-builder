@@ -25,15 +25,15 @@ public class M80VerificationMatrixTest {
     @Test public void vm011_beam(){near(250,n(CalculationEngine.calculate(10,new double[]{1000,1000,200000,1000000,10000,250}).body,"Mmax"),1e-3);}
     @Test public void vm012_torsion(){assertTrue(n(CalculationEngine.calculate(11,new double[]{100,1000,20,80000,5,0}).body,"Açı")>0);}
     @Test public void vm013_powerScrew(){assertTrue(n(CalculationEngine.calculate(12,new double[]{10000,20,4,0.15,30,0.1}).body,"Toplam tork")>0);}
-    @Test public void vm014_threadStrip(){assertTrue(n(CalculationEngine.calculate(13,new double[]{10000,18,20,0.75,120,1.5}).body,"Diş kayma")>0);}
+    @Test public void vm014_threadStrip(){double expected=10000.0/(Math.PI*18*20*0.75);CalculationEngine.Result r=CalculationEngine.calculate(13,new double[]{10000,18,20,0.75,120,1.5});near(expected,n(r.body,"Ortalama kayma"),2e-3);}
     @Test public void vm015_preload(){CalculationEngine.Result r=CalculationEngine.calculate(14,new double[]{20000,5000,100000,400000,0.2,10});assertTrue(n(r.body,"Kalan sıkma")>0);}
     @Test public void vm016_belt(){CalculationEngine.Result r=CalculationEngine.calculate(15,new double[]{5,200,1500,0.3,180,5000});assertTrue(n(r.body,"T1")>n(r.body,"T2"));}
-    @Test public void vm017_chain(){CalculationEngine.Result r=CalculationEngine.calculate(16,new double[]{5,500,100,1.5,5000,0});assertTrue(n(r.body,"Tasarım çekme")>n(r.body,"Zincir çekmesi"));}
+    @Test public void vm017_chain(){double p=5000,rpm=500,r=0.1,Ks=1.5;double omega=2*Math.PI*rpm/60.0;double expected=Ks*(p/omega)/r;CalculationEngine.Result x=CalculationEngine.calculate(16,new double[]{5,500,100,1.5,5000,0});near(expected,n(x.body,"Tasarım çekme"),2e-3);}
     @Test public void vm018_coupling(){assertTrue(n(CalculationEngine.calculate(17,new double[]{500,6,120,10,100,0}).body,"Kesme")>0);}
     @Test public void vm019_bearingEquivalent(){near(5500,n(CalculationEngine.calculate(18,new double[]{5000,1000,1,0.5,20000,3}).body,"P"),1e-3);}
     @Test public void vm020_brake(){near(700,n(CalculationEngine.calculate(19,new double[]{0.35,10000,100,2,500,0}).body,"Kapasite"),1e-3);}
 
-    @Test public void vm021_drivetrain(){DrivetrainEngine.Input x=new DrivetrainEngine.Input();x.torqueNm=100;x.rpm=1500;x.pitchDiameterMm=100;x.pressureAngleDeg=20;x.helixAngleDeg=0;x.spanMm=400;x.gearPositionMm=200;x.shaftDiameterMm=30;x.shaftYieldMpa=530;x.bearingC1N=30000;x.bearingC2N=30000;x.bearingExponent=3;DrivetrainEngine.Result r=DrivetrainEngine.calculate(x);near(2000,r.ft,5e-3);near(r.ft, r.ra+r.rb,5e-3);}
+    @Test public void vm021_drivetrain(){DrivetrainEngine.Input x=new DrivetrainEngine.Input();x.torqueNm=100;x.rpm=1500;x.pitchDiameterMm=100;x.pressureAngleDeg=20;x.helixAngleDeg=0;x.spanMm=400;x.gearPositionMm=200;x.shaftDiameterMm=30;x.shaftYieldMpa=530;x.bearingC1N=30000;x.bearingC2N=30000;x.bearingExponent=3;DrivetrainEngine.Result r=DrivetrainEngine.calculate(x);double ft=2000.0;double fr=ft*Math.tan(Math.toRadians(20));double expectedReaction=Math.hypot(ft/2.0,fr/2.0);near(ft,r.ft,5e-3);near(fr,r.fr,5e-3);near(expectedReaction,r.ra,5e-3);near(expectedReaction,r.rb,5e-3);}
 
     @Test public void vm022_assemblyShaft(){AssemblyCalculationEngine.Result r=AssemblyCalculationEngine.calculate(0,new double[]{1000,250,1000,750,2000,40});assertTrue(r.body.contains("RA")&&r.body.contains("RB"));}
     @Test public void vm023_boltGroup(){AssemblyCalculationEngine.Result r=AssemblyCalculationEngine.calculate(1,new double[]{1000,500,200,50,10,640});assertTrue(r.body.contains("Kritik civata"));}
