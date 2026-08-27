@@ -90,13 +90,14 @@ public class ProductCatalogActivity extends Activity {
     }
 
     private void show(List<ProductCatalogEngine.CatalogMatch> list){
-        results.removeAllViews();
+        results.removeAllViews();final int catalogType=type.getSelectedItemPosition();
         for(ProductCatalogEngine.CatalogMatch m:list){
             LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(dp(15),dp(14),dp(15),dp(14));c.setBackgroundColor(Color.WHITE);results.addView(c,lp(-1,-2,dp(10)));
             c.addView(text(m.region+" • "+m.vendor,17,true,Color.rgb(15,23,42)));
             TextView sel=text(m.calculatedSelection,15,true,Color.rgb(5,150,105));sel.setPadding(0,dp(6),0,dp(4));c.addView(sel);
             c.addView(text(m.note,13,false,Color.rgb(71,85,105)));
-            Button open=new Button(this);open.setText("RESMİ KATALOĞU AÇ → "+m.catalogLabel);open.setAllCaps(false);open.setOnClickListener(v->startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(m.url))));c.addView(open,lp(-1,dp(52),dp(9)));
+            Button save=new Button(this);save.setText("AKTİF PROJEYE ÜRÜN ADAYI KAYDET");save.setAllCaps(false);save.setOnClickListener(v->{String name=ProjectIntegration.saveProduct(this,catalogType,m);if(name==null)Toast.makeText(this,"Önce Project Manager'dan aktif proje seçin.",Toast.LENGTH_LONG).show();else Toast.makeText(this,"Ürün adayı kaydedildi: "+name,Toast.LENGTH_SHORT).show();});c.addView(save,lp(-1,dp(52),dp(9)));
+            Button open=new Button(this);open.setText("RESMİ KATALOĞU AÇ → "+m.catalogLabel);open.setAllCaps(false);open.setOnClickListener(v->startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(m.url))));c.addView(open,lp(-1,dp(52),dp(7)));
         }
     }
 
