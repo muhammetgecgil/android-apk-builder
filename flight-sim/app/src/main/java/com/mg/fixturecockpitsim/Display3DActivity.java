@@ -6,13 +6,16 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothServerSocket;
 import android.bluetooth.BluetoothSocket;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -51,6 +54,7 @@ public final class Display3DActivity extends Activity {
     private Jet3DView jetView;
     private RunwayHudView runwayView;
     private TextView missionHud;
+    private LinearLayout waitingPanel;
     private long lastSimNs;
     private boolean demoMode;
     private int demoCameraMode=Jet3DView.CAMERA_CHASE;
@@ -61,7 +65,9 @@ public final class Display3DActivity extends Activity {
             long now = System.nanoTime();
             double dt = lastSimNs == 0 ? 0.02 : Math.min(0.05, Math.max(0.005, (now-lastSimNs)/1_000_000_000.0));
             lastSimNs = now;
-            if (demoMode || !connected) {
+            // Autonomous mission belongs ONLY to Demo Mode. In aircraft-display mode the old
+            // stand-alone aircraft scene must never appear before the pilot phone connects.
+            if (demoMode) {
                 mission.update(simState, simControls, dt);
                 dynamics.step(simState, simControls, dt);
                 roll=(float)simState.rollDeg; pitch=(float)simState.pitchDeg; yaw=(float)simState.headingDeg; throttle=(float)simState.throttle;
@@ -69,7 +75,7 @@ public final class Display3DActivity extends Activity {
                 jetView.setSimulationState((float)simState.gearPosition,(float)simState.mainStrutCompression01,(float)simState.noseStrutCompression01,(float)simState.brake01,simState.onGround);
                 runwayView.setFlightState(simState.altitudeM,simState.trueAirspeedMps,simState.onGround,mission.getPhase().name());
                 runwayView.setDemoProgress(mission.getOrbitTimeSec());
-                if(demoMode) updateDemoCameraDirector();
+                updateDemoCameraDirector();
                 updateMissionHud();
             }
             simHandler.postDelayed(this,20);
@@ -90,7 +96,7 @@ public final class Display3DActivity extends Activity {
         jetView = new Jet3DView(this);
 
         FrameLayout root = new FrameLayout(this);
-        // Scenery is intentionally behind the translucent GL surface so it can never wash over the aircraft skin.
+        root.setBackgroundColor(Color.rgb(3,9,13));
         root.addView(runwayView, new FrameLayout.LayoutParams(-1,-1));
         root.addView(jetView, new FrameLayout.LayoutParams(-1,-1));
 
@@ -99,21 +105,52 @@ public final class Display3DActivity extends Activity {
         missionHud.setBackgroundColor(0x66000000);
         FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT); hp.setMargins(dp(10),dp(10),0,0); root.addView(missionHud,hp);
 
+        waitingPanel=new LinearLayout(this);
+        waitingPanel.setOrientation(LinearLayout.VERTICAL);
+        waitingPanel.setGravity(Gravity.CENTER);
+        waitingPanel.setPadding(dp(36),dp(28),dp(36),dp(28));
+        waitingPanel.setBackgroundColor(Color.rgb(3,9,13));
+        TextView waitTitle=new TextView(this);
+        waitTitle.setText("UÇAK EKRANI"); waitTitle.setTextColor(Color.rgb(160,255,190)); waitTitle.setTextSize(28f); waitTitle.setGravity(Gravity.CENTER);
+        TextView waitText=new TextView(this);
+        waitText.setText("Pilot telefonu bağlantısı bekleniyor\n\nPilot telefonunda PİLOT TELEFONU / KOKPİT seçeneğini aç ve bu telefona bağlan.\nBağlantı kurulunca 3D uçak ekranı otomatik açılacak.");
+        waitText.setTextColor(Color.LTGRAY); waitText.setTextSize(16f); waitText.setGravity(Gravity.CENTER); waitText.setPadding(0,dp(18),0,0);
+        waitingPanel.addView(waitTitle,new LinearLayout.LayoutParams(-1,-2));
+        waitingPanel.addView(waitText,new LinearLayout.LayoutParams(-1,-2));
+        FrameLayout.LayoutParams wp=new FrameLayout.LayoutParams(-1,-1); root.addView(waitingPanel,wp);
+
         Button back = new Button(this); back.setText("MOD"); back.setAllCaps(false);
         FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(dp(96),dp(48), Gravity.TOP|Gravity.RIGHT); bp.setMargins(0,10,10,0); root.addView(back,bp);
         back.setOnClickListener(v -> finish());
         setContentView(root);
+
         jetView.setSimulationState((float)simState.gearPosition,0f,0f,0f,true);
         jetView.setCameraMode(Jet3DView.CAMERA_CHASE);
         runwayView.setFlightState(0,0,true,mission.getPhase().name());
-        updateMissionHud();
-        simHandler.post(simTick);
 
         if(demoMode){
+            showFlightScene();
+            updateMissionHud();
+            simHandler.post(simTick);
             Toast.makeText(this,"DEMO MODE — sinematik kamera, otomatik kalkış, gezi ve iniş",Toast.LENGTH_LONG).show();
         } else {
+            showWaitingScreen();
             requestBtThenStart();
         }
+    }
+
+    private void showWaitingScreen(){
+        waitingPanel.setVisibility(View.VISIBLE);
+        runwayView.setVisibility(View.GONE);
+        jetView.setVisibility(View.GONE);
+        missionHud.setVisibility(View.GONE);
+    }
+
+    private void showFlightScene(){
+        waitingPanel.setVisibility(View.GONE);
+        runwayView.setVisibility(View.VISIBLE);
+        jetView.setVisibility(View.VISIBLE);
+        missionHud.setVisibility(View.VISIBLE);
     }
 
     private void updateDemoCameraDirector(){
@@ -142,9 +179,10 @@ public final class Display3DActivity extends Activity {
     }
 
     private void updateMissionHud(){
+        if(!demoMode && !connected) return;
         String phase=mission.getPhase().name().replace('_',' ');
         String extra=mission.getPhase()== AutonomousFlightMission.Phase.ORBIT ? String.format(Locale.US,"  GEZİ %.0f/300 s",mission.getOrbitTimeSec()) : "";
-        String mode=demoMode?"DEMO":"UÇAK EKRANI / PILOT BEKLENİYOR";
+        String mode=demoMode?"DEMO":"UÇAK EKRANI / PILOT BAĞLI";
         missionHud.setText(String.format(Locale.US,
                 "%s  %s%s   CAM %s\nALT %.0f m   SPD %.0f m/s   HDG %03.0f\nGEAR %.0f%%   BRK %.0f%%   WOW %s\nSTRUT M %.0f%% N %.0f%%   SINK %.1f m/s",
                 mode,phase,extra,cameraName(),simState.altitudeM,simState.trueAirspeedMps,simState.headingDeg,
@@ -166,13 +204,17 @@ public final class Display3DActivity extends Activity {
 
     private void startServer(){
         if(bt==null){Toast.makeText(this,"Bluetooth donanımı yok",Toast.LENGTH_LONG).show();return;}
-        if(!bt.isEnabled()){Toast.makeText(this,"Bluetooth kapalı — uçak ekranı pilotu bekliyor",Toast.LENGTH_SHORT).show();return;}
+        if(!bt.isEnabled()){Toast.makeText(this,"Bluetooth kapalı — açıp tekrar UÇAK EKRANI'nı seç",Toast.LENGTH_LONG).show();return;}
         io.execute(() -> {
             while(running && !demoMode){
                 try{
                     server=bt.listenUsingRfcommWithServiceRecord("FixtureCockpit3D",SIM_UUID);
                     socket=server.accept(); connected=true;
-                    runOnUiThread(() -> missionHud.setText("UÇAK EKRANI — PILOT BAĞLANDI"));
+                    runOnUiThread(() -> {
+                        showFlightScene();
+                        missionHud.setText("UÇAK EKRANI — PILOT BAĞLANDI");
+                        Toast.makeText(this,"Pilot bağlandı — 3D uçak ekranı aktif",Toast.LENGTH_SHORT).show();
+                    });
                     writer=new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8));
                     BufferedReader r=new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8));
                     String line;
@@ -188,7 +230,10 @@ public final class Display3DActivity extends Activity {
                         }catch(Exception ignored){}
                     }
                 }catch(Exception ignored){connected=false;}
-                finally{closeLink();}
+                finally{
+                    closeLink();
+                    if(running && !demoMode) runOnUiThread(this::showWaitingScreen);
+                }
             }
         });
     }
