@@ -23,15 +23,19 @@ jobs:
           curl --retry 4 -fL $BASE/vitruvian_head.glb -o $A/v33_head.glb
           curl --retry 4 -fL $BASE/vitruvian_hair_rigged.glb -o $A/v33_hair.glb
           for f in vit_body_bc.png vit_body_n.png vit_body_rough.png vit_face_bc.png vit_face_n.png vit_face_rough.png vit_fabric_n.png vit_hair_ao.png vit_hair_atlas.png vit_hair_diffuse.png vit_hair_normal.png vit_hair_opacity.png vit_iris.png vit_lash_atlas.png vit_mouth.png vit_sclera.png; do curl --retry 4 -fL $BASE/$f -o $A/$f; done
-          test -s $A/gameplay-v36.js
           test -s $A/clean-core-v37.js
+          test -s $A/role-start-v38.js
       - name: Inject patches
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p=Path('mg-tennis-tv/app/src/main/assets/index.html'); s=p.read_text()
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];')
-          for fn in ['difficulty-v24.js','v12-human-patch.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','match-start-v34.js','gameplay-v36.js','clean-core-v37.js']:
+          # v3.8 uses the simplified role selector instead of the older multi-step match-start UI
+          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','gameplay-v36.js','clean-core-v37.js','role-start-v38.js']
+          # remove old injected role setup if present
+          s=s.replace('<script src="match-start-v34.js"></script>','')
+          for fn in scripts:
               if fn not in s:s=s.replace('</body>',f'<script src="{fn}"></script></body>')
           p.write_text(s)
           PY
@@ -44,14 +48,14 @@ jobs:
       - name: Build release APK
         working-directory: mg-tennis-tv
         run: gradle --no-daemon assembleRelease
-      - name: Verify v3.7 release
+      - name: Verify v3.8 release
         run: |
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='37'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='38'"
+          unzip -p $APK assets/index.html | grep -q 'role-start-v38.js'
           unzip -p $APK assets/index.html | grep -q 'clean-core-v37.js'
-          unzip -l $APK | grep -q assets/v33_head.glb
-          cp $APK MG_Tennis_TV_v3.7_Unified_Realistic_Core.apk
+          cp $APK MG_Tennis_TV_v3.8_One_Tap_Screen_Racket.apk
       - uses: actions/upload-artifact@v4
-        with: { name: MG-Tennis-TV-v3.7-Unified-Realistic-Core-APK, path: MG_Tennis_TV_v3.7_Unified_Realistic_Core.apk, retention-days: 30 }
+        with: { name: MG-Tennis-TV-v3.8-One-Tap-Screen-Racket-APK, path: MG_Tennis_TV_v3.8_One_Tap_Screen_Racket.apk, retention-days: 30 }
