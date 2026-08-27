@@ -11,6 +11,7 @@ import java.util.Set;
 public final class EngineeringProjectRepository {
     private static final String PREF="mep_engineering_projects_v2";
     private static final String INDEX="project_ids";
+    private static final String ACTIVE="active_project_id";
     private EngineeringProjectRepository(){}
 
     public static void save(Context c,EngineeringProject p){
@@ -27,8 +28,11 @@ public final class EngineeringProjectRepository {
         for(String id:sp.getStringSet(INDEX,Collections.emptySet())){String raw=sp.getString("p_"+id,null);if(raw!=null)try{out.add(EngineeringProject.decode(raw));}catch(Exception ignored){}}
         Collections.sort(out,(a,b)->Long.compare(b.updatedAt,a.updatedAt));return out;
     }
+    public static void setActive(Context c,String id){c.getSharedPreferences(PREF,Context.MODE_PRIVATE).edit().putString(ACTIVE,id).apply();}
+    public static String activeId(Context c){return c.getSharedPreferences(PREF,Context.MODE_PRIVATE).getString(ACTIVE,"");}
+    public static EngineeringProject active(Context c){String id=activeId(c);return id.isEmpty()?null:load(c,id);}
     public static void delete(Context c,String id){
         SharedPreferences sp=c.getSharedPreferences(PREF,Context.MODE_PRIVATE);Set<String> ids=new HashSet<>(sp.getStringSet(INDEX,Collections.emptySet()));ids.remove(id);
-        sp.edit().remove("p_"+id).putStringSet(INDEX,ids).apply();
+        SharedPreferences.Editor e=sp.edit().remove("p_"+id).putStringSet(INDEX,ids);if(id.equals(sp.getString(ACTIVE,"")))e.remove(ACTIVE);e.apply();
     }
 }
