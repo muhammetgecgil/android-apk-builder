@@ -18,7 +18,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         void onMotion(MotionObservation observation);
         void onObject(ObjectObservation observation);
         void onGround(GroundObservation observation);
-        void onSceneHealth(SceneHealthObservation observation);
+        default void onSceneHealth(SceneHealthObservation observation) {}
         void onVisionError(String message);
     }
 
@@ -52,7 +52,9 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
             sampleLuma(imageProxy);
             GridEvidenceEstimator.Result evidence = gridEstimator.analyze(current, rotation, nowMs);
             listener.onSceneHealth(evidence.sceneHealth());
-            if (evidence.motion().changedAreaRatio() > 0f) listener.onMotion(evidence.motion());
+            // Always emit one frame heartbeat, even for a static scene. SafetyGate will keep the
+            // zero-motion observation quiet while the watchdog correctly sees a healthy stream.
+            listener.onMotion(evidence.motion());
             if (evidence.ground().viewConfidence() > 0.08f) listener.onGround(evidence.ground());
 
             Image mediaImage = imageProxy.getImage();
