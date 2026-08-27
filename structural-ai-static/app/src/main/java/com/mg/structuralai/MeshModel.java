@@ -14,6 +14,19 @@ public final class MeshModel {
     public double minX=Double.POSITIVE_INFINITY,minY=Double.POSITIVE_INFINITY,minZ=Double.POSITIVE_INFINITY;
     public double maxX=Double.NEGATIVE_INFINITY,maxY=Double.NEGATIVE_INFINITY,maxZ=Double.NEGATIVE_INFINITY;
 
+    /** Import provenance. Geometry-only formats keep authoritativeUnit=false. */
+    public String sourceFormat="UNKNOWN";
+    public boolean authoritativeUnit=false;
+    public double sourceUnitScaleM=Double.NaN;
+    public String sourceUnitReason="No source-unit metadata";
+
+    public void setImportMetadata(String format, boolean authoritative, double unitScaleM, String reason){
+        sourceFormat=format==null?"UNKNOWN":format;
+        authoritativeUnit=authoritative && Double.isFinite(unitScaleM) && unitScaleM>0.0;
+        sourceUnitScaleM=authoritativeUnit?unitScaleM:Double.NaN;
+        sourceUnitReason=reason==null?"No source-unit metadata":reason;
+    }
+
     public void addVertex(V3 v){
         vertices.add(v);
         minX=Math.min(minX,v.x); minY=Math.min(minY,v.y); minZ=Math.min(minZ,v.z);
