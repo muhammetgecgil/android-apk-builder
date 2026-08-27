@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 36
-        versionName = "1.9.0-cad-benchmark-gate"
+        versionCode = 37
+        versionName = "1.9.1-solver-accuracy-gate"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
