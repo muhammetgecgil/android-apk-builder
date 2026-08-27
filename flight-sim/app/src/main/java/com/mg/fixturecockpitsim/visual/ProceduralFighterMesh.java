@@ -24,7 +24,7 @@ public final class ProceduralFighterMesh {
         AirframeShapeProfile.validate();
         ProceduralFighterMesh b=new ProceduralFighterMesh();
         b.part=PART_SKIN;
-        b.fuselage(); b.chine(-1f); b.chine(1f); b.noseCrown(); b.upperDeck(); b.canopySill();
+        b.fuselage(); b.chine(-1f); b.chine(1f); b.noseCrown(); b.upperDeck(); b.canopySill(); b.cockpitRearDeck();
         b.wing(-1f); b.wing(1f); b.aftShoulderBridge(); b.boatTail();
         b.part=PART_FLAPERON_L; b.flaperon(-1f); b.part=PART_FLAPERON_R; b.flaperon(1f);
         b.part=PART_STAB_L; b.stabilator(-1f); b.part=PART_STAB_R; b.stabilator(1f);
@@ -85,15 +85,19 @@ public final class ProceduralFighterMesh {
     }
 
     private void canopySill(){
-        // AVM-1 final acceptance feature: one continuous structural seat for the canopy.
-        // It removes the floating-glass impression and establishes the AVM-2 interface.
         prism(new float[][]{
                 {-.60f,.73f,-2.04f},{.60f,.73f,-2.04f},{.64f,.78f,-1.55f},{.61f,.82f,-.78f},
                 {.53f,.84f,.02f},{.42f,.80f,.72f},{-.42f,.80f,.72f},{-.53f,.84f,.02f},
                 {-.61f,.82f,-.78f},{-.64f,.78f,-1.55f}},.115f);
-        // Forward brow ties the sill into the nose crown instead of ending abruptly at the windshield.
         prism(new float[][]{
                 {-.50f,.60f,-2.82f},{.50f,.60f,-2.82f},{.59f,.72f,-2.04f},{-.59f,.72f,-2.04f}},.10f);
+    }
+
+    private void cockpitRearDeck(){
+        // AVM-2 fixed rear crown: supports canopy trailing edge and prevents a hollow rear-cockpit look.
+        prism(new float[][]{
+                {-.43f,.80f,.55f},{.43f,.80f,.55f},{.50f,.83f,.86f},{.46f,.81f,1.20f},
+                {.34f,.75f,1.53f},{-.34f,.75f,1.53f},{-.46f,.81f,1.20f},{-.50f,.83f,.86f}},.13f);
     }
 
     private void wing(float side){
@@ -110,7 +114,6 @@ public final class ProceduralFighterMesh {
     }
 
     private void boatTail(){
-        // Close the aft-body volume around both engines so the nozzles emerge from a body, not a gap.
         prism(new float[][]{
                 {-1.12f,.24f,2.66f},{1.12f,.24f,2.66f},{1.04f,.18f,3.05f},{.94f,.10f,3.38f},
                 {.38f,.02f,3.48f},{-.38f,.02f,3.48f},{-.94f,.10f,3.38f},{-1.04f,.18f,3.05f}},.24f);
@@ -150,10 +153,43 @@ public final class ProceduralFighterMesh {
 
     private void nozzle(float x){float z0=3.12f,z1=3.64f,r0=.43f,r1=.34f;int sides=20;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;float ripple=(i%2==0?1.0f:.94f);quad(new float[]{x+r0*(float)Math.cos(a0),-.10f+r0*.60f*(float)Math.sin(a0),z0},new float[]{x+r1*ripple*(float)Math.cos(a0),-.10f+r1*ripple*.60f*(float)Math.sin(a0),z1},new float[]{x+r1*(float)Math.cos(a1),-.10f+r1*.60f*(float)Math.sin(a1),z1},new float[]{x+r0*(float)Math.cos(a1),-.10f+r0*.60f*(float)Math.sin(a1),z0});}}
     private void nozzleInner(float x){float z0=3.55f,z1=3.77f,r0=.255f,r1=.205f;int sides=18;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;quad(new float[]{x+r0*(float)Math.cos(a0),-.10f+r0*.60f*(float)Math.sin(a0),z0},new float[]{x+r1*(float)Math.cos(a0),-.10f+r1*.60f*(float)Math.sin(a0),z1},new float[]{x+r1*(float)Math.cos(a1),-.10f+r1*.60f*(float)Math.sin(a1),z1},new float[]{x+r0*(float)Math.cos(a1),-.10f+r0*.60f*(float)Math.sin(a1),z0});}}
-    private void afterburner(float x){float z0=3.74f,z1=5.10f,r0=.20f,r1=.035f;int sides=16;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;quad(new float[]{x+r0*(float)Math.cos(a0),-.10f+r0*.55f*(float)Math.sin(a0),z0},new float[]{x+r1*(float)Math.cos(a0),-.10f+r1*(float)Math.sin(a0),z1},new float[]{x+r1*(float)Math.cos(a1),-.10f+r1*(float)Math.sin(a1),z1},new float[]{x+r0*(float)Math.cos(a1),-.10f+r0*.55f*(float)Math.sin(a1),z0});}}
+    private void afterburner(float x){float z0=3.74f,z1=5.10f,r0=.20f,r1=.035f;int sides=16;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/n,a1=2*Math.PI*(i+1)/n;}}
 
-    private void canopy(){int n=18;for(int s=0;s<3;s++){float z0=-1.78f+s*.78f,z1=z0+.78f,rx0=.52f-.09f*s,rx1=.43f-.09f*s,h0=.77f+.18f*s,h1=.96f+.09f*s;for(int i=0;i<n/2;i++){double a0=Math.PI*i/(n/2),a1=Math.PI*(i+1)/(n/2);quad(new float[]{rx0*(float)Math.cos(a0),h0+.35f*(float)Math.sin(a0),z0},new float[]{rx1*(float)Math.cos(a0),h1+.29f*(float)Math.sin(a0),z1},new float[]{rx1*(float)Math.cos(a1),h1+.29f*(float)Math.sin(a1),z1},new float[]{rx0*(float)Math.cos(a1),h0+.35f*(float)Math.sin(a1),z0});}}}
-    private void canopyFrame(){prism(new float[][]{{-.58f,.77f,-1.80f},{.58f,.77f,-1.80f},{.48f,.80f,-1.62f},{-.48f,.80f,-1.62f}},.07f);prism(new float[][]{{-.40f,.97f,-.42f},{.40f,.97f,-.42f},{.36f,1.02f,-.27f},{-.36f,1.02f,-.27f}},.055f);prism(new float[][]{{-.31f,.92f,.48f},{.31f,.92f,.48f},{.27f,.95f,.62f},{-.27f,.95f,.62f}},.05f);}
+    private void canopy(){
+        // AVM-2: four-section faceted bubble with separate windshield-to-main-canopy progression.
+        float[] z={-2.02f,-1.60f,-.98f,-.28f,.36f,.68f};
+        float[] rx={.43f,.53f,.57f,.53f,.42f,.27f};
+        float[] base={.79f,.82f,.84f,.85f,.83f,.79f};
+        float[] crown={1.02f,1.18f,1.30f,1.32f,1.18f,.98f};
+        int arcs=14;
+        for(int s=0;s<z.length-1;s++){
+            for(int i=0;i<arcs;i++){
+                double a0=Math.PI*i/arcs,a1=Math.PI*(i+1)/arcs;
+                float y00=base[s]+(crown[s]-base[s])*(float)Math.sin(a0);
+                float y01=base[s]+(crown[s]-base[s])*(float)Math.sin(a1);
+                float y10=base[s+1]+(crown[s+1]-base[s+1])*(float)Math.sin(a0);
+                float y11=base[s+1]+(crown[s+1]-base[s+1])*(float)Math.sin(a1);
+                quad(new float[]{rx[s]*(float)Math.cos(a0),y00,z[s]},
+                     new float[]{rx[s+1]*(float)Math.cos(a0),y10,z[s+1]},
+                     new float[]{rx[s+1]*(float)Math.cos(a1),y11,z[s+1]},
+                     new float[]{rx[s]*(float)Math.cos(a1),y01,z[s]});
+            }
+        }
+    }
+
+    private void canopyFrame(){
+        // Forward windshield bow.
+        prism(new float[][]{{-.47f,.80f,-2.04f},{.47f,.80f,-2.04f},{.42f,.91f,-1.88f},{-.42f,.91f,-1.88f}},.065f);
+        // Mid bow defining windshield/main-canopy split.
+        prism(new float[][]{{-.54f,.84f,-1.04f},{.54f,.84f,-1.04f},{.47f,1.00f,-.88f},{-.47f,1.00f,-.88f}},.060f);
+        // Rear bow and canopy trailing frame.
+        prism(new float[][]{{-.42f,.82f,.35f},{.42f,.82f,.35f},{.35f,.96f,.54f},{-.35f,.96f,.54f}},.060f);
+        // Longitudinal lower rails, giving the glazing a structural base.
+        prism(new float[][]{{-.57f,.79f,-1.92f},{-.48f,.82f,.46f},{-.39f,.79f,.70f},{-.48f,.77f,-1.90f}},.055f);
+        prism(new float[][]{{.48f,.77f,-1.90f},{.39f,.79f,.70f},{.48f,.82f,.46f},{.57f,.79f,-1.92f}},.055f);
+        // Narrow dorsal spine strip to make the bubble read as framed glazing in top/3-4 views.
+        prism(new float[][]{{-.035f,1.03f,-1.88f},{.035f,1.03f,-1.88f},{.030f,1.19f,.48f},{-.030f,1.19f,.48f}},.025f);
+    }
 
     private void gearStruts(){box(-.075f,-1.52f,-3.72f,.15f,1.10f,.16f);box(-1.72f,-1.48f,.62f,.18f,1.18f,.18f);box(1.54f,-1.48f,.62f,.18f,1.18f,.18f);box(-1.70f,-.98f,.55f,.16f,.18f,.84f);box(1.54f,-.98f,.55f,.16f,.18f,.84f);}
     private void gearWheels(){wheel(0f,-1.66f,-3.72f,.26f,.18f);wheel(-1.72f,-1.72f,1.12f,.38f,.24f);wheel(1.72f,-1.72f,1.12f,.38f,.24f);}
