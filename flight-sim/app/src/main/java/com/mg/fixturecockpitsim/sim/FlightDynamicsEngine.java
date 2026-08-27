@@ -2,16 +2,22 @@ package com.mg.fixturecockpitsim.sim;
 
 /**
  * Deterministic mobile-friendly first flight model.
- * It is intentionally separated from rendering/Bluetooth so a higher fidelity 6-DoF model can replace it later.
+ * Rendering/Bluetooth stay separated so this can evolve toward a higher fidelity 6-DoF model.
  */
 public final class FlightDynamicsEngine {
-    private static final double G = 9.80665;
     private static final double EARTH_RADIUS_M = 6371000.0;
+    private static final double GEAR_RATE_PER_SEC = 0.55;
+    private static final double GROUND_HEIGHT_M = 0.0;
 
     public void step(FlightState s, FlightControls in, double dtSec) {
         if (dtSec <= 0) return;
         dtSec = Math.min(dtSec, 0.05);
         in.clamp();
+
+        // Landing gear actuator: approximately 1.8 s full travel.
+        double gearTarget = in.gearDown ? 1.0 : 0.0;
+        s.gearPosition = approach(s.gearPosition, gearTarget, GEAR_RATE_PER_SEC * dtSec);
+        s.brake01 += (in.brake - s.brake01) * Math.min(1.0, dtSec * 7.0);
 
         double targetRoll = in.roll * 75.0;
         double targetPitch = in.pitch * 30.0;
@@ -23,8 +29,43 @@ public final class FlightDynamicsEngine {
         double targetSpeed = 55.0 + s.throttle * 250.0;
         s.trueAirspeedMps += (targetSpeed - s.trueAirspeedMps) * Math.min(1.0, dtSec * 0.55);
 
-        s.verticalSpeedMps = s.trueAirspeedMps * Math.sin(Math.toRadians(s.pitchDeg));
-        s.altitudeM = Math.max(0.0, s.altitudeM + s.verticalSpeedMps * dtSec);
+        double airborneVs = s.trueAirspeedMps * Math.sin(Math.toRadians(s.pitchDeg));
+        double proposedAltitude = s.altitudeM + airborneVs * dtSec;
+        boolean gearUsable = s.gearPosition > 0.82;
+        boolean groundCandidate = proposedAltitude <= GROUND_HEIGHT_M + 0.12 && airborneVs <= 1.0;
+
+        if (groundCandidate && gearUsable) {
+            if (!s.onGround) s.touchdownSinkMps = Math.max(0.0, -airborneVs);
+            s.onGround = true;
+            s.altitudeM = GROUND_HEIGHT_M;
+            s.verticalSpeedMps = 0.0;
+
+            // Simple spring/damper visual state. Harder touchdown = deeper first compression.
+            double touchdownLoad = clamp01(s.touchdownSinkMps / 4.5);
+            double speedLoad = clamp01(s.trueAirspeedMps / 95.0) * 0.18;
+            double targetMainCompression = clamp01(0.16 + touchdownLoad * 0.72 + speedLoad);
+            double targetNoseCompression = clamp01(0.10 + Math.max(0.0, -s.pitchDeg) / 12.0 * 0.48);
+            s.mainStrutCompression01 += (targetMainCompression - s.mainStrutCompression01) * Math.min(1.0, dtSec * 7.5);
+            s.noseStrutCompression01 += (targetNoseCompression - s.noseStrutCompression01) * Math.min(1.0, dtSec * 6.0);
+
+            // Rolling + brake drag. Keeps a little idle rolling resistance even without brakes.
+            double rollingDecel = 0.55 + 9.0 * s.brake01;
+            s.trueAirspeedMps = Math.max(0.0, s.trueAirspeedMps - rollingDecel * dtSec);
+            // Nose wheel steering influence is strongest at low speed.
+            double steerAuthority = 20.0 * clamp01(1.0 - s.trueAirspeedMps / 85.0);
+            s.headingDeg = wrap360(s.headingDeg + in.yaw * steerAuthority * dtSec);
+            // Ground attitude gradually settles without snapping.
+            s.rollDeg += (0.0 - s.rollDeg) * Math.min(1.0, dtSec * 2.8);
+            s.pitchDeg += (0.0 - s.pitchDeg) * Math.min(1.0, dtSec * 1.4);
+        } else {
+            s.onGround = false;
+            s.verticalSpeedMps = airborneVs;
+            s.altitudeM = Math.max(0.0, proposedAltitude);
+            s.mainStrutCompression01 += (0.0 - s.mainStrutCompression01) * Math.min(1.0, dtSec * 5.0);
+            s.noseStrutCompression01 += (0.0 - s.noseStrutCompression01) * Math.min(1.0, dtSec * 5.0);
+            if (s.altitudeM > 1.0) s.touchdownSinkMps = 0.0;
+        }
+
         s.angleOfAttackDeg = in.pitch * 10.0 - s.pitchDeg * 0.08;
         s.loadFactor = Math.max(0.1, 1.0 / Math.max(0.18, Math.cos(Math.toRadians(s.rollDeg))));
 
@@ -39,5 +80,10 @@ public final class FlightDynamicsEngine {
         s.timeSec += dtSec;
     }
 
+    private static double approach(double value,double target,double maxDelta){
+        if(value<target)return Math.min(target,value+maxDelta);
+        return Math.max(target,value-maxDelta);
+    }
+    private static double clamp01(double v){ return Math.max(0.0,Math.min(1.0,v)); }
     private static double wrap360(double d){ d%=360.0; return d<0?d+360.0:d; }
 }
