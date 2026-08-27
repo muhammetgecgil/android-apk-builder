@@ -31,9 +31,10 @@ public class MainActivity extends Activity {
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(Color.rgb(248,250,252));
         LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(18),dp(20),dp(18),dp(32)); scroll.addView(root,new ScrollView.LayoutParams(-1,-2));
         root.addView(text("MACHINE ELEMENTS PRO",24,true,Color.rgb(15,23,42)));
-        TextView sub=text("Makine tasarım suite • hesap, gearbox, assembly, optimizasyon, sistem seçimi ve Türkiye/Avrupa ürün eşleştirme",14,false,Color.rgb(71,85,105)); sub.setPadding(0,dp(4),0,dp(12)); root.addView(sub);
+        TextView sub=text("Makine tasarım suite • proje, hesap, gearbox, assembly, optimizasyon, sistem seçimi ve Türkiye/Avrupa ürün eşleştirme",14,false,Color.rgb(71,85,105)); sub.setPadding(0,dp(4),0,dp(12)); root.addView(sub);
 
-        Button product=navButton("TÜRKİYE + AVRUPA ÜRÜN SEÇİMİ →",Color.rgb(5,150,105)); product.setOnClickListener(v->startActivity(new Intent(this,ProductCatalogActivity.class))); root.addView(product,lp(-1,dp(58),0));
+        Button projects=navButton("PROJECT MANAGER →",Color.rgb(15,23,42));projects.setOnClickListener(v->startActivity(new Intent(this,ProjectManagerActivity.class)));root.addView(projects,lp(-1,dp(58),0));
+        Button product=navButton("TÜRKİYE + AVRUPA ÜRÜN SEÇİMİ →",Color.rgb(5,150,105)); product.setOnClickListener(v->startActivity(new Intent(this,ProductCatalogActivity.class))); root.addView(product,lp(-1,dp(58),dp(8)));
         Button advanced=navButton("ADVANCED ENGINEERING →",Color.rgb(30,64,175)); advanced.setOnClickListener(v->startActivity(new Intent(this,AdvancedActivity.class))); root.addView(advanced,lp(-1,dp(54),dp(8)));
         Button drive=navButton("DRIVETRAIN SYSTEM →",Color.rgb(2,132,199)); drive.setOnClickListener(v->startActivity(new Intent(this,DrivetrainActivity.class))); root.addView(drive,lp(-1,dp(54),dp(8)));
         Button gearbox=navButton("GEARBOX DESIGNER →",Color.rgb(14,116,144)); gearbox.setOnClickListener(v->startActivity(new Intent(this,GearboxDesignerActivity.class))); root.addView(gearbox,lp(-1,dp(54),dp(8)));
