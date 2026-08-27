@@ -7,13 +7,13 @@ import android.view.View;
 import android.widget.*;
 import java.util.*;
 
-/** v7.19 — crash-safe simple AUTO WHIFFLETREE wizard with independent inputs. */
+/** v7.19.4 — crash-safe simple AUTO WHIFFLETREE wizard with a dedicated result state. */
 public class V719Activity extends V717Activity {
-  LinearLayout wizard,body,resultBox;
+  LinearLayout wizard,body,resultBox,navRow;
   TextView title,status;
   EditText wLen,wDia,wSections,wFx,wFy,wFz,wActs,wCap,wLayers;
   Spinner wActType,wPhase;
-  Button next,back,auto,advanced,pads;
+  Button next,back,auto,advanced,pads,newDesign;
   int step=1;
 
   @Override public void onCreate(Bundle b){
@@ -24,9 +24,9 @@ public class V719Activity extends V717Activity {
     title=tx("WHIFFLETREE TASARIMI",22,true,Color.WHITE);wizard.addView(title,lp());
     status=card("3 kısa adım. Yalnız bildiğin test gereksinimlerini gir; AUTO TASARLA whiffletree'yi kendi hesaplasın.",Color.rgb(12,49,65));wizard.addView(status,lp());
     body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);wizard.addView(body,lp());
-    LinearLayout nav=new LinearLayout(this);nav.setOrientation(LinearLayout.HORIZONTAL);
+    navRow=new LinearLayout(this);navRow.setOrientation(LinearLayout.HORIZONTAL);
     back=designBtn("GERİ",v->{if(step>1)showStep(step-1);});next=designBtn("DEVAM",v->{if(step<3)showStep(step+1);});
-    nav.addView(back,new LinearLayout.LayoutParams(0,dp(54),1));nav.addView(next,new LinearLayout.LayoutParams(0,dp(54),1));wizard.addView(nav,lp());
+    navRow.addView(back,new LinearLayout.LayoutParams(0,dp(54),1));navRow.addView(next,new LinearLayout.LayoutParams(0,dp(54),1));wizard.addView(navRow,lp());
     auto=designBtn("AUTO TASARLA VE GÖSTER",v->runWizardAuto());wizard.addView(auto,new LinearLayout.LayoutParams(-1,dp(64)));
     advanced=designBtn("GELİŞMİŞ EKRAN",v->{wizard.setVisibility(View.GONE);proHome.setVisibility(View.VISIBLE);});wizard.addView(advanced,new LinearLayout.LayoutParams(-1,dp(46)));
     resultBox=new LinearLayout(this);resultBox.setOrientation(LinearLayout.VERTICAL);wizard.addView(resultBox,lp());
@@ -46,7 +46,9 @@ public class V719Activity extends V717Activity {
   }
 
   void showStep(int s){
-    step=s;body.removeAllViews();resultBox.removeAllViews();back.setVisibility(s==1?View.INVISIBLE:View.VISIBLE);next.setVisibility(s==3?View.GONE:View.VISIBLE);auto.setVisibility(s==3?View.VISIBLE:View.GONE);
+    step=s;body.removeAllViews();resultBox.removeAllViews();
+    body.setVisibility(View.VISIBLE);navRow.setVisibility(View.VISIBLE);advanced.setVisibility(View.VISIBLE);
+    back.setVisibility(s==1?View.INVISIBLE:View.VISIBLE);next.setVisibility(s==3?View.GONE:View.VISIBLE);auto.setVisibility(s==3?View.VISIBLE:View.GONE);
     if(s==1){
       title.setText("1/3 • EFT VE HEDEF YÜKLER");status.setText("Tankı ve yük uygulama noktalarını tanımla. Negatif kuvvet girebilirsin.");
       body.addView(field("EFT uzunluğu [m]",wLen,"Tank boyu"));body.addView(field("EFT çapı [m]",wDia,"Maksimum dış çap"));body.addView(field("Yük uygulama bölgesi / pad sayısı",wSections,"Örn. 8, 10, 12"));
@@ -69,13 +71,18 @@ public class V719Activity extends V717Activity {
   }
 
   void runWizardAuto(){
-    syncWizardToCore();calculateProfessional();resultBox.removeAllViews();
+    syncWizardToCore();calculateProfessional();
     if(!solvedValid){status.setText("HESAP YAPILAMADI — giriş değerlerini kontrol et.");return;}
-    title.setText("AUTO WHIFFLETREE SONUCU");status.setText("Tasarım tamamlandı. Önce önerilen rig ve kuvvetleri gör; ayrıntılar alt düğmelerde.");
+    // Dedicated result state: remove all wizard inputs/navigation so the user unmistakably sees a new screen.
+    body.setVisibility(View.GONE);navRow.setVisibility(View.GONE);auto.setVisibility(View.GONE);advanced.setVisibility(View.GONE);resultBox.removeAllViews();
+    title.setText("WHIFFLETREE SONUCU");status.setText("AUTO TASARIM TAMAMLANDI — aşağıdaki tasarım aktif rig olarak seçildi.");
     TextView primary=card(primaryResult(),Color.rgb(12,57,52));resultBox.addView(primary,lp());
+    Button rigBig=designBtn("WHIFFLETREE'Yİ 2D GÖSTER",v->openPanel(visualGuide,navRig));resultBox.addView(rigBig,new LinearLayout.LayoutParams(-1,dp(66)));
     LinearLayout actions=new LinearLayout(this);actions.setOrientation(LinearLayout.HORIZONTAL);
-    actions.addView(designBtn("2D RIG",v->openPanel(visualGuide,navRig)),new LinearLayout.LayoutParams(0,dp(58),1));actions.addView(designBtn("İSPAT",v->openPanel(matrixPanel,navProof)),new LinearLayout.LayoutParams(0,dp(58),1));actions.addView(designBtn("PARÇA",v->openPanel(equipPanel,navPart)),new LinearLayout.LayoutParams(0,dp(58),1));actions.addView(designBtn("TEST",v->openPanel(simPanel,navTest)),new LinearLayout.LayoutParams(0,dp(58),1));resultBox.addView(actions,lp());
+    actions.addView(designBtn("İSPAT",v->openPanel(matrixPanel,navProof)),new LinearLayout.LayoutParams(0,dp(58),1));actions.addView(designBtn("PARÇA",v->openPanel(equipPanel,navPart)),new LinearLayout.LayoutParams(0,dp(58),1));actions.addView(designBtn("TEST",v->openPanel(simPanel,navTest)),new LinearLayout.LayoutParams(0,dp(58),1));resultBox.addView(actions,lp());
     resultBox.addView(designBtn("ALTERNATİF / GELİŞMİŞ TASARIMLAR",v->{wizard.setVisibility(View.GONE);proHome.setVisibility(View.VISIBLE);}),new LinearLayout.LayoutParams(-1,dp(48)));
+    newDesign=designBtn("← GİRİŞLERİ DEĞİŞTİR / YENİ TASARIM",v->showStep(1));resultBox.addView(newDesign,new LinearLayout.LayoutParams(-1,dp(52)));
+    wizard.requestFocus();
   }
 
   void openPanel(View panel,Button nav){wizard.setVisibility(View.GONE);proHome.setVisibility(View.VISIBLE);showSection(panel,nav);}
@@ -84,8 +91,12 @@ public class V719Activity extends V717Activity {
     int na=Math.max(1,ival(hActs,1,12));double cap=Math.max(1,val(hCap));double sx=0,sy=0,sz=0;double[] ax=new double[na],ay=new double[na],az=new double[na];for(SNode s:solved){sx+=s.fx;sy+=s.fy;sz+=s.fz;int a=Math.max(0,Math.min(na-1,s.act));ax[a]+=s.fx;ay[a]+=s.fy;az[a]+=s.fz;}
     double peak=0,maxU=0;StringBuilder atext=new StringBuilder();for(int a=0;a<na;a++){double r=Math.sqrt(ax[a]*ax[a]+ay[a]*ay[a]+az[a]*az[a]);peak=Math.max(peak,r);maxU=Math.max(maxU,r/cap);if(a>0)atext.append("   ");atext.append("ACT-").append(a+1).append(": ").append(String.format(Locale.US,"%.1f kN",r/1000.0));}
     String rec=recommended==null?"AUTO":("Design "+recommended.id+" • "+recommended.name);String ok=maxU<=1&&wtForceResidual<1e-3?"UYGUN / DETAY KONTROLÜNE GEÇ":"KONTROL GEREKLİ";
-    return String.format(Locale.US,"%s\n\nÖNERİLEN WHIFFLETREE: %s\n%d pad → %d beam/pivot → %d actuator\nKatman: %d\n\nHEDEF YÜK\nFx %+.2f kN   Fy %+.2f kN   Fz %+.2f kN\n\nACTUATOR KUVVETLERİ\n%s\nPeak %.2f kN / kapasite %.2f kN → kullanım %.1f%%\n\nDENGE KONTROLÜ\nForce closure %.6f N\nWorst beam ΣM residual %.6f Nmm\n\nWHIFFLETREE'Yİ GÖSTER ile her pad, beam, pivot, load-cell ve actuator üzerindeki kuvveti incele.",ok,rec,solved.size(),wtBeams.size(),na,Math.max(1,ival(hLayers,1,4)),sx/1000.0,sy/1000.0,sz/1000.0,atext.toString(),peak/1000.0,cap/1000.0,100*maxU,wtForceResidual,wtMomentResidual);
+    return String.format(Locale.US,"%s\n\nÖNERİLEN WHIFFLETREE: %s\n%d pad → %d beam/pivot → %d actuator\nKatman: %d\n\nHEDEF YÜK\nFx %+.2f kN   Fy %+.2f kN   Fz %+.2f kN\n\nACTUATOR KUVVETLERİ\n%s\nPeak %.2f kN / kapasite %.2f kN → kullanım %.1f%%\n\nDENGE KONTROLÜ\nForce closure %.6f N\nWorst beam ΣM residual %.6f Nmm\n\nWHIFFLETREE'Yİ 2D GÖSTER ile her pad, beam, pivot, load-cell ve actuator üzerindeki kuvveti incele.",ok,rec,solved.size(),wtBeams.size(),na,Math.max(1,ival(hLayers,1,4)),sx/1000.0,sy/1000.0,sz/1000.0,atext.toString(),peak/1000.0,cap/1000.0,100*maxU,wtForceResidual,wtMomentResidual);
   }
 
-  @Override public void onBackPressed(){if(wizard!=null&&wizard.getVisibility()!=View.VISIBLE){proHome.setVisibility(View.GONE);wizard.setVisibility(View.VISIBLE);return;}super.onBackPressed();}
+  @Override public void onBackPressed(){
+    if(wizard!=null&&wizard.getVisibility()==View.VISIBLE&&body.getVisibility()==View.GONE){showStep(3);return;}
+    if(wizard!=null&&wizard.getVisibility()!=View.VISIBLE){proHome.setVisibility(View.GONE);wizard.setVisibility(View.VISIBLE);showStep(3);return;}
+    super.onBackPressed();
+  }
 }
