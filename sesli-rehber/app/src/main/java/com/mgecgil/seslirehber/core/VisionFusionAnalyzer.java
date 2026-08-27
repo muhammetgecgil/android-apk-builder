@@ -8,6 +8,9 @@ import com.google.mlkit.vision.common.InputImage;
 import com.google.mlkit.vision.objects.ObjectDetection;
 import com.google.mlkit.vision.objects.ObjectDetector;
 import com.google.mlkit.vision.objects.defaults.ObjectDetectorOptions;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 import java.nio.ByteBuffer;
 import java.util.concurrent.atomic.AtomicBoolean;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
@@ -19,6 +22,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         void onObject(ObjectObservation observation);
         void onGround(GroundObservation observation);
         default void onSceneHealth(SceneHealthObservation observation) {}
+        default void onTextRecognized(String text) {}
         void onVisionError(String message);
     }
 
@@ -26,8 +30,10 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
     private static final int GRID_H = 72;
     private final byte[] current = new byte[GRID_W * GRID_H];
     private final AtomicBoolean processing = new AtomicBoolean(false);
+    private final AtomicBoolean textScanRequested = new AtomicBoolean(false);
     private final Listener listener;
     private final ObjectDetector objectDetector;
+    private final TextRecognizer textRecognizer;
     private final GridEvidenceEstimator gridEstimator = new GridEvidenceEstimator(GRID_W, GRID_H);
     private final ObjectObservationTracker objectTracker = new ObjectObservationTracker();
 
@@ -38,6 +44,12 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
                 .enableMultipleObjects()
                 .build();
         objectDetector = ObjectDetection.getClient(options);
+        textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+    }
+
+    /** Requests OCR on the next usable frame. The safety luma/ground heartbeat still runs. */
+    public void requestTextScan() {
+        textScanRequested.set(true);
     }
 
     @Override
@@ -69,6 +81,21 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
             int uprightWidth = (rotation == 90 || rotation == 270) ? sourceHeight : sourceWidth;
             int uprightHeight = (rotation == 90 || rotation == 270) ? sourceWidth : sourceHeight;
             InputImage inputImage = InputImage.fromMediaImage(mediaImage, rotation);
+
+            if (textScanRequested.getAndSet(false)) {
+                textRecognizer.process(inputImage)
+                        .addOnSuccessListener(result -> {
+                            String text = result.getText() == null ? "" : result.getText().trim();
+                            listener.onTextRecognized(text);
+                        })
+                        .addOnFailureListener(error -> listener.onVisionError("Yazı okuma geçici olarak kullanılamıyor."))
+                        .addOnCompleteListener(task -> {
+                            processing.set(false);
+                            imageProxy.close();
+                        });
+                return;
+            }
+
             objectDetector.process(inputImage)
                     .addOnSuccessListener(objects -> {
                         ObjectObservation best = objectTracker.selectMostRelevant(
@@ -114,6 +141,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
     @Override
     public void close() {
         objectDetector.close();
+        textRecognizer.close();
         objectTracker.reset();
         gridEstimator.reset();
     }
