@@ -6,6 +6,7 @@ import com.google.ar.core.Frame;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import static com.mgecgil.seslirehber.core.GuidanceModels.DepthObservation;
+import static com.mgecgil.seslirehber.core.GuidanceModels.WalkableCorridorObservation;
 
 /**
  * Decodes ARCore Depth16. The live path maps upright CPU-camera coordinates through ARCore's
@@ -13,9 +14,14 @@ import static com.mgecgil.seslirehber.core.GuidanceModels.DepthObservation;
  * camera image and can have a different aspect ratio.
  */
 public final class DepthImageAdapter {
+    public record AlignedEvidence(
+            DepthObservation depth,
+            WalkableCorridorObservation walkable) {}
+
     private static final int GRID_W = 72;
     private static final int GRID_H = 96;
     private final DepthGeometryEstimator estimator = new DepthGeometryEstimator();
+    private final WalkableCorridorEstimator walkableEstimator = new WalkableCorridorEstimator();
 
     /** Legacy/direct decoder used by pure image adapters and compatibility tests. */
     public DepthObservation analyze(Image image, long timestampMs) {
@@ -38,11 +44,23 @@ public final class DepthImageAdapter {
         return estimator.analyze(grid, width, height, timestampMs);
     }
 
-    /**
-     * Produces an upright, CPU-camera-aligned depth grid. Invalid/cropped mappings remain zero and
-     * therefore lower the depth coverage/confidence rather than being treated as geometry.
-     */
+    /** Compatibility method returning the depth part of the aligned evidence. */
     public DepthObservation analyzeAligned(
+            Frame frame,
+            Image depthImage,
+            int cpuWidth,
+            int cpuHeight,
+            int rotationDegrees,
+            long timestampMs) {
+        return analyzeAlignedEvidence(
+                frame, depthImage, cpuWidth, cpuHeight, rotationDegrees, timestampMs).depth();
+    }
+
+    /**
+     * Produces a single upright CPU-camera-aligned depth grid, then derives both depth-discontinuity
+     * and relative three-lane openness from exactly the same pixels/timestamp.
+     */
+    public AlignedEvidence analyzeAlignedEvidence(
             Frame frame,
             Image depthImage,
             int cpuWidth,
@@ -51,7 +69,10 @@ public final class DepthImageAdapter {
             long timestampMs) {
         if (frame == null || depthImage == null || depthImage.getPlanes().length == 0
                 || cpuWidth <= 0 || cpuHeight <= 0) {
-            return estimator.analyze(new short[0], 0, 0, timestampMs);
+            short[] empty = new short[0];
+            return new AlignedEvidence(
+                    estimator.analyze(empty, 0, 0, timestampMs),
+                    walkableEstimator.analyze(empty, 0, 0, timestampMs));
         }
 
         short[] grid = new short[GRID_W * GRID_H];
@@ -83,7 +104,13 @@ public final class DepthImageAdapter {
                 grid[gy * GRID_W + gx] = readDepth(plane, buffer, dx, dy);
             }
         }
-        return estimator.analyze(grid, GRID_W, GRID_H, timestampMs);
+        return new AlignedEvidence(
+                estimator.analyze(grid, GRID_W, GRID_H, timestampMs),
+                walkableEstimator.analyze(grid, GRID_W, GRID_H, timestampMs));
+    }
+
+    public void reset() {
+        walkableEstimator.reset();
     }
 
     static float[] uprightToRawNormalized(float ux, float uy, int rotationDegrees) {
