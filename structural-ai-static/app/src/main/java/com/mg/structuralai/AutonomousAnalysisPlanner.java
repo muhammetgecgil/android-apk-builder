@@ -23,7 +23,17 @@ public final class AutonomousAnalysisPlanner {
         double[] d={maxX-minX,maxY-minY,maxZ-minZ};int major=0;if(d[1]>d[major])major=1;if(d[2]>d[major])major=2;
         double longest=d[major],mid=Math.max(Math.min(d[0],d[1]),Math.min(Math.max(d[0],d[1]),d[2]));
         Plan p=new Plan();p.geometryClass=longest>3*Math.max(mid,1e-12)?"SLENDER / BEAM-LIKE":"GENERAL 3D SOLID";
-        double maxDim=Math.max(d[0],Math.max(d[1],d[2]));p.unitScaleM=maxDim>2?0.001:1.0;p.unitReason="No reliable STL/OBJ unit metadata; dimensional-magnitude inference used only for parametric study";p.unitConfidence=0.35;
+        double maxDim=Math.max(d[0],Math.max(d[1],d[2]));
+        if(m.authoritativeUnit && Double.isFinite(m.sourceUnitScaleM) && m.sourceUnitScaleM>0.0){
+            p.unitScaleM=m.sourceUnitScaleM;
+            p.unitReason=m.sourceUnitReason+" [source="+m.sourceFormat+"]";
+            p.unitConfidence=0.99;
+        }else{
+            p.unitScaleM=maxDim>2?0.001:1.0;
+            String fmt=(m.sourceFormat==null||m.sourceFormat.length()==0)?"UNKNOWN":m.sourceFormat;
+            p.unitReason=fmt+" source has no authoritative physical length unit; dimensional-magnitude inference is used only for the parametric 1 N study";
+            p.unitConfidence=0.35;
+        }
         p.material=new LinearElasticMaterial("Normalized isotropic reference",210e9,0.30,7850,355e6);p.materialReason="No material evidence in bare tessellation; reference material is normalization only";p.materialConfidence=0.0;
 
         GeometryFeatureDetector.FeatureSet fs=GeometryFeatureDetector.detect(m);p.featureSummary=fs.summary();
@@ -31,8 +41,6 @@ public final class AutonomousAnalysisPlanner {
         List<MeshModel.V3> lowEnd=new ArrayList<>(),highEnd=new ArrayList<>();
         for(MeshModel.V3 v:m.vertices){double q=major==0?v.x:major==1?v.y:v.z;if(Math.abs(q-lo)<=tol)lowEnd.add(v);if(Math.abs(q-hi)<=tol)highEnd.add(v);}
 
-        // Critical rule: a slender beam must never use every planar face as support.
-        // Use one complete end face as the candidate restraint and the opposite end as the influence-load face.
         if(p.geometryClass.startsWith("SLENDER")){
             p.supports.addAll(lowEnd);
             p.loads.addAll(highEnd);
@@ -41,7 +49,6 @@ public final class AutonomousAnalysisPlanner {
             p.loadReason="Opposite dominant-axis end face used for 1 N transverse influence/capacity study; not asserted as service load";
             p.loadConfidence=0.76;
         }else{
-            // For general solids use feature evidence, but never aggregate all disconnected planar faces.
             if(!fs.flangeCandidates.isEmpty()&&fs.flangeConfidence>=0.55){
                 MeshModel.V3 seed=fs.flangeCandidates.get(0);p.supports.add(seed);p.supportReason="Strong flange/mount-like planar seed selected; connected-face extraction will define the actual support region";p.supportConfidence=fs.flangeConfidence;
             }else if(!fs.planarMountCandidates.isEmpty()&&fs.planarConfidence>=0.55){
