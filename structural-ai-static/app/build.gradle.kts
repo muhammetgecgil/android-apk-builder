@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 31
-        versionName = "1.8.0-contact-engine-alpha"
+        versionCode = 34
+        versionName = "1.8.3-engineering-trust-gate"
     }
 
     buildTypes {
