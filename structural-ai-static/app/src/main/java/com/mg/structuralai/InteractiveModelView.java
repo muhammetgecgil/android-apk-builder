@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Lightweight offline engineering viewport: projection, multi-picking, FEM contours and deformed overlay. */
+/** Lightweight offline engineering viewport: projection, multi-picking, FEM contours and deformed tetra overlay. */
 public final class InteractiveModelView extends View {
     public interface PickListener { void onPick(MeshModel.V3 point, int vertexIndex); }
     public enum PickMode { NONE, SUPPORT, LOAD }
@@ -41,11 +41,18 @@ public final class InteractiveModelView extends View {
         drawText(c,"Mod: "+mode+" • sürükle: döndür • dokun: patch ekle",12,getHeight()-14,Color.LTGRAY);
     }
 
-    private void drawResults(Canvas c,double ox,double oy,double s){double max=Math.max(result.maxVonMisesPa,1e-12);double modelDiag=Math.max(model.diagonal(),1e-12);double uMax=Math.max(result.maxDisplacementM,1e-20);double amp=Math.min(250.0,0.12*modelDiag/uMax);p.setStyle(Paint.Style.FILL);int n=Math.min(tetMesh.tets.size(),3500);
-        for(int e=0;e<n;e++){int[] t=tetMesh.tets.get(e);MeshModel.V3 m=deformedCentroid(t,amp);double[] z=pr(m);double r=Math.max(0,Math.min(1,result.elementVonMisesPa[e]/max));int col=Color.rgb((int)(255*r),(int)(220*(1-Math.abs(r-.5)*2)),(int)(255*(1-r)));p.setColor(col);c.drawCircle((float)(ox+s*z[0]),(float)(oy-s*z[1]),3.4f,p);}
-        drawText(c,String.format(Locale.US,"VM %.3f MPa • U %.4f mm • deform x%.1f",result.maxVonMisesPa/1e6,result.maxDisplacementM*1000,amp),12,22,Color.WHITE);
+    private void drawResults(Canvas c,double ox,double oy,double s){double max=Math.max(result.maxVonMisesPa,1e-12);double modelDiag=Math.max(model.diagonal(),1e-12);double uMax=Math.max(result.maxDisplacementM,1e-20);double amp=Math.min(250.0,0.12*modelDiag/uMax);int n=Math.min(tetMesh.tets.size(),2500);
+        // Draw actual deformed tetra edges first, then centroid stress markers. This makes the numerical mesh visible
+        // instead of presenting FEM results as an unstructured cloud of colored dots.
+        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(0.75f);
+        for(int e=0;e<n;e++){int[] t=tetMesh.tets.get(e);double r=Math.max(0,Math.min(1,result.elementVonMisesPa[e]/max));int col=Color.rgb((int)(255*r),(int)(180*(1-r)),(int)(255*(1-r)));p.setColor(col);drawTetEdges(c,t,amp,ox,oy,s);}
+        p.setStyle(Paint.Style.FILL);
+        for(int e=0;e<n;e++){int[] t=tetMesh.tets.get(e);MeshModel.V3 m=deformedCentroid(t,amp);double[] z=pr(m);double r=Math.max(0,Math.min(1,result.elementVonMisesPa[e]/max));int col=Color.rgb((int)(255*r),(int)(220*(1-Math.abs(r-.5)*2)),(int)(255*(1-r)));p.setColor(col);c.drawCircle((float)(ox+s*z[0]),(float)(oy-s*z[1]),2.0f,p);}
+        drawText(c,String.format(Locale.US,"TET=%d • VM %.3f MPa • U %.4f mm • deform x%.1f",tetMesh.tets.size(),result.maxVonMisesPa/1e6,result.maxDisplacementM*1000,amp),12,22,Color.WHITE);
     }
-    private MeshModel.V3 deformedCentroid(int[] t,double amp){double x=0,y=0,z=0;for(int n:t){MeshModel.V3 a=tetMesh.nodes.get(n);x+=a.x+amp*result.displacement[3*n];y+=a.y+amp*result.displacement[3*n+1];z+=a.z+amp*result.displacement[3*n+2];}return new MeshModel.V3(x/4,y/4,z/4);}
+    private void drawTetEdges(Canvas c,int[] t,double amp,double ox,double oy,double s){int[][] edge={{0,1},{0,2},{0,3},{1,2},{1,3},{2,3}};for(int[] e:edge){MeshModel.V3 a=deformedNode(t[e[0]],amp),b=deformedNode(t[e[1]],amp);double[] pa=pr(a),pb=pr(b);c.drawLine((float)(ox+s*pa[0]),(float)(oy-s*pa[1]),(float)(ox+s*pb[0]),(float)(oy-s*pb[1]),p);}}
+    private MeshModel.V3 deformedNode(int n,double amp){MeshModel.V3 a=tetMesh.nodes.get(n);return new MeshModel.V3(a.x+amp*result.displacement[3*n],a.y+amp*result.displacement[3*n+1],a.z+amp*result.displacement[3*n+2]);}
+    private MeshModel.V3 deformedCentroid(int[] t,double amp){double x=0,y=0,z=0;for(int n:t){MeshModel.V3 a=deformedNode(n,amp);x+=a.x;y+=a.y;z+=a.z;}return new MeshModel.V3(x/4,y/4,z/4);}
     private void drawMarker(Canvas c,MeshModel.V3 v,double ox,double oy,double s,int color,String label){if(v==null)return;double[] a=pr(v);float x=(float)(ox+s*a[0]),y=(float)(oy-s*a[1]);p.setStyle(Paint.Style.FILL);p.setColor(color);c.drawCircle(x,y,8,p);drawText(c,label,x+9,y-7,color);}
     private void drawText(Canvas c,String text,float x,float y,int color){p.setStyle(Paint.Style.FILL);p.setColor(color);p.setTextSize(20);c.drawText(text,x,y,p);}
     @Override public boolean onTouchEvent(MotionEvent e){if(model==null)return true;if(e.getAction()==MotionEvent.ACTION_DOWN){lastX=e.getX();lastY=e.getY();dragging=false;return true;}if(e.getAction()==MotionEvent.ACTION_MOVE){float dx=e.getX()-lastX,dy=e.getY()-lastY;if(Math.abs(dx)+Math.abs(dy)>5)dragging=true;yaw+=dx*.008;pitch+=dy*.008;pitch=Math.max(-1.4,Math.min(1.4,pitch));lastX=e.getX();lastY=e.getY();invalidate();return true;}if(e.getAction()==MotionEvent.ACTION_UP&&!dragging&&mode!=PickMode.NONE){int idx=nearestVertex(e.getX(),e.getY());if(idx>=0&&listener!=null)listener.onPick(model.vertices.get(idx),idx);return true;}return true;}
