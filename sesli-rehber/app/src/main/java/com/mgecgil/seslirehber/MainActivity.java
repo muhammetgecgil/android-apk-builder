@@ -38,6 +38,7 @@ import com.mgecgil.seslirehber.core.GuidanceModels.GuidanceDecision;
 import com.mgecgil.seslirehber.core.GuidanceModels.MotionObservation;
 import com.mgecgil.seslirehber.core.GuidanceModels.ObjectObservation;
 import com.mgecgil.seslirehber.core.GuidanceModels.Risk;
+import com.mgecgil.seslirehber.core.GuidancePriorityArbiter;
 import com.mgecgil.seslirehber.core.GuidanceSpeaker;
 import com.mgecgil.seslirehber.core.OfflineIntentParser;
 import com.mgecgil.seslirehber.core.SafetyGate;
@@ -69,6 +70,7 @@ public final class MainActivity extends ComponentActivity {
 
     private final SafetyGate safetyGate = new SafetyGate();
     private final AnnouncementGate announcementGate = new AnnouncementGate();
+    private final GuidancePriorityArbiter priorityArbiter = new GuidancePriorityArbiter();
     private final OfflineIntentParser intentParser = new OfflineIntentParser();
     private final GroundDepthSynchronizer groundDepthSynchronizer = new GroundDepthSynchronizer();
     private final VisionHealthWatchdog visionWatchdog = new VisionHealthWatchdog();
@@ -91,15 +93,23 @@ public final class MainActivity extends ComponentActivity {
         }
     };
 
-    private final ActivityResultLauncher<String[]> permissions = registerForActivityResult(
-            new ActivityResultContracts.RequestMultiplePermissions(), result -> {
-                boolean camera = Boolean.TRUE.equals(result.get(Manifest.permission.CAMERA));
-                if (camera) {
+    private final ActivityResultLauncher<String> cameraPermission = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), granted -> {
+                if (Boolean.TRUE.equals(granted)) {
                     startCameraX();
                 } else {
                     guidanceEnabled = false;
                     updateStatus("Kamera izni olmadan çevre algısı çalışamaz.", true);
                     if (speaker != null) speaker.speak("Kamera izni gerekli. Rehberlik durduruldu.");
+                }
+            });
+
+    private final ActivityResultLauncher<String> audioPermission = registerForActivityResult(
+            new ActivityResultContracts.RequestPermission(), granted -> {
+                if (Boolean.TRUE.equals(granted)) {
+                    if (voice != null) voice.listenOnce();
+                } else if (speaker != null) {
+                    speaker.speak("Sesli komut için mikrofon izni gerekli. Kamera rehberliği çalışmaya devam ediyor.");
                 }
             });
 
@@ -120,8 +130,8 @@ public final class MainActivity extends ComponentActivity {
 
         setContentView(buildUi());
         probeDepthCapability();
-        requestPermissionsAndStart();
-        speaker.speak("Sesli Rehber sürüm sıfır nokta yedi. Canlı görüş güvenliği, akış donma koruması ve Gate C cihaz doğrulama kaydı hazır.");
+        requestCameraAndStart();
+        speaker.speak("Sesli Rehber sürüm sıfır nokta sekiz. Kamera sağlığı, göreli yürüyüş koridoru, canlı Depth ve güvenlik öncelikli rehberlik çekirdeği başlıyor.");
     }
 
     private View buildUi() {
@@ -161,13 +171,14 @@ public final class MainActivity extends ComponentActivity {
         root.addView(previewView, new LinearLayout.LayoutParams(-1, 0, 1f));
 
         Button voiceButton = bigButton("Sesli Komut", "Bir kez sesli komut dinle");
-        voiceButton.setOnClickListener(v -> voice.listenOnce());
+        voiceButton.setOnClickListener(v -> startVoiceCommand());
         root.addView(voiceButton);
 
         Button toggleButton = bigButton("Rehberliği Durdur", "Çevre rehberliğini aç veya kapat");
         toggleButton.setOnClickListener(v -> {
             guidanceEnabled = !guidanceEnabled;
             announcementGate.reset();
+            priorityArbiter.reset();
             toggleButton.setText(guidanceEnabled ? "Rehberliği Durdur" : "Rehberliği Başlat");
             String message = guidanceEnabled ? "Çevre rehberliği açık." : "Çevre rehberliği kapalı.";
             updateStatus(message, false);
@@ -211,6 +222,15 @@ public final class MainActivity extends ComponentActivity {
         return button;
     }
 
+    private void startVoiceCommand() {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                == PackageManager.PERMISSION_GRANTED) {
+            voice.listenOnce();
+        } else {
+            audioPermission.launch(Manifest.permission.RECORD_AUDIO);
+        }
+    }
+
     private void toggleGateCTest() {
         if (gateCRecorder.isActive()) {
             String summary = gateCRecorder.stop();
@@ -221,7 +241,7 @@ public final class MainActivity extends ComponentActivity {
             return;
         }
 
-        boolean started = gateCRecorder.start("0.7.0", modeName());
+        boolean started = gateCRecorder.start("0.8.0", modeName());
         if (!started) {
             gateCStatusView.setText("Gate C: kayıt dosyası açılamadı");
             speaker.speak("Gate C kayıt dosyası açılamadı.");
@@ -271,15 +291,11 @@ public final class MainActivity extends ComponentActivity {
         });
     }
 
-    private void requestPermissionsAndStart() {
-        boolean cameraOk = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                == PackageManager.PERMISSION_GRANTED;
-        boolean audioOk = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                == PackageManager.PERMISSION_GRANTED;
-        if (cameraOk && audioOk) {
+    private void requestCameraAndStart() {
+        if (cameraPermissionGranted()) {
             startCameraX();
         } else {
-            permissions.launch(new String[]{Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO});
+            cameraPermission.launch(Manifest.permission.CAMERA);
         }
     }
 
@@ -336,7 +352,7 @@ public final class MainActivity extends ComponentActivity {
                 watchdogRecoveryInProgress = false;
                 visionWatchdog.beginMode(SystemClock.elapsedRealtime(), false);
                 if (gateCRecorder.isActive()) gateCRecorder.recordMode("CAMERAX", "camera_bound");
-                updateStatus("CameraX güvenli mod aktif. Nesne + çarpışma koridoru + zemin sürekliliği çalışıyor.", false);
+                updateStatus("CameraX güvenli mod aktif. Kamera sağlığı + nesne + çarpışma koridoru + zemin sürekliliği çalışıyor.", false);
                 maybeSwitchToArCore();
             } catch (Exception error) {
                 guidanceEnabled = false;
@@ -381,9 +397,9 @@ public final class MainActivity extends ComponentActivity {
                     visionMode = VisionMode.ARCORE;
                     watchdogRecoveryInProgress = false;
                     previewView.setVisibility(View.GONE);
-                    depthStatusView.setText("Derinlik: canlı Depth16 aktif");
-                    depthStatusView.setContentDescription("Derinlik sistemi: canlı Depth16 aktif");
-                    if (gateCRecorder.isActive()) gateCRecorder.recordMode("ARCORE", "live_depth_active");
+                    depthStatusView.setText("Derinlik: canlı Depth16 + yürüyüş koridoru aktif");
+                    depthStatusView.setContentDescription("Derinlik sistemi: canlı Depth16 ve göreli yürüyüş koridoru aktif");
+                    if (gateCRecorder.isActive()) gateCRecorder.recordMode("ARCORE", "live_depth_walkable_active");
                     updateStatus(status, false);
                 });
             }
@@ -455,6 +471,7 @@ public final class MainActivity extends ComponentActivity {
             gateCRecorder.recordDecision(source, modeName(), decision, sourceTimestampMs, stability);
         }
         long now = System.currentTimeMillis();
+        if (!priorityArbiter.shouldDeliver(GuidancePriorityArbiter.Channel.SAFETY, decision, now)) return;
         if (!announcementGate.shouldAnnounce(decision, now)) return;
         runOnUiThread(() -> {
             boolean urgent = decision.risk() == Risk.STOP;
@@ -522,6 +539,7 @@ public final class MainActivity extends ComponentActivity {
             case START_GUIDANCE -> {
                 guidanceEnabled = true;
                 announcementGate.reset();
+                priorityArbiter.reset();
                 speaker.speak("Rehberlik açık.");
             }
             case STOP_GUIDANCE -> {
@@ -531,15 +549,15 @@ public final class MainActivity extends ComponentActivity {
             case REPEAT -> speaker.repeat();
             case DESCRIBE_SCENE -> {
                 String modeText = switch (visionMode) {
-                    case ARCORE -> " Canlı ARCore derinlik, zemin, nesne ve hareket kanalları birlikte çalışıyor.";
-                    case CAMERAX -> " CameraX zemin, nesne ve hareket kanalları çalışıyor; canlı derinlik aktif değil.";
+                    case ARCORE -> " Canlı ARCore derinlik, göreli yürüyüş koridoru, zemin, nesne ve hareket kanalları birlikte çalışıyor.";
+                    case CAMERAX -> " CameraX kamera sağlığı, zemin, nesne ve hareket kanalları çalışıyor; canlı derinlik koridoru aktif değil.";
                     default -> " Görüş sistemi başlatılıyor.";
                 };
                 String testText = gateCRecorder.isActive() ? " Gate C doğrulama kaydı açık." : "";
                 speaker.speak("Ön çevre güvenlik kanalları izleniyor." + modeText + testText
-                        + " Çukur veya kaldırım adı saha doğrulaması olmadan kesin söylenmez.");
+                        + " Daha açık koridor önerisi güvenli yol onayı değildir. Çukur veya kaldırım adı saha doğrulaması olmadan kesin söylenmez.");
             }
-            case HELP -> speaker.speak("Komutlar: rehberliği başlat, rehberliği durdur, tekrar et, çevremi anlat. Cihaz testi için ekrandaki Gate C düğmesi kullanılabilir.");
+            case HELP -> speaker.speak("Komutlar: rehberliği başlat, rehberliği durdur, tekrar et, çevremi anlat. Mikrofon izni yalnız sesli komut kullanıldığında gerekir.");
             case UNKNOWN -> speaker.speak("Komutu anlayamadım.");
         }
         updateStatus("Komut: " + text, false);
