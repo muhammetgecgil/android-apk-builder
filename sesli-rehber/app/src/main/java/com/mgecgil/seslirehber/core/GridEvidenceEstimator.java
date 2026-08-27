@@ -37,6 +37,7 @@ public final class GridEvidenceEstimator {
         }
 
         SceneHealthObservation sceneHealth = sceneHealthEstimator.analyze(current, timestampMs);
+        PerceptionContext.noteSceneHealth(sceneHealth);
         GroundObservation ground = groundEstimator.estimate(
                 current, previous, width, height, rotationDegrees, havePrevious, timestampMs);
 
@@ -79,7 +80,6 @@ public final class GridEvidenceEstimator {
         float[] upright = rotateNormalized(rawX, rawY, rotationDegrees);
         float confidence = clamp((area - 0.015f) / 0.18f);
         if (area > 0.58f) confidence *= 0.40f;
-        // Poor/covered imagery cannot be promoted to a confident motion cue.
         confidence *= (0.35f + 0.65f * sceneHealth.qualityScore());
 
         return new Result(
