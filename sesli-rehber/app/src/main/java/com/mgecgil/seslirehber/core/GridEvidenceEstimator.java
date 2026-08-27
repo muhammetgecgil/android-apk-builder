@@ -7,12 +7,17 @@ import static com.mgecgil.seslirehber.core.GuidanceModels.*;
  * The input grid is expected to be row-major, sensor/native orientation.
  */
 public final class GridEvidenceEstimator {
-    public record Result(MotionObservation motion, GroundObservation ground, boolean primed) {}
+    public record Result(
+            MotionObservation motion,
+            GroundObservation ground,
+            SceneHealthObservation sceneHealth,
+            boolean primed) {}
 
     private final int width;
     private final int height;
     private final byte[] previous;
     private final GroundContinuityEstimator groundEstimator = new GroundContinuityEstimator();
+    private final SceneHealthEstimator sceneHealthEstimator = new SceneHealthEstimator();
     private boolean havePrevious;
 
     public GridEvidenceEstimator(int width, int height) {
@@ -27,9 +32,11 @@ public final class GridEvidenceEstimator {
             return new Result(
                     new MotionObservation(0f, -1f, -1f, 0f, timestampMs),
                     new GroundObservation(0f, 0f, 0f, 0f, 0f, 0f, -1f, timestampMs),
+                    new SceneHealthObservation(0f, 0f, 0f, 0f, 0f, 0f, 0f, timestampMs),
                     havePrevious);
         }
 
+        SceneHealthObservation sceneHealth = sceneHealthEstimator.analyze(current, timestampMs);
         GroundObservation ground = groundEstimator.estimate(
                 current, previous, width, height, rotationDegrees, havePrevious, timestampMs);
 
@@ -39,6 +46,7 @@ public final class GridEvidenceEstimator {
             return new Result(
                     new MotionObservation(0f, -1f, -1f, 0f, timestampMs),
                     ground,
+                    sceneHealth,
                     true);
         }
 
@@ -71,10 +79,13 @@ public final class GridEvidenceEstimator {
         float[] upright = rotateNormalized(rawX, rawY, rotationDegrees);
         float confidence = clamp((area - 0.015f) / 0.18f);
         if (area > 0.58f) confidence *= 0.40f;
+        // Poor/covered imagery cannot be promoted to a confident motion cue.
+        confidence *= (0.35f + 0.65f * sceneHealth.qualityScore());
 
         return new Result(
                 new MotionObservation(area, upright[0], upright[1], confidence, timestampMs),
                 ground,
+                sceneHealth,
                 true);
     }
 
@@ -82,6 +93,7 @@ public final class GridEvidenceEstimator {
         havePrevious = false;
         java.util.Arrays.fill(previous, (byte) 0);
         groundEstimator.reset();
+        sceneHealthEstimator.reset();
     }
 
     static float[] rotateNormalized(float x, float y, int rotationDegrees) {
