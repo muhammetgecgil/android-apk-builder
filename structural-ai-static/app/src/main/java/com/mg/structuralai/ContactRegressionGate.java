@@ -28,7 +28,13 @@ public final class ContactRegressionGate {
             StaticFemSolver.Result fc=compress.solve();boolean compressionOk=fc.linearSolve.converged&&fc.activeFrictionlessContacts>0&&fc.forceEquilibriumRelativeError<1e-4;
 
             StaticFemSolver opening=new StaticFemSolver(asm.mesh,mat);opening.addContactConstraints(friction);stabilize(opening,asm.mesh,b,tol,true);
-            int interfaceLoads=0;for(ContactConstraintSet.Pair p:friction.pairs){opening.addNodalForce(p.nodeB,1.0/Math.max(1,fpairs),0,0);interfaceLoads++;}
+            int interfaceLoads=0;double fpair=1.0/Math.max(1,fpairs);
+            for(ContactConstraintSet.Pair p:friction.pairs){
+                double q=Math.sqrt(p.normal.x*p.normal.x+p.normal.y*p.normal.y+p.normal.z*p.normal.z);
+                double nx=p.normal.x/q,ny=p.normal.y/q,nz=p.normal.z/q;
+                // Pull nodeB in the positive constraint-normal direction so relative normal opening is positive.
+                opening.addNodalForce(p.nodeB,fpair*nx,fpair*ny,fpair*nz);interfaceLoads++;
+            }
             StaticFemSolver.Result fo=opening.solve();boolean openingOk=fo.linearSolve.converged&&fo.activeFrictionlessContacts<fpairs&&fo.contactIterations>=2;
 
             MeshModel separated=twoBlocks(20.0);AssemblyContactEngine.Result sep=AssemblyContactEngine.analyze(separated);boolean separatedOk=sep.pairs.size()==1&&sep.pairs.get(0).type==AssemblyContactEngine.Type.SEPARATED;
