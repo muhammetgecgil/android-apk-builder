@@ -12,6 +12,7 @@ import static com.mgecgil.seslirehber.navigation.NavigationModels.*;
 public final class NavigationProgressEngine {
     private static final float MAX_GUIDANCE_ACCURACY_M = 32f;
     private static final double ARRIVAL_M = 14d;
+    private static final double FINAL_APPROACH_M = 55d;
     private static final double PREPARE_M = 38d;
     private static final double MANEUVER_M = 10d;
     private static final int OFF_ROUTE_PERSISTENCE = 3;
@@ -24,6 +25,7 @@ public final class NavigationProgressEngine {
     private int firedManeuver = -1;
     private int offRouteStreak;
     private boolean uncertainReported;
+    private boolean finalApproachReported;
     private boolean arrived;
 
     public void setRoute(Route route) {
@@ -35,6 +37,7 @@ public final class NavigationProgressEngine {
         this.firedManeuver = -1;
         this.offRouteStreak = 0;
         this.uncertainReported = false;
+        this.finalApproachReported = false;
         this.arrived = false;
         skipStartManeuvers();
     }
@@ -63,9 +66,17 @@ public final class NavigationProgressEngine {
             arrived = true;
             events.add(new NavigationEvent(
                     EventType.ARRIVED,
-                    "Hedef konumuna çok yaklaştın. Giriş noktasını kamera ve bastonla doğrula.",
+                    "Hedef konumuna çok yaklaştın. GPS bina girişini doğrulamaz. Giriş noktasını kamera, kapı numarası ve bastonla doğrula.",
                     destinationDistance, -1));
             return events;
+        }
+
+        if (destinationDistance <= FINAL_APPROACH_M && !finalApproachReported) {
+            finalApproachReported = true;
+            events.add(new NavigationEvent(
+                    EventType.FINAL_APPROACH,
+                    "Son yaklaşım başladı. GPS doğru bina girişini garanti etmez. Kamera giriş ve kapı numarası adaylarını arayacak; bulunan adayı bastonla doğrula.",
+                    destinationDistance, -1));
         }
 
         Nearest nearest = nearestRoute(fix.point());
