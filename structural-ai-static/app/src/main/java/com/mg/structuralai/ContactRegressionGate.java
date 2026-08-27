@@ -27,12 +27,13 @@ public final class ContactRegressionGate {
             for(int i=0;i<asm.mesh.nodes.size();i++){MeshModel.V3 p=asm.mesh.nodes.get(i);if(p.x>=b.xmax-tol)compress.addNodalForce(i,-1.0,0,0);}
             StaticFemSolver.Result fc=compress.solve();boolean compressionOk=fc.linearSolve.converged&&fc.activeFrictionlessContacts>0&&fc.forceEquilibriumRelativeError<1e-4;
 
-            StaticFemSolver opening=new StaticFemSolver(asm.mesh,mat);opening.addContactConstraints(friction);stabilize(opening,asm.mesh,b,tol,true);
+            StaticFemSolver opening=new StaticFemSolver(asm.mesh,mat);opening.addContactConstraints(friction);
+            // Left block is already fully fixed. Do NOT anchor X on the right block: that would suppress the very opening motion this regression is meant to verify.
+            stabilize(opening,asm.mesh,b,tol,false);
             int interfaceLoads=0;double fpair=1.0/Math.max(1,fpairs);
             for(ContactConstraintSet.Pair p:friction.pairs){
                 double q=Math.sqrt(p.normal.x*p.normal.x+p.normal.y*p.normal.y+p.normal.z*p.normal.z);
                 double nx=p.normal.x/q,ny=p.normal.y/q,nz=p.normal.z/q;
-                // Pull nodeB in the positive constraint-normal direction so relative normal opening is positive.
                 opening.addNodalForce(p.nodeB,fpair*nx,fpair*ny,fpair*nz);interfaceLoads++;
             }
             StaticFemSolver.Result fo=opening.solve();boolean openingOk=fo.linearSolve.converged&&fo.activeFrictionlessContacts<fpairs&&fo.contactIterations>=2;
