@@ -4,6 +4,16 @@
         android:allowBackup="true"
         android:label="Machine Elements Pro"
         android:theme="@style/AppTheme">
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+        <activity android:name=".EngineeringReportActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".DesignReviewActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".ProjectManagerActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".ProductCatalogActivity" android:screenOrientation="unspecified" android:exported="false" />
