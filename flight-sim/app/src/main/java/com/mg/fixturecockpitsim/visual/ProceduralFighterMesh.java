@@ -11,7 +11,7 @@ public final class ProceduralFighterMesh {
             PART_CANOPY_FRAME=11f, PART_NOZZLE_INNER=12f, PART_GEAR_STRUT=13f,
             PART_GEAR_WHEEL=14f, PART_GEAR_DOOR=15f, PART_COCKPIT_TUB=16f,
             PART_SEAT=17f, PART_COAMING=18f, PART_INTAKE_DUCT=19f,
-            PART_COMPRESSOR_FACE=20f, PART_NOZZLE_PETAL=21f;
+            PART_COMPRESSOR_FACE=20f, PART_NOZZLE_PETAL=21f, PART_FLAME_CORE=22f;
 
     public static final class Mesh {
         public final float[] data;
@@ -39,6 +39,7 @@ public final class ProceduralFighterMesh {
         b.part=PART_NOZZLE_PETAL; b.nozzlePetals(-.70f); b.nozzlePetals(.70f);
         b.part=PART_NOZZLE_INNER; b.nozzleInner(-.70f); b.nozzleInner(.70f);
         b.part=PART_AFTERBURNER; b.afterburner(-.70f); b.afterburner(.70f);
+        b.part=PART_FLAME_CORE; b.flameCore(-.70f); b.flameCore(.70f);
         b.part=PART_COCKPIT_TUB; b.cockpitTub();
         b.part=PART_SEAT; b.ejectionSeat();
         b.part=PART_COAMING; b.instrumentCoaming();
@@ -65,27 +66,54 @@ public final class ProceduralFighterMesh {
     private void stabilator(float side){float y=.18f,t=.10f;prism(new float[][]{{.72f*side,y+t,1.72f},{2.78f*side,y+t,2.24f},{2.22f*side,y+t,3.28f},{.72f*side,y+t,2.88f}},t*2f);}
     private void verticalTail(float side){float[] a={.62f*side,.56f,1.56f},b={1.22f*side,2.38f,2.16f},c={.96f*side,.50f,3.12f};tri(a,b,c);tri(offset(a,0,-.12f,0),offset(c,0,-.12f,0),offset(b,0,-.12f,0));}
     private void intake(float side){float[][] src=AirframeShapeProfile.INTAKE_SHOULDER,top=new float[src.length][3];for(int i=0;i<src.length;i++)top[i]=new float[]{src[i][0]*side,src[i][1],src[i][2]};prism(top,.34f);}
-    private void intakeLip(float side){float x0=1.03f*side,x1=1.47f*side;prism(new float[][]{{x0,.35f,-2.90f},{x1,.31f,-2.54f},{1.58f*side,.13f,-2.34f},{1.18f*side,.10f,-2.58f}},.095f);prism(new float[][]{{1.17f*side,.09f,-2.59f},{1.57f*side,.12f,-2.34f},{1.50f*side,-.13f,-2.20f},{1.16f*side,-.16f,-2.42f}},.055f);}
-    private void intakeDuct(float side){
-        float sx=1.34f*side, ex=.86f*side; float z0=-2.42f,z1=-1.22f;
-        quad(new float[]{sx,.10f,z0},new float[]{ex,.10f,z1},new float[]{ex,-.22f,z1},new float[]{sx,-.20f,z0});
-        quad(new float[]{1.56f*side,.08f,z0},new float[]{1.10f*side,.08f,z1},new float[]{1.10f*side,-.20f,z1},new float[]{1.56f*side,-.18f,z0});
-        quad(new float[]{sx,.10f,z0},new float[]{1.56f*side,.08f,z0},new float[]{1.10f*side,.08f,z1},new float[]{ex,.10f,z1});
-        quad(new float[]{sx,-.20f,z0},new float[]{ex,-.22f,z1},new float[]{1.10f*side,-.20f,z1},new float[]{1.56f*side,-.18f,z0});
+    private void intakeLip(float side){
+        float x0=1.03f*side,x1=1.47f*side;
+        prism(new float[][]{{x0,.35f,-2.90f},{x1,.31f,-2.54f},{1.60f*side,.13f,-2.32f},{1.18f*side,.10f,-2.58f}},.11f);
+        prism(new float[][]{{1.17f*side,.09f,-2.59f},{1.60f*side,.12f,-2.32f},{1.52f*side,-.15f,-2.18f},{1.15f*side,-.18f,-2.42f}},.065f);
+        prism(new float[][]{{1.03f*side,.34f,-2.88f},{1.16f*side,.10f,-2.58f},{1.15f*side,-.18f,-2.42f},{1.01f*side,-.05f,-2.64f}},.045f);
     }
+    private void intakeDuct(float side){
+        float[] a={1.34f*side,.10f,-2.42f}, b={1.58f*side,.08f,-2.42f}, c={1.58f*side,-.18f,-2.42f}, d={1.34f*side,-.20f,-2.42f};
+        float[] e={1.09f*side,.14f,-1.82f}, f={1.34f*side,.12f,-1.82f}, g={1.34f*side,-.18f,-1.82f}, h={1.09f*side,-.21f,-1.82f};
+        float[] i={.82f*side,.09f,-1.18f}, j={1.10f*side,.08f,-1.18f}, k={1.10f*side,-.20f,-1.18f}, l={.82f*side,-.22f,-1.18f};
+        ductSegment(a,b,c,d,e,f,g,h); ductSegment(e,f,g,h,i,j,k,l);
+    }
+    private void ductSegment(float[] a,float[] b,float[] c,float[] d,float[] e,float[] f,float[] g,float[] h){quad(a,e,f,b);quad(d,c,g,h);quad(a,d,h,e);quad(b,f,g,c);}
     private void compressorFace(float side){
-        float cx=.98f*side,cy=-.06f,z=-1.16f,r=.24f;int n=16;
-        for(int i=0;i<n;i++){double a0=2*Math.PI*i/n,a1=2*Math.PI*(i+1)/n;float[] c={cx,cy,z};float[] p0={cx+r*(float)Math.cos(a0),cy+r*.62f*(float)Math.sin(a0),z};float[] p1={cx+r*(float)Math.cos(a1),cy+r*.62f*(float)Math.sin(a1),z};tri(c,p0,p1);}
+        float cx=.96f*side,cy=-.06f,z=-1.12f,r=.255f,hub=.065f;int n=18;
+        for(int i=0;i<n;i++){
+            double a0=2*Math.PI*i/n,a1=2*Math.PI*(i+1)/n;
+            float[] h0={cx+hub*(float)Math.cos(a0),cy+hub*.62f*(float)Math.sin(a0),z-.012f};
+            float[] h1={cx+hub*(float)Math.cos(a1),cy+hub*.62f*(float)Math.sin(a1),z-.012f};
+            float[] p0={cx+r*(float)Math.cos(a0+.10),cy+r*.62f*(float)Math.sin(a0+.10),z};
+            float[] p1={cx+r*(float)Math.cos(a1-.08),cy+r*.62f*(float)Math.sin(a1-.08),z};
+            quad(h0,p0,p1,h1);
+        }
+        float[] center={cx,cy,z-.018f};
+        for(int i=0;i<n;i++){double a0=2*Math.PI*i/n,a1=2*Math.PI*(i+1)/n;tri(center,new float[]{cx+hub*(float)Math.cos(a0),cy+hub*.62f*(float)Math.sin(a0),z-.018f},new float[]{cx+hub*(float)Math.cos(a1),cy+hub*.62f*(float)Math.sin(a1),z-.018f});}
     }
 
     private void enginePod(float x){float[] z=AirframeShapeProfile.ENGINE_Z,r=AirframeShapeProfile.ENGINE_R;int sides=22;for(int s=0;s<z.length-1;s++)for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;quad(new float[]{x+r[s]*(float)Math.cos(a0),-.11f+r[s]*.58f*(float)Math.sin(a0),z[s]},new float[]{x+r[s+1]*(float)Math.cos(a0),-.11f+r[s+1]*.58f*(float)Math.sin(a0),z[s+1]},new float[]{x+r[s+1]*(float)Math.cos(a1),-.11f+r[s+1]*.58f*(float)Math.sin(a1),z[s+1]},new float[]{x+r[s]*(float)Math.cos(a1),-.11f+r[s]*.58f*(float)Math.sin(a1),z[s]});}}
-    private void nozzle(float x){float z0=3.10f,z1=3.60f,r0=.45f,r1=.35f;int sides=24;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;quad(new float[]{x+r0*(float)Math.cos(a0),-.10f+r0*.60f*(float)Math.sin(a0),z0},new float[]{x+r1*(float)Math.cos(a0),-.10f+r1*.60f*(float)Math.sin(a0),z1},new float[]{x+r1*(float)Math.cos(a1),-.10f+r1*.60f*(float)Math.sin(a1),z1},new float[]{x+r0*(float)Math.cos(a1),-.10f+r0*.60f*(float)Math.sin(a1),z0});}}
+    private void nozzle(float x){float z0=3.06f,z1=3.61f,r0=.47f,r1=.355f;int sides=24;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;quad(new float[]{x+r0*(float)Math.cos(a0),-.10f+r0*.60f*(float)Math.sin(a0),z0},new float[]{x+r1*(float)Math.cos(a0),-.10f+r1*.60f*(float)Math.sin(a0),z1},new float[]{x+r1*(float)Math.cos(a1),-.10f+r1*.60f*(float)Math.sin(a1),z1},new float[]{x+r0*(float)Math.cos(a1),-.10f+r0*.60f*(float)Math.sin(a1),z0});}}
     private void nozzlePetals(float x){
-        float z0=3.32f,z1=3.70f,r0=.405f,r1=.33f;int petals=12;
-        for(int i=0;i<petals;i++){double a0=2*Math.PI*i/petals+.018,a1=2*Math.PI*(i+1)/petals-.018;float[] a={x+r0*(float)Math.cos(a0),-.10f+r0*.60f*(float)Math.sin(a0),z0};float[] b={x+r1*(float)Math.cos(a0),-.10f+r1*.60f*(float)Math.sin(a0),z1};float[] c={x+r1*(float)Math.cos(a1),-.10f+r1*.60f*(float)Math.sin(a1),z1};float[] d={x+r0*(float)Math.cos(a1),-.10f+r0*.60f*(float)Math.sin(a1),z0};quad(a,b,c,d);}
+        float z0=3.30f,z1=3.72f,r0=.415f,r1=.332f,depth=.045f;int petals=12;
+        for(int i=0;i<petals;i++){
+            double a0=2*Math.PI*i/petals+.020,a1=2*Math.PI*(i+1)/petals-.020;
+            float[] a={x+r0*(float)Math.cos(a0),-.10f+r0*.60f*(float)Math.sin(a0),z0};
+            float[] b={x+r1*(float)Math.cos(a0),-.10f+r1*.60f*(float)Math.sin(a0),z1};
+            float[] c={x+r1*(float)Math.cos(a1),-.10f+r1*.60f*(float)Math.sin(a1),z1};
+            float[] d={x+r0*(float)Math.cos(a1),-.10f+r0*.60f*(float)Math.sin(a1),z0};
+            float ir0=r0-depth,ir1=r1-depth;
+            float[] ai={x+ir0*(float)Math.cos(a0),-.10f+ir0*.60f*(float)Math.sin(a0),z0+.018f};
+            float[] bi={x+ir1*(float)Math.cos(a0),-.10f+ir1*.60f*(float)Math.sin(a0),z1-.018f};
+            float[] ci={x+ir1*(float)Math.cos(a1),-.10f+ir1*.60f*(float)Math.sin(a1),z1-.018f};
+            float[] di={x+ir0*(float)Math.cos(a1),-.10f+ir0*.60f*(float)Math.sin(a1),z0+.018f};
+            quad(a,b,c,d); quad(di,ci,bi,ai); quad(a,ai,bi,b); quad(d,c,ci,di); quad(b,bi,ci,c);
+        }
     }
-    private void nozzleInner(float x){float z0=3.56f,z1=3.82f,r0=.265f,r1=.205f;int sides=20;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;quad(new float[]{x+r0*(float)Math.cos(a0),-.10f+r0*.60f*(float)Math.sin(a0),z0},new float[]{x+r1*(float)Math.cos(a0),-.10f+r1*.60f*(float)Math.sin(a0),z1},new float[]{x+r1*(float)Math.cos(a1),-.10f+r1*.60f*(float)Math.sin(a1),z1},new float[]{x+r0*(float)Math.cos(a1),-.10f+r0*.60f*(float)Math.sin(a1),z0});}}
-    private void afterburner(float x){float z0=3.78f,z1=5.10f,r0=.20f,r1=.035f;int sides=16;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;quad(new float[]{x+r0*(float)Math.cos(a0),-.10f+r0*.55f*(float)Math.sin(a0),z0},new float[]{x+r1*(float)Math.cos(a0),-.10f+r1*(float)Math.sin(a0),z1},new float[]{x+r1*(float)Math.cos(a1),-.10f+r1*(float)Math.sin(a1),z1},new float[]{x+r0*(float)Math.cos(a1),-.10f+r0*.55f*(float)Math.sin(a1),z0});}}
+    private void nozzleInner(float x){float z0=3.50f,z1=3.88f,r0=.275f,r1=.205f;int sides=24;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;quad(new float[]{x+r0*(float)Math.cos(a0),-.10f+r0*.60f*(float)Math.sin(a0),z0},new float[]{x+r1*(float)Math.cos(a0),-.10f+r1*.60f*(float)Math.sin(a0),z1},new float[]{x+r1*(float)Math.cos(a1),-.10f+r1*.60f*(float)Math.sin(a1),z1},new float[]{x+r0*(float)Math.cos(a1),-.10f+r0*.60f*(float)Math.sin(a1),z0});}}
+    private void afterburner(float x){float z0=3.84f,z1=5.18f,r0=.205f,r1=.040f;int sides=18;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;quad(new float[]{x+r0*(float)Math.cos(a0),-.10f+r0*.55f*(float)Math.sin(a0),z0},new float[]{x+r1*(float)Math.cos(a0),-.10f+r1*(float)Math.sin(a0),z1},new float[]{x+r1*(float)Math.cos(a1),-.10f+r1*(float)Math.sin(a1),z1},new float[]{x+r0*(float)Math.cos(a1),-.10f+r0*.55f*(float)Math.sin(a1),z0});}}
+    private void flameCore(float x){float z0=3.88f,z1=4.72f,r0=.105f,r1=.018f;int sides=14;for(int i=0;i<sides;i++){double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;quad(new float[]{x+r0*(float)Math.cos(a0),-.10f+r0*.52f*(float)Math.sin(a0),z0},new float[]{x+r1*(float)Math.cos(a0),-.10f+r1*(float)Math.sin(a0),z1},new float[]{x+r1*(float)Math.cos(a1),-.10f+r1*(float)Math.sin(a1),z1},new float[]{x+r0*(float)Math.cos(a1),-.10f+r0*.52f*(float)Math.sin(a1),z0});}}
 
     private void cockpitTub(){
         prism(new float[][]{{-.43f,.75f,-1.78f},{.43f,.75f,-1.78f},{.46f,.77f,-.36f},{.37f,.76f,.50f},{-.37f,.76f,.50f},{-.46f,.77f,-.36f}},.22f);
