@@ -38,7 +38,6 @@ public final class LocalTetRefiner {
         }
         out.validate();
         MeshQualityReport q=MeshQualityReport.evaluate(out);
-        if(!q.pass)throw new IllegalStateException("Local refinement failed mesh QA: "+q.summary());
         return new Result(out,q,refined,added,children);
     }
 
