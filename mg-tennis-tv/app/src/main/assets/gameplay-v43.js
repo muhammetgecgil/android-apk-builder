@@ -1,0 +1,19 @@
+(function(){'use strict';
+const $=id=>document.getElementById(id);
+let linkState='IDLE',retryTimer=null,retryCount=0,lastDisconnect=0,lastFrame=performance.now(),fps=60,frames=0,fpsT=performance.now(),lowFpsFor=0;
+window.MGPC1=window.MGPC1||{};
+function mode(){return window.MGProductMode&&MGProductMode.mode||document.body.dataset.mgProductMode||null}
+function call(name){try{if(window.Android&&typeof Android[name]==='function')Android[name]()}catch(e){}}
+function statusText(t){const e=$('status');if(e)e.textContent=t}
+function scheduleHostRetry(){if(mode()!=='host'||retryTimer)return;const delay=Math.min(8000,900*Math.pow(1.75,Math.min(retryCount,5)));retryCount++;retryTimer=setTimeout(()=>{retryTimer=null;if(mode()==='host'&&linkState!=='CONNECTED'){linkState='RECONNECTING';statusText('RAKET BAĞLANTISI YENİDEN KURULUYOR…');call('startHost')}},delay)}
+const oldLink=window.racketLinkState;
+window.racketLinkState=function(state,lat){linkState=state||'IDLE';try{if(oldLink)oldLink(state,lat)}catch(e){}if(state==='CONNECTED'){retryCount=0;if(retryTimer){clearTimeout(retryTimer);retryTimer=null}window.MGPC1.bluetooth='PASS';window.MGPC1.latencyMs=Number(lat||0)}else if(state==='DISCONNECTED'){lastDisconnect=performance.now();window.MGPC1.bluetooth='RECOVERING';scheduleHostRetry()}else if(state==='CONNECTING'){window.MGPC1.bluetooth='CONNECTING'}};
+const oldCC=window.controllerConnected;
+window.controllerConnected=function(ok){try{if(oldCC)oldCC(ok)}catch(e){}if(ok){linkState='CONNECTED';retryCount=0;if(retryTimer){clearTimeout(retryTimer);retryTimer=null};window.MGPC1.bluetooth='PASS'}else if(mode()==='host'&&performance.now()-lastDisconnect>250){linkState='DISCONNECTED';scheduleHostRetry()}};
+function ensureLayout(){try{const root=$('mg41');if(!root)return;root.style.maxWidth='100vw';root.style.boxSizing='border-box';const wrap=$('mg41wrap');if(wrap){wrap.style.maxWidth='100%';wrap.style.boxSizing='border-box'}document.documentElement.style.overflowX='hidden';document.body.style.overflowX='hidden';window.MGPC1.layout=(document.documentElement.scrollWidth<=document.documentElement.clientWidth+2)?'PASS':'CHECK'}catch(e){}}
+function hideFakeCrowdDeep(){try{if(!window.scene)return;const kill=[];scene.traverse(o=>{if(!o||!o.geometry||o===window.opponent||o===window.MGGuaranteedOpponent)return;const n=(o.name||'').toLowerCase();if(/crowd|spectator|audience|fan/.test(n))kill.push(o);});kill.forEach(o=>o.parent&&o.parent.remove(o));window.MGPC1.crowd='PASS'}catch(e){}}
+function frameGuard(t){frames++;if(t-fpsT>=1000){fps=Math.round(frames*1000/(t-fpsT));frames=0;fpsT=t;window.MGPC1.fps=fps;if(fps<28)lowFpsFor++;else lowFpsFor=Math.max(0,lowFpsFor-1);if(lowFpsFor>=4){try{if(renderer&&renderer.setPixelRatio)renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,1.25));if(typeof shadowQuality!=='undefined')shadowQuality=0}catch(e){}window.MGPC1.performance='DEGRADED_SAFE'}else if(fps>=40)window.MGPC1.performance='PASS'}lastFrame=t}
+function heartbeat(){if(mode()==='host'&&linkState==='DISCONNECTED')scheduleHostRetry();ensureLayout();hideFakeCrowdDeep();window.MGPC1.mode=mode()||'MENU';window.MGPC1.human=(()=>{let ok=false;try{scene&&scene.traverse(o=>{if(o&&o.visible&&o.name&&/^MG_ULTRA_PHOTOREAL_OPPONENT/.test(o.name))ok=true})}catch(e){}return ok?'PASS':'WAIT'})();window.MGPC1.tv=(()=>{try{return window.Android&&Android.isTvConnected&&Android.isTvConnected()?'PASS':'OFF'}catch(e){return'UNKNOWN'}})()}
+function tick(t){frameGuard(t);requestAnimationFrame(tick)}
+setInterval(heartbeat,1200);if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{heartbeat();requestAnimationFrame(tick)});else{heartbeat();requestAnimationFrame(tick)}
+})();
