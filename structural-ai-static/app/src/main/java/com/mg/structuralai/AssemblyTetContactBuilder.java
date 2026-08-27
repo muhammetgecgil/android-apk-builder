@@ -20,17 +20,17 @@ public final class AssemblyTetContactBuilder {
         if(ac.components.size()<2)throw new IllegalArgumentException("Assembly contact builder requires multiple disconnected bodies");
         TetMeshData global=new TetMeshData();List<BodyRange> ranges=new ArrayList<>();
         for(AssemblyContactEngine.Component c:ac.components){MeshModel body=extract(source,c.triangles);SmartTetMesher.Result sm=SmartTetMesher.generate(body,Math.max(8,cells),scale);if(!sm.quality.pass)throw new IllegalStateException("Body "+c.id+" mesh QA blocked: "+sm.quality.summary());int ns=global.nodes.size(),ts=global.tets.size();for(MeshModel.V3 p:sm.mesh.nodes)global.addNode(p.x,p.y,p.z);for(int[] t:sm.mesh.tets)global.addTet(ns+t[0],ns+t[1],ns+t[2],ns+t[3]);ranges.add(new BodyRange(c.id,ns,global.nodes.size(),ts,global.tets.size()));}
-        global.validate();ContactConstraintSet set=new ContactConstraintSet();boolean unresolved=false;int bondedContacts=0,frictionlessContacts=0;double diagM=source.diagonal()*scale,pairTol=Math.max(diagM*0.006,1e-7);
+        global.validate();ContactConstraintSet set=new ContactConstraintSet();boolean unresolved=false;int bondedContacts=0,frictionlessContacts=0;double diagM=source.diagonal()*scale,pairTol=Math.max(diagM*0.006,1e-7),touchTol=Math.max(diagM*1e-5,1e-9);
         for(AssemblyContactEngine.Pair p:ac.pairs){
             if(p.type==AssemblyContactEngine.Type.SEPARATED||p.type==AssemblyContactEngine.Type.NEAR_GAP)continue;
             BodyRange a=find(ranges,p.a),b=find(ranges,p.b);
             if(p.type==AssemblyContactEngine.Type.BONDED_CANDIDATE&&p.confidence>=0.80){int n=pairNearest(global,a,b,pairTol,set,p.confidence,p.normal,ContactConstraintSet.Kind.BONDED_TIE);if(n>0)bondedContacts++;else unresolved=true;}
-            else if(p.type==AssemblyContactEngine.Type.FRICTIONLESS_CANDIDATE&&p.confidence>=0.68){int n=pairNearest(global,a,b,pairTol,set,p.confidence,p.normal,ContactConstraintSet.Kind.FRICTIONLESS_NORMAL);if(n>0)frictionlessContacts++;else unresolved=true;}
+            else if(p.type==AssemblyContactEngine.Type.FRICTIONLESS_CANDIDATE&&p.confidence>=0.68&&(p.minGap*scale)<=touchTol){int n=pairNearest(global,a,b,pairTol,set,p.confidence,p.normal,ContactConstraintSet.Kind.FRICTIONLESS_NORMAL);if(n>0)frictionlessContacts++;else unresolved=true;}
             else unresolved=true;
         }
         boolean bondedOnly=bondedContacts>0&&frictionlessContacts==0&&!unresolved&&set.bondedCount()>=3;
         boolean linearSafe=(bondedContacts+frictionlessContacts)>0&&!unresolved&&(set.bondedCount()+count(set,ContactConstraintSet.Kind.FRICTIONLESS_NORMAL)>=3);
-        String text="bodies="+ranges.size()+" | bondedContacts="+bondedContacts+" | frictionlessContacts="+frictionlessContacts+" | tiedNodePairs="+set.bondedCount()+" | normalPairs="+count(set,ContactConstraintSet.Kind.FRICTIONLESS_NORMAL)+" | unresolved="+unresolved+" | safeBondedOnly="+bondedOnly+" | safeLinearContact="+linearSafe;
+        String text="bodies="+ranges.size()+" | bondedContacts="+bondedContacts+" | frictionlessContacts="+frictionlessContacts+" | tiedNodePairs="+set.bondedCount()+" | normalPairs="+count(set,ContactConstraintSet.Kind.FRICTIONLESS_NORMAL)+" | touchTol="+touchTol+" m | finiteGapRequiresLoadStepping=true | unresolved="+unresolved+" | safeBondedOnly="+bondedOnly+" | safeLinearContact="+linearSafe;
         return new Result(global,ranges,set,ac,bondedOnly,linearSafe,text);
     }
 
