@@ -1,5 +1,5 @@
 plugins { id 'com.android.application' }
 android { namespace 'com.mg.whiffletreeaero'; compileSdk 35
- defaultConfig { applicationId 'com.mg.whiffletreeaero'; minSdk 26; targetSdk 35; versionCode 77; versionName '7.16.0' }
+ defaultConfig { applicationId 'com.mg.whiffletreeaero'; minSdk 26; targetSdk 35; versionCode 78; versionName '7.17.0' }
 }
 dependencies { implementation 'androidx.core:core:1.13.1' }
