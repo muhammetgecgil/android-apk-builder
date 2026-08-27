@@ -26,14 +26,14 @@ public final class VoxelTetMesher {
     public static Result generate(MeshModel s,int targetLongestAxisCells,double unitScaleToMetres){
         if(s==null || s.vertices.size()<4 || s.triangles.size()<4) throw new IllegalArgumentException("Closed triangle surface required");
         if(!(unitScaleToMetres>0) || !Double.isFinite(unitScaleToMetres)) throw new IllegalArgumentException("Unit scale to metres must be resolved");
-        int n=Math.max(4,Math.min(32,targetLongestAxisCells));
+        int n=Math.max(4,Math.min(64,targetLongestAxisCells));
         double longest=Math.max(s.dx(),Math.max(s.dy(),s.dz()));
         double h=longest/n;
         int nx=Math.max(1,(int)Math.ceil(s.dx()/h));
         int ny=Math.max(1,(int)Math.ceil(s.dy()/h));
         int nz=Math.max(1,(int)Math.ceil(s.dz()/h));
         long cells=(long)nx*ny*nz;
-        if(cells>32768) throw new IllegalArgumentException("Requested mesh exceeds mobile v1 cell budget: "+cells);
+        if(cells>65536) throw new IllegalArgumentException("Requested mesh exceeds mobile v1.9 cell budget: "+cells);
 
         boolean[][][] inside=new boolean[nx][ny][nz];
         int insideCount=0;
