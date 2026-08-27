@@ -33,44 +33,53 @@ Bu dosya `PRODUCT_REQUIREMENTS.md` ve `GUIDE_MATURITY_ROADMAP.md` ile birlikte o
 | VALID-001 | DONE-CI | Gate C CSV kayıt/özet altyapısı |
 | VALID-002 | DONE-CI | P95 karar gecikmesi + Depth coverage + fallback + termal ölçüm özeti |
 | VALID-003 | DONE-CI | Rapor FileProvider ile kullanıcı onayıyla paylaşılabilir |
-| VOICE-001 | DONE-CI | Kamera rehberliği mikrofon izninden ayrıldı; mic yalnız sesli komutta istenir |
-| VOICE-002 | NOT-STARTED | Sürekli yerel “Hey Rehber” wake-word |
+| VOICE-001 | DONE-CI | Kamera rehberliği mikrofon izninden ayrıldı; mic yalnız ses özelliğinde istenir |
+| VOICE-002 | PARTIAL-CI | API31+ on-device recognizer varsa foreground “Hey Rehber” döngüsü; gerçek düşük-güç hotword DSP değildir, cihaz/pil/Türkçe model testi bekliyor |
+| VOICE-003 | DONE-CI | Offline deterministik Türkçe niyet parser: güvenlik, sahne, OCR, hedef ve wake-mode komutları |
+| VOICE-004 | DEVICE-TEST | Gürültü, yanlış wake, TTS self-trigger ve uzun kullanım doğrulaması bekliyor |
+| OCR-001 | DONE-CI | Bundled ML Kit Latin OCR; CameraX ve ARCore CPU frame üzerinde isteğe bağlı tek-kare okuma |
+| OCR-002 | DEVICE-TEST | Tabela, kapı numarası, düşük ışık ve eğik metin doğruluk testi bekliyor |
+| SCENE-001 | DONE-CI | “Çevremi anlat” yalnız taze scene/object/ground/depth/walkable kanıtından muhafazakâr özet üretir |
+| NAV-001 | PARTIAL-CI | “Beni <hedef> götür” hedef metni çıkarılır; rota motoru henüz bağlı değildir |
 
 ## Release kapıları
 
 - **Gate A — CI:** unit test + debug APK + artifact başarılı olmalı.
-- **Gate B — algoritma:** sentetik merkez yaklaşma STOP, yan küçük nesne INFO, yandan koridora giriş CAUTION, zemin/depth çift-kanal davranışı, camera-health ve walkable persistence testleri geçmeli.
-- **Gate C — cihaz:** gerçek cihazda ARCore↔CameraX handoff, Depth coverage, portre hizası, yürüyüş koridoru yön doğruluğu, kamera sağlık yanlış alarmı, karar gecikmesi, ısınma ve 30 dk kararlılık ölçülmeli.
+- **Gate B — algoritma:** sentetik merkez yaklaşma STOP, yan küçük nesne INFO, yandan koridora giriş CAUTION, zemin/depth çift-kanal davranışı, camera-health, walkable persistence, Türkçe intent ve scene-summary testleri geçmeli.
+- **Gate C — cihaz:** gerçek cihazda ARCore↔CameraX handoff, Depth coverage, portre hizası, yürüyüş koridoru yön doğruluğu, kamera sağlık yanlış alarmı, OCR, Hey Rehber, karar gecikmesi, ısınma ve 30 dk kararlılık ölçülmeli.
 - **Gate D — saha:** kontrollü kapalı alanda bastonlu senaryolar geçmeden “güvenilir yaya yardımcısı” iddiası yapılmaz.
 
 ## v0.4 — zemin sürekliliği
-
 - Alt-merkez zemin sürekliliği, geniş yatay sınır, doku ve zamansal kalıcılık kanıtları.
 - Tek kare/gölge doğrudan STOP vermez.
 
 ## v0.5 — Depth hazır füzyon
-
 - ARCore optional + Depth16 decoder + geometri analizörü.
 - Ground+Depth <=280 ms senkronize edilmeden çift-kanal STOP yok.
 
 ## v0.6 — canlı ARCore Depth16
-
 - ARCore kamera CPU görüntüsü + canlı Depth16 + ortak nesne/zemin çekirdeği.
 - CameraX→ARCore kontrollü handoff; ARCore hata verirse CameraX fallback.
 - ARCore resmi koordinat dönüşümüyle CPU kamera/Depth crop hizası.
 
 ## v0.7 — Gate C cihaz doğrulama ve çalışma sağlığı
-
 - `VisionHealthWatchdog`: 1.8 s vision stale => STOP/fail-safe; uzun Depth kaybı => fallback önerisi.
 - Gate C kayıt: mod geçişleri, observation yaşları, IMU kararlılığı, Depth coverage/confidence, zemin/nesne metrikleri, CAUTION/STOP, fallback, P95 karar gecikmesi, batarya sıcaklığı ve Android thermal status.
 - CSV yalnız uygulama özel cache alanında tutulur; dışarı ancak kullanıcı “Raporu Paylaş” dediğinde FileProvider ile çıkar.
 
 ## v0.8 — M1 yürüyüş güvenliği / olgunluk temeli
-
 - `SceneHealthEstimator`: kalıcı karanlık, aşırı pozlama ve düşük dokulu/örtülü görüntü fail-safe kanalı.
 - `WalkableCorridorEstimator`: üç şeritli göreli açıklık analizi ve kalıcı yön adayı.
 - `PerceptionContext`: scene/walkable kanıtları SafetyGate’e yalnız taze zaman penceresinde taşınır; stale kanıt füzyonu yasak.
 - `GuidancePriorityArbiter`: navigasyon ve sahne konuşması güvenlik konuşmasını bastıramaz.
 - Kamera frame heartbeat statik sahnede de watchdog’a gider; “hareket yok = kamera dondu” regresyonu kapatıldı.
-- Kamera rehberliği RECORD_AUDIO izninden ayrıldı; mikrofon yalnız kullanıcı sesli komut istediğinde sorulur.
-- Gate C / saha sonucu hâlâ `DEVICE-TEST`; CI gerçek telefon ve gerçek yürüyüş güvenilirliğini kanıtlamaz.
+- Kamera rehberliği RECORD_AUDIO izninden ayrıldı.
+
+## v0.9 — M2 eller serbest erişim ve bilgi alma
+- `VoiceCommandController`: on-device recognizer varsa foreground “Hey Rehber” dinleme döngüsü; uygulama arka planda mikrofon oturumunu kapatır.
+- Sürekli çevrimiçi tanımaya sessiz fallback yok; yerel destek yoksa tek-seferlik Sesli Komut kalır.
+- Türkçe parser hedef/adres, OCR, sahne özeti ve wake-mode komutlarını çıkarır; “durak” substring’i yanlış STOP üretmez.
+- `SceneSummaryState`: yalnız taze algı kanıtlarından kısa, semantik iddiası sınırlı çevre özeti.
+- Bundled ML Kit OCR hem CameraX hem ARCore kamera yolunda bir sonraki kareyi okuyabilir; safety luma/zemin heartbeat’i OCR sırasında korunur.
+- Hedef metni M3 rota motoruna hazırlanır; rota olmadığı halde yönlendirme başlamış gibi konuşulmaz.
+- Gate C / saha sonucu hâlâ `DEVICE-TEST`; CI gerçek telefon, ses modeli ve gerçek yürüyüş güvenilirliğini kanıtlamaz.
