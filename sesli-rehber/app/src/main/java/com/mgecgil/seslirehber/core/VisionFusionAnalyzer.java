@@ -15,19 +15,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import static com.mgecgil.seslirehber.core.GuidanceModels.GroundObservation;
 import static com.mgecgil.seslirehber.core.GuidanceModels.MotionObservation;
 import static com.mgecgil.seslirehber.core.GuidanceModels.ObjectObservation;
 
 /**
  * P0/P1 visual fusion analyzer.
  *
- * Motion and object tracking remain separate evidence channels. ML Kit's default detector is
- * used for generic geometry + tracking IDs only; it is not a validated semantic navigation model.
+ * Motion, generic object tracking and lower-ground continuity remain separate evidence channels.
+ * ML Kit's default detector is used for generic geometry + tracking IDs only; it is not a
+ * validated semantic navigation model.
  */
 public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoCloseable {
     public interface Listener {
         void onMotion(MotionObservation observation);
         void onObject(ObjectObservation observation);
+        void onGround(GroundObservation observation);
         void onVisionError(String message);
     }
 
@@ -42,6 +45,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
     private final AtomicBoolean processing = new AtomicBoolean(false);
     private final Listener listener;
     private final ObjectDetector objectDetector;
+    private final GroundContinuityEstimator groundEstimator = new GroundContinuityEstimator();
     private boolean havePrevious;
 
     public VisionFusionAnalyzer(Listener listener) {
@@ -62,7 +66,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
 
         try {
             int rotation = imageProxy.getImageInfo().getRotationDegrees();
-            emitMotionEvidence(imageProxy, rotation);
+            emitGridEvidence(imageProxy, rotation);
 
             Image mediaImage = imageProxy.getImage();
             if (mediaImage == null) {
@@ -93,7 +97,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         }
     }
 
-    private void emitMotionEvidence(ImageProxy image, int rotationDegrees) {
+    private void emitGridEvidence(ImageProxy image, int rotationDegrees) {
         ImageProxy.PlaneProxy[] planes = image.getPlanes();
         if (planes.length == 0) return;
         ImageProxy.PlaneProxy yPlane = planes[0];
@@ -111,6 +115,16 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
                 current[gy * GRID_W + gx] = buffer.get(index);
             }
         }
+
+        long nowMs = System.currentTimeMillis();
+        GroundObservation ground = groundEstimator.estimate(
+                current,
+                previous,
+                GRID_W,
+                GRID_H,
+                rotationDegrees,
+                havePrevious,
+                nowMs);
 
         if (!havePrevious) {
             System.arraycopy(current, 0, previous, 0, current.length);
@@ -154,7 +168,9 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
                 upright[0],
                 upright[1],
                 confidence,
-                System.currentTimeMillis()));
+                nowMs));
+
+        if (ground.viewConfidence() > 0.08f) listener.onGround(ground);
     }
 
     private void emitMostRelevantObject(List<DetectedObject> objects, int width, int height, long nowMs) {
@@ -254,6 +270,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
     public void close() {
         objectDetector.close();
         tracks.clear();
+        groundEstimator.reset();
     }
 
     private static final class TrackState {
