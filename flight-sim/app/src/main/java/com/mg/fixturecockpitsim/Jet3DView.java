@@ -1,6 +1,7 @@
 package com.mg.fixturecockpitsim;
 
 import android.content.Context;
+import android.graphics.PixelFormat;
 import android.opengl.GLES20;
 import android.opengl.GLSurfaceView;
 import android.opengl.Matrix;
@@ -19,7 +20,17 @@ public final class Jet3DView extends GLSurfaceView {
     public static final int CAMERA_RIGHT_QUARTER=2;
     public static final int CAMERA_LEFT_QUARTER=3;
     private final JetRenderer renderer;
-    public Jet3DView(Context context){super(context);setEGLContextClientVersion(2);renderer=new JetRenderer();setRenderer(renderer);setRenderMode(RENDERMODE_CONTINUOUSLY);setPreserveEGLContextOnPause(true);}
+    public Jet3DView(Context context){
+        super(context);
+        setEGLContextClientVersion(2);
+        setEGLConfigChooser(8,8,8,8,16,0);
+        getHolder().setFormat(PixelFormat.TRANSLUCENT);
+        setZOrderOnTop(true);
+        renderer=new JetRenderer();
+        setRenderer(renderer);
+        setRenderMode(RENDERMODE_CONTINUOUSLY);
+        setPreserveEGLContextOnPause(true);
+    }
     public void setTelemetry(float roll,float pitch,float yaw,float throttle,float linkHz,int drops,boolean live){renderer.setTelemetry(roll,pitch,yaw,throttle,live);}
     public void setSimulationState(float gear,float mainCompression,float noseCompression,float brake,boolean onGround){renderer.setSimulationState(gear,mainCompression,noseCompression,brake,onGround);}
     public void setCameraMode(int mode){renderer.setCameraMode(mode);}
@@ -38,7 +49,9 @@ public final class Jet3DView extends GLSurfaceView {
         int getCameraMode(){return cameraMode;}
         void nextCamera(){cameraMode=(cameraMode+1)%4;}
         @Override public void onSurfaceCreated(GL10 gl,EGLConfig config){
-            GLES20.glClearColor(.018f,.045f,.075f,1f);GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glEnable(GLES20.GL_CULL_FACE);GLES20.glCullFace(GLES20.GL_BACK);
+            GLES20.glClearColor(0f,0f,0f,0f);
+            GLES20.glEnable(GLES20.GL_DEPTH_TEST);GLES20.glDepthMask(true);
+            GLES20.glEnable(GLES20.GL_CULL_FACE);GLES20.glCullFace(GLES20.GL_BACK);
             GLES20.glEnable(GLES20.GL_BLEND);GLES20.glBlendFunc(GLES20.GL_SRC_ALPHA,GLES20.GL_ONE_MINUS_SRC_ALPHA);
             program=buildProgram(VS,FS);aPos=GLES20.glGetAttribLocation(program,"aPos");aNormal=GLES20.glGetAttribLocation(program,"aNormal");aPart=GLES20.glGetAttribLocation(program,"aPart");
             uMvp=GLES20.glGetUniformLocation(program,"uMvp");uModel=GLES20.glGetUniformLocation(program,"uModel");uColor=GLES20.glGetUniformLocation(program,"uColor");uLightDir=GLES20.glGetUniformLocation(program,"uLightDir");uThrottle=GLES20.glGetUniformLocation(program,"uThrottle");uSurfPitch=GLES20.glGetUniformLocation(program,"uSurfPitch");uSurfRoll=GLES20.glGetUniformLocation(program,"uSurfRoll");uSurfYaw=GLES20.glGetUniformLocation(program,"uSurfYaw");uGear=GLES20.glGetUniformLocation(program,"uGear");uMainComp=GLES20.glGetUniformLocation(program,"uMainComp");uNoseComp=GLES20.glGetUniformLocation(program,"uNoseComp");
@@ -59,6 +72,6 @@ public final class Jet3DView extends GLSurfaceView {
         private static int buildProgram(String vs,String fs){int v=compile(GLES20.GL_VERTEX_SHADER,vs),f=compile(GLES20.GL_FRAGMENT_SHADER,fs),p=GLES20.glCreateProgram();GLES20.glAttachShader(p,v);GLES20.glAttachShader(p,f);GLES20.glLinkProgram(p);int[]ok=new int[1];GLES20.glGetProgramiv(p,GLES20.GL_LINK_STATUS,ok,0);if(ok[0]==0)throw new RuntimeException(GLES20.glGetProgramInfoLog(p));return p;}
         private static int compile(int type,String src){int s=GLES20.glCreateShader(type);GLES20.glShaderSource(s,src);GLES20.glCompileShader(s);int[]ok=new int[1];GLES20.glGetShaderiv(s,GLES20.GL_COMPILE_STATUS,ok,0);if(ok[0]==0)throw new RuntimeException(GLES20.glGetShaderInfoLog(s));return s;}
         private static final String VS="uniform mat4 uMvp;uniform mat4 uModel;uniform float uSurfPitch;uniform float uSurfRoll;uniform float uSurfYaw;uniform float uThrottle;uniform float uGear;uniform float uMainComp;uniform float uNoseComp;attribute vec3 aPos;attribute vec3 aNormal;attribute float aPart;varying vec3 vN;varying float vPart;varying float vThr;varying float vGear;mat2 r(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}void main(){vec3 p=aPos;vec3 n=aNormal;float deg=.0174532925;if(aPart>1.5&&aPart<2.5){float cx=p.x<0.0?-.62:.62;float t=clamp((p.z-3.12)/.52,0.0,1.0);float s=mix(1.0,.90+.18*uThrottle,t);p.x=cx+(p.x-cx)*s;p.y=-.10+(p.y+.10)*s;}else if(aPart>3.5&&aPart<5.5){float side=aPart<4.5?-1.0:1.0;float a=(-uSurfPitch*18.0+side*uSurfRoll*10.0)*deg;p.yz=r(a)*(p.yz-vec2(.18,2.15))+vec2(.18,2.15);n.yz=r(a)*n.yz;}else if(aPart>5.5&&aPart<7.5){float a=uSurfYaw*16.0*deg;p.xz=r(a)*(p.xz-vec2(0.0,2.15))+vec2(0.0,2.15);n.xz=r(a)*n.xz;}else if(aPart>8.5&&aPart<10.5){float side=aPart<9.5?-1.0:1.0;float a=(-uSurfPitch*8.0+side*uSurfRoll*20.0)*deg;p.yz=r(a)*(p.yz-vec2(.16,.88))+vec2(.16,.88);n.yz=r(a)*n.yz;}else if(aPart>7.5&&aPart<8.5){p.z=3.74+(p.z-3.74)*(0.18+1.18*uThrottle);}else if(aPart>12.5&&aPart<14.5){float nose=p.z< -2.0?1.0:0.0;float comp=mix(uMainComp,uNoseComp,nose);p.y+=comp*.34;float retract=1.0-uGear;p.y+=1.48*retract;p.z+=(p.z< -2.0?.72:-.42)*retract;p.x*=mix(1.0,.68,retract);}else if(aPart>14.5&&aPart<15.5){float retract=1.0-uGear;float side=p.x<0.0?-1.0:1.0;float doorOpen=sin(uGear*3.14159265);p.x+=side*doorOpen*.34;p.y-=doorOpen*.16;p.y+=retract*.52;}vN=normalize(mat3(uModel)*n);vPart=aPart;vThr=uThrottle;vGear=uGear;gl_Position=uMvp*vec4(p,1.0);}";
-        private static final String FS="precision mediump float;uniform vec4 uColor;uniform vec3 uLightDir;varying vec3 vN;varying float vPart;varying float vThr;varying float vGear;void main(){float nd=max(dot(normalize(vN),normalize(uLightDir)),0.0);float rim=pow(1.0-max(abs(vN.z),0.0),2.0);float light=.22+.70*nd+.10*rim;vec3 c=uColor.rgb;float emissive=0.0;float alpha=1.0;if(vPart>.5&&vPart<1.5){float glass=.30+.50*rim;c=mix(vec3(.018,.055,.070),vec3(.20,.40,.46),glass+.20*nd);alpha=.64;}else if(vPart>1.5&&vPart<2.5)c=mix(vec3(.08,.075,.07),vec3(.42,.32,.20),.24+.50*nd)+vec3(.12,.03,0.0)*vThr;else if(vPart>2.5&&vPart<3.5)c=vec3(.055,.065,.07);else if(vPart>7.5&&vPart<8.5){c=mix(vec3(.18,.38,1.0),vec3(1.0,.28,.02),vThr);emissive=.55+1.45*vThr;}else if(vPart>10.5&&vPart<11.5)c=vec3(.045,.060,.065);else if(vPart>11.5&&vPart<12.5)c=mix(vec3(.014,.014,.016),vec3(.12,.07,.035),.25+.55*vThr);else if(vPart>12.5&&vPart<13.5)c=vec3(.32,.34,.36);else if(vPart>13.5&&vPart<14.5)c=vec3(.025,.027,.029);else if(vPart>14.5)c=vec3(.24,.27,.29);gl_FragColor=vec4(c*(emissive>0.0?emissive:light),alpha);}";
+        private static final String FS="precision mediump float;uniform vec4 uColor;uniform vec3 uLightDir;varying vec3 vN;varying float vPart;varying float vThr;varying float vGear;void main(){float nd=max(dot(normalize(vN),normalize(uLightDir)),0.0);float rim=pow(1.0-max(abs(vN.z),0.0),2.0);float light=.22+.70*nd+.10*rim;vec3 c=uColor.rgb;float emissive=0.0;float alpha=1.0;if(vPart>.5&&vPart<1.5){float glass=.22+.42*rim;c=mix(vec3(.012,.028,.036),vec3(.10,.22,.28),glass+.18*nd);alpha=.92;}else if(vPart>1.5&&vPart<2.5)c=mix(vec3(.08,.075,.07),vec3(.42,.32,.20),.24+.50*nd)+vec3(.12,.03,0.0)*vThr;else if(vPart>2.5&&vPart<3.5)c=vec3(.055,.065,.07);else if(vPart>7.5&&vPart<8.5){c=mix(vec3(.18,.38,1.0),vec3(1.0,.28,.02),vThr);emissive=.55+1.45*vThr;}else if(vPart>10.5&&vPart<11.5)c=vec3(.025,.032,.037);else if(vPart>11.5&&vPart<12.5)c=mix(vec3(.014,.014,.016),vec3(.12,.07,.035),.25+.55*vThr);else if(vPart>12.5&&vPart<13.5)c=vec3(.32,.34,.36);else if(vPart>13.5&&vPart<14.5)c=vec3(.025,.027,.029);else if(vPart>14.5)c=vec3(.24,.27,.29);gl_FragColor=vec4(c*(emissive>0.0?emissive:light),alpha);}";
     }
 }
