@@ -77,7 +77,8 @@ public final class AdaptiveRefinementStudy {
         StaticFemSolver solver=new StaticFemSolver(mr.mesh,mat);
         AdvancedFemLoads.Result setup=AdvancedFemLoads.apply(solver,mr.mesh,surface,supports,loads,scale,fx,fy,fz,pressurePa,gravity,rho);
         StaticFemSolver.Result fem=solver.solve();
-        return new Step(cells,mr.mesh,fem,setup,mr.quality,hotspot(mr.mesh,fem),"GLOBAL_SMART "+mr.mode);
+        String smartMode=mr.snapped?"BOUNDARY_SNAP":"VOXEL_FALLBACK";
+        return new Step(cells,mr.mesh,fem,setup,mr.quality,hotspot(mr.mesh,fem),"GLOBAL_SMART "+smartMode+" | "+mr.decision);
     }
 
     private static MeshModel.V3 hotspot(TetMeshData m,StaticFemSolver.Result f){
