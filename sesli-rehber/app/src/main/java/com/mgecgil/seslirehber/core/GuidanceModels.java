@@ -38,6 +38,24 @@ public final class GuidanceModels {
         }
     }
 
+    /**
+     * Geometry/appearance-only evidence from the lower walking corridor.
+     * This is NOT a hole, curb or step classification and must never be spoken as one.
+     */
+    public record GroundObservation(
+            float anomalyScore,
+            float broadBoundaryScore,
+            float textureChangeScore,
+            float temporalChangeScore,
+            float persistenceScore,
+            float viewConfidence,
+            float boundaryY,
+            long timestampMs) {
+        public boolean persistentAnomaly() {
+            return anomalyScore >= 0.58f && persistenceScore >= 0.58f;
+        }
+    }
+
     public record CorridorAssessment(
             float corridorHalfWidth,
             float pathOverlap,
