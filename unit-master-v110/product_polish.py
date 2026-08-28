@@ -92,10 +92,9 @@ for name in ('ic_launcher.xml', 'ic_launcher_round.xml'):
         x = x.replace('</adaptive-icon>', mono + '</adaptive-icon>')
     p.write_text(x, encoding='utf-8')
 
-# 8) Apply consistent high-contrast styling to every picker/dialog menu.
+# 8) Single source of truth for picker styling:
+# closed selectors = deep navy/light text, opened menus = white/dark text.
+# menu_contrast_fix.py performs both states so Samsung/One UI cannot recolor them independently.
 exec(Path('unit-master-v110/menu_contrast_fix.py').read_text(encoding='utf-8'))
 
-# 9) Keep the selected Spinner surfaces dark/readable while preserving white popup menus.
-exec(Path('unit-master-v110/fix_selected_spinner_surface.py').read_text(encoding='utf-8'))
-
-print('Applied Unit Master X production polish: nonblocking prefs, resource strings, flexible orientation, clean resources, monochrome icons, white dropdowns, dark selected spinner surfaces')
+print('Applied Unit Master X production polish: nonblocking prefs, resource strings, flexible orientation, clean resources, monochrome icons, dark selected fields and white dropdown menus')
