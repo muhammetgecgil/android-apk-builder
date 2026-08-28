@@ -1,7 +1,7 @@
 package com.mg.fixturecockpitsim.visual;
 
 /**
- * AVM-7.2 final upper-airframe continuity profile for the generic modern fighter.
+ * AVM-7.3 final upper-airframe continuity profile for the generic modern fighter.
  * The foredeck, canopy shoulders, wing roots, twin-engine deck and exhaust shoulder
  * are constrained as one aerodynamic volume rather than stacked procedural parts.
  */
@@ -27,15 +27,18 @@ public final class AirframeShapeProfile {
             {5.10f,.21f,.02f},{4.48f,.21f,.92f},{3.48f,.22f,1.54f},{2.14f,.23f,1.88f},{1.04f,.25f,2.10f}
     };
 
-    /* Engine pod now overlaps the nozzle shoulder longitudinally so the exhaust does not read as pasted on. */
+    /* Engine pod overlaps the nozzle shoulder longitudinally so the exhaust does not read as pasted on. */
     public static final float[] ENGINE_Z = {-.78f,-.42f,-.02f,.44f,.98f,1.56f,2.12f,2.56f,2.88f,3.10f,3.34f};
     public static final float[] ENGINE_R = {.24f,.32f,.43f,.53f,.61f,.66f,.67f,.65f,.60f,.53f,.46f};
 
     public static final float[] UPPER_BLEND_Z = {-2.82f,-2.38f,-1.92f,-1.30f,-.62f,.10f,.76f,1.36f,1.94f,2.46f,2.88f,3.18f};
     public static final float[] UPPER_BLEND_HALF_WIDTH = {.48f,.58f,.68f,.79f,.88f,.94f,.91f,.86f,.79f,.72f,.65f,.58f};
     public static final float[] UPPER_BLEND_Y = {.60f,.70f,.80f,.87f,.91f,.93f,.90f,.84f,.76f,.66f,.55f,.43f};
-    public static final float[] ENGINE_VALLEY_Y = {.82f,.80f,.76f,.69f,.60f,.49f,.36f,.27f};
-    public static final float[] ENGINE_VALLEY_Z = {.82f,1.20f,1.62f,2.04f,2.46f,2.84f,3.16f,3.42f};
+
+    /* Seven stations deliberately match the procedural valley skin width guide. */
+    public static final float[] ENGINE_VALLEY_Y = {.82f,.79f,.72f,.62f,.50f,.38f,.27f};
+    public static final float[] ENGINE_VALLEY_Z = {.82f,1.28f,1.78f,2.28f,2.72f,3.10f,3.42f};
+
     public static final float[] NOZZLE_SHROUD_Z = {2.74f,2.94f,3.12f,3.30f,3.46f};
     public static final float[] NOZZLE_SHROUD_HALF_WIDTH = {1.12f,1.08f,1.02f,.94f,.86f};
     public static final float[] NOZZLE_SHROUD_Y = {.47f,.43f,.38f,.31f,.24f};
@@ -71,6 +74,7 @@ public final class AirframeShapeProfile {
         for(int i=1;i<ENGINE_VALLEY_Y.length;i++) if(ENGINE_VALLEY_Y[i]>=ENGINE_VALLEY_Y[i-1]) throw new IllegalStateException("Engine centre valley must taper aftward");
         for(int i=1;i<NOZZLE_SHROUD_HALF_WIDTH.length;i++) if(NOZZLE_SHROUD_HALF_WIDTH[i]>=NOZZLE_SHROUD_HALF_WIDTH[i-1]) throw new IllegalStateException("Nozzle shroud width must taper aftward");
         for(int i=1;i<NOZZLE_SHROUD_Y.length;i++) if(NOZZLE_SHROUD_Y[i]>=NOZZLE_SHROUD_Y[i-1]) throw new IllegalStateException("Nozzle shroud crown must taper aftward");
+        if(ENGINE_VALLEY_Z[ENGINE_VALLEY_Z.length-1]<3.4f||ENGINE_VALLEY_Y[ENGINE_VALLEY_Y.length-1]>.30f) throw new IllegalStateException("Engine valley must blend into boat-tail");
         if(ENGINE_Z[ENGINE_Z.length-2]<3.05f||ENGINE_R[ENGINE_R.length-2]<.50f) throw new IllegalStateException("Engine pod does not overlap nozzle shoulder enough");
     }
 }
