@@ -95,4 +95,7 @@ for name in ('ic_launcher.xml', 'ic_launcher_round.xml'):
 # 8) Apply consistent high-contrast styling to every picker/dialog menu.
 exec(Path('unit-master-v110/menu_contrast_fix.py').read_text(encoding='utf-8'))
 
-print('Applied Unit Master X production polish: nonblocking prefs, resource strings, flexible orientation, clean resources, monochrome icons, menu contrast')
+# 9) Keep the selected Spinner surfaces dark/readable while preserving white popup menus.
+exec(Path('unit-master-v110/fix_selected_spinner_surface.py').read_text(encoding='utf-8'))
+
+print('Applied Unit Master X production polish: nonblocking prefs, resource strings, flexible orientation, clean resources, monochrome icons, white dropdowns, dark selected spinner surfaces')
