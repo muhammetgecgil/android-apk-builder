@@ -43,8 +43,13 @@ public final class DistantLabelPolicy {
         return "";
     }
 
+    /** Exact word/phrase matching prevents false positives such as outdoor -> door or woman -> man. */
     private static boolean containsAny(String text, String... terms) {
-        for (String term : terms) if (text.contains(term)) return true;
+        String padded = " " + text + " ";
+        for (String term : terms) {
+            String normalizedTerm = normalize(term);
+            if (!normalizedTerm.isEmpty() && padded.contains(" " + normalizedTerm + " ")) return true;
+        }
         return false;
     }
 
