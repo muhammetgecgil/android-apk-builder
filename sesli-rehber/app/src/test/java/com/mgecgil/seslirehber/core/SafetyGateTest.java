@@ -117,4 +117,18 @@ public class SafetyGateTest {
                 0.82f, 0.80f, 0.77f, 0.10f, 0.0f, 0.86f, 0.68f, 5000L);
         assertEquals(Risk.INFO, gate.evaluateLevelChange(level, 0.92f).risk());
     }
+
+    @Test public void depthPathPrefersFreshPersistentLevelCandidateLanguage() {
+        PerceptionContext.resetForTest();
+        SafetyGate gate = new SafetyGate();
+        LevelChangeObservation level = new LevelChangeObservation(
+                LevelChangeKind.DOWNWARD_CANDIDATE,
+                0.78f, 0.75f, 0.72f, 0.10f, 0.82f, 0.82f, 0.67f, 8000L);
+        PerceptionContext.noteLevelChange(level);
+        DepthObservation depth = new DepthObservation(
+                0.86f, 2800f, 1900f, 4700f, 1500f, 0.72f, 0.84f, 8000L);
+        GuidanceDecision decision = gate.evaluateDepth(depth, 0.90f);
+        assertEquals(Risk.CAUTION, decision.risk());
+        assertTrue(decision.speech().contains("aşağı yönlü seviye değişimi olabilir"));
+    }
 }
