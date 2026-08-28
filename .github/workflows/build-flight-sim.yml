@@ -59,16 +59,17 @@ jobs:
           APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='19'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='20'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "application-label:'Aircraft Simulator 3D'"
 
       - name: Rename APK
-        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Aircraft_Simulator_v19_Foundation.apk
+        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk "Aircraft Simulator 3D.apk"
 
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Aircraft-Simulator-v19-Foundation-APK
-          path: Aircraft_Simulator_v19_Foundation.apk
+          name: Aircraft-Simulator-3D-APK
+          path: "Aircraft Simulator 3D.apk"
           if-no-files-found: error
           retention-days: 30
