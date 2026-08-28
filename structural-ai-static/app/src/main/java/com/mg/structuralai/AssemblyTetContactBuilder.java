@@ -19,7 +19,17 @@ public final class AssemblyTetContactBuilder {
         AssemblyContactEngine.Result ac=AssemblyContactEngine.analyze(source);
         if(ac.components.size()<2)throw new IllegalArgumentException("Assembly contact builder requires multiple disconnected bodies");
         TetMeshData global=new TetMeshData();List<BodyRange> ranges=new ArrayList<>();
-        for(AssemblyContactEngine.Component c:ac.components){MeshModel body=extract(source,c.triangles);SmartTetMesher.Result sm=SmartTetMesher.generate(body,Math.max(8,cells),scale);if(!sm.quality.pass)throw new IllegalStateException("Body "+c.id+" mesh QA blocked: "+sm.quality.summary());int ns=global.nodes.size(),ts=global.tets.size();for(MeshModel.V3 p:sm.mesh.nodes)global.addNode(p.x,p.y,p.z);for(int[] t:sm.mesh.tets)global.addTet(ns+t[0],ns+t[1],ns+t[2],ns+t[3]);ranges.add(new BodyRange(c.id,ns,global.nodes.size(),ts,global.tets.size()));}
+        for(AssemblyContactEngine.Component c:ac.components){
+            MeshModel body=extractWelded(source,c.triangles);
+            SurfaceTopologyReport topo=SurfaceTopologyReport.evaluate(body);
+            if(!topo.closedManifold)throw new IllegalStateException("Body "+c.id+" topology blocked after weld: "+topo.summary());
+            SmartTetMesher.Result sm=SmartTetMesher.generate(body,Math.max(8,cells),scale);
+            if(!sm.quality.pass)throw new IllegalStateException("Body "+c.id+" mesh QA blocked: "+sm.quality.summary());
+            int ns=global.nodes.size(),ts=global.tets.size();
+            for(MeshModel.V3 p:sm.mesh.nodes)global.addNode(p.x,p.y,p.z);
+            for(int[] t:sm.mesh.tets)global.addTet(ns+t[0],ns+t[1],ns+t[2],ns+t[3]);
+            ranges.add(new BodyRange(c.id,ns,global.nodes.size(),ts,global.tets.size()));
+        }
         global.validate();ContactConstraintSet set=new ContactConstraintSet();boolean unresolved=false;int bondedContacts=0,frictionlessContacts=0;double diagM=source.diagonal()*scale,pairTol=Math.max(diagM*0.006,1e-7),touchTol=Math.max(diagM*1e-5,1e-9);
         for(AssemblyContactEngine.Pair p:ac.pairs){
             if(p.type==AssemblyContactEngine.Type.SEPARATED||p.type==AssemblyContactEngine.Type.NEAR_GAP)continue;
@@ -41,6 +51,31 @@ public final class AssemblyTetContactBuilder {
     }
     private static int count(ContactConstraintSet s,ContactConstraintSet.Kind k){int n=0;for(ContactConstraintSet.Pair p:s.pairs)if(p.kind==k)n++;return n;}
     private static BodyRange find(List<BodyRange> r,int id){for(BodyRange x:r)if(x.body==id)return x;throw new IllegalStateException("Body range missing: "+id);}
-    private static MeshModel extract(MeshModel src,List<Integer> tris){MeshModel o=new MeshModel();Map<Integer,Integer> map=new HashMap<>();for(int ti:tris){int[] t=src.triangles.get(ti),nt=new int[3];for(int k=0;k<3;k++){Integer q=map.get(t[k]);if(q==null){q=o.vertices.size();map.put(t[k],q);o.addVertex(src.vertices.get(t[k]));}nt[k]=q;}o.triangles.add(nt);}return o;}
+
+    /**
+     * STL/OBJ bodies may carry coincident geometric vertices with different source IDs. Rebuild a body using a
+     * very small geometry-relative weld tolerance before the closed-surface gate. This repairs indexing only;
+     * it is deliberately far below contact/feature tolerances and must not bridge real gaps.
+     */
+    private static MeshModel extractWelded(MeshModel src,List<Integer> tris){
+        MeshModel o=new MeshModel();
+        double tol=Math.max(src.diagonal()*1e-10,1e-12);
+        Map<String,Integer> weld=new LinkedHashMap<>();
+        Set<String> faces=new LinkedHashSet<>();
+        for(int ti:tris){
+            int[] t=src.triangles.get(ti);if(t==null||t.length<3)continue;
+            int[] nt=new int[3];
+            for(int k=0;k<3;k++){
+                MeshModel.V3 p=src.vertices.get(t[k]);String key=vertexKey(p,tol);Integer q=weld.get(key);
+                if(q==null){q=o.vertices.size();weld.put(key,q);o.addVertex(new MeshModel.V3(p.x,p.y,p.z));}nt[k]=q;
+            }
+            if(nt[0]==nt[1]||nt[1]==nt[2]||nt[2]==nt[0])continue;
+            int[] srt={nt[0],nt[1],nt[2]};Arrays.sort(srt);String fk=srt[0]+":"+srt[1]+":"+srt[2];
+            if(faces.add(fk))o.triangles.add(nt);
+        }
+        if(o.triangles.size()<4)throw new IllegalStateException("Per-body topology repair produced too few triangles");
+        return o;
+    }
+    private static String vertexKey(MeshModel.V3 p,double tol){return Math.round(p.x/tol)+":"+Math.round(p.y/tol)+":"+Math.round(p.z/tol);}
     private static double dist(MeshModel.V3 a,MeshModel.V3 b){double x=a.x-b.x,y=a.y-b.y,z=a.z-b.z;return Math.sqrt(x*x+y*y+z*z);}
 }
