@@ -56,7 +56,7 @@ public class MainActivity extends Activity implements SensorEventListener {
         rotationSensor = sensors.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
         if (rotationSensor == null) rotationSensor = sensors.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR);
         requestBtIfNeeded();
-        showRoleScreen();
+        startPilot();
     }
 
     private void requestBtIfNeeded() {
@@ -71,33 +71,29 @@ public class MainActivity extends Activity implements SensorEventListener {
     private Button btn(String s) { Button b=new Button(this); b.setText(s); b.setAllCaps(false); b.setTextSize(16); b.setPadding(12,8,12,8); return b; }
 
     private void showRoleScreen() {
-        closeConnections(); pilotMode=receiverMode=false;
-        LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setGravity(Gravity.CENTER); root.setPadding(46,36,46,36); root.setBackgroundColor(Color.rgb(3,9,13));
-        root.addView(title("FIXTURE COCKPIT SIM • PRO V2",32));
-        TextView sub=title("Tek APK • Çift telefon • Bluetooth IMU • gerçekçi kokpit ve uçuş görünümü",16); sub.setTextColor(Color.LTGRAY); root.addView(sub);
-        Button pilot=btn("PİLOT / GERÇEKÇİ KOKPİT"); Button display=btn("UÇAK EKRANI / F-22 SINIFI GÖRÜNÜM");
-        LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(dp(460),dp(72)); lp.setMargins(0,16,0,0); root.addView(pilot,lp); root.addView(display,lp);
-        TextView info=title("1) Telefonları Bluetooth ayarlarından eşleştir  2) Uçak ekranını aç  3) Pilot telefonundan Bağlan",14); info.setTextColor(Color.GRAY); root.addView(info);
-        pilot.setOnClickListener(v->startPilot()); display.setOnClickListener(v->startReceiver()); setContentView(root);
+        // Legacy role selector deliberately kept unreachable. Aircraft display is exclusively Display3DActivity.
+        finish();
     }
 
     private void startPilot() {
         closeConnections(); pilotMode=true; receiverMode=false; centerValid=false; roll=pitch=yaw=0;
         FrameLayout root=new FrameLayout(this); pilotView=new PilotView(this); root.addView(pilotView,new FrameLayout.LayoutParams(-1,-1));
         LinearLayout controls=new LinearLayout(this); controls.setOrientation(LinearLayout.HORIZONTAL); controls.setGravity(Gravity.CENTER); controls.setPadding(8,5,8,5); controls.setBackgroundColor(0xD0000000);
-        Button connect=btn("DATA LINK"); Button center=btn("IMU MERKEZLE"); Button minus=btn("THR −"); Button plus=btn("THR +"); Button back=btn("MOD");
+        Button connect=btn("DATA LINK"); Button center=btn("IMU MERKEZLE"); Button minus=btn("THR −"); Button plus=btn("THR +"); Button back=btn("GERİ");
         controls.addView(connect); controls.addView(center); controls.addView(minus); controls.addView(plus); controls.addView(back);
         root.addView(controls,new FrameLayout.LayoutParams(-1,dp(56),Gravity.BOTTOM)); setContentView(root);
         if(rotationSensor!=null) sensors.registerListener(this,rotationSensor,SensorManager.SENSOR_DELAY_GAME);
         connect.setOnClickListener(v->chooseBondedAndConnect());
         center.setOnClickListener(v->{ zeroRoll=rawRoll; zeroPitch=rawPitch; zeroYaw=rawYaw; centerValid=true; roll=pitch=yaw=0; toast("IMU nötr konumu kaydedildi"); });
-        minus.setOnClickListener(v->throttle=Math.max(0,throttle-0.05f)); plus.setOnClickListener(v->throttle=Math.min(1,throttle+0.05f)); back.setOnClickListener(v->showRoleScreen());
+        minus.setOnClickListener(v->throttle=Math.max(0,throttle-0.05f)); plus.setOnClickListener(v->throttle=Math.min(1,throttle+0.05f)); back.setOnClickListener(v->finish());
     }
 
     private void startReceiver() {
-        closeConnections(); receiverMode=true; pilotMode=false; lastPacketMs=0; lastRxSeq=0; droppedPackets=0;
-        FrameLayout root=new FrameLayout(this); flightView=new FlightView(this); root.addView(flightView,new FrameLayout.LayoutParams(-1,-1));
-        Button back=btn("MOD"); FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(dp(100),dp(48),Gravity.TOP|Gravity.RIGHT); bp.setMargins(0,10,10,0); root.addView(back,bp); back.setOnClickListener(v->showRoleScreen()); setContentView(root); startServer();
+        // Legacy receiver is intentionally unreachable; the only aircraft renderer is Display3DActivity.
+        Intent i=new Intent(this,Display3DActivity.class);
+        i.putExtra(LauncherActivity.EXTRA_DEMO_MODE,false);
+        startActivity(i);
+        finish();
     }
 
     private boolean btAllowed(){return Build.VERSION.SDK_INT<31 || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)==PackageManager.PERMISSION_GRANTED;}
@@ -106,11 +102,11 @@ public class MainActivity extends Activity implements SensorEventListener {
         Set<BluetoothDevice> set=bt.getBondedDevices(); if(set==null||set.isEmpty()){toast("Eşleştirilmiş cihaz yok");return;}
         ArrayList<BluetoothDevice> devices=new ArrayList<>(set); String[] names=new String[devices.size()];
         for(int i=0;i<devices.size();i++){BluetoothDevice d=devices.get(i);names[i]=(d.getName()==null?"Cihaz":d.getName())+"\n"+d.getAddress();}
-        new AlertDialog.Builder(this).setTitle("Uçak ekranı telefonunu seç").setItems(names,(dlg,which)->connectTo(devices.get(which))).show();
+        new AlertDialog.Builder(this).setTitle("Yeni uçak ekranı telefonunu seç").setItems(names,(dlg,which)->connectTo(devices.get(which))).show();
     }
 
     private void connectTo(BluetoothDevice device){
-        toast("Bağlanıyor: "+device.getName()); io.execute(()->{try{closeSocketOnly(); BluetoothSocket s=device.createRfcommSocketToServiceRecord(SIM_UUID); s.connect(); socket=s; writer=new BufferedWriter(new OutputStreamWriter(s.getOutputStream(),StandardCharsets.UTF_8)); reader=new BufferedReader(new InputStreamReader(s.getInputStream(),StandardCharsets.UTF_8)); connected=true; runOnUiThread(()->toast("Bluetooth data link kuruldu")); readAcks();}catch(Exception e){connected=false;runOnUiThread(()->toast("Bağlantı başarısız: "+e.getClass().getSimpleName()));}});
+        toast("Bağlanıyor: "+device.getName()); io.execute(()->{try{closeSocketOnly(); BluetoothSocket s=device.createRfcommSocketToServiceRecord(SIM_UUID); s.connect(); socket=s; writer=new BufferedWriter(new OutputStreamWriter(s.getOutputStream(),StandardCharsets.UTF_8)); reader=new BufferedReader(new InputStreamReader(s.getInputStream(),StandardCharsets.UTF_8)); connected=true; runOnUiThread(()->toast("Yeni uçak data link kuruldu")); readAcks();}catch(Exception e){connected=false;runOnUiThread(()->toast("Bağlantı başarısız: "+e.getClass().getSimpleName()));}});
     }
 
     private void readAcks() throws IOException {
@@ -151,7 +147,7 @@ public class MainActivity extends Activity implements SensorEventListener {
     private void closeSocketOnly(){try{if(socket!=null)socket.close();}catch(Exception ignored){} socket=null;writer=null;reader=null;connected=false;}
     private void closeConnections(){if(sensors!=null)sensors.unregisterListener(this);closeSocketOnly();try{if(serverSocket!=null)serverSocket.close();}catch(Exception ignored){}serverSocket=null;}
     @Override protected void onDestroy(){closeConnections();io.shutdownNow();super.onDestroy();}
-    @Override public void onBackPressed(){showRoleScreen();}
+    @Override public void onBackPressed(){finish();}
 
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);} private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
     private static float clamp(float v,float a,float b){return Math.max(a,Math.min(b,v));} private static float lerp(float a,float b,float t){return a+(b-a)*t;}
