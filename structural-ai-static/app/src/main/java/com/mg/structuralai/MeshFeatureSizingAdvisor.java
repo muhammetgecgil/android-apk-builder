@@ -20,23 +20,27 @@ public final class MeshFeatureSizingAdvisor {
         boolean thin=sl>=12.0;
         int sharp=countSharpEdges(m,35.0);
         int rec=Math.max(8,requested);
-        if(thin) rec=Math.max(rec,(int)Math.ceil(8.0*max/min)); // target >=8 cells through the thinnest span
-        if(sharp>0) rec=Math.max(rec,Math.min(56,requested+8));
+        if(thin)rec=Math.max(rec,(int)Math.ceil(8.0*max/min)); // target >=8 cells through thinnest span
+        if(sharp>0)rec=Math.max(rec,Math.min(56,requested+8));
         rec=Math.min(56,rec);
         String s=String.format(Locale.US,"thinLike=%s | minSpan=%.6g | maxSpan=%.6g | slenderness=%.2f | sharpEdges=%d | requested=%d | recommended=%d",thin,min,max,sl,sharp,requested,rec);
         return new Result(thin,min,max,sl,sharp,rec,s);
     }
 
+    /** Counts manifold edges whose adjacent face normals differ by more than thresholdDeg.
+     *  For a 90-degree corner dot(n1,n2)=0, so it must be classified sharp for a 35-degree threshold.
+     *  The previous implementation compared against cos(180-threshold), which only detected nearly
+     *  opposite normals and therefore missed ordinary CAD corners and stepped features. */
     private static int countSharpEdges(MeshModel m,double thresholdDeg){
         Map<Long,List<Integer>> edgeToTri=new HashMap<>();
         for(int ti=0;ti<m.triangles.size();ti++){
             int[] t=m.triangles.get(ti);if(t.length<3)continue;
             add(edgeToTri,t[0],t[1],ti);add(edgeToTri,t[1],t[2],ti);add(edgeToTri,t[2],t[0],ti);
         }
-        int n=0;double cosLimit=Math.cos(Math.toRadians(180.0-thresholdDeg));
+        int n=0;double cosLimit=Math.cos(Math.toRadians(thresholdDeg));
         for(List<Integer> ids:edgeToTri.values())if(ids.size()==2){
             MeshModel.V3 a=normal(m,ids.get(0)),b=normal(m,ids.get(1));
-            double d=a.x*b.x+a.y*b.y+a.z*b.z;
+            double d=Math.max(-1.0,Math.min(1.0,a.x*b.x+a.y*b.y+a.z*b.z));
             if(d<cosLimit)n++;
         }
         return n;
