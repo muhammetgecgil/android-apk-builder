@@ -30,7 +30,8 @@ public final class OfflineIntentParser {
 
         if (containsAny(s,
                 "etrafi anlat", "cevremi anlat", "onumde ne var", "onumde neler var",
-                "ne goruyorsun", "goruntuyu anlat", "sahneyi anlat")) {
+                "ne goruyorsun", "goruntuyu anlat", "sahneyi anlat", "durum ne",
+                "cevrede ne var", "etrafta ne var", "ne oluyor", "durumsal gorunum")) {
             return new ParsedIntent(Intent.DESCRIBE_SCENE, text);
         }
 
@@ -93,7 +94,6 @@ public final class OfflineIntentParser {
 
         target = target.replaceFirst("^(beni|bizi)\\s+", "").trim();
         target = target.replaceFirst("\\s+(adresine|konumuna)$", "").trim();
-        // Apostrophes are normalized to spaces, so Taksim'e / Meydanı'na become trailing e/na.
         target = target.replaceFirst("\\s+(e|a|ye|ya|ne|na)$", "").trim();
 
         if (target.length() < 2 || equalsAny(target,
