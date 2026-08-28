@@ -22,6 +22,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         void onObject(ObjectObservation observation);
         void onGround(GroundObservation observation);
         default void onSceneHealth(SceneHealthObservation observation) {}
+        default void onDistantObject(DistantObjectObservation observation) {}
         default void onTextRecognized(String text) {}
         void onVisionError(String message);
     }
@@ -34,6 +35,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
     private final Listener listener;
     private final ObjectDetector objectDetector;
     private final TextRecognizer textRecognizer;
+    private final DistantObjectRecognizer distantRecognizer = new DistantObjectRecognizer();
     private final GridEvidenceEstimator gridEstimator = new GridEvidenceEstimator(GRID_W, GRID_H);
     private final ObjectObservationTracker objectTracker = new ObjectObservationTracker();
 
@@ -99,6 +101,14 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
                 return;
             }
 
+            // Copy one enlarged tile synchronously from the Y plane. The recognizer owns only the
+            // resulting Bitmap, so the CameraX ImageProxy may close normally after the main detector.
+            distantRecognizer.maybeAnalyze(
+                    mediaImage,
+                    rotation,
+                    nowMs,
+                    listener::onDistantObject);
+
             objectDetector.process(inputImage)
                     .addOnSuccessListener(objects -> {
                         ObjectObservation best = objectTracker.selectMostRelevant(
@@ -145,6 +155,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
     public void close() {
         objectDetector.close();
         textRecognizer.close();
+        distantRecognizer.close();
         objectTracker.reset();
         gridEstimator.reset();
     }
