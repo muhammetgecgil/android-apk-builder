@@ -65,4 +65,29 @@ public class ProceduralFighterMeshTest {
         assertTrue("flame core missing", core >= 70);
         assertTrue("flame core too short", coreMaxZ > 4.6f);
     }
+
+    @Test public void avm4AirframeProportionsStayMature() {
+        AirframeShapeProfile.validate();
+        ProceduralFighterMesh.Mesh mesh = ProceduralFighterMesh.build();
+        float minX=Float.POSITIVE_INFINITY,maxX=Float.NEGATIVE_INFINITY;
+        float minZ=Float.POSITIVE_INFINITY,maxZ=Float.NEGATIVE_INFINITY;
+        int skin=0;
+        for (int i=0;i<mesh.data.length;i+=7) {
+            float x=mesh.data[i], z=mesh.data[i+2], part=mesh.data[i+6];
+            minX=Math.min(minX,x); maxX=Math.max(maxX,x);
+            minZ=Math.min(minZ,z); maxZ=Math.max(maxZ,z);
+            if (Math.abs(part-ProceduralFighterMesh.PART_SKIN)<0.1f) skin++;
+        }
+        float span=maxX-minX;
+        float length=maxZ-minZ;
+        assertTrue("airframe skin density too low", skin > 1800);
+        assertTrue("fighter span too small", span > 9.8f);
+        assertTrue("fighter planform too short", length > 11.0f);
+        assertTrue("fighter planform too stubby", span/length > 0.72f);
+        assertTrue("fighter planform too wide", span/length < 1.02f);
+        assertTrue("forebody must stay fine", AirframeShapeProfile.HALF_WIDTH[2] < 0.22f);
+        assertTrue("centre body needs blended volume", AirframeShapeProfile.HALF_WIDTH[9] > 1.10f);
+        assertTrue("aft engine shoulder needs volume", AirframeShapeProfile.ENGINE_R[4] >= 0.60f);
+        assertTrue("wing crank needs outboard reach", AirframeShapeProfile.WING_ROOT[4][0] >= 5.0f);
+    }
 }
