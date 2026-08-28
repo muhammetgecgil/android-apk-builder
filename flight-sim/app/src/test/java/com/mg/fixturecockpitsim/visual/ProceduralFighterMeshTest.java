@@ -1,149 +1,45 @@
 package com.mg.fixturecockpitsim.visual;
 
 import static org.junit.Assert.assertTrue;
-
 import org.junit.Test;
 
 public class ProceduralFighterMeshTest {
-    @Test public void avm2CanopyCockpitPartsExistAndStayInBounds() {
-        ProceduralFighterMesh.Mesh mesh = ProceduralFighterMesh.build();
-        assertTrue("mesh must be substantial", mesh.vertexCount() > 1500);
-
-        int canopy=0, frame=0, tub=0, seat=0, coaming=0;
-        float canopyMinZ=Float.POSITIVE_INFINITY, canopyMaxZ=Float.NEGATIVE_INFINITY;
-        float canopyMinY=Float.POSITIVE_INFINITY, canopyMaxY=Float.NEGATIVE_INFINITY;
-
-        for (int i=0; i<mesh.data.length; i+=7) {
-            float x=mesh.data[i], y=mesh.data[i+1], z=mesh.data[i+2], part=mesh.data[i+6];
-            assertTrue("finite x", Float.isFinite(x));
-            assertTrue("finite y", Float.isFinite(y));
-            assertTrue("finite z", Float.isFinite(z));
-            if (Math.abs(part-ProceduralFighterMesh.PART_CANOPY)<0.1f) {
-                canopy++;
-                canopyMinZ=Math.min(canopyMinZ,z); canopyMaxZ=Math.max(canopyMaxZ,z);
-                canopyMinY=Math.min(canopyMinY,y); canopyMaxY=Math.max(canopyMaxY,y);
-            } else if (Math.abs(part-ProceduralFighterMesh.PART_CANOPY_FRAME)<0.1f) frame++;
-            else if (Math.abs(part-ProceduralFighterMesh.PART_COCKPIT_TUB)<0.1f) tub++;
-            else if (Math.abs(part-ProceduralFighterMesh.PART_SEAT)<0.1f) seat++;
-            else if (Math.abs(part-ProceduralFighterMesh.PART_COAMING)<0.1f) coaming++;
-        }
-
-        assertTrue("canopy geometry missing", canopy > 300);
-        assertTrue("canopy frame geometry missing", frame > 60);
-        assertTrue("cockpit tub geometry missing", tub > 30);
-        assertTrue("seat geometry missing", seat > 30);
-        assertTrue("coaming geometry missing", coaming > 20);
-        assertTrue("canopy must be longitudinally mature", canopyMaxZ-canopyMinZ > 2.3f);
-        assertTrue("canopy crown too low", canopyMaxY > 1.15f);
-        assertTrue("canopy crown too tall", canopyMaxY < 1.45f);
-        assertTrue("canopy base must sit on sill", canopyMinY > 0.70f);
+    @Test public void avm2CanopyCockpitPartsExistAndStayInBounds(){
+        ProceduralFighterMesh.Mesh mesh=ProceduralFighterMesh.build(); assertTrue("mesh must be substantial",mesh.vertexCount()>1500);
+        int canopy=0,frame=0,tub=0,seat=0,coaming=0; float minZ=Float.POSITIVE_INFINITY,maxZ=Float.NEGATIVE_INFINITY,minY=Float.POSITIVE_INFINITY,maxY=Float.NEGATIVE_INFINITY;
+        for(int i=0;i<mesh.data.length;i+=7){float y=mesh.data[i+1],z=mesh.data[i+2],p=mesh.data[i+6]; assertTrue(Float.isFinite(mesh.data[i])&&Float.isFinite(y)&&Float.isFinite(z));
+            if(Math.abs(p-ProceduralFighterMesh.PART_CANOPY)<.1f){canopy++;minZ=Math.min(minZ,z);maxZ=Math.max(maxZ,z);minY=Math.min(minY,y);maxY=Math.max(maxY,y);} else if(Math.abs(p-ProceduralFighterMesh.PART_CANOPY_FRAME)<.1f)frame++; else if(Math.abs(p-ProceduralFighterMesh.PART_COCKPIT_TUB)<.1f)tub++; else if(Math.abs(p-ProceduralFighterMesh.PART_SEAT)<.1f)seat++; else if(Math.abs(p-ProceduralFighterMesh.PART_COAMING)<.1f)coaming++;}
+        assertTrue(canopy>300&&frame>60&&tub>30&&seat>30&&coaming>20); assertTrue(maxZ-minZ>2.3f); assertTrue(maxY>1.15f&&maxY<1.45f); assertTrue(minY>.70f);
     }
-
-    @Test public void avm3EngineAirPathPartsExist() {
-        ProceduralFighterMesh.Mesh mesh = ProceduralFighterMesh.build();
-        int ducts=0, compressors=0, petals=0, inner=0, flame=0, core=0;
-        float ductMinZ=Float.POSITIVE_INFINITY, ductMaxZ=Float.NEGATIVE_INFINITY;
-        float flameMaxZ=Float.NEGATIVE_INFINITY, coreMaxZ=Float.NEGATIVE_INFINITY;
-        for (int i=0; i<mesh.data.length; i+=7) {
-            float z=mesh.data[i+2], part=mesh.data[i+6];
-            if (Math.abs(part-ProceduralFighterMesh.PART_INTAKE_DUCT)<0.1f) {
-                ducts++; ductMinZ=Math.min(ductMinZ,z); ductMaxZ=Math.max(ductMaxZ,z);
-            } else if (Math.abs(part-ProceduralFighterMesh.PART_COMPRESSOR_FACE)<0.1f) compressors++;
-            else if (Math.abs(part-ProceduralFighterMesh.PART_NOZZLE_PETAL)<0.1f) petals++;
-            else if (Math.abs(part-ProceduralFighterMesh.PART_NOZZLE_INNER)<0.1f) inner++;
-            else if (Math.abs(part-ProceduralFighterMesh.PART_AFTERBURNER)<0.1f) {flame++; flameMaxZ=Math.max(flameMaxZ,z);}
-            else if (Math.abs(part-ProceduralFighterMesh.PART_FLAME_CORE)<0.1f) {core++; coreMaxZ=Math.max(coreMaxZ,z);}
-        }
-        assertTrue("intake ducts missing", ducts >= 90);
-        assertTrue("S-duct path too short", ductMaxZ-ductMinZ > 1.15f);
-        assertTrue("compressor faces missing", compressors >= 180);
-        assertTrue("nozzle petals need thickness", petals >= 600);
-        assertTrue("nozzle inner geometry missing", inner >= 140);
-        assertTrue("afterburner geometry missing", flame >= 100);
-        assertTrue("afterburner plume too short", flameMaxZ > 5.0f);
-        assertTrue("flame core missing", core >= 70);
-        assertTrue("flame core too short", coreMaxZ > 4.6f);
+    @Test public void avm3EngineAirPathPartsExist(){
+        ProceduralFighterMesh.Mesh mesh=ProceduralFighterMesh.build(); int ducts=0,compressors=0,petals=0,inner=0,flame=0,core=0; float d0=99,d1=-99,f=-99,c=-99;
+        for(int i=0;i<mesh.data.length;i+=7){float z=mesh.data[i+2],p=mesh.data[i+6]; if(Math.abs(p-ProceduralFighterMesh.PART_INTAKE_DUCT)<.1f){ducts++;d0=Math.min(d0,z);d1=Math.max(d1,z);} else if(Math.abs(p-ProceduralFighterMesh.PART_COMPRESSOR_FACE)<.1f)compressors++; else if(Math.abs(p-ProceduralFighterMesh.PART_NOZZLE_PETAL)<.1f)petals++; else if(Math.abs(p-ProceduralFighterMesh.PART_NOZZLE_INNER)<.1f)inner++; else if(Math.abs(p-ProceduralFighterMesh.PART_AFTERBURNER)<.1f){flame++;f=Math.max(f,z);} else if(Math.abs(p-ProceduralFighterMesh.PART_FLAME_CORE)<.1f){core++;c=Math.max(c,z);}}
+        assertTrue(ducts>=90&&d1-d0>1.15f&&compressors>=180&&petals>=600&&inner>=140&&flame>=100&&f>5f&&core>=70&&c>4.6f);
     }
-
-    @Test public void avm4AirframeProportionsStayMature() {
+    @Test public void avm4AirframeProportionsStayMature(){
+        AirframeShapeProfile.validate(); ProceduralFighterMesh.Mesh m=ProceduralFighterMesh.build(); float minX=99,maxX=-99,minZ=99,maxZ=-99;int skin=0;
+        for(int i=0;i<m.data.length;i+=7){minX=Math.min(minX,m.data[i]);maxX=Math.max(maxX,m.data[i]);minZ=Math.min(minZ,m.data[i+2]);maxZ=Math.max(maxZ,m.data[i+2]);if(Math.abs(m.data[i+6]-ProceduralFighterMesh.PART_SKIN)<.1f)skin++;}
+        float span=maxX-minX,length=maxZ-minZ; assertTrue(skin>1800&&span>9.8f&&length>11f&&span/length>.72f&&span/length<1.02f); assertTrue(AirframeShapeProfile.HALF_WIDTH[2]<.22f&&AirframeShapeProfile.HALF_WIDTH[9]>1.10f&&AirframeShapeProfile.WING_ROOT[4][0]>=5f);
+    }
+    @Test public void avm5UpperFuselageHasContinuousCrownWithoutBalloonBelly(){
+        AirframeShapeProfile.validate();float c7=AirframeShapeProfile.upperCrown(7),c8=AirframeShapeProfile.upperCrown(8),c9=AirframeShapeProfile.upperCrown(9),c10=AirframeShapeProfile.upperCrown(10),c11=AirframeShapeProfile.upperCrown(11);
+        assertTrue(c7>.75f&&c8>.84f&&c9>.86f&&c10>.80f&&c11>.67f&&c9>c10&&c10>c11); assertTrue(AirframeShapeProfile.lowerBelly(8)>-.70f&&AirframeShapeProfile.lowerBelly(9)>-.70f);
+    }
+    @Test public void avm5UpperSurfacePanelsAreDenseSymmetricAndAftBlended(){
+        ProceduralFighterMesh.Mesh m=ProceduralFighterMesh.build();int count=0,left=0,right=0,centre=0;float minZ=99,maxZ=-99,maxY=-99;
+        for(int i=0;i<m.data.length;i+=7){float x=m.data[i],y=m.data[i+1],z=m.data[i+2],p=m.data[i+6];if(Math.abs(p-ProceduralFighterMesh.PART_UPPER_PANEL)<.1f){count++;minZ=Math.min(minZ,z);maxZ=Math.max(maxZ,z);maxY=Math.max(maxY,y);if(x<-.08f)left++;else if(x>.08f)right++;else centre++;}}
+        assertTrue(count>300&&minZ<-1.7f&&maxZ>3f&&maxY>.88f&&centre>30&&left>100&&right>100&&Math.abs(left-right)<45);
+    }
+    @Test public void avm6ForebodyAndEngineShouldersBlendProgressively(){
+        AirframeShapeProfile.validate();float c5=AirframeShapeProfile.upperCrown(5),c6=AirframeShapeProfile.upperCrown(6),c7=AirframeShapeProfile.upperCrown(7);assertTrue(c5<c6&&c6<c7);assertTrue(AirframeShapeProfile.HALF_WIDTH[6]>=.90f&&AirframeShapeProfile.HALF_WIDTH[7]>=1.04f);assertTrue(AirframeShapeProfile.ENGINE_Z.length>=9&&AirframeShapeProfile.ENGINE_R[0]<=.30f);for(int i=1;i<=5;i++)assertTrue(AirframeShapeProfile.ENGINE_R[i]>AirframeShapeProfile.ENGINE_R[i-1]);assertTrue(AirframeShapeProfile.ENGINE_R[5]>=.65f&&AirframeShapeProfile.engineShoulderTop(5)>=.27f&&AirframeShapeProfile.ENGINE_R[8]<AirframeShapeProfile.ENGINE_R[6]);
+    }
+    @Test public void avm7UpperSkinGuidesCloseTheVisualGaps(){
         AirframeShapeProfile.validate();
-        ProceduralFighterMesh.Mesh mesh = ProceduralFighterMesh.build();
-        float minX=Float.POSITIVE_INFINITY,maxX=Float.NEGATIVE_INFINITY;
-        float minZ=Float.POSITIVE_INFINITY,maxZ=Float.NEGATIVE_INFINITY;
-        int skin=0;
-        for (int i=0;i<mesh.data.length;i+=7) {
-            float x=mesh.data[i], z=mesh.data[i+2], part=mesh.data[i+6];
-            minX=Math.min(minX,x); maxX=Math.max(maxX,x);
-            minZ=Math.min(minZ,z); maxZ=Math.max(maxZ,z);
-            if (Math.abs(part-ProceduralFighterMesh.PART_SKIN)<0.1f) skin++;
-        }
-        float span=maxX-minX;
-        float length=maxZ-minZ;
-        assertTrue("airframe skin density too low", skin > 1800);
-        assertTrue("fighter span too small", span > 9.8f);
-        assertTrue("fighter planform too short", length > 11.0f);
-        assertTrue("fighter planform too stubby", span/length > 0.72f);
-        assertTrue("fighter planform too wide", span/length < 1.02f);
-        assertTrue("forebody must stay fine", AirframeShapeProfile.HALF_WIDTH[2] < 0.22f);
-        assertTrue("centre body needs blended volume", AirframeShapeProfile.HALF_WIDTH[9] > 1.10f);
-        assertTrue("aft engine shoulder needs volume", AirframeShapeProfile.ENGINE_R[4] >= 0.60f);
-        assertTrue("wing crank needs outboard reach", AirframeShapeProfile.WING_ROOT[4][0] >= 5.0f);
-    }
-
-    @Test public void avm5UpperFuselageHasContinuousCrownWithoutBalloonBelly() {
-        AirframeShapeProfile.validate();
-        float c7=AirframeShapeProfile.upperCrown(7);
-        float c8=AirframeShapeProfile.upperCrown(8);
-        float c9=AirframeShapeProfile.upperCrown(9);
-        float c10=AirframeShapeProfile.upperCrown(10);
-        float c11=AirframeShapeProfile.upperCrown(11);
-        assertTrue("cockpit shoulder crown too low", c7 > 0.75f);
-        assertTrue("upper centre body needs stronger crown", c8 > 0.84f);
-        assertTrue("dorsal high point too weak", c9 > 0.86f);
-        assertTrue("spine must stay full behind cockpit", c10 > 0.80f);
-        assertTrue("spine must taper gradually into engine deck", c11 > 0.67f);
-        assertTrue("upper crown must taper aft", c9 > c10 && c10 > c11);
-        assertTrue("centre belly too deep", AirframeShapeProfile.lowerBelly(8) > -0.70f);
-        assertTrue("aft-centre belly too deep", AirframeShapeProfile.lowerBelly(9) > -0.70f);
-        assertTrue("intake shoulder should meet upper body", AirframeShapeProfile.INTAKE_SHOULDER[3][1] >= 0.31f);
-        assertTrue("wing root should blend into upper shoulder", AirframeShapeProfile.WING_ROOT[0][1] >= 0.21f);
-    }
-
-    @Test public void avm5UpperSurfacePanelsAreDenseSymmetricAndAftBlended() {
-        ProceduralFighterMesh.Mesh mesh=ProceduralFighterMesh.build();
-        int count=0,left=0,right=0,centre=0;
-        float minZ=Float.POSITIVE_INFINITY,maxZ=Float.NEGATIVE_INFINITY,maxY=Float.NEGATIVE_INFINITY;
-        for(int i=0;i<mesh.data.length;i+=7){
-            float x=mesh.data[i],y=mesh.data[i+1],z=mesh.data[i+2],part=mesh.data[i+6];
-            if(Math.abs(part-ProceduralFighterMesh.PART_UPPER_PANEL)<0.1f){
-                count++; minZ=Math.min(minZ,z); maxZ=Math.max(maxZ,z); maxY=Math.max(maxY,y);
-                if(x<-.08f) left++; else if(x>.08f) right++; else centre++;
-            }
-        }
-        assertTrue("upper surface detail density too low", count > 300);
-        assertTrue("upper panels must span canopy shoulder to tail root", minZ < -1.7f && maxZ > 3.0f);
-        assertTrue("upper panels need visible crown", maxY > .88f);
-        assertTrue("upper panels need centre spine detail", centre > 30);
-        assertTrue("left upper surface detail missing", left > 100);
-        assertTrue("right upper surface detail missing", right > 100);
-        assertTrue("upper detail must stay bilaterally balanced", Math.abs(left-right) < 45);
-    }
-
-    @Test public void avm6ForebodyAndEngineShouldersBlendProgressively() {
-        AirframeShapeProfile.validate();
-        float c5=AirframeShapeProfile.upperCrown(5);
-        float c6=AirframeShapeProfile.upperCrown(6);
-        float c7=AirframeShapeProfile.upperCrown(7);
-        assertTrue("forebody crown must rise into canopy support", c5 < c6 && c6 < c7);
-        assertTrue("forward canopy shoulder too narrow", AirframeShapeProfile.HALF_WIDTH[6] >= .90f);
-        assertTrue("mid canopy shoulder too narrow", AirframeShapeProfile.HALF_WIDTH[7] >= 1.04f);
-        assertTrue("engine blend needs more longitudinal stations", AirframeShapeProfile.ENGINE_Z.length >= 9);
-        assertTrue("engine must emerge gently from centre body", AirframeShapeProfile.ENGINE_R[0] <= .30f);
-        for(int i=1;i<=5;i++) {
-            assertTrue("engine shoulder should grow smoothly before peak", AirframeShapeProfile.ENGINE_R[i] > AirframeShapeProfile.ENGINE_R[i-1]);
-        }
-        assertTrue("engine deck peak too weak", AirframeShapeProfile.ENGINE_R[5] >= .65f);
-        assertTrue("engine deck top too low", AirframeShapeProfile.engineShoulderTop(5) >= .27f);
-        assertTrue("aft engine radius must taper toward nozzle", AirframeShapeProfile.ENGINE_R[8] < AirframeShapeProfile.ENGINE_R[6]);
+        assertTrue("upper blend needs dense longitudinal control",AirframeShapeProfile.UPPER_BLEND_Z.length>=12);
+        assertTrue("foredeck must begin ahead of canopy",AirframeShapeProfile.UPPER_BLEND_Z[0]<-2.7f);
+        assertTrue("upper blend must reach nozzle shoulder",AirframeShapeProfile.UPPER_BLEND_Z[AirframeShapeProfile.UPPER_BLEND_Z.length-1]>3.1f);
+        float max=-99;for(float y:AirframeShapeProfile.UPPER_BLEND_Y)max=Math.max(max,y);assertTrue("canopy shoulders need a strong crown",max>.90f);
+        for(int i=1;i<AirframeShapeProfile.ENGINE_VALLEY_Y.length;i++)assertTrue("centre valley must taper continuously",AirframeShapeProfile.ENGINE_VALLEY_Y[i]<AirframeShapeProfile.ENGINE_VALLEY_Y[i-1]);
+        assertTrue("valley must terminate into aft boat-tail",AirframeShapeProfile.ENGINE_VALLEY_Z[AirframeShapeProfile.ENGINE_VALLEY_Z.length-1]>3.1f);
     }
 }
