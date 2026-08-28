@@ -11,7 +11,8 @@ public final class ProceduralFighterMesh {
             PART_CANOPY_FRAME=11f, PART_NOZZLE_INNER=12f, PART_GEAR_STRUT=13f,
             PART_GEAR_WHEEL=14f, PART_GEAR_DOOR=15f, PART_COCKPIT_TUB=16f,
             PART_SEAT=17f, PART_COAMING=18f, PART_INTAKE_DUCT=19f,
-            PART_COMPRESSOR_FACE=20f, PART_NOZZLE_PETAL=21f, PART_FLAME_CORE=22f;
+            PART_COMPRESSOR_FACE=20f, PART_NOZZLE_PETAL=21f, PART_FLAME_CORE=22f,
+            PART_UPPER_PANEL=23f;
 
     public static final class Mesh {
         public final float[] data;
@@ -27,7 +28,8 @@ public final class ProceduralFighterMesh {
         ProceduralFighterMesh b=new ProceduralFighterMesh();
         b.part=PART_SKIN;
         b.fuselage(); b.chine(-1f); b.chine(1f); b.noseCrown(); b.upperDeck(); b.canopySill(); b.cockpitRearDeck();
-        b.wing(-1f); b.wing(1f); b.aftShoulderBridge(); b.boatTail();
+        b.part=PART_UPPER_PANEL; b.upperSpinePanel(); b.canopyShoulderPanels(); b.engineDeckPanels(); b.tailRootFairing();
+        b.part=PART_SKIN; b.wing(-1f); b.wing(1f); b.aftShoulderBridge(); b.boatTail();
         b.part=PART_FLAPERON_L; b.flaperon(-1f); b.part=PART_FLAPERON_R; b.flaperon(1f);
         b.part=PART_STAB_L; b.stabilator(-1f); b.part=PART_STAB_R; b.stabilator(1f);
         b.part=PART_RUDDER_L; b.verticalTail(-1f); b.part=PART_RUDDER_R; b.verticalTail(1f);
@@ -58,6 +60,26 @@ public final class ProceduralFighterMesh {
     private void upperDeck(){prism(new float[][]{{-.48f,.55f,-2.82f},{.48f,.55f,-2.82f},{.69f,.70f,-1.82f},{.79f,.84f,-.72f},{.82f,.88f,.34f},{.75f,.84f,1.30f},{.61f,.76f,2.18f},{.43f,.64f,2.78f},{-.43f,.64f,2.78f},{-.61f,.76f,2.18f},{-.75f,.84f,1.30f},{-.82f,.88f,.34f},{-.79f,.84f,-.72f},{-.69f,.70f,-1.82f}},.18f);}
     private void canopySill(){prism(new float[][]{{-.60f,.73f,-2.16f},{.60f,.73f,-2.16f},{.64f,.78f,-1.62f},{.61f,.82f,-.78f},{.53f,.84f,.06f},{.41f,.80f,.82f},{-.41f,.80f,.82f},{-.53f,.84f,.06f},{-.61f,.82f,-.78f},{-.64f,.78f,-1.62f}},.115f);prism(new float[][]{{-.50f,.60f,-2.82f},{.50f,.60f,-2.82f},{.59f,.72f,-2.16f},{-.59f,.72f,-2.16f}},.10f);}
     private void cockpitRearDeck(){prism(new float[][]{{-.41f,.80f,.68f},{.41f,.80f,.68f},{.49f,.83f,.98f},{.45f,.81f,1.30f},{.34f,.75f,1.58f},{-.34f,.75f,1.58f},{-.45f,.81f,1.30f},{-.49f,.83f,.98f}},.13f);}
+
+    private void upperSpinePanel(){
+        prism(new float[][]{{-.31f,.865f,.72f},{.31f,.865f,.72f},{.36f,.86f,1.15f},{.34f,.82f,1.68f},{.28f,.75f,2.18f},{.20f,.66f,2.62f},{-.20f,.66f,2.62f},{-.28f,.75f,2.18f},{-.34f,.82f,1.68f},{-.36f,.86f,1.15f}},.035f);
+        prism(new float[][]{{-.10f,.895f,.84f},{.10f,.895f,.84f},{.12f,.88f,1.54f},{.10f,.80f,2.20f},{.06f,.70f,2.58f},{-.06f,.70f,2.58f},{-.10f,.80f,2.20f},{-.12f,.88f,1.54f}},.024f);
+    }
+    private void canopyShoulderPanels(){
+        prism(new float[][]{{-.63f,.805f,-1.92f},{-.50f,.885f,-1.78f},{-.48f,.90f,-.40f},{-.42f,.865f,.48f},{-.54f,.815f,.70f},{-.61f,.79f,-.62f}},.030f);
+        prism(new float[][]{{.50f,.885f,-1.78f},{.63f,.805f,-1.92f},{.61f,.79f,-.62f},{.54f,.815f,.70f},{.42f,.865f,.48f},{.48f,.90f,-.40f}},.030f);
+    }
+    private void engineDeckPanels(){
+        prism(new float[][]{{-1.22f,.46f,.72f},{-.48f,.68f,.90f},{-.45f,.65f,2.18f},{-.60f,.54f,2.84f},{-1.00f,.39f,3.08f},{-1.18f,.44f,1.72f}},.045f);
+        prism(new float[][]{{.48f,.68f,.90f},{1.22f,.46f,.72f},{1.18f,.44f,1.72f},{1.00f,.39f,3.08f},{.60f,.54f,2.84f},{.45f,.65f,2.18f}},.045f);
+        prism(new float[][]{{-.98f,.50f,1.05f},{-.48f,.69f,1.10f},{-.44f,.64f,2.02f},{-.57f,.54f,2.64f},{-.89f,.43f,2.78f}},.022f);
+        prism(new float[][]{{.48f,.69f,1.10f},{.98f,.50f,1.05f},{.89f,.43f,2.78f},{.57f,.54f,2.64f},{.44f,.64f,2.02f}},.022f);
+    }
+    private void tailRootFairing(){
+        prism(new float[][]{{-.72f,.55f,1.48f},{-.57f,.70f,1.58f},{-.68f,.70f,2.50f},{-.91f,.53f,2.98f},{-1.03f,.46f,2.30f}},.050f);
+        prism(new float[][]{{.57f,.70f,1.58f},{.72f,.55f,1.48f},{1.03f,.46f,2.30f},{.91f,.53f,2.98f},{.68f,.70f,2.50f}},.050f);
+    }
+
     private void wing(float side){float[][] src=AirframeShapeProfile.WING_ROOT,top=new float[src.length][3];for(int i=0;i<src.length;i++)top[i]=new float[]{src[i][0]*side,src[i][1],src[i][2]};prism(top,.30f);}
     private void aftShoulderBridge(){prism(new float[][]{{-1.30f,.38f,.72f},{1.30f,.38f,.72f},{1.25f,.43f,1.62f},{1.16f,.39f,2.48f},{.98f,.28f,3.12f},{-.98f,.28f,3.12f},{-1.16f,.39f,2.48f},{-1.25f,.43f,1.62f}},.20f);}
     private void boatTail(){prism(new float[][]{{-1.12f,.24f,2.66f},{1.12f,.24f,2.66f},{1.04f,.18f,3.05f},{.94f,.10f,3.38f},{.38f,.02f,3.48f},{-.38f,.02f,3.48f},{-.94f,.10f,3.38f},{-1.04f,.18f,3.05f}},.24f);prism(new float[][]{{-.20f,.11f,2.72f},{.20f,.11f,2.72f},{.28f,.06f,3.40f},{-.28f,.06f,3.40f}},.19f);}
