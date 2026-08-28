@@ -5,6 +5,7 @@ public final class GuidanceModels {
 
     public enum Direction { LEFT, CENTER, RIGHT, UNKNOWN }
     public enum Risk { INFO, CAUTION, STOP }
+    public enum LevelChangeKind { UPWARD_CANDIDATE, DOWNWARD_CANDIDATE, MULTI_LEVEL_CANDIDATE, UNKNOWN }
 
     public record MotionObservation(
             float changedAreaRatio,
@@ -91,6 +92,28 @@ public final class GuidanceModels {
             return validRatio >= 0.42f
                     && discontinuityScore >= 0.62f
                     && depthConfidence >= 0.58f;
+        }
+    }
+
+    /**
+     * Conservative relative level-change evidence from an upright, camera-aligned depth profile.
+     * Kind names are candidates only: they do NOT certify a curb, hole, stair or safe step.
+     */
+    public record LevelChangeObservation(
+            LevelChangeKind kind,
+            float candidateScore,
+            float boundaryScore,
+            float trendResidualScore,
+            float multiLevelScore,
+            float persistenceScore,
+            float depthConfidence,
+            float boundaryY,
+            long timestampMs) {
+        public boolean persistentCandidate() {
+            return kind != LevelChangeKind.UNKNOWN
+                    && candidateScore >= 0.58f
+                    && persistenceScore >= 0.56f
+                    && depthConfidence >= 0.50f;
         }
     }
 
