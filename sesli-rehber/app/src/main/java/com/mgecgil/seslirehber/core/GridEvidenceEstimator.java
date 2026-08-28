@@ -40,6 +40,7 @@ public final class GridEvidenceEstimator {
         PerceptionContext.noteSceneHealth(sceneHealth);
         GroundObservation ground = groundEstimator.estimate(
                 current, previous, width, height, rotationDegrees, havePrevious, timestampMs);
+        PerceptionContext.noteGround(ground);
 
         if (!havePrevious) {
             System.arraycopy(current, 0, previous, 0, previous.length);
