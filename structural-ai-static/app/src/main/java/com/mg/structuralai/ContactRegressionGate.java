@@ -28,8 +28,9 @@ public final class ContactRegressionGate {
             StaticFemSolver.Result fc=compress.solve();boolean compressionOk=fc.linearSolve.converged&&fc.activeFrictionlessContacts>0&&fc.forceEquilibriumRelativeError<1e-4;
 
             StaticFemSolver opening=new StaticFemSolver(asm.mesh,mat);opening.addContactConstraints(friction);
-            // Once contact opens, the right component would otherwise become a free rigid body and K loses SPD.
-            // Constrain tangential rigid modes plus ONE reference normal DOF only. The remaining interface nodes are free to release.
+            // Once contact opens, the right component becomes mechanically independent. Use a minimal 3-2-1
+            // reference stabilization on its far face: node1 XYZ, node2 YZ, node3 Z. This removes all six rigid-body
+            // modes without tying the interface or forcing the contact itself to remain closed.
             stabilizeTangential(opening,asm.mesh,b,tol,true);
             int interfaceLoads=0;double fpair=1.0/Math.max(1,fpairs);
             for(ContactConstraintSet.Pair p:friction.pairs){
@@ -48,16 +49,23 @@ public final class ContactRegressionGate {
         }catch(Exception e){return new Result(false,"CONTACT REGRESSION EXCEPTION: "+e.getMessage());}
     }
 
-    private static void stabilizeTangential(StaticFemSolver s,TetMeshData m,Bounds b,double tol,boolean anchorOneNormalDof){
-        int first=-1,second=-1;
+    private static void stabilizeTangential(StaticFemSolver s,TetMeshData m,Bounds b,double tol,boolean full321){
+        int first=-1,second=-1,third=-1;
         for(int i=0;i<m.nodes.size();i++){
             MeshModel.V3 p=m.nodes.get(i);
             if(p.x<=b.xmin+tol)s.fixNode(i);
-            if(p.x>=b.xmax-tol){if(first<0)first=i;else if(second<0)second=i;}
+            if(p.x>=b.xmax-tol){
+                if(first<0)first=i;
+                else if(second<0&&geometricallyDistinct(m.nodes.get(first),p))second=i;
+                else if(third<0&&second>=0&&geometricallyDistinct(m.nodes.get(first),p)&&geometricallyDistinct(m.nodes.get(second),p))third=i;
+            }
         }
-        if(first>=0){s.fixDof(3*first+1);s.fixDof(3*first+2);if(anchorOneNormalDof)s.fixDof(3*first);}
-        if(second>=0)s.fixDof(3*second+2);
+        if(first>=0){s.fixDof(3*first+1);s.fixDof(3*first+2);if(full321)s.fixDof(3*first);}
+        if(second>=0){s.fixDof(3*second+2);if(full321)s.fixDof(3*second+1);}
+        if(full321&&third>=0)s.fixDof(3*third+2);
+        if(full321&&(first<0||second<0||third<0))throw new IllegalStateException("3-2-1 contact stabilization could not find three independent far-face nodes");
     }
+    private static boolean geometricallyDistinct(MeshModel.V3 a,MeshModel.V3 b){double dx=a.x-b.x,dy=a.y-b.y,dz=a.z-b.z;return dx*dx+dy*dy+dz*dz>1e-24;}
     private static final class Bounds{double xmin=1e99,xmax=-1e99;}private static Bounds bounds(TetMeshData m){Bounds b=new Bounds();for(MeshModel.V3 p:m.nodes){b.xmin=Math.min(b.xmin,p.x);b.xmax=Math.max(b.xmax,p.x);}return b;}
     private static MeshModel twoBlocks(double gap){MeshModel m=new MeshModel();addBox(m,0,10,0,10,0,10);addBox(m,10+gap,20+gap,0,10,0,10);return m;}
     private static void addBox(MeshModel m,double x0,double x1,double y0,double y1,double z0,double z1){int o=m.vertices.size();double[][] p={{x0,y0,z0},{x1,y0,z0},{x1,y1,z0},{x0,y1,z0},{x0,y0,z1},{x1,y0,z1},{x1,y1,z1},{x0,y1,z1}};for(double[] q:p)m.addVertex(new MeshModel.V3(q[0],q[1],q[2]));int[][] f={{0,2,1},{0,3,2},{4,5,6},{4,6,7},{0,1,5},{0,5,4},{3,7,6},{3,6,2},{0,4,7},{0,7,3},{1,2,6},{1,6,5}};for(int[] t:f)m.triangles.add(new int[]{o+t[0],o+t[1],o+t[2]});}
