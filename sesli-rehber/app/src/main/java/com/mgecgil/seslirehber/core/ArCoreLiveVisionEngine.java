@@ -18,6 +18,7 @@ import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -104,7 +105,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             session = localSession;
 
             int imageRotationDegrees = resolveImageRotation(localSession, displayRotation);
-            listener.onStatus("ARCore canlı derinlik modu aktif. Yakın güvenlik ve çok ölçekli uzak görüş birlikte izleniyor.");
+            listener.onStatus("ARCore canlı derinlik modu aktif. Yakın güvenlik, çoklu nesne izleri ve uzak görüş birlikte izleniyor.");
 
             long lastFrameTimestampNs = Long.MIN_VALUE;
             while (running.get()) {
@@ -193,9 +194,9 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
 
             objectDetector.process(input)
                     .addOnSuccessListener(objects -> {
-                        ObjectObservation best = objectTracker.selectMostRelevant(
+                        List<ObjectObservation> observations = objectTracker.observeAll(
                                 objects, uprightWidth, uprightHeight, nowMs);
-                        if (best != null) listener.onObject(best);
+                        for (ObjectObservation observation : observations) listener.onObject(observation);
                     })
                     .addOnCompleteListener(task -> {
                         heldImage.close();
