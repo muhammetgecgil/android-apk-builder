@@ -28,7 +28,10 @@ public final class ProceduralFighterMesh {
         ProceduralFighterMesh b=new ProceduralFighterMesh();
         b.part=PART_SKIN;
         b.fuselage(); b.chine(-1f); b.chine(1f); b.noseCrown(); b.upperDeck(); b.canopySill(); b.cockpitRearDeck();
-        b.part=PART_UPPER_PANEL; b.noseCanopyBlend(); b.upperSpinePanel(); b.centerlineDorsalRidge(); b.canopyShoulderPanels(); b.engineDeckPanels(); b.engineDeckBulges(); b.tailRootFairing();
+        b.part=PART_UPPER_PANEL;
+        b.noseCanopyBlend(); b.upperSpinePanel(); b.centerlineDorsalRidge(); b.canopyShoulderPanels();
+        b.wingRootUpperFairings(); b.engineDeckPanels(); b.engineDeckBulges(); b.twinEngineCenterValley();
+        b.nozzleShoulderShrouds(); b.tailRootFairing(); b.verticalTailRootShoulders();
         b.part=PART_SKIN; b.wing(-1f); b.wing(1f); b.aftShoulderBridge(); b.boatTail();
         b.part=PART_FLAPERON_L; b.flaperon(-1f); b.part=PART_FLAPERON_R; b.flaperon(1f);
         b.part=PART_STAB_L; b.stabilator(-1f); b.part=PART_STAB_R; b.stabilator(1f);
@@ -78,6 +81,11 @@ public final class ProceduralFighterMesh {
         prism(new float[][]{{-.63f,.805f,-1.92f},{-.50f,.885f,-1.78f},{-.48f,.90f,-.40f},{-.42f,.865f,.48f},{-.54f,.815f,.70f},{-.61f,.79f,-.62f}},.030f);
         prism(new float[][]{{.50f,.885f,-1.78f},{.63f,.805f,-1.92f},{.61f,.79f,-.62f},{.54f,.815f,.70f},{.42f,.865f,.48f},{.48f,.90f,-.40f}},.030f);
     }
+    private void wingRootUpperFairings(){wingRootUpperFairing(-1f);wingRootUpperFairing(1f);}
+    private void wingRootUpperFairing(float side){
+        prism(new float[][]{{.72f*side,.42f,-2.62f},{1.18f*side,.40f,-2.52f},{1.62f*side,.36f,-2.18f},{2.16f*side,.31f,-1.72f},{2.60f*side,.27f,-1.28f},{2.18f*side,.30f,-.78f},{1.62f*side,.36f,-.52f},{1.12f*side,.48f,-.64f},{.82f*side,.58f,-1.28f}},.055f);
+        prism(new float[][]{{.86f*side,.54f,-1.34f},{1.22f*side,.47f,-1.08f},{1.66f*side,.39f,-.62f},{1.92f*side,.33f,-.18f},{1.56f*side,.38f,.32f},{1.16f*side,.49f,.48f},{.88f*side,.62f,.16f}},.038f);
+    }
     private void engineDeckPanels(){
         prism(new float[][]{{-1.22f,.46f,.72f},{-.48f,.68f,.90f},{-.45f,.65f,2.18f},{-.60f,.54f,2.84f},{-1.00f,.39f,3.08f},{-1.18f,.44f,1.72f}},.045f);
         prism(new float[][]{{.48f,.68f,.90f},{1.22f,.46f,.72f},{1.18f,.44f,1.72f},{1.00f,.39f,3.08f},{.60f,.54f,2.84f},{.45f,.65f,2.18f}},.045f);
@@ -99,9 +107,35 @@ public final class ProceduralFighterMesh {
             quad(a,ai,di,d);quad(b,c,ci,bi);
         }
     }
+    private void twinEngineCenterValley(){
+        float[] z=AirframeShapeProfile.ENGINE_VALLEY_Z,y=AirframeShapeProfile.ENGINE_VALLEY_Y;
+        float[] half={.38f,.40f,.42f,.44f,.46f,.44f,.36f};
+        for(int i=0;i<z.length-1;i++){
+            float[] a={-half[i],y[i],z[i]},b={half[i],y[i],z[i]},c={half[i+1],y[i+1],z[i+1]},d={-half[i+1],y[i+1],z[i+1]};
+            quad(a,b,c,d);
+            float[] ai=offset(a,0,-.026f,0),bi=offset(b,0,-.026f,0),ci=offset(c,0,-.026f,0),di=offset(d,0,-.026f,0);
+            quad(di,ci,bi,ai);quad(a,ai,bi,b);quad(d,c,ci,di);
+        }
+    }
+    private void nozzleShoulderShrouds(){nozzleShoulderShroud(-1f);nozzleShoulderShroud(1f);}
+    private void nozzleShoulderShroud(float side){
+        float[] z=AirframeShapeProfile.NOZZLE_SHROUD_Z,w=AirframeShapeProfile.NOZZLE_SHROUD_HALF_WIDTH,y=AirframeShapeProfile.NOZZLE_SHROUD_Y;
+        for(int i=0;i<z.length-1;i++){
+            float cx=.70f*side;
+            float[] a={cx-w[i]*side,y[i],z[i]},b={cx+w[i]*side,y[i]-.08f,z[i]},c={cx+w[i+1]*side,y[i+1]-.08f,z[i+1]},d={cx-w[i+1]*side,y[i+1],z[i+1]};
+            if(side<0f) quad(b,a,d,c); else quad(a,b,c,d);
+            float[] ai=offset(a,0,-.045f,0),bi=offset(b,0,-.045f,0),ci=offset(c,0,-.045f,0),di=offset(d,0,-.045f,0);
+            if(side<0f) quad(ai,bi,ci,di); else quad(bi,ai,di,ci);
+            quad(a,ai,di,d);quad(b,c,ci,bi);
+        }
+    }
     private void tailRootFairing(){
         prism(new float[][]{{-.72f,.55f,1.48f},{-.57f,.70f,1.58f},{-.68f,.70f,2.50f},{-.91f,.53f,2.98f},{-1.03f,.46f,2.30f}},.050f);
         prism(new float[][]{{.57f,.70f,1.58f},{.72f,.55f,1.48f},{1.03f,.46f,2.30f},{.91f,.53f,2.98f},{.68f,.70f,2.50f}},.050f);
+    }
+    private void verticalTailRootShoulders(){verticalTailRootShoulder(-1f);verticalTailRootShoulder(1f);}
+    private void verticalTailRootShoulder(float side){
+        prism(new float[][]{{.52f*side,.61f,1.42f},{.76f*side,.67f,1.54f},{1.02f*side,.58f,1.92f},{1.10f*side,.48f,2.54f},{.92f*side,.47f,3.04f},{.70f*side,.61f,2.62f},{.58f*side,.69f,2.02f}},.075f);
     }
 
     private void wing(float side){float[][] src=AirframeShapeProfile.WING_ROOT,top=new float[src.length][3];for(int i=0;i<src.length;i++)top[i]=new float[]{src[i][0]*side,src[i][1],src[i][2]};prism(top,.30f);}
