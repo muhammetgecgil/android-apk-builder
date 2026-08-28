@@ -36,6 +36,9 @@ jobs:
         with:
           gradle-version: '8.13'
 
+      - name: Verify v8 6DOF numerical solver
+        run: python3 whiffletree-aero/tools/verify_6dof.py
+
       - name: Restore stable signing key when configured
         env:
           WHIFFLETREE_KEYSTORE_B64: ${{ secrets.WHIFFLETREE_KEYSTORE_B64 }}
