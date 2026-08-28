@@ -6,19 +6,13 @@
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/AppTheme">
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
         <activity android:name=".VisualWorkbenchActivity" android:screenOrientation="unspecified" android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
+        <activity android:name=".BearingFamilyActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".VisualHomeActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".MachineElementStudioActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".MachineElementVisualLabActivity" android:screenOrientation="unspecified" android:exported="false" />
