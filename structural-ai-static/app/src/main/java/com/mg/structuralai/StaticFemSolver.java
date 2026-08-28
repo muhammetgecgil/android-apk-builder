@@ -10,10 +10,11 @@ public final class StaticFemSolver {
         public final double[] displacement,reactions,elementVonMisesPa;
         public final double maxDisplacementM,maxVonMisesPa,forceEquilibriumRelativeError;
         public final SparsePcgSolver.Result linearSolve;
+        public final LinearElasticMaterial material;
         public final int activeFrictionlessContacts,contactIterations;
         public final int activeFrictionalContacts,stickingFrictionalContacts,slidingFrictionalContacts;
-        Result(double[] u,double[] r,double[] vm,double mu,double mv,double eq,SparsePcgSolver.Result ls,int ac,int it,int af,int sf,int sl){
-            displacement=u;reactions=r;elementVonMisesPa=vm;maxDisplacementM=mu;maxVonMisesPa=mv;forceEquilibriumRelativeError=eq;linearSolve=ls;activeFrictionlessContacts=ac;contactIterations=it;activeFrictionalContacts=af;stickingFrictionalContacts=sf;slidingFrictionalContacts=sl;
+        Result(double[] u,double[] r,double[] vm,double mu,double mv,double eq,SparsePcgSolver.Result ls,LinearElasticMaterial mat,int ac,int it,int af,int sf,int sl){
+            displacement=u;reactions=r;elementVonMisesPa=vm;maxDisplacementM=mu;maxVonMisesPa=mv;forceEquilibriumRelativeError=eq;linearSolve=ls;material=mat;activeFrictionlessContacts=ac;contactIterations=it;activeFrictionalContacts=af;stickingFrictionalContacts=sf;slidingFrictionalContacts=sl;
         }
     }
     private static final class Tie { final int a,b; final double factor; Tie(int a,int b,double f){this.a=a;this.b=b;factor=f;} }
@@ -35,23 +36,20 @@ public final class StaticFemSolver {
     public void addBondedTie(int a,int b,double f){checkPair(a,b);bondedTies.add(new Tie(a,b,Math.max(10.0,Math.min(1e6,f))));}
     public void addNoSeparationNormal(int a,int b,MeshModel.V3 n,double f,double g){checkPair(a,b);normalConstraints.add(new NormalConstraint(a,b,n,f,g,false));}
     public void addFrictionlessNormal(int a,int b,MeshModel.V3 n,double f,double g){checkPair(a,b);normalConstraints.add(new NormalConstraint(a,b,n,f,g,true));}
-    /** Coulomb friction: unilateral normal contact plus tangential stick/slip active set. */
-    public void addFrictionalContact(int a,int b,MeshModel.V3 n,double normalFactor,double tangentialFactor,double gapM,double mu){
-        checkPair(a,b);int ordinal=unilateralCount();normalConstraints.add(new NormalConstraint(a,b,n,normalFactor,gapM,true));frictionConstraints.add(new FrictionConstraint(a,b,n,mu,tangentialFactor,ordinal));
-    }
+    public void addFrictionalContact(int a,int b,MeshModel.V3 n,double normalFactor,double tangentialFactor,double gapM,double mu){checkPair(a,b);int ordinal=unilateralCount();normalConstraints.add(new NormalConstraint(a,b,n,normalFactor,gapM,true));frictionConstraints.add(new FrictionConstraint(a,b,n,mu,tangentialFactor,ordinal));}
     public void addContactConstraints(ContactConstraintSet set){if(set==null)return;for(ContactConstraintSet.Pair p:set.pairs){if(p.kind==ContactConstraintSet.Kind.BONDED_TIE)addBondedTie(p.nodeA,p.nodeB,1e4);else if(p.kind==ContactConstraintSet.Kind.NO_SEPARATION_NORMAL)addNoSeparationNormal(p.nodeA,p.nodeB,p.normal,5e3,p.gapM);else if(p.kind==ContactConstraintSet.Kind.FRICTIONLESS_NORMAL)addFrictionlessNormal(p.nodeA,p.nodeB,p.normal,5e3,p.gapM);}}
 
     public Result solve(){
         int unilateralCount=unilateralCount();
-        boolean[] active=new boolean[unilateralCount]; int ai=0; double charL=characteristicLength();
+        boolean[] active=new boolean[unilateralCount];int ai=0;double charL=characteristicLength();
         double penetrationTol=Math.max(charL*1e-9,1e-12),openTol=Math.max(charL*1e-13,1e-15),frictionTol=1e-6;
         for(NormalConstraint c:normalConstraints)if(c.unilateral)active[ai++]=c.gapM<=penetrationTol;
         boolean[] stick=new boolean[frictionConstraints.size()];for(int i=0;i<stick.length;i++)stick[i]=true;
         double[][] slipForce=new double[frictionConstraints.size()][3];
-        SparsePcgSolver.Result ls=null;double[] u=null;SparsePcgSolver.Matrix raw=null;int iterations=0;double lastDiagScale=1.0;
+        SparsePcgSolver.Result ls=null;double[] u=null;SparsePcgSolver.Matrix raw=null;int iterations=0;
         int maxContactIter=Math.max(1,(unilateralCount>0||!frictionConstraints.isEmpty())?20:1);
         for(int contactIt=0;contactIt<maxContactIter;contactIt++){
-            iterations=contactIt+1;raw=assembleGlobal();double diagScale=averageDiagonal(raw);lastDiagScale=diagScale;applyBondedTies(raw,diagScale);applyNormalConstraints(raw,diagScale,active);applyFrictionStick(raw,diagScale,active,stick);
+            iterations=contactIt+1;raw=assembleGlobal();double diagScale=averageDiagonal(raw);applyBondedTies(raw,diagScale);applyNormalConstraints(raw,diagScale,active);applyFrictionStick(raw,diagScale,active,stick);
             double[] rhs=force.clone();applySlipForces(rhs,active,stick,slipForce);
             SparsePcgSolver.Matrix constrained=raw.copy();for(int i=0;i<mesh.dofCount();i++)if(fixed[i])constrained.applyZeroDirichlet(i,rhs);
             ls=SparsePcgSolver.solve(constrained,rhs,1e-10,Math.max(500,mesh.dofCount()*20));if(!ls.converged)throw new IllegalStateException("PCG did not converge: relResidual="+ls.relativeResidual);u=ls.x;
@@ -63,10 +61,7 @@ public final class StaticFemSolver {
                 double kn=diagScale*normalFactorForOrdinal(fc.normalOrdinal),kt=diagScale*fc.factor;double fn=Math.max(0.0,-kn*un);double trial=kt*ut,limit=fc.mu*fn;
                 boolean nextStick=trial<=limit*(1.0+frictionTol)+1e-12;
                 if(nextStick){if(!stick[fi]){stick[fi]=true;changed=true;}if(nonZero(slipForce[fi])){zero(slipForce[fi]);changed=true;}}
-                else{
-                    if(stick[fi]){stick[fi]=false;changed=true;}double[] nf=new double[3];if(ut>1e-30&&limit>0){nf[0]=-limit*tx/ut;nf[1]=-limit*ty/ut;nf[2]=-limit*tz/ut;}
-                    if(relativeChange(slipForce[fi],nf)>1e-4){slipForce[fi]=nf;changed=true;}
-                }
+                else{if(stick[fi]){stick[fi]=false;changed=true;}double[] nf=new double[3];if(ut>1e-30&&limit>0){nf[0]=-limit*tx/ut;nf[1]=-limit*ty/ut;nf[2]=-limit*tz/ut;}if(relativeChange(slipForce[fi],nf)>1e-4){slipForce[fi]=nf;changed=true;}}
             }
             if(!changed)break;
         }
@@ -77,7 +72,7 @@ public final class StaticFemSolver {
         double extFx=0,extFy=0,extFz=0,rx=0,ry=0,rz=0;for(int n=0;n<mesh.nodes.size();n++){extFx+=force[3*n];extFy+=force[3*n+1];extFz+=force[3*n+2];if(fixed[3*n]||fixed[3*n+1]||fixed[3*n+2]){rx+=reactions[3*n];ry+=reactions[3*n+1];rz+=reactions[3*n+2];}}
         double imbalance=Math.sqrt((extFx+rx)*(extFx+rx)+(extFy+ry)*(extFy+ry)+(extFz+rz)*(extFz+rz)),applied=Math.max(Math.sqrt(extFx*extFx+extFy*extFy+extFz*extFz),1e-30),eq=imbalance/applied;
         int activeCount=0;for(boolean a:active)if(a)activeCount++;int af=0,sf=0,sl=0;for(int fi=0;fi<frictionConstraints.size();fi++){FrictionConstraint fc=frictionConstraints.get(fi);if(fc.normalOrdinal<active.length&&active[fc.normalOrdinal]){af++;if(stick[fi])sf++;else sl++;}}
-        return new Result(u,reactions,vm,maxU,maxVm,eq,ls,activeCount,iterations,af,sf,sl);
+        return new Result(u,reactions,vm,maxU,maxVm,eq,ls,material,activeCount,iterations,af,sf,sl);
     }
     private SparsePcgSolver.Matrix assembleGlobal(){SparsePcgSolver.Matrix K=new SparsePcgSolver.Matrix(mesh.dofCount());for(int[] t:mesh.tets){Tet4Element.ElementResult er=Tet4Element.stiffness(mesh.nodes.get(t[0]),mesh.nodes.get(t[1]),mesh.nodes.get(t[2]),mesh.nodes.get(t[3]),material);for(int a=0;a<4;a++)for(int ca=0;ca<3;ca++){int I=3*t[a]+ca,li=3*a+ca;for(int b=0;b<4;b++)for(int cb=0;cb<3;cb++){int J=3*t[b]+cb,lj=3*b+cb;K.add(I,J,er.stiffness[li][lj]);}}}return K;}
     private void applyBondedTies(SparsePcgSolver.Matrix K,double d){for(Tie t:bondedTies){double kp=d*t.factor;for(int c=0;c<3;c++){int ia=3*t.a+c,ib=3*t.b+c;K.add(ia,ia,kp);K.add(ib,ib,kp);K.add(ia,ib,-kp);K.add(ib,ia,-kp);}}}
