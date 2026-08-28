@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 59
-        versionName = "1.17.4-mesh-feature-gate-fix"
+        versionCode = 60
+        versionName = "1.17.5-geometric-body-weld"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
