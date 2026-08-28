@@ -1,18 +1,40 @@
 plugins { id 'com.android.application' }
 
+def stableKeystorePath = System.getenv('WHIFFLETREE_KEYSTORE_PATH')
+def stableStorePassword = System.getenv('WHIFFLETREE_STORE_PASSWORD')
+def stableKeyPassword = System.getenv('WHIFFLETREE_KEY_PASSWORD')
+def stableKeyAlias = System.getenv('WHIFFLETREE_KEY_ALIAS')
+def hasStableSigning = stableKeystorePath && stableStorePassword && stableKeyPassword && stableKeyAlias && file(stableKeystorePath).exists()
+
 android {
     namespace 'com.mg.whiffletreeaero'
     compileSdk 36
 
     defaultConfig {
+        // Keep this ID forever. Android treats a different applicationId as a different app.
         applicationId 'com.mg.whiffletreeaero'
         minSdk 26
         targetSdk 36
-        versionCode 85
-        versionName '7.20.0'
+        versionCode 86
+        versionName '7.21.0'
     }
 
     buildFeatures { buildConfig true }
+
+    signingConfigs {
+        if (hasStableSigning) {
+            stableRelease {
+                storeFile file(stableKeystorePath)
+                storePassword stableStorePassword
+                keyAlias stableKeyAlias
+                keyPassword stableKeyPassword
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
+                enableV4Signing true
+            }
+        }
+    }
 
     flavorDimensions 'distribution'
     productFlavors {
@@ -31,6 +53,7 @@ android {
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (hasStableSigning) signingConfig signingConfigs.stableRelease
         }
     }
 }
