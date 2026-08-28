@@ -1,76 +1,81 @@
 package com.mg.fixturecockpitsim.visual;
 
 /**
- * AVM-1 unified stealth airframe section profile.
+ * Unified modern-fighter airframe section profile.
  *
- * The procedural renderer is moving away from independent ad-hoc prisms. These
- * stations describe a single longitudinal shape language for nose, canopy
- * shoulder, intake shoulder, wing root and aft engine-body transitions.
+ * AVM-4 tightens the aircraft around one coherent shape language: a long fine
+ * forebody, broad blended centre body, swept cranked wing, buried intake
+ * shoulders and twin-engine aft volume.  The profile remains generic rather
+ * than reproducing one specific production aircraft.
  */
 public final class AirframeShapeProfile {
     private AirframeShapeProfile() {}
 
     /** Longitudinal stations, nose to exhaust shoulder. */
     public static final float[] Z = {
-            -6.20f, -5.72f, -5.10f, -4.42f, -3.58f, -2.62f,
-            -1.58f, -0.52f, 0.58f, 1.62f, 2.52f, 3.22f, 3.70f
+            -6.28f, -5.86f, -5.30f, -4.66f, -3.92f, -3.10f,
+            -2.18f, -1.18f, -0.18f, 0.82f, 1.76f, 2.56f, 3.18f, 3.62f
     };
 
     /** Half-width of the central pressure/body volume. */
     public static final float[] HALF_WIDTH = {
-            0.025f, 0.095f, 0.23f, 0.42f, 0.62f, 0.82f,
-            0.99f, 1.10f, 1.14f, 1.08f, 0.91f, 0.60f, 0.30f
+            0.020f, 0.070f, 0.18f, 0.34f, 0.52f, 0.70f,
+            0.88f, 1.02f, 1.11f, 1.14f, 1.10f, 0.98f, 0.78f, 0.50f
     };
 
     /** Half-height of the central body section. */
     public static final float[] HALF_HEIGHT = {
-            0.020f, 0.075f, 0.17f, 0.29f, 0.40f, 0.51f,
-            0.61f, 0.68f, 0.72f, 0.69f, 0.58f, 0.40f, 0.20f
+            0.018f, 0.055f, 0.13f, 0.23f, 0.34f, 0.45f,
+            0.56f, 0.64f, 0.69f, 0.70f, 0.66f, 0.57f, 0.45f, 0.30f
     };
 
-    /** Vertical centre shift used to flatten belly and raise cockpit shoulder. */
+    /** Vertical centre shift used to keep a flatter belly and raised upper deck. */
     public static final float[] CENTER_Y = {
-            -0.025f, -0.025f, -0.020f, -0.010f, 0.005f, 0.025f,
-            0.050f, 0.070f, 0.075f, 0.050f, 0.015f, -0.035f, -0.080f
+            -0.030f, -0.028f, -0.024f, -0.016f, -0.004f, 0.014f,
+            0.038f, 0.060f, 0.074f, 0.072f, 0.052f, 0.020f, -0.018f, -0.050f
     };
 
     /** Outboard chine target at each major forward-body station. */
     public static final float[][] CHINE = {
-            {0.11f, 0.13f, -5.62f},
-            {0.44f, 0.21f, -4.58f},
-            {0.83f, 0.27f, -3.62f},
-            {1.18f, 0.31f, -2.72f},
-            {1.52f, 0.30f, -1.78f},
-            {1.78f, 0.25f, -0.82f},
-            {1.86f, 0.22f,  0.06f},
-            {1.56f, 0.25f,  0.66f},
-            {1.16f, 0.30f,  1.04f}
+            {0.08f, 0.10f, -5.86f},
+            {0.27f, 0.17f, -5.02f},
+            {0.55f, 0.23f, -4.20f},
+            {0.90f, 0.28f, -3.40f},
+            {1.25f, 0.31f, -2.62f},
+            {1.57f, 0.30f, -1.78f},
+            {1.82f, 0.27f, -0.92f},
+            {1.92f, 0.24f, -0.10f},
+            {1.78f, 0.24f,  0.54f},
+            {1.46f, 0.28f,  1.06f}
     };
 
     /** Intake shoulder outer line, forward to aft. */
     public static final float[][] INTAKE_SHOULDER = {
-            {1.10f, 0.33f, -2.82f},
-            {1.48f, 0.32f, -2.30f},
-            {1.68f, 0.29f, -1.60f},
-            {1.70f, 0.25f, -0.72f},
-            {1.52f, 0.24f,  0.10f},
-            {1.18f, 0.28f,  0.68f}
+            {1.06f, 0.34f, -2.96f},
+            {1.39f, 0.34f, -2.54f},
+            {1.62f, 0.31f, -1.96f},
+            {1.76f, 0.27f, -1.24f},
+            {1.76f, 0.24f, -0.48f},
+            {1.60f, 0.24f,  0.20f},
+            {1.30f, 0.28f,  0.82f}
     };
 
-    /** Wing-root planform control points; x is unsigned and mirrored per side. */
+    /** Wing planform control points; x is unsigned and mirrored per side. */
     public static final float[][] WING_ROOT = {
-            {0.72f, 0.19f, -2.58f},
-            {1.55f, 0.20f, -2.08f},
-            {2.20f, 0.20f, -1.58f},
-            {4.96f, 0.20f, -0.06f},
-            {4.30f, 0.20f,  0.92f},
-            {3.28f, 0.20f,  1.55f},
-            {1.00f, 0.20f,  2.00f}
+            {0.78f, 0.20f, -2.66f},
+            {1.54f, 0.21f, -2.18f},
+            {2.26f, 0.21f, -1.68f},
+            {3.28f, 0.20f, -1.02f},
+            {5.10f, 0.19f,  0.02f},
+            {4.48f, 0.19f,  0.92f},
+            {3.48f, 0.19f,  1.54f},
+            {2.14f, 0.19f,  1.88f},
+            {1.04f, 0.20f,  2.10f}
     };
 
-    /** Engine shoulder radius profile. */
-    public static final float[] ENGINE_Z = {-0.28f, 0.48f, 1.28f, 2.12f, 2.86f, 3.24f};
-    public static final float[] ENGINE_R = { 0.38f, 0.50f, 0.58f, 0.60f, 0.52f, 0.44f};
+    /** Twin-engine shoulder radius profile, blended into the aft fuselage. */
+    public static final float[] ENGINE_Z = {-0.46f, 0.18f, 0.92f, 1.70f, 2.42f, 2.98f, 3.34f};
+    public static final float[] ENGINE_R = { 0.34f, 0.45f, 0.55f, 0.61f, 0.61f, 0.54f, 0.45f};
 
     public static void validate() {
         if (Z.length != HALF_WIDTH.length || Z.length != HALF_HEIGHT.length || Z.length != CENTER_Y.length) {
@@ -82,5 +87,11 @@ public final class AirframeShapeProfile {
         for (int i=1;i<Z.length;i++) {
             if (Z[i] <= Z[i-1]) throw new IllegalStateException("Airframe stations must increase aftward");
         }
+        for (int i=1;i<ENGINE_Z.length;i++) {
+            if (ENGINE_Z[i] <= ENGINE_Z[i-1]) throw new IllegalStateException("Engine stations must increase aftward");
+        }
+        if (WING_ROOT[4][0] < 5.0f) throw new IllegalStateException("Wing span below AVM-4 target");
+        if (HALF_WIDTH[8] < 1.05f || HALF_WIDTH[9] < 1.05f) throw new IllegalStateException("Centre body too narrow");
+        if (ENGINE_R[3] < 0.58f || ENGINE_R[4] < 0.58f) throw new IllegalStateException("Engine shoulders too weak");
     }
 }
