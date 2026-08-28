@@ -34,27 +34,17 @@ public class ProceduralFighterMeshTest {
         AirframeShapeProfile.validate();float c5=AirframeShapeProfile.upperCrown(5),c6=AirframeShapeProfile.upperCrown(6),c7=AirframeShapeProfile.upperCrown(7);assertTrue(c5<c6&&c6<c7);assertTrue(AirframeShapeProfile.HALF_WIDTH[6]>=.90f&&AirframeShapeProfile.HALF_WIDTH[7]>=1.04f);assertTrue(AirframeShapeProfile.ENGINE_Z.length>=9&&AirframeShapeProfile.ENGINE_R[0]<=.30f);for(int i=1;i<=5;i++)assertTrue(AirframeShapeProfile.ENGINE_R[i]>AirframeShapeProfile.ENGINE_R[i-1]);assertTrue(AirframeShapeProfile.ENGINE_R[5]>=.65f&&AirframeShapeProfile.engineShoulderTop(5)>=.27f&&AirframeShapeProfile.ENGINE_R[8]<AirframeShapeProfile.ENGINE_R[6]);
     }
     @Test public void avm7UpperSkinGuidesCloseTheVisualGaps(){
-        AirframeShapeProfile.validate();
-        assertTrue("upper blend needs dense longitudinal control",AirframeShapeProfile.UPPER_BLEND_Z.length>=12);
-        assertTrue("foredeck must begin ahead of canopy",AirframeShapeProfile.UPPER_BLEND_Z[0]<-2.7f);
-        assertTrue("upper blend must reach nozzle shoulder",AirframeShapeProfile.UPPER_BLEND_Z[AirframeShapeProfile.UPPER_BLEND_Z.length-1]>3.1f);
-        float max=-99;for(float y:AirframeShapeProfile.UPPER_BLEND_Y)max=Math.max(max,y);assertTrue("canopy shoulders need a strong crown",max>.90f);
-        for(int i=1;i<AirframeShapeProfile.ENGINE_VALLEY_Y.length;i++)assertTrue("centre valley must taper continuously",AirframeShapeProfile.ENGINE_VALLEY_Y[i]<AirframeShapeProfile.ENGINE_VALLEY_Y[i-1]);
-        assertTrue("valley must terminate into aft boat-tail",AirframeShapeProfile.ENGINE_VALLEY_Z[AirframeShapeProfile.ENGINE_VALLEY_Z.length-1]>3.1f);
+        AirframeShapeProfile.validate(); assertTrue(AirframeShapeProfile.UPPER_BLEND_Z.length>=12); assertTrue(AirframeShapeProfile.UPPER_BLEND_Z[0]<-2.7f); assertTrue(AirframeShapeProfile.UPPER_BLEND_Z[AirframeShapeProfile.UPPER_BLEND_Z.length-1]>3.1f);
+        float max=-99;for(float y:AirframeShapeProfile.UPPER_BLEND_Y)max=Math.max(max,y);assertTrue(max>.90f); for(int i=1;i<AirframeShapeProfile.ENGINE_VALLEY_Y.length;i++)assertTrue(AirframeShapeProfile.ENGINE_VALLEY_Y[i]<AirframeShapeProfile.ENGINE_VALLEY_Y[i-1]); assertTrue(AirframeShapeProfile.ENGINE_VALLEY_Z[AirframeShapeProfile.ENGINE_VALLEY_Z.length-1]>3.1f);
     }
     @Test public void avm74MarkedUpperFairingsStayFlushAndMeshStrideIsValid(){
-        ProceduralFighterMesh.Mesh m=ProceduralFighterMesh.build();
-        assertTrue("vertex data must retain seven-float stride",m.data.length%7==0);
-        int wingRoot=0,aftFairing=0;float maxWingRootY=-99f,maxAftY=-99f;
-        for(int i=0;i<m.data.length;i+=7){
-            float x=Math.abs(m.data[i]),y=m.data[i+1],z=m.data[i+2],p=m.data[i+6];
-            if(Math.abs(p-ProceduralFighterMesh.PART_UPPER_PANEL)>.1f)continue;
-            if(x>.70f&&x<2.55f&&z>-2.65f&&z<.55f){wingRoot++;maxWingRootY=Math.max(maxWingRootY,y);}
-            if(x>.50f&&x<1.12f&&z>1.40f&&z<3.22f){aftFairing++;maxAftY=Math.max(maxAftY,y);}
-        }
-        assertTrue("wing-root fairing needs real surface coverage",wingRoot>120);
-        assertTrue("tail-root fairing needs real surface coverage",aftFairing>100);
-        assertTrue("marked wing-root fairing must remain flush",maxWingRootY<.90f);
-        assertTrue("marked aft fairing must remain flush",maxAftY<.90f);
+        ProceduralFighterMesh.Mesh m=ProceduralFighterMesh.build(); assertTrue(m.data.length%7==0); int wingRoot=0,aftFairing=0;float maxWingRootY=-99f,maxAftY=-99f;
+        for(int i=0;i<m.data.length;i+=7){float x=Math.abs(m.data[i]),y=m.data[i+1],z=m.data[i+2],p=m.data[i+6];if(Math.abs(p-ProceduralFighterMesh.PART_UPPER_PANEL)>.1f)continue;if(x>.70f&&x<2.55f&&z>-2.65f&&z<.55f){wingRoot++;maxWingRootY=Math.max(maxWingRootY,y);}if(x>.50f&&x<1.12f&&z>1.40f&&z<3.22f){aftFairing++;maxAftY=Math.max(maxAftY,y);}}
+        assertTrue(wingRoot>120);assertTrue(aftFairing>100);assertTrue(maxWingRootY<.90f);assertTrue(maxAftY<.90f);
+    }
+    @Test public void avm8ExteriorHasNoExtremeProfileSpikesAndKeepsBilateralBalance(){
+        ProceduralFighterMesh.Mesh m=ProceduralFighterMesh.build(); int left=0,right=0,upper=0,rudder=0; float maxUpperY=-99f,minUpperY=99f;
+        for(int i=0;i<m.data.length;i+=7){float x=m.data[i],y=m.data[i+1],z=m.data[i+2],p=m.data[i+6];assertTrue("x bound",Math.abs(x)<6.0f);assertTrue("y bound",y>-2.2f&&y<2.8f);assertTrue("z bound",z>-6.5f&&z<5.5f);if(Math.abs(p-ProceduralFighterMesh.PART_UPPER_PANEL)<.1f){upper++;maxUpperY=Math.max(maxUpperY,y);minUpperY=Math.min(minUpperY,y);if(x<-.08f)left++;else if(x>.08f)right++;}if(Math.abs(p-ProceduralFighterMesh.PART_RUDDER_L)<.1f||Math.abs(p-ProceduralFighterMesh.PART_RUDDER_R)<.1f)rudder++;}
+        assertTrue("upper skin needs dense coverage",upper>650);assertTrue("bilateral upper geometry must remain balanced",Math.abs(left-right)<70);assertTrue("upper fairings must not form vertical fins",maxUpperY-minUpperY<1.05f);assertTrue("vertical tails must be volumetric",rudder>70);
     }
 }
