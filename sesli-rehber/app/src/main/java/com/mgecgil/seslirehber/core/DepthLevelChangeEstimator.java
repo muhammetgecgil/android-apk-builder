@@ -97,9 +97,9 @@ public final class DepthLevelChangeEstimator {
             return empty(timestampMs);
         }
 
-        float upperResidual = meanResidual(residual, valid, 0, strongestBoundary + 1);
-        float lowerResidual = meanResidual(residual, valid, strongestBoundary + 1, BAND_COUNT);
-        float signedSeparation = upperResidual - lowerResidual;
+        // The local residual jump is used for candidate direction because averaging every band on
+        // each side can suppress a real sharp edge after the dominant slope has been fitted out.
+        float signedSeparation = residual[strongestBoundary] - residual[strongestBoundary + 1];
         float separationMm = Math.abs(signedSeparation);
 
         float coverage = expected <= 0 ? 0f : validSamples / (float) expected;
@@ -107,7 +107,7 @@ public final class DepthLevelChangeEstimator {
         float bandScore = validBands / (float) BAND_COUNT;
         float depthConfidence = clamp01(0.56f * coverageScore + 0.44f * bandScore);
         float boundaryScore = clamp01((strongestJump - 260f) / 1150f);
-        float residualScore = clamp01((separationMm - 220f) / 1050f);
+        float residualScore = clamp01((separationMm - 260f) / 1150f);
         float multiLevelScore = clamp01((strongJumpCount - 1f) / 2f)
                 * clamp01(0.55f * boundaryScore + 0.45f * residualScore);
         float candidateScore = clamp01((0.52f * boundaryScore + 0.48f * residualScore)
@@ -116,10 +116,10 @@ public final class DepthLevelChangeEstimator {
         LevelChangeKind kind = LevelChangeKind.UNKNOWN;
         if (strongJumpCount >= 2 && multiLevelScore >= 0.52f && candidateScore >= 0.52f) {
             kind = LevelChangeKind.MULTI_LEVEL_CANDIDATE;
-        } else if (candidateScore >= 0.50f && separationMm >= 420f) {
-            // Upper image bands represent the farther part of the forward corridor after upright
-            // alignment. A farther-than-trend upper side is a DOWNWARD candidate; a nearer-than-
-            // trend upper side is an UPWARD candidate. These remain hypotheses until field tests.
+        } else if (candidateScore >= 0.50f && separationMm >= 760f) {
+            // In an upright image, a positive residual jump means the upper/far side is farther
+            // than the fitted dominant ground trend: DOWNWARD candidate. Negative means nearer:
+            // UPWARD candidate. These remain hypotheses until controlled device/field validation.
             kind = signedSeparation > 0f
                     ? LevelChangeKind.DOWNWARD_CANDIDATE
                     : LevelChangeKind.UPWARD_CANDIDATE;
@@ -187,17 +187,6 @@ public final class DepthLevelChangeEstimator {
         float slope = (n * sxy - sx * sy) / denominator;
         float intercept = (sy - slope * sx) / n;
         return new float[]{intercept, slope};
-    }
-
-    private static float meanResidual(float[] residual, boolean[] valid, int start, int end) {
-        float sum = 0f;
-        int count = 0;
-        for (int i = Math.max(0, start); i < Math.min(end, residual.length); i++) {
-            if (!valid[i] || Float.isNaN(residual[i])) continue;
-            sum += residual[i];
-            count++;
-        }
-        return count == 0 ? 0f : sum / count;
     }
 
     private static float median(int[] values, int count) {
