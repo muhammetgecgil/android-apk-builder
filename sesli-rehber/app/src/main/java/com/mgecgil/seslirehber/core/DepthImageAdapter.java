@@ -6,6 +6,7 @@ import com.google.ar.core.Frame;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import static com.mgecgil.seslirehber.core.GuidanceModels.DepthObservation;
+import static com.mgecgil.seslirehber.core.GuidanceModels.LevelChangeObservation;
 import static com.mgecgil.seslirehber.core.GuidanceModels.WalkableCorridorObservation;
 
 /**
@@ -16,12 +17,14 @@ import static com.mgecgil.seslirehber.core.GuidanceModels.WalkableCorridorObserv
 public final class DepthImageAdapter {
     public record AlignedEvidence(
             DepthObservation depth,
-            WalkableCorridorObservation walkable) {}
+            WalkableCorridorObservation walkable,
+            LevelChangeObservation levelChange) {}
 
     private static final int GRID_W = 72;
     private static final int GRID_H = 96;
     private final DepthGeometryEstimator estimator = new DepthGeometryEstimator();
     private final WalkableCorridorEstimator walkableEstimator = new WalkableCorridorEstimator();
+    private final DepthLevelChangeEstimator levelChangeEstimator = new DepthLevelChangeEstimator();
 
     /** Legacy/direct decoder used by pure image adapters and compatibility tests. */
     public DepthObservation analyze(Image image, long timestampMs) {
@@ -57,8 +60,9 @@ public final class DepthImageAdapter {
     }
 
     /**
-     * Produces a single upright CPU-camera-aligned depth grid, then derives both depth-discontinuity
-     * and relative three-lane openness from exactly the same pixels/timestamp.
+     * Produces a single upright CPU-camera-aligned depth grid, then derives depth discontinuity,
+     * relative three-lane openness and conservative relative level-change candidates from exactly
+     * the same pixels and timestamp.
      */
     public AlignedEvidence analyzeAlignedEvidence(
             Frame frame,
@@ -71,10 +75,13 @@ public final class DepthImageAdapter {
                 || cpuWidth <= 0 || cpuHeight <= 0) {
             short[] empty = new short[0];
             WalkableCorridorObservation walkable = walkableEstimator.analyze(empty, 0, 0, timestampMs);
+            LevelChangeObservation levelChange = levelChangeEstimator.analyze(empty, 0, 0, timestampMs);
             PerceptionContext.noteWalkable(walkable);
+            PerceptionContext.noteLevelChange(levelChange);
             return new AlignedEvidence(
                     estimator.analyze(empty, 0, 0, timestampMs),
-                    walkable);
+                    walkable,
+                    levelChange);
         }
 
         short[] grid = new short[GRID_W * GRID_H];
@@ -108,14 +115,19 @@ public final class DepthImageAdapter {
         }
         WalkableCorridorObservation walkable =
                 walkableEstimator.analyze(grid, GRID_W, GRID_H, timestampMs);
+        LevelChangeObservation levelChange =
+                levelChangeEstimator.analyze(grid, GRID_W, GRID_H, timestampMs);
         PerceptionContext.noteWalkable(walkable);
+        PerceptionContext.noteLevelChange(levelChange);
         return new AlignedEvidence(
                 estimator.analyze(grid, GRID_W, GRID_H, timestampMs),
-                walkable);
+                walkable,
+                levelChange);
     }
 
     public void reset() {
         walkableEstimator.reset();
+        levelChangeEstimator.reset();
     }
 
     static float[] uprightToRawNormalized(float ux, float uy, int rotationDegrees) {
