@@ -28,7 +28,7 @@ public final class ProceduralFighterMesh {
         ProceduralFighterMesh b=new ProceduralFighterMesh();
         b.part=PART_SKIN;
         b.fuselage(); b.chine(-1f); b.chine(1f); b.noseCrown(); b.upperDeck(); b.canopySill(); b.cockpitRearDeck();
-        b.part=PART_UPPER_PANEL; b.upperSpinePanel(); b.centerlineDorsalRidge(); b.canopyShoulderPanels(); b.engineDeckPanels(); b.tailRootFairing();
+        b.part=PART_UPPER_PANEL; b.noseCanopyBlend(); b.upperSpinePanel(); b.centerlineDorsalRidge(); b.canopyShoulderPanels(); b.engineDeckPanels(); b.engineDeckBulges(); b.tailRootFairing();
         b.part=PART_SKIN; b.wing(-1f); b.wing(1f); b.aftShoulderBridge(); b.boatTail();
         b.part=PART_FLAPERON_L; b.flaperon(-1f); b.part=PART_FLAPERON_R; b.flaperon(1f);
         b.part=PART_STAB_L; b.stabilator(-1f); b.part=PART_STAB_R; b.stabilator(1f);
@@ -61,6 +61,11 @@ public final class ProceduralFighterMesh {
     private void canopySill(){prism(new float[][]{{-.60f,.73f,-2.16f},{.60f,.73f,-2.16f},{.64f,.78f,-1.62f},{.61f,.82f,-.78f},{.53f,.84f,.06f},{.41f,.80f,.82f},{-.41f,.80f,.82f},{-.53f,.84f,.06f},{-.61f,.82f,-.78f},{-.64f,.78f,-1.62f}},.115f);prism(new float[][]{{-.50f,.60f,-2.82f},{.50f,.60f,-2.82f},{.59f,.72f,-2.16f},{-.59f,.72f,-2.16f}},.10f);}
     private void cockpitRearDeck(){prism(new float[][]{{-.41f,.80f,.68f},{.41f,.80f,.68f},{.49f,.83f,.98f},{.45f,.81f,1.30f},{.34f,.75f,1.58f},{-.34f,.75f,1.58f},{-.45f,.81f,1.30f},{-.49f,.83f,.98f}},.13f);}
 
+    private void noseCanopyBlend(){
+        prism(new float[][]{{-.46f,.615f,-2.86f},{-.20f,.66f,-2.74f},{-.28f,.75f,-2.36f},{-.43f,.80f,-2.08f},{-.59f,.735f,-2.16f},{-.56f,.64f,-2.62f}},.030f);
+        prism(new float[][]{{.20f,.66f,-2.74f},{.46f,.615f,-2.86f},{.56f,.64f,-2.62f},{.59f,.735f,-2.16f},{.43f,.80f,-2.08f},{.28f,.75f,-2.36f}},.030f);
+        prism(new float[][]{{-.18f,.675f,-2.76f},{.18f,.675f,-2.76f},{.27f,.755f,-2.34f},{.22f,.805f,-2.10f},{-.22f,.805f,-2.10f},{-.27f,.755f,-2.34f}},.020f);
+    }
     private void upperSpinePanel(){
         prism(new float[][]{{-.31f,.865f,.72f},{.31f,.865f,.72f},{.36f,.86f,1.15f},{.34f,.82f,1.68f},{.28f,.75f,2.18f},{.20f,.66f,2.62f},{-.20f,.66f,2.62f},{-.28f,.75f,2.18f},{-.34f,.82f,1.68f},{-.36f,.86f,1.15f}},.035f);
         prism(new float[][]{{-.10f,.895f,.84f},{.10f,.895f,.84f},{.12f,.88f,1.54f},{.10f,.80f,2.20f},{.06f,.70f,2.58f},{-.06f,.70f,2.58f},{-.10f,.80f,2.20f},{-.12f,.88f,1.54f}},.024f);
@@ -78,6 +83,21 @@ public final class ProceduralFighterMesh {
         prism(new float[][]{{.48f,.68f,.90f},{1.22f,.46f,.72f},{1.18f,.44f,1.72f},{1.00f,.39f,3.08f},{.60f,.54f,2.84f},{.45f,.65f,2.18f}},.045f);
         prism(new float[][]{{-.98f,.50f,1.05f},{-.48f,.69f,1.10f},{-.44f,.64f,2.02f},{-.57f,.54f,2.64f},{-.89f,.43f,2.78f}},.022f);
         prism(new float[][]{{.48f,.69f,1.10f},{.98f,.50f,1.05f},{.89f,.43f,2.78f},{.57f,.54f,2.64f},{.44f,.64f,2.02f}},.022f);
+    }
+    private void engineDeckBulges(){engineDeckBulge(-1f);engineDeckBulge(1f);}
+    private void engineDeckBulge(float side){
+        float[] z={.78f,1.24f,1.78f,2.30f,2.74f,3.08f};
+        float[] inner={.43f,.42f,.43f,.47f,.55f,.66f};
+        float[] outer={1.18f,1.20f,1.18f,1.13f,1.03f,.91f};
+        float[] yi={.70f,.71f,.69f,.64f,.56f,.44f};
+        float[] yo={.47f,.48f,.47f,.44f,.40f,.34f};
+        for(int i=0;i<z.length-1;i++){
+            float[] a={inner[i]*side,yi[i],z[i]}, b={outer[i]*side,yo[i],z[i]}, c={outer[i+1]*side,yo[i+1],z[i+1]}, d={inner[i+1]*side,yi[i+1],z[i+1]};
+            if(side<0f) quad(b,a,d,c); else quad(a,b,c,d);
+            float[] ai=offset(a,0,-.035f,0),bi=offset(b,0,-.035f,0),ci=offset(c,0,-.035f,0),di=offset(d,0,-.035f,0);
+            if(side<0f) quad(ai,bi,ci,di); else quad(bi,ai,di,ci);
+            quad(a,ai,di,d);quad(b,c,ci,bi);
+        }
     }
     private void tailRootFairing(){
         prism(new float[][]{{-.72f,.55f,1.48f},{-.57f,.70f,1.58f},{-.68f,.70f,2.50f},{-.91f,.53f,2.98f},{-1.03f,.46f,2.30f}},.050f);
