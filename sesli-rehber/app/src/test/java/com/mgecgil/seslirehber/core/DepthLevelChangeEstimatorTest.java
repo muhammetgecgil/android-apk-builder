@@ -45,6 +45,18 @@ public class DepthLevelChangeEstimatorTest {
         assertTrue(last.persistenceScore() >= 0.56f);
     }
 
+    @Test public void repeatedProfileBreaksBecomeMultiLevelCandidateNotStairClaim() {
+        DepthLevelChangeEstimator estimator = new DepthLevelChangeEstimator();
+        LevelChangeObservation last = null;
+        for (int i = 0; i < 7; i++) {
+            last = estimator.analyze(grid(Mode.MULTI), W, H, 3500L + i * 220L);
+        }
+        assertNotNull(last);
+        assertEquals(LevelChangeKind.MULTI_LEVEL_CANDIDATE, last.kind());
+        assertTrue(last.multiLevelScore() >= 0.52f);
+        assertTrue(last.persistenceScore() >= 0.56f);
+    }
+
     @Test public void oneFrameCandidateNeverCountsAsPersistent() {
         DepthLevelChangeEstimator estimator = new DepthLevelChangeEstimator();
         LevelChangeObservation one = estimator.analyze(grid(Mode.DOWN), W, H, 4000L);
@@ -64,7 +76,7 @@ public class DepthLevelChangeEstimatorTest {
         assertTrue(o.depthConfidence() < 0.42f);
     }
 
-    private enum Mode { PLANAR, DOWN, UP }
+    private enum Mode { PLANAR, DOWN, UP, MULTI }
 
     private static short[] grid(Mode mode) {
         short[] out = new short[W * H];
@@ -74,6 +86,10 @@ public class DepthLevelChangeEstimatorTest {
             int offset = 0;
             if (ny < 0.68f && mode == Mode.DOWN) offset = 1500;
             if (ny < 0.68f && mode == Mode.UP) offset = -1500;
+            if (mode == Mode.MULTI) {
+                if (ny >= 0.52f && ny < 0.64f) offset = 1100;
+                else if (ny >= 0.64f && ny < 0.76f) offset = -800;
+            }
             int value = Math.max(300, Math.min(9500, base + offset));
             for (int x = 0; x < W; x++) {
                 int texture = ((x * 13 + y * 7) % 31) - 15;
