@@ -22,8 +22,11 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         void onObject(ObjectObservation observation);
         void onGround(GroundObservation observation);
         default void onSceneHealth(SceneHealthObservation observation) {}
-        default void onDistantObject(DistantObjectObservation observation) {}
         default void onTextRecognized(String text) {}
+        default void onDistantObject(DistantObjectObservation observation) {
+            String text = DistantObjectSpeech.format(observation);
+            if (!text.isEmpty()) onTextRecognized(text);
+        }
         void onVisionError(String message);
     }
 
@@ -66,8 +69,6 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
             sampleLuma(imageProxy);
             GridEvidenceEstimator.Result evidence = gridEstimator.analyze(current, rotation, nowMs);
             listener.onSceneHealth(evidence.sceneHealth());
-            // Always emit one frame heartbeat, even for a static scene. SafetyGate will keep the
-            // zero-motion observation quiet while the watchdog correctly sees a healthy stream.
             listener.onMotion(evidence.motion());
             if (evidence.ground().viewConfidence() > 0.08f) listener.onGround(evidence.ground());
 
@@ -101,8 +102,6 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
                 return;
             }
 
-            // Copy one enlarged tile synchronously from the Y plane. The recognizer owns only the
-            // resulting Bitmap, so the CameraX ImageProxy may close normally after the main detector.
             distantRecognizer.maybeAnalyze(
                     mediaImage,
                     rotation,
