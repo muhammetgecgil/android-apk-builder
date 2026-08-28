@@ -36,8 +36,11 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         default void onSceneHealth(SceneHealthObservation observation) {}
         void onDepth(DepthObservation observation);
         default void onWalkable(WalkableCorridorObservation observation) {}
-        default void onDistantObject(DistantObjectObservation observation) {}
         default void onTextRecognized(String text) {}
+        default void onDistantObject(DistantObjectObservation observation) {
+            String text = DistantObjectSpeech.format(observation);
+            if (!text.isEmpty()) onTextRecognized(text);
+        }
         void onStatus(String status);
         void onFatal(String message);
     }
@@ -182,8 +185,6 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                 return;
             }
 
-            // The far path copies one enlarged tile before the ARCore CPU image is released.
-            // It never changes physical/digital camera zoom, so depth/ground alignment is preserved.
             distantRecognizer.maybeAnalyze(
                     heldImage,
                     rotationDegrees,
