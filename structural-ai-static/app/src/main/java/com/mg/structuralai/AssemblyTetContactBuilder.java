@@ -53,29 +53,37 @@ public final class AssemblyTetContactBuilder {
     private static BodyRange find(List<BodyRange> r,int id){for(BodyRange x:r)if(x.body==id)return x;throw new IllegalStateException("Body range missing: "+id);}
 
     /**
-     * STL/OBJ bodies may carry coincident geometric vertices with different source IDs. Rebuild a body using a
-     * very small geometry-relative weld tolerance before the closed-surface gate. This repairs indexing only;
-     * it is deliberately far below contact/feature tolerances and must not bridge real gaps.
+     * STL/OBJ bodies may contain the same geometric corner under different source vertex IDs.
+     * Rebuild each body by true geometric-distance welding. No coordinate quantization/hash rounding is used,
+     * because non-finite or extreme values could alias unrelated vertices. The tolerance is body-relative and
+     * intentionally many orders below any contact tolerance so real gaps cannot be bridged.
      */
     private static MeshModel extractWelded(MeshModel src,List<Integer> tris){
         MeshModel o=new MeshModel();
-        double tol=Math.max(src.diagonal()*1e-10,1e-12);
-        Map<String,Integer> weld=new LinkedHashMap<>();
+        if(tris==null||tris.isEmpty())throw new IllegalStateException("Per-body topology repair received no triangles");
+        double xmin=Double.POSITIVE_INFINITY,ymin=Double.POSITIVE_INFINITY,zmin=Double.POSITIVE_INFINITY;
+        double xmax=Double.NEGATIVE_INFINITY,ymax=Double.NEGATIVE_INFINITY,zmax=Double.NEGATIVE_INFINITY;
+        for(int ti:tris){int[] t=src.triangles.get(ti);if(t==null)continue;for(int k=0;k<Math.min(3,t.length);k++){MeshModel.V3 p=src.vertices.get(t[k]);if(!finite(p))throw new IllegalStateException("Non-finite vertex in body topology repair");xmin=Math.min(xmin,p.x);xmax=Math.max(xmax,p.x);ymin=Math.min(ymin,p.y);ymax=Math.max(ymax,p.y);zmin=Math.min(zmin,p.z);zmax=Math.max(zmax,p.z);}}
+        double dx=xmax-xmin,dy=ymax-ymin,dz=zmax-zmin,diag=Math.sqrt(dx*dx+dy*dy+dz*dz);
+        if(!Double.isFinite(diag)||diag<=0)throw new IllegalStateException("Invalid body span in topology repair");
+        double tol=Math.max(diag*1e-9,1e-12),tol2=tol*tol;
         Set<String> faces=new LinkedHashSet<>();
+        int input=0,degenerate=0,duplicate=0;
         for(int ti:tris){
-            int[] t=src.triangles.get(ti);if(t==null||t.length<3)continue;
+            int[] t=src.triangles.get(ti);if(t==null||t.length<3)continue;input++;
             int[] nt=new int[3];
-            for(int k=0;k<3;k++){
-                MeshModel.V3 p=src.vertices.get(t[k]);String key=vertexKey(p,tol);Integer q=weld.get(key);
-                if(q==null){q=o.vertices.size();weld.put(key,q);o.addVertex(new MeshModel.V3(p.x,p.y,p.z));}nt[k]=q;
-            }
-            if(nt[0]==nt[1]||nt[1]==nt[2]||nt[2]==nt[0])continue;
+            for(int k=0;k<3;k++)nt[k]=findOrAdd(o,src.vertices.get(t[k]),tol2);
+            if(nt[0]==nt[1]||nt[1]==nt[2]||nt[2]==nt[0]){degenerate++;continue;}
             int[] srt={nt[0],nt[1],nt[2]};Arrays.sort(srt);String fk=srt[0]+":"+srt[1]+":"+srt[2];
-            if(faces.add(fk))o.triangles.add(nt);
+            if(faces.add(fk))o.triangles.add(nt);else duplicate++;
         }
-        if(o.triangles.size()<4)throw new IllegalStateException("Per-body topology repair produced too few triangles");
+        if(o.triangles.size()<4)throw new IllegalStateException("Per-body topology repair produced too few triangles | input="+input+" weldedVertices="+o.vertices.size()+" output="+o.triangles.size()+" degenerate="+degenerate+" duplicate="+duplicate+" tol="+tol);
         return o;
     }
-    private static String vertexKey(MeshModel.V3 p,double tol){return Math.round(p.x/tol)+":"+Math.round(p.y/tol)+":"+Math.round(p.z/tol);}
+    private static int findOrAdd(MeshModel o,MeshModel.V3 p,double tol2){
+        for(int i=0;i<o.vertices.size();i++){MeshModel.V3 q=o.vertices.get(i);double x=p.x-q.x,y=p.y-q.y,z=p.z-q.z;if(x*x+y*y+z*z<=tol2)return i;}
+        int n=o.vertices.size();o.addVertex(new MeshModel.V3(p.x,p.y,p.z));return n;
+    }
+    private static boolean finite(MeshModel.V3 p){return p!=null&&Double.isFinite(p.x)&&Double.isFinite(p.y)&&Double.isFinite(p.z);}
     private static double dist(MeshModel.V3 a,MeshModel.V3 b){double x=a.x-b.x,y=a.y-b.y,z=a.z-b.z;return Math.sqrt(x*x+y*y+z*z);}
 }
