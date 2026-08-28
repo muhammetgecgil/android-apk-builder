@@ -10,8 +10,8 @@ android {
         applicationId = "com.mgecgil.seslirehber"
         minSdk = 26
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.12.0"
+        versionCode = 13
+        versionName = "0.13.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -38,6 +38,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime:2.9.1")
     implementation("com.google.mlkit:object-detection:17.0.2")
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.google.mlkit:image-labeling:17.0.9")
     implementation("com.google.ar:core:1.54.0")
     testImplementation("junit:junit:4.13.2")
 }
