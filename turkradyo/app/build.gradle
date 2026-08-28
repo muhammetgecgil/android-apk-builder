@@ -10,8 +10,8 @@ android {
         applicationId 'com.muhammetgecgil.turkradyo'
         minSdk 26
         targetSdk 36
-        versionCode 234
-        versionName '2.3.4'
+        versionCode 235
+        versionName '2.3.5'
     }
 
     buildTypes {
