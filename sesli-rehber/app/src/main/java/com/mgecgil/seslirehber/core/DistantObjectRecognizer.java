@@ -58,7 +58,10 @@ public final class DistantObjectRecognizer implements AutoCloseable {
                             tile.zoomFactor(),
                             tile.contrastScore(),
                             System.currentTimeMillis());
-                    if (matured != null && matured.mature()) callback.onDistantObject(matured);
+                    if (matured != null && matured.mature()) {
+                        SituationalAwarenessContext.noteDistant(matured);
+                        callback.onDistantObject(matured);
+                    }
                 })
                 .addOnCompleteListener(task -> {
                     try { tile.bitmap().recycle(); } catch (Throwable ignored) {}
