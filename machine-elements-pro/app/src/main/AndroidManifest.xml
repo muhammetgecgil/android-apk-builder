@@ -13,12 +13,13 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
-        <activity android:name=".VisualHomeActivity" android:screenOrientation="unspecified" android:exported="true">
+        <activity android:name=".VisualWorkbenchActivity" android:screenOrientation="unspecified" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity android:name=".VisualHomeActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".MachineElementStudioActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".MachineElementVisualLabActivity" android:screenOrientation="unspecified" android:exported="false" />
         <activity android:name=".EngineeringReportActivity" android:screenOrientation="unspecified" android:exported="false" />
