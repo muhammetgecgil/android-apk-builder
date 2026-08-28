@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 55
-        versionName = "1.17.0-manual-setup-pdf-report"
+        versionCode = 56
+        versionName = "1.17.1-per-patch-supports"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
