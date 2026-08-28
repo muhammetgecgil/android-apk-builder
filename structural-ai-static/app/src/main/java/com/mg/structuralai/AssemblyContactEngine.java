@@ -25,7 +25,43 @@ public final class AssemblyContactEngine {
 
     public static Result analyze(MeshModel m){List<Component> comps=split(m);List<Pair> pairs=new ArrayList<>();double diag=Math.max(m.diagonal(),1e-9),closeTol=diag*0.003,nearTol=diag*0.02;for(int i=0;i<comps.size();i++)for(int j=i+1;j<comps.size();j++)pairs.add(classify(m,comps.get(i),comps.get(j),closeTol,nearTol));return new Result(comps,pairs);}
 
-    private static List<Component> split(MeshModel m){int nt=m.triangles.size();List<List<Integer>> vertToTri=new ArrayList<>();for(int i=0;i<m.vertices.size();i++)vertToTri.add(new ArrayList<>());for(int ti=0;ti<nt;ti++)for(int v:m.triangles.get(ti))if(v>=0&&v<vertToTri.size())vertToTri.get(v).add(ti);boolean[] seen=new boolean[nt];List<Component> out=new ArrayList<>();for(int seed=0;seed<nt;seed++)if(!seen[seed]){ArrayDeque<Integer> q=new ArrayDeque<>();List<Integer> ids=new ArrayList<>();q.add(seed);seen[seed]=true;double x0=1e99,y0=1e99,z0=1e99,x1=-1e99,y1=-1e99,z1=-1e99;while(!q.isEmpty()){int t=q.remove();ids.add(t);int[] tri=m.triangles.get(t);for(int v:tri){MeshModel.V3 p=m.vertices.get(v);x0=Math.min(x0,p.x);y0=Math.min(y0,p.y);z0=Math.min(z0,p.z);x1=Math.max(x1,p.x);y1=Math.max(y1,p.y);z1=Math.max(z1,p.z);for(int nb:vertToTri.get(v))if(!seen[nb]){seen[nb]=true;q.add(nb);}}}out.add(new Component(out.size(),ids,x0,y0,z0,x1,y1,z1));}return out;}
+    /**
+     * Split by geometrically shared edges rather than raw vertex IDs. STL/OBJ commonly duplicate
+     * vertex records per triangle, so ID-based adjacency incorrectly turns one closed body into
+     * many one-triangle components. The quantization is tiny relative to model size and is used
+     * only for topology identity; it must not bridge physical contact gaps.
+     */
+    private static List<Component> split(MeshModel m){
+        int nt=m.triangles.size();
+        if(nt==0)return Collections.emptyList();
+        double q=Math.max(m.diagonal()*1e-9,1e-10);
+        Map<GEdge,List<Integer>> owners=new HashMap<>();
+        for(int ti=0;ti<nt;ti++){
+            int[] t=m.triangles.get(ti);if(t==null||t.length<3)continue;
+            GKey a=gkey(m.vertices.get(t[0]),q),b=gkey(m.vertices.get(t[1]),q),c=gkey(m.vertices.get(t[2]),q);
+            addOwner(owners,new GEdge(a,b),ti);addOwner(owners,new GEdge(b,c),ti);addOwner(owners,new GEdge(c,a),ti);
+        }
+        List<List<Integer>> adj=new ArrayList<>();for(int i=0;i<nt;i++)adj.add(new ArrayList<>());
+        for(List<Integer> ids:owners.values())if(ids.size()>1)for(int i=0;i<ids.size();i++)for(int j=i+1;j<ids.size();j++){int a=ids.get(i),b=ids.get(j);adj.get(a).add(b);adj.get(b).add(a);}
+        boolean[] seen=new boolean[nt];List<Component> out=new ArrayList<>();
+        for(int seed=0;seed<nt;seed++)if(!seen[seed]){
+            ArrayDeque<Integer> dq=new ArrayDeque<>();dq.add(seed);seen[seed]=true;List<Integer> ids=new ArrayList<>();
+            double x0=Double.POSITIVE_INFINITY,y0=Double.POSITIVE_INFINITY,z0=Double.POSITIVE_INFINITY,x1=Double.NEGATIVE_INFINITY,y1=Double.NEGATIVE_INFINITY,z1=Double.NEGATIVE_INFINITY;
+            while(!dq.isEmpty()){
+                int ti=dq.removeFirst();ids.add(ti);int[] tri=m.triangles.get(ti);
+                for(int v:tri){MeshModel.V3 p=m.vertices.get(v);x0=Math.min(x0,p.x);y0=Math.min(y0,p.y);z0=Math.min(z0,p.z);x1=Math.max(x1,p.x);y1=Math.max(y1,p.y);z1=Math.max(z1,p.z);}
+                for(int nb:adj.get(ti))if(!seen[nb]){seen[nb]=true;dq.addLast(nb);}
+            }
+            out.add(new Component(out.size(),ids,x0,y0,z0,x1,y1,z1));
+        }
+        Collections.sort(out,(a,b)->Integer.compare(b.triangles.size(),a.triangles.size()));
+        List<Component> renum=new ArrayList<>();for(int i=0;i<out.size();i++){Component c=out.get(i);renum.add(new Component(i,c.triangles,c.minX,c.minY,c.minZ,c.maxX,c.maxY,c.maxZ));}
+        return renum;
+    }
+    private static void addOwner(Map<GEdge,List<Integer>> m,GEdge e,int ti){m.computeIfAbsent(e,k->new ArrayList<>()).add(ti);}
+    private static GKey gkey(MeshModel.V3 p,double q){return new GKey(Math.round(p.x/q),Math.round(p.y/q),Math.round(p.z/q));}
+    private static final class GKey implements Comparable<GKey>{final long x,y,z;GKey(long x,long y,long z){this.x=x;this.y=y;this.z=z;}public int compareTo(GKey o){int c=Long.compare(x,o.x);if(c!=0)return c;c=Long.compare(y,o.y);return c!=0?c:Long.compare(z,o.z);}public int hashCode(){return Objects.hash(x,y,z);}public boolean equals(Object o){if(!(o instanceof GKey))return false;GKey k=(GKey)o;return x==k.x&&y==k.y&&z==k.z;}}
+    private static final class GEdge{final GKey a,b;GEdge(GKey x,GKey y){if(x.compareTo(y)<=0){a=x;b=y;}else{a=y;b=x;}}public int hashCode(){return 31*a.hashCode()+b.hashCode();}public boolean equals(Object o){if(!(o instanceof GEdge))return false;GEdge e=(GEdge)o;return a.equals(e.a)&&b.equals(e.b);}}
 
     private static Pair classify(MeshModel m,Component a,Component b,double closeTol,double nearTol){
         double bg=boxGap(a,b);MeshModel.V3 centerDir=unit(sub(b.center(),a.center()));if(bg>nearTol*2)return new Pair(a.id,b.id,Type.SEPARATED,bg,0,0.98,0,centerDir);
