@@ -1,11 +1,11 @@
-name: Build Whiffletree Aero 7.21.1
+name: Build Whiffletree Aero 8.0.0
 
 permissions:
   contents: write
 
 on:
   push:
-    branches: [ "main", "whiffletree-aero-next" ]
+    branches: [ "main", "whiffletree-aero-next", "whiffletree-v8-6dof" ]
     paths:
       - 'whiffletree-aero/**'
       - '!whiffletree-aero/update/**'
@@ -65,15 +65,15 @@ jobs:
       - name: Prepare distribution package
         run: |
           mkdir -p dist/source
-          cp whiffletree-aero/app/build/outputs/apk/play/debug/app-play-debug.apk dist/Whiffletree-Aero-v7.21.1-PLAY-TEST.apk
-          cp whiffletree-aero/app/build/outputs/apk/sideload/debug/app-sideload-debug.apk dist/Whiffletree-Aero-v7.21.1-SIDELOAD-TEST.apk
-          cp whiffletree-aero/app/build/outputs/bundle/playRelease/app-play-release.aab dist/Whiffletree-Aero-v7.21.1-PLAY.aab
+          cp whiffletree-aero/app/build/outputs/apk/play/debug/app-play-debug.apk dist/Whiffletree-Aero-v8.0.0-PLAY-TEST.apk
+          cp whiffletree-aero/app/build/outputs/apk/sideload/debug/app-sideload-debug.apk dist/Whiffletree-Aero-v8.0.0-SIDELOAD-TEST.apk
+          cp whiffletree-aero/app/build/outputs/bundle/playRelease/app-play-release.aab dist/Whiffletree-Aero-v8.0.0-PLAY.aab
           if [ -f whiffletree-aero/app/build/outputs/apk/sideload/release/app-sideload-release.apk ]; then
-            cp whiffletree-aero/app/build/outputs/apk/sideload/release/app-sideload-release.apk dist/Whiffletree-Aero-v7.21.1-SIDELOAD-STABLE.apk
+            cp whiffletree-aero/app/build/outputs/apk/sideload/release/app-sideload-release.apk dist/Whiffletree-Aero-v8.0.0-SIDELOAD-STABLE.apk
           fi
           cp -R whiffletree-aero dist/source/whiffletree-aero
           cp .github/workflows/ci-whiffletree-aero.yml dist/source/ci-whiffletree-aero.yml
-          cd dist/source && zip -qr ../Whiffletree-Aero-v7.21.1-SOURCE.zip .
+          cd dist/source && zip -qr ../Whiffletree-Aero-v8.0.0-SOURCE.zip .
 
       - name: Publish stable self-update payload
         if: github.ref == 'refs/heads/main'
@@ -86,22 +86,22 @@ jobs:
           SHA=$(sha256sum "$APK" | awk '{print $1}')
           base64 -w0 "$APK" > whiffletree-aero/update/latest.apk.b64
           cat > whiffletree-aero/update/latest.json <<JSON
-          {"versionCode":87,"versionName":"7.21.1","encoding":"base64","sha256":"$SHA","url":"https://raw.githubusercontent.com/muhammetgecgil/android-apk-builder/main/whiffletree-aero/update/latest.apk.b64"}
+          {"versionCode":88,"versionName":"8.0.0","encoding":"base64","sha256":"$SHA","url":"https://raw.githubusercontent.com/muhammetgecgil/android-apk-builder/main/whiffletree-aero/update/latest.apk.b64"}
           JSON
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add whiffletree-aero/update/latest.json whiffletree-aero/update/latest.apk.b64
-          git commit -m "publish Whiffletree Aero 7.21.1 stable update [skip ci]" || exit 0
+          git commit -m "publish Whiffletree Aero 8.0.0 stable update [skip ci]" || exit 0
           git push
 
       - name: Upload complete package
         uses: actions/upload-artifact@v4
         with:
-          name: whiffletree-aero-v7.21.1-complete
+          name: whiffletree-aero-v8.0.0-complete
           if-no-files-found: error
           path: |
-            dist/Whiffletree-Aero-v7.21.1-PLAY-TEST.apk
-            dist/Whiffletree-Aero-v7.21.1-SIDELOAD-TEST.apk
-            dist/Whiffletree-Aero-v7.21.1-SIDELOAD-STABLE.apk
-            dist/Whiffletree-Aero-v7.21.1-PLAY.aab
-            dist/Whiffletree-Aero-v7.21.1-SOURCE.zip
+            dist/Whiffletree-Aero-v8.0.0-PLAY-TEST.apk
+            dist/Whiffletree-Aero-v8.0.0-SIDELOAD-TEST.apk
+            dist/Whiffletree-Aero-v8.0.0-SIDELOAD-STABLE.apk
+            dist/Whiffletree-Aero-v8.0.0-PLAY.aab
+            dist/Whiffletree-Aero-v8.0.0-SOURCE.zip
