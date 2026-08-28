@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.whiffletreeaero'
         minSdk 26
         targetSdk 36
-        versionCode 86
-        versionName '7.21.0'
+        versionCode 87
+        versionName '7.21.1'
     }
 
     buildFeatures { buildConfig true }
