@@ -36,6 +36,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         default void onSceneHealth(SceneHealthObservation observation) {}
         void onDepth(DepthObservation observation);
         default void onWalkable(WalkableCorridorObservation observation) {}
+        default void onDistantObject(DistantObjectObservation observation) {}
         default void onTextRecognized(String text) {}
         void onStatus(String status);
         void onFatal(String message);
@@ -53,6 +54,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
     private final GridEvidenceEstimator gridEstimator = new GridEvidenceEstimator(GRID_W, GRID_H);
     private final ObjectObservationTracker objectTracker = new ObjectObservationTracker();
     private final DepthImageAdapter depthAdapter = new DepthImageAdapter();
+    private final DistantObjectRecognizer distantRecognizer = new DistantObjectRecognizer();
     private final ObjectDetector objectDetector;
     private final TextRecognizer textRecognizer;
     private volatile Session session;
@@ -99,7 +101,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             session = localSession;
 
             int imageRotationDegrees = resolveImageRotation(localSession, displayRotation);
-            listener.onStatus("ARCore canlı derinlik modu aktif. Kamera, zemin, nesne, yürüyüş koridoru ve Depth16 birlikte izleniyor.");
+            listener.onStatus("ARCore canlı derinlik modu aktif. Yakın güvenlik ve çok ölçekli uzak görüş birlikte izleniyor.");
 
             long lastFrameTimestampNs = Long.MIN_VALUE;
             while (running.get()) {
@@ -180,6 +182,14 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                 return;
             }
 
+            // The far path copies one enlarged tile before the ARCore CPU image is released.
+            // It never changes physical/digital camera zoom, so depth/ground alignment is preserved.
+            distantRecognizer.maybeAnalyze(
+                    heldImage,
+                    rotationDegrees,
+                    nowMs,
+                    listener::onDistantObject);
+
             objectDetector.process(input)
                     .addOnSuccessListener(objects -> {
                         ObjectObservation best = objectTracker.selectMostRelevant(
@@ -252,6 +262,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         objectTracker.reset();
         gridEstimator.reset();
         depthAdapter.reset();
+        distantRecognizer.close();
         try { objectDetector.close(); } catch (Throwable ignored) {}
         try { textRecognizer.close(); } catch (Throwable ignored) {}
     }
