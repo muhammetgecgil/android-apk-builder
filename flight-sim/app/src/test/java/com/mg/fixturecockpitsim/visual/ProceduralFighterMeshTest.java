@@ -33,7 +33,6 @@ public class ProceduralFighterMeshTest {
         assertTrue("cockpit tub geometry missing", tub > 30);
         assertTrue("seat geometry missing", seat > 30);
         assertTrue("coaming geometry missing", coaming > 20);
-
         assertTrue("canopy must be longitudinally mature", canopyMaxZ-canopyMinZ > 2.3f);
         assertTrue("canopy crown too low", canopyMaxY > 1.15f);
         assertTrue("canopy crown too tall", canopyMaxY < 1.45f);
@@ -108,5 +107,25 @@ public class ProceduralFighterMeshTest {
         assertTrue("aft-centre belly too deep", AirframeShapeProfile.lowerBelly(9) > -0.70f);
         assertTrue("intake shoulder should meet upper body", AirframeShapeProfile.INTAKE_SHOULDER[3][1] >= 0.31f);
         assertTrue("wing root should blend into upper shoulder", AirframeShapeProfile.WING_ROOT[0][1] >= 0.21f);
+    }
+
+    @Test public void avm5UpperSurfacePanelsAreDenseSymmetricAndAftBlended() {
+        ProceduralFighterMesh.Mesh mesh=ProceduralFighterMesh.build();
+        int count=0,left=0,right=0,centre=0;
+        float minZ=Float.POSITIVE_INFINITY,maxZ=Float.NEGATIVE_INFINITY,maxY=Float.NEGATIVE_INFINITY;
+        for(int i=0;i<mesh.data.length;i+=7){
+            float x=mesh.data[i],y=mesh.data[i+1],z=mesh.data[i+2],part=mesh.data[i+6];
+            if(Math.abs(part-ProceduralFighterMesh.PART_UPPER_PANEL)<0.1f){
+                count++; minZ=Math.min(minZ,z); maxZ=Math.max(maxZ,z); maxY=Math.max(maxY,y);
+                if(x<-.08f) left++; else if(x>.08f) right++; else centre++;
+            }
+        }
+        assertTrue("upper surface detail density too low", count > 300);
+        assertTrue("upper panels must span canopy shoulder to tail root", minZ < -1.7f && maxZ > 3.0f);
+        assertTrue("upper panels need visible crown", maxY > .88f);
+        assertTrue("upper panels need centre spine detail", centre > 30);
+        assertTrue("left upper surface detail missing", left > 100);
+        assertTrue("right upper surface detail missing", right > 100);
+        assertTrue("upper detail must stay bilaterally balanced", Math.abs(left-right) < 45);
     }
 }
