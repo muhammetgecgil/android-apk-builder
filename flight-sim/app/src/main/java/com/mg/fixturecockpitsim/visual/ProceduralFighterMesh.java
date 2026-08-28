@@ -28,7 +28,7 @@ public final class ProceduralFighterMesh {
         ProceduralFighterMesh b=new ProceduralFighterMesh();
         b.part=PART_SKIN;
         b.fuselage(); b.chine(-1f); b.chine(1f); b.noseCrown(); b.upperDeck(); b.canopySill(); b.cockpitRearDeck();
-        b.part=PART_UPPER_PANEL; b.upperSpinePanel(); b.canopyShoulderPanels(); b.engineDeckPanels(); b.tailRootFairing();
+        b.part=PART_UPPER_PANEL; b.upperSpinePanel(); b.centerlineDorsalRidge(); b.canopyShoulderPanels(); b.engineDeckPanels(); b.tailRootFairing();
         b.part=PART_SKIN; b.wing(-1f); b.wing(1f); b.aftShoulderBridge(); b.boatTail();
         b.part=PART_FLAPERON_L; b.flaperon(-1f); b.part=PART_FLAPERON_R; b.flaperon(1f);
         b.part=PART_STAB_L; b.stabilator(-1f); b.part=PART_STAB_R; b.stabilator(1f);
@@ -64,6 +64,10 @@ public final class ProceduralFighterMesh {
     private void upperSpinePanel(){
         prism(new float[][]{{-.31f,.865f,.72f},{.31f,.865f,.72f},{.36f,.86f,1.15f},{.34f,.82f,1.68f},{.28f,.75f,2.18f},{.20f,.66f,2.62f},{-.20f,.66f,2.62f},{-.28f,.75f,2.18f},{-.34f,.82f,1.68f},{-.36f,.86f,1.15f}},.035f);
         prism(new float[][]{{-.10f,.895f,.84f},{.10f,.895f,.84f},{.12f,.88f,1.54f},{.10f,.80f,2.20f},{.06f,.70f,2.58f},{-.06f,.70f,2.58f},{-.10f,.80f,2.20f},{-.12f,.88f,1.54f}},.024f);
+    }
+    private void centerlineDorsalRidge(){
+        prism(new float[][]{{-.055f,.925f,.76f},{.055f,.925f,.76f},{.060f,.925f,1.10f},{.058f,.905f,1.46f},{.052f,.865f,1.82f},{.046f,.815f,2.16f},{.038f,.755f,2.46f},{.028f,.705f,2.68f},{-.028f,.705f,2.68f},{-.038f,.755f,2.46f},{-.046f,.815f,2.16f},{-.052f,.865f,1.82f},{-.058f,.905f,1.46f},{-.060f,.925f,1.10f}},.020f);
+        prism(new float[][]{{-.045f,.914f,.98f},{.045f,.914f,.98f},{.050f,.900f,1.34f},{.046f,.855f,1.72f},{.038f,.800f,2.08f},{.028f,.742f,2.42f},{-.028f,.742f,2.42f},{-.038f,.800f,2.08f},{-.046f,.855f,1.72f},{-.050f,.900f,1.34f}},.012f);
     }
     private void canopyShoulderPanels(){
         prism(new float[][]{{-.63f,.805f,-1.92f},{-.50f,.885f,-1.78f},{-.48f,.90f,-.40f},{-.42f,.865f,.48f},{-.54f,.815f,.70f},{-.61f,.79f,-.62f}},.030f);
