@@ -4,7 +4,7 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 public final class AutonomousFlightMissionTest {
-    @Test public void completesTakeoffFiveMinuteOrbitLandingAndStop() {
+    @Test public void completesTakeoffScenicRouteLandingAndStop() {
         FlightState s = new FlightState();
         FlightControls c = new FlightControls();
         FlightDynamicsEngine dynamics = new FlightDynamicsEngine();
@@ -16,7 +16,7 @@ public final class AutonomousFlightMissionTest {
         boolean returnedToGround=false;
         double maxAltitude=0.0;
         final double dt=0.02;
-        final int maxSteps=(int)(430.0/dt);
+        final int maxSteps=(int)(300.0/dt);
 
         for(int i=0;i<maxSteps && mission.getPhase()!= AutonomousFlightMission.Phase.COMPLETE;i++){
             mission.update(s,c,dt);
@@ -30,7 +30,7 @@ public final class AutonomousFlightMissionTest {
         assertTrue("aircraft must leave runway", becameAirborne);
         assertTrue("landing gear must retract in flight", gearRetracted);
         assertTrue("aircraft must climb near cruise altitude", maxAltitude>800.0);
-        assertTrue("orbit must last at least five minutes", mission.getOrbitTimeSec()>=299.9);
+        assertTrue("scenic route must last at least 150 seconds", mission.getOrbitTimeSec()>=149.9);
         assertTrue("aircraft must touch runway again", returnedToGround);
         assertEquals("mission must finish rollout", AutonomousFlightMission.Phase.COMPLETE, mission.getPhase());
         assertTrue("aircraft must be stopped on runway", s.onGround && s.trueAirspeedMps<2.0);
