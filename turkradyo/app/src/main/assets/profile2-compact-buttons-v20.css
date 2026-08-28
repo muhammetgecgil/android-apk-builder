@@ -1,0 +1,15 @@
+/* v20 — Profil 2: tüm ana özellik kartlarını üstteki kompakt butonlar gibi küçült. */
+body.profile2-active .p2Hub{margin-top:10px!important}
+body.profile2-active .p2Grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important}
+body.profile2-active .p2Tile,body.profile2-active .p2Wide,body.profile2-active .p2Tile.p2Wide{grid-column:span 1!important;min-height:78px!important;height:78px!important;border-radius:18px!important;padding:9px 10px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:9px!important;overflow:hidden!important;background:linear-gradient(145deg,color-mix(in srgb,var(--card2) 95%,var(--natureA)),var(--card))!important;box-shadow:inset 0 1px 0 #ffffff10,0 5px 14px #0005!important}
+body.profile2-active .p2Tile b{font-size:20px!important;line-height:1!important;margin:0!important;min-width:36px!important;color:var(--natureC)!important}
+body.profile2-active .p2Tile small{font-size:8px!important;line-height:1.15!important;margin:2px 0 0!important;color:var(--muted)!important}
+/* Önceki büyük görsel kart katmanını tamamen bastır. */
+body.profile2-active .p2Tile::before{width:46px!important;height:46px!important;right:10px!important;top:50%!important;transform:translateY(-50%)!important;opacity:.20!important;border-width:1px!important;box-shadow:none!important}
+body.profile2-active .p2Tile::after{right:7px!important;font-size:20px!important;opacity:.65!important}
+body.profile2-active .p2Tile:nth-child(n){min-height:78px!important;height:78px!important;grid-column:span 1!important}
+body.profile2-active .p2Tile:nth-child(n) b{font-size:20px!important}
+body.profile2-active .p2Tile:nth-child(n) small{max-width:70%!important;font-size:8px!important}
+/* Büyük hero çizimleri/arka planları v19'dan geliyorsa görünürlüğünü düşür. */
+body.profile2-active .p2Tile svg{max-width:42px!important;max-height:42px!important;opacity:.7!important}
+@media(max-width:430px){body.profile2-active .p2Grid{gap:7px!important}body.profile2-active .p2Tile,body.profile2-active .p2Wide,body.profile2-active .p2Tile.p2Wide{height:72px!important;min-height:72px!important;border-radius:16px!important;padding:8px!important}body.profile2-active .p2Tile b{font-size:18px!important}body.profile2-active .p2Tile small{font-size:7px!important}}
