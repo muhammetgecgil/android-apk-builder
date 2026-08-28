@@ -47,7 +47,9 @@ public final class DistantObjectTracker {
         if (next.lastSpokenMs > 0L && nowMs - next.lastSpokenMs < SPEECH_COOLDOWN_MS) return null;
 
         next.lastSpokenMs = nowMs;
-        float fused = clamp01(next.emaConfidence * (0.78f + 0.22f * clamp01(cropContrast)));
+        // Contrast is already a hard quality gate above. Do not penalize semantic confidence a
+        // second time so aggressively that a three-frame 0.7-class candidate becomes "immature".
+        float fused = clamp01(next.emaConfidence * (0.96f + 0.04f * clamp01(cropContrast)));
         return new DistantObjectObservation(
                 clean,
                 direction,
