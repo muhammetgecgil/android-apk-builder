@@ -70,14 +70,25 @@ jobs:
           mkdir -p "$HOME/.android"
           base64 -d signing/structural-ai-debug.jks.b64 > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
-      - name: Resolve and stamp app version
+      - name: Resolve and stamp update-safe app version
         run: |
           VERSION_NAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)
           test -n "$VERSION_NAME"
+          # GitHub run number is monotonically increasing for this workflow. Add a high base so
+          # every CI APK is safely newer than historical hand-maintained versionCodes.
+          VERSION_CODE=$((10000 + GITHUB_RUN_NUMBER))
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           python3 - <<'PY'
           from pathlib import Path
-          import re
+          import os,re
+          g=Path('app/build.gradle.kts')
+          s=g.read_text()
+          s2=re.sub(r'versionCode\s*=\s*\d+', f'versionCode = {os.environ["VERSION_CODE"]}', s, count=1)
+          if s2==s:
+              raise SystemExit('versionCode pattern not found')
+          g.write_text(s2)
+
           p=Path('app/src/main/java/com/mg/structuralai/AutoMainActivity.java')
           s=p.read_text()
           s2=re.sub(r'sub\.setText\("v[^\"]*•[^\"]*OCCT ARM64"\);',
@@ -88,6 +99,17 @@ jobs:
           PY
       - name: Build debug APK with OCCT exact CAD kernel
         run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Verify update identity and signature
+        run: |
+          set -euxo pipefail
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          BADGING=$($AAPT dump badging "$APK" | head -n1)
+          echo "$BADGING"
+          echo "$BADGING" | grep -q "name='com.mg.structuralai'"
+          echo "$BADGING" | grep -q "versionCode='$VERSION_CODE'"
+          $APKSIGNER verify --verbose --print-certs "$APK"
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk "Structural_AI_Static_${VERSION_NAME}_DEBUG.apk"
       - name: Upload APK artifact
