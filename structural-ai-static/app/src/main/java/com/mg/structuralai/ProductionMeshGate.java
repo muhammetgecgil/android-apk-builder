@@ -30,7 +30,7 @@ public final class ProductionMeshGate {
             MeshModel thin=box(0,100,-25,25,-0.5,0.5);
             MeshFeatureSizingAdvisor.Result ts=MeshFeatureSizingAdvisor.evaluate(thin,16);
             boolean thinDetected=ts.thinLike&&ts.slenderness>=50;
-            boolean thinSafelyBlocked=thinDetected && ts.recommendedLongestAxisCells>=56;
+            boolean thinSafelyBlocked=thinDetected&&ts.recommendedLongestAxisCells>=56;
 
             MeshModel corner=stepped();
             MeshFeatureSizingAdvisor.Result cs=MeshFeatureSizingAdvisor.evaluate(corner,16);
@@ -38,10 +38,11 @@ public final class ProductionMeshGate {
 
             boolean pass=quality&&conformity&&independence&&thinSafelyBlocked&&featureAware;
             String txt=String.format(Locale.US,
-                "PRODUCTION MESH GATE %s\nbeamSizing: %s\ncoarse16: %s | conformity max=%.6g mm\nmedium24: %s | conformity max=%.6g mm\nfine32: %s | conformity max=%.6g mm\nmeshIndependence ΔU16→24=%.2f%% | ΔU24→32=%.2f%% (final gate<=15%%, improving=%s)\nthinWallDetection: %s | safeSolidBlock=%s\nsharpFeatureSizing: %s | featureAware=%s",
-                pass?"PASS":"FAIL",sizing.summary,coarse.quality.summary(),coarse.conformity.maxDistanceM*1000,
+                "PRODUCTION MESH GATE %s\nSUBGATES quality=%s conformity=%s independence=%s thinSafeBlock=%s featureAware=%s\nbeamSizing: %s\ncoarse16: %s | conformity max=%.6g mm\nmedium24: %s | conformity max=%.6g mm\nfine32: %s | conformity max=%.6g mm\nmeshIndependence ΔU16→24=%.2f%% | ΔU24→32=%.2f%% (final gate<=15%%, improving=%s)\nthinWallDetection: %s | detected=%s | safeSolidBlock=%s\nsharpFeatureSizing: %s | featureAware=%s",
+                pass?"PASS":"FAIL",quality,conformity,independence,thinSafelyBlocked,featureAware,
+                sizing.summary,coarse.quality.summary(),coarse.conformity.maxDistanceM*1000,
                 medium.quality.summary(),medium.conformity.maxDistanceM*1000,fine.quality.summary(),fine.conformity.maxDistanceM*1000,
-                duCM*100,duMF*100,monotonicImprovement,ts.summary,thinSafelyBlocked,cs.summary,featureAware);
+                duCM*100,duMF*100,monotonicImprovement,ts.summary,thinDetected,thinSafelyBlocked,cs.summary,featureAware);
             return cached=new Result(pass,txt);
         }catch(Throwable t){return cached=new Result(false,"PRODUCTION MESH GATE ERROR: "+t.getMessage());}
     }
