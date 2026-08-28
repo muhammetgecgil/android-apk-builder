@@ -1,22 +1,28 @@
-name: Build Whiffletree Aero 7.20
+name: Build Whiffletree Aero 7.21
 
 permissions:
-  contents: read
+  contents: write
 
 on:
   push:
-    branches: [ "main", "feature/whiffletree-aero-v1" ]
+    branches: [ "main", "whiffletree-aero-next" ]
     paths:
       - 'whiffletree-aero/**'
+      - '!whiffletree-aero/update/**'
       - '.github/workflows/ci-whiffletree-aero.yml'
   pull_request:
     paths:
       - 'whiffletree-aero/**'
       - '.github/workflows/ci-whiffletree-aero.yml'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      WHIFFLETREE_STORE_PASSWORD: ${{ secrets.WHIFFLETREE_STORE_PASSWORD }}
+      WHIFFLETREE_KEY_PASSWORD: ${{ secrets.WHIFFLETREE_KEY_PASSWORD }}
+      WHIFFLETREE_KEY_ALIAS: ${{ secrets.WHIFFLETREE_KEY_ALIAS }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -30,35 +36,72 @@ jobs:
         with:
           gradle-version: '8.13'
 
-      - name: Compile and build Play test APK
-        working-directory: whiffletree-aero
-        run: gradle --no-daemon clean assemblePlayDebug --stacktrace
+      - name: Restore stable signing key when configured
+        env:
+          WHIFFLETREE_KEYSTORE_B64: ${{ secrets.WHIFFLETREE_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$WHIFFLETREE_KEYSTORE_B64" ]; then
+            printf '%s' "$WHIFFLETREE_KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/whiffletree-release.jks"
+            echo "WHIFFLETREE_KEYSTORE_PATH=$RUNNER_TEMP/whiffletree-release.jks" >> "$GITHUB_ENV"
+            echo "HAS_STABLE_SIGNING=true" >> "$GITHUB_ENV"
+          else
+            echo "HAS_STABLE_SIGNING=false" >> "$GITHUB_ENV"
+          fi
 
-      - name: Build sideload test APK
+      - name: Build test APKs
         working-directory: whiffletree-aero
-        run: gradle --no-daemon assembleSideloadDebug --stacktrace
+        run: gradle --no-daemon clean assemblePlayDebug assembleSideloadDebug --stacktrace
 
-      - name: Build Play Store release AAB
+      - name: Build release artifacts
         working-directory: whiffletree-aero
-        run: gradle --no-daemon bundlePlayRelease --stacktrace
+        run: |
+          if [ "$HAS_STABLE_SIGNING" = "true" ]; then
+            gradle --no-daemon assembleSideloadRelease bundlePlayRelease --stacktrace
+          else
+            echo "Stable signing secrets are not configured; release-signed sideload APK will not be published."
+            gradle --no-daemon bundlePlayRelease --stacktrace
+          fi
 
       - name: Prepare distribution package
         run: |
           mkdir -p dist/source
-          cp whiffletree-aero/app/build/outputs/apk/play/debug/app-play-debug.apk dist/Whiffletree-Aero-v7.20.0-PLAY-TEST.apk
-          cp whiffletree-aero/app/build/outputs/apk/sideload/debug/app-sideload-debug.apk dist/Whiffletree-Aero-v7.20.0-SIDELOAD.apk
-          cp whiffletree-aero/app/build/outputs/bundle/playRelease/app-play-release.aab dist/Whiffletree-Aero-v7.20.0-PLAY-UNSIGNED.aab
+          cp whiffletree-aero/app/build/outputs/apk/play/debug/app-play-debug.apk dist/Whiffletree-Aero-v7.21.0-PLAY-TEST.apk
+          cp whiffletree-aero/app/build/outputs/apk/sideload/debug/app-sideload-debug.apk dist/Whiffletree-Aero-v7.21.0-SIDELOAD-TEST.apk
+          cp whiffletree-aero/app/build/outputs/bundle/playRelease/app-play-release.aab dist/Whiffletree-Aero-v7.21.0-PLAY.aab
+          if [ -f whiffletree-aero/app/build/outputs/apk/sideload/release/app-sideload-release.apk ]; then
+            cp whiffletree-aero/app/build/outputs/apk/sideload/release/app-sideload-release.apk dist/Whiffletree-Aero-v7.21.0-SIDELOAD-STABLE.apk
+          fi
           cp -R whiffletree-aero dist/source/whiffletree-aero
           cp .github/workflows/ci-whiffletree-aero.yml dist/source/ci-whiffletree-aero.yml
-          cd dist/source && zip -qr ../Whiffletree-Aero-v7.20.0-SOURCE.zip .
+          cd dist/source && zip -qr ../Whiffletree-Aero-v7.21.0-SOURCE.zip .
+
+      - name: Publish stable self-update payload
+        if: github.ref == 'refs/heads/main'
+        run: |
+          APK=whiffletree-aero/app/build/outputs/apk/sideload/release/app-sideload-release.apk
+          if [ ! -f "$APK" ]; then
+            echo "No stable-signed APK; update channel unchanged."
+            exit 0
+          fi
+          SHA=$(sha256sum "$APK" | awk '{print $1}')
+          base64 -w0 "$APK" > whiffletree-aero/update/latest.apk.b64
+          cat > whiffletree-aero/update/latest.json <<JSON
+          {"versionCode":86,"versionName":"7.21.0","encoding":"base64","sha256":"$SHA","url":"https://raw.githubusercontent.com/muhammetgecgil/android-apk-builder/main/whiffletree-aero/update/latest.apk.b64"}
+          JSON
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add whiffletree-aero/update/latest.json whiffletree-aero/update/latest.apk.b64
+          git commit -m "publish Whiffletree Aero 7.21.0 stable update [skip ci]" || exit 0
+          git push
 
       - name: Upload complete package
         uses: actions/upload-artifact@v4
         with:
-          name: whiffletree-aero-v7.20.0-complete
+          name: whiffletree-aero-v7.21.0-complete
           if-no-files-found: error
           path: |
-            dist/Whiffletree-Aero-v7.20.0-PLAY-TEST.apk
-            dist/Whiffletree-Aero-v7.20.0-SIDELOAD.apk
-            dist/Whiffletree-Aero-v7.20.0-PLAY-UNSIGNED.aab
-            dist/Whiffletree-Aero-v7.20.0-SOURCE.zip
+            dist/Whiffletree-Aero-v7.21.0-PLAY-TEST.apk
+            dist/Whiffletree-Aero-v7.21.0-SIDELOAD-TEST.apk
+            dist/Whiffletree-Aero-v7.21.0-SIDELOAD-STABLE.apk
+            dist/Whiffletree-Aero-v7.21.0-PLAY.aab
+            dist/Whiffletree-Aero-v7.21.0-SOURCE.zip
