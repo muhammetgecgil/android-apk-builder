@@ -18,12 +18,15 @@ public class V79Activity extends V78Activity {
 
   @Override public void onCreate(Bundle b){
     super.onCreate(b);
-    updateCard=card("GÜNCELLEME: kontrol ediliyor…", Color.rgb(11,45,61));
-    proHome.addView(updateCard,2,lp());
-    checkForUpdate(false);
+    if(BuildConfig.ALLOW_SIDELOAD_UPDATE){
+      updateCard=card("GÜNCELLEME: kontrol ediliyor…", Color.rgb(11,45,61));
+      proHome.addView(updateCard,2,lp());
+      checkForUpdate(false);
+    }
   }
 
   void checkForUpdate(boolean manual){
+    if(!BuildConfig.ALLOW_SIDELOAD_UPDATE)return;
     new Thread(()->{
       try{
         HttpURLConnection c=(HttpURLConnection)new URL(META_URL).openConnection();
@@ -39,11 +42,12 @@ public class V79Activity extends V78Activity {
             downloadAndInstall(url,encoding,remoteName);
           } else updateCard.setText("GÜNCELLEME: Bu cihazda en güncel sürüm kurulu.");
         });
-      }catch(Exception e){runOnUiThread(()->updateCard.setText("GÜNCELLEME: İnternet yok veya sürüm bilgisi alınamadı. Uygulama normal çalışmaya devam eder."));}
+      }catch(Exception e){runOnUiThread(()->{if(updateCard!=null)updateCard.setText("GÜNCELLEME: İnternet yok veya sürüm bilgisi alınamadı. Uygulama normal çalışmaya devam eder.");});}
     }).start();
   }
 
   void downloadAndInstall(String url,String encoding,String ver){
+    if(!BuildConfig.ALLOW_SIDELOAD_UPDATE)return;
     new Thread(()->{
       try{
         HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();c.setConnectTimeout(10000);c.setReadTimeout(20000);c.setUseCaches(false);
@@ -51,11 +55,12 @@ public class V79Activity extends V78Activity {
         byte[] data=bos.toByteArray();if("base64".equalsIgnoreCase(encoding))data=Base64.decode(new String(data,"UTF-8").replaceAll("\\s",""),Base64.DEFAULT);
         File f=new File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),"Whiffletree-Aero-update.apk");FileOutputStream out=new FileOutputStream(f);out.write(data);out.close();
         runOnUiThread(()->launchInstaller(f,ver));
-      }catch(Exception e){runOnUiThread(()->updateCard.setText("GÜNCELLEME İNDİRİLEMEDİ: "+e.getClass().getSimpleName()));}
+      }catch(Exception e){runOnUiThread(()->{if(updateCard!=null)updateCard.setText("GÜNCELLEME İNDİRİLEMEDİ: "+e.getClass().getSimpleName());});}
     }).start();
   }
 
   void launchInstaller(File f,String ver){
+    if(!BuildConfig.ALLOW_SIDELOAD_UPDATE)return;
     if(Build.VERSION.SDK_INT>=26 && !getPackageManager().canRequestPackageInstalls()){
       updateCard.setText("GÜNCELLEME "+ver+" indirildi. 'Bilinmeyen uygulamaları yükle' iznini bir kez aç; sonra uygulamaya dön.");
       Intent s=new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:"+getPackageName()));startActivity(s);return;
@@ -67,5 +72,8 @@ public class V79Activity extends V78Activity {
     }catch(Exception e){updateCard.setText("GÜNCELLEME KURULUMU AÇILAMADI: "+e.getClass().getSimpleName());}
   }
 
-  @Override protected void onResume(){super.onResume();if(updateCard!=null && Build.VERSION.SDK_INT>=26 && getPackageManager().canRequestPackageInstalls() && updateCard.getText().toString().contains("Bilinmeyen"))checkForUpdate(false);}
+  @Override protected void onResume(){
+    super.onResume();
+    if(BuildConfig.ALLOW_SIDELOAD_UPDATE && updateCard!=null && Build.VERSION.SDK_INT>=26 && getPackageManager().canRequestPackageInstalls() && updateCard.getText().toString().contains("Bilinmeyen"))checkForUpdate(false);
+  }
 }
