@@ -5,8 +5,8 @@ import java.util.List;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
 /**
- * Keeps only recent evidence for the user-triggered "çevremi anlat" command.
- * It deliberately describes evidence, not semantic objects or guaranteed safe paths.
+ * Keeps recent evidence for the user-triggered "çevremi anlat" command. v0.14 mirrors evidence into
+ * a temporal 3x3 world model, while preserving conservative legacy fallbacks for sparse scenes.
  */
 public final class SceneSummaryState {
     private static final long VISION_FRESH_MS = 2200L;
@@ -19,14 +19,46 @@ public final class SceneSummaryState {
     private WalkableCorridorObservation walkable;
     private SceneHealthObservation sceneHealth;
 
-    public synchronized void update(MotionObservation value) { motion = value; }
-    public synchronized void update(ObjectObservation value) { object = value; }
-    public synchronized void update(GroundObservation value) { ground = value; }
-    public synchronized void update(DepthObservation value) { depth = value; }
-    public synchronized void update(WalkableCorridorObservation value) { walkable = value; }
-    public synchronized void update(SceneHealthObservation value) { sceneHealth = value; }
+    public synchronized void update(MotionObservation value) {
+        motion = value;
+        SituationalAwarenessContext.noteMotion(value);
+    }
+    public synchronized void update(ObjectObservation value) {
+        object = value;
+        SituationalAwarenessContext.noteObject(value);
+    }
+    public synchronized void update(GroundObservation value) {
+        ground = value;
+        SituationalAwarenessContext.noteGround(value);
+    }
+    public synchronized void update(DepthObservation value) {
+        depth = value;
+        SituationalAwarenessContext.noteDepth(value);
+    }
+    public synchronized void update(WalkableCorridorObservation value) {
+        walkable = value;
+        SituationalAwarenessContext.noteWalkable(value);
+    }
+    public synchronized void update(SceneHealthObservation value) {
+        sceneHealth = value;
+        SituationalAwarenessContext.noteSceneHealth(value);
+    }
 
     public synchronized String summarize(long nowMs) {
+        SituationalAwarenessEngine.Snapshot awareness = SituationalAwarenessContext.snapshot(nowMs);
+        boolean worldHasEvidence = awareness.left().occupancyScore() >= 0.24f
+                || awareness.center().occupancyScore() >= 0.24f
+                || awareness.right().occupancyScore() >= 0.24f
+                || awareness.groundDiscontinuity()
+                || awareness.depthDiscontinuity()
+                || awareness.levelChangeKind() != LevelChangeKind.UNKNOWN
+                || awareness.moreOpenDirection() != Direction.UNKNOWN;
+        if (worldHasEvidence) {
+            // Preserve the mature product-language contract used by existing accessibility tests.
+            return SituationalAwarenessContext.summarize(nowMs)
+                    .replace("bu bir yön güvenliği onayı değildir", "bu güvenli yol onayı değildir");
+        }
+
         List<String> parts = new ArrayList<>();
 
         if (fresh(sceneHealth == null ? 0L : sceneHealth.timestampMs(), nowMs, VISION_FRESH_MS)) {
@@ -82,6 +114,7 @@ public final class SceneSummaryState {
         depth = null;
         walkable = null;
         sceneHealth = null;
+        SituationalAwarenessContext.reset();
     }
 
     private static boolean fresh(long timestampMs, long nowMs, long maxAgeMs) {
