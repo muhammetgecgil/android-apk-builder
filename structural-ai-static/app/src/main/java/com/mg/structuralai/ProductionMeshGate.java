@@ -25,7 +25,10 @@ public final class ProductionMeshGate {
             boolean monotonicImprovement=duMF<duCM;
             boolean independence=duMF<=0.15&&monotonicImprovement;
             boolean quality=coarse.quality.pass&&medium.quality.pass&&fine.quality.pass&&coarse.quality.minMeanRatio>=0.12&&medium.quality.minMeanRatio>=0.12&&fine.quality.minMeanRatio>=0.12;
-            boolean conformity=medium.conformity.maxDistanceM<=coarse.conformity.maxDistanceM*1.10&&fine.conformity.maxDistanceM<=medium.conformity.maxDistanceM*1.10;
+            // Use the strict cell-normalized geometry criterion from BoundaryConformityReport at every level.
+            // Requiring raw max distance to decrease monotonically is not physically meaningful when cell size
+            // changes and a different boundary-snap decision may be selected at each refinement level.
+            boolean conformity=coarse.conformity.productionReady&&medium.conformity.productionReady&&fine.conformity.productionReady;
 
             MeshModel thin=box(0,100,-25,25,-0.5,0.5);
             MeshFeatureSizingAdvisor.Result ts=MeshFeatureSizingAdvisor.evaluate(thin,16);
@@ -38,10 +41,10 @@ public final class ProductionMeshGate {
 
             boolean pass=quality&&conformity&&independence&&thinSafelyBlocked&&featureAware;
             String txt=String.format(Locale.US,
-                "PRODUCTION MESH GATE %s\nSUBGATES quality=%s conformity=%s independence=%s thinSafeBlock=%s featureAware=%s\nbeamSizing: %s\ncoarse16: %s | conformity max=%.6g mm\nmedium24: %s | conformity max=%.6g mm\nfine32: %s | conformity max=%.6g mm\nmeshIndependence ΔU16→24=%.2f%% | ΔU24→32=%.2f%% (final gate<=15%%, improving=%s)\nthinWallDetection: %s | detected=%s | safeSolidBlock=%s\nsharpFeatureSizing: %s | featureAware=%s",
+                "PRODUCTION MESH GATE %s\nSUBGATES quality=%s conformity=%s independence=%s thinSafeBlock=%s featureAware=%s\nbeamSizing: %s\ncoarse16: %s | %s\nmedium24: %s | %s\nfine32: %s | %s\nmeshIndependence ΔU16→24=%.2f%% | ΔU24→32=%.2f%% (final gate<=15%%, improving=%s)\nthinWallDetection: %s | detected=%s | safeSolidBlock=%s\nsharpFeatureSizing: %s | featureAware=%s",
                 pass?"PASS":"FAIL",quality,conformity,independence,thinSafelyBlocked,featureAware,
-                sizing.summary,coarse.quality.summary(),coarse.conformity.maxDistanceM*1000,
-                medium.quality.summary(),medium.conformity.maxDistanceM*1000,fine.quality.summary(),fine.conformity.maxDistanceM*1000,
+                sizing.summary,coarse.quality.summary(),coarse.conformity.summary(),
+                medium.quality.summary(),medium.conformity.summary(),fine.quality.summary(),fine.conformity.summary(),
                 duCM*100,duMF*100,monotonicImprovement,ts.summary,thinDetected,thinSafelyBlocked,cs.summary,featureAware);
             return cached=new Result(pass,txt);
         }catch(Throwable t){return cached=new Result(false,"PRODUCTION MESH GATE ERROR: "+t.getMessage());}
