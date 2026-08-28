@@ -6,41 +6,16 @@ if (!stableDevKeystore.exists() && stableDevKeystoreB64.exists()) {
     stableDevKeystore.parentFile.mkdirs()
     stableDevKeystore.bytes = java.util.Base64.getDecoder().decode(stableDevKeystoreB64.text.replaceAll('\\s',''))
 }
-
 android {
-    namespace 'com.mg.fixturecockpitsim'
-    compileSdk 36
-    signingConfigs {
-        stableDev {
-            storeFile stableDevKeystore
-            storePassword 'aircraftdev'
-            keyAlias 'aircraftdev'
-            keyPassword 'aircraftdev'
-        }
-    }
-    defaultConfig {
-        applicationId 'com.mg.fixturecockpitsim'
-        minSdk 26
-        targetSdk 36
-        versionCode 22
-        versionName '19.3-avm8.2'
-    }
+    namespace 'com.mg.fixturecockpitsim'; compileSdk 36
+    signingConfigs { stableDev { storeFile stableDevKeystore; storePassword 'aircraftdev'; keyAlias 'aircraftdev'; keyPassword 'aircraftdev' } }
+    defaultConfig { applicationId 'com.mg.fixturecockpitsim'; minSdk 26; targetSdk 36; versionCode 23; versionName '19.4-avm8.3-audio' }
     buildTypes {
-        debug {
-            applicationIdSuffix '.dev'
-            versionNameSuffix '-debug'
-            signingConfig signingConfigs.stableDev
-        }
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
+        debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
+        release { minifyEnabled false; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro' }
     }
-    packagingOptions {
-        jniLibs { useLegacyPackaging = false }
-    }
+    packagingOptions { jniLibs { useLegacyPackaging = false } }
 }
-
 dependencies {
     implementation 'com.google.android.filament:filament-android:1.72.0'
     implementation 'com.google.android.filament:gltfio-android:1.72.0'
