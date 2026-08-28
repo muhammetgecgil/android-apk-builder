@@ -128,4 +128,22 @@ public class ProceduralFighterMeshTest {
         assertTrue("right upper surface detail missing", right > 100);
         assertTrue("upper detail must stay bilaterally balanced", Math.abs(left-right) < 45);
     }
+
+    @Test public void avm6ForebodyAndEngineShouldersBlendProgressively() {
+        AirframeShapeProfile.validate();
+        float c5=AirframeShapeProfile.upperCrown(5);
+        float c6=AirframeShapeProfile.upperCrown(6);
+        float c7=AirframeShapeProfile.upperCrown(7);
+        assertTrue("forebody crown must rise into canopy support", c5 < c6 && c6 < c7);
+        assertTrue("forward canopy shoulder too narrow", AirframeShapeProfile.HALF_WIDTH[6] >= .90f);
+        assertTrue("mid canopy shoulder too narrow", AirframeShapeProfile.HALF_WIDTH[7] >= 1.04f);
+        assertTrue("engine blend needs more longitudinal stations", AirframeShapeProfile.ENGINE_Z.length >= 9);
+        assertTrue("engine must emerge gently from centre body", AirframeShapeProfile.ENGINE_R[0] <= .30f);
+        for(int i=1;i<=5;i++) {
+            assertTrue("engine shoulder should grow smoothly before peak", AirframeShapeProfile.ENGINE_R[i] > AirframeShapeProfile.ENGINE_R[i-1]);
+        }
+        assertTrue("engine deck peak too weak", AirframeShapeProfile.ENGINE_R[5] >= .65f);
+        assertTrue("engine deck top too low", AirframeShapeProfile.engineShoulderTop(5) >= .27f);
+        assertTrue("aft engine radius must taper toward nozzle", AirframeShapeProfile.ENGINE_R[8] < AirframeShapeProfile.ENGINE_R[6]);
+    }
 }
