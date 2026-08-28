@@ -28,7 +28,7 @@ jobs:
         run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.9'
+          gradle-version: '8.13'
 
       - name: Compile and build Play test APK
         working-directory: whiffletree-aero
