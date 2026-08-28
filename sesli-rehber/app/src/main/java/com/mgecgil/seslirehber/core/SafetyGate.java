@@ -5,6 +5,7 @@ import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 public final class SafetyGate {
     private static final long SCENE_HEALTH_MAX_SKEW_MS = 700L;
     private static final long WALKABLE_MAX_SKEW_MS = 500L;
+    private static final long GROUND_LEVEL_MAX_SKEW_MS = 650L;
     private final CollisionCorridor collisionCorridor = new CollisionCorridor();
 
     public GuidanceDecision evaluate(MotionObservation observation, float deviceStability) {
@@ -195,6 +196,55 @@ public final class SafetyGate {
         return quiet(fused);
     }
 
+    /**
+     * M4.1 relative level-change candidate. Depth alone is advisory. STOP requires fresh,
+     * independent ground-continuity corroboration plus persistent strong depth-profile evidence.
+     * The language deliberately avoids curb/hole/stair semantic claims.
+     */
+    public GuidanceDecision evaluateLevelChange(
+            LevelChangeObservation observation,
+            float deviceStability) {
+        GuidanceDecision preflight = preflight(observation.timestampMs(), deviceStability);
+        if (preflight != null) return preflight;
+        if (deviceStability < 0.35f) return unstable(deviceStability);
+
+        float fused = clamp(observation.candidateScore()
+                * observation.depthConfidence()
+                * (0.62f + 0.38f * deviceStability));
+        if (!observation.persistentCandidate() || fused < 0.30f) return quiet(fused);
+
+        GroundObservation ground =
+                PerceptionContext.groundNear(observation.timestampMs(), GROUND_LEVEL_MAX_SKEW_MS);
+        boolean groundCorroborates = ground != null
+                && ground.viewConfidence() >= 0.46f
+                && ground.persistenceScore() >= 0.52f
+                && ground.anomalyScore() >= 0.52f
+                && ground.broadBoundaryScore() >= 0.44f;
+        boolean strong = observation.candidateScore() >= 0.66f
+                && observation.boundaryScore() >= 0.55f
+                && observation.persistenceScore() >= 0.62f
+                && observation.depthConfidence() >= 0.56f;
+
+        if (strong && groundCorroborates && fused >= 0.34f) {
+            return new GuidanceDecision(
+                    Risk.STOP,
+                    Direction.CENTER,
+                    stopLevelSpeech(observation.kind()),
+                    clamp(Math.max(fused, 0.58f)));
+        }
+
+        if (observation.candidateScore() >= 0.58f
+                && observation.persistenceScore() >= 0.58f
+                && observation.depthConfidence() >= 0.50f) {
+            return new GuidanceDecision(
+                    Risk.CAUTION,
+                    Direction.CENTER,
+                    cautionLevelSpeech(observation.kind()),
+                    clamp(Math.max(fused, 0.46f)));
+        }
+        return quiet(fused);
+    }
+
     public GuidanceDecision evaluateGroundWithDepth(
             GroundObservation ground,
             DepthObservation depth,
@@ -252,6 +302,30 @@ public final class SafetyGate {
         if (scene == null) return null;
         GuidanceDecision sceneDecision = evaluateSceneHealth(scene, deviceStability);
         return sceneDecision.risk() == Risk.STOP ? sceneDecision : null;
+    }
+
+    private static String stopLevelSpeech(LevelChangeKind kind) {
+        return switch (kind) {
+            case DOWNWARD_CANDIDATE ->
+                    "Dur. Ön zeminde aşağı yönlü seviye değişimi olabilir. Bastonla doğrula.";
+            case UPWARD_CANDIDATE ->
+                    "Dur. Ön zeminde yukarı yönlü seviye değişimi olabilir. Bastonla doğrula.";
+            case MULTI_LEVEL_CANDIDATE ->
+                    "Dur. Ön zeminde birden fazla seviye değişimi olabilir. Bastonla doğrula.";
+            default -> "Dur. Ön zeminde seviye değişimi olabilir. Bastonla doğrula.";
+        };
+    }
+
+    private static String cautionLevelSpeech(LevelChangeKind kind) {
+        return switch (kind) {
+            case DOWNWARD_CANDIDATE ->
+                    "Ön zeminde aşağı yönlü seviye değişimi olabilir. Yavaşla ve bastonla doğrula.";
+            case UPWARD_CANDIDATE ->
+                    "Ön zeminde yukarı yönlü seviye değişimi olabilir. Yavaşla ve bastonla doğrula.";
+            case MULTI_LEVEL_CANDIDATE ->
+                    "Ön zeminde birden fazla seviye değişimi olabilir. Yavaşla ve bastonla doğrula.";
+            default -> "Ön zeminde seviye değişimi olabilir. Yavaşla ve bastonla doğrula.";
+        };
     }
 
     private static GuidanceDecision unstable(float stability) {
