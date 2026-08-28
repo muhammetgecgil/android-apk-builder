@@ -1,21 +1,39 @@
 plugins { id 'com.android.application' }
 
+def stableDevKeystore = file("$rootDir/ci/aircraft-dev.keystore")
+def stableDevKeystoreB64 = file("$rootDir/ci/aircraft-dev.keystore.b64")
+if (!stableDevKeystore.exists() && stableDevKeystoreB64.exists()) {
+    stableDevKeystore.parentFile.mkdirs()
+    stableDevKeystore.bytes = java.util.Base64.getDecoder().decode(stableDevKeystoreB64.text.replaceAll('\\s',''))
+}
+
 android {
     namespace 'com.mg.fixturecockpitsim'
     compileSdk 36
+
+    signingConfigs {
+        // Public development-only signer. Never use this key for a Play/release build.
+        stableDev {
+            storeFile stableDevKeystore
+            storePassword 'aircraftdev'
+            keyAlias 'aircraftdev'
+            keyPassword 'aircraftdev'
+        }
+    }
 
     defaultConfig {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 19
-        versionName '19.0-foundation'
+        versionCode 20
+        versionName '19.1-avm7.4'
     }
 
     buildTypes {
         debug {
             applicationIdSuffix '.dev'
             versionNameSuffix '-debug'
+            signingConfig signingConfigs.stableDev
         }
         release {
             minifyEnabled false
