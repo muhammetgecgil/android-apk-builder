@@ -5,6 +5,7 @@ import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 public final class SafetyGate {
     private static final long SCENE_HEALTH_MAX_SKEW_MS = 700L;
     private static final long WALKABLE_MAX_SKEW_MS = 500L;
+    private static final long LEVEL_DEPTH_MAX_SKEW_MS = 280L;
     private static final long GROUND_LEVEL_MAX_SKEW_MS = 650L;
     private final CollisionCorridor collisionCorridor = new CollisionCorridor();
 
@@ -179,6 +180,14 @@ public final class SafetyGate {
         GuidanceDecision preflight = preflight(depth.timestampMs(), deviceStability);
         if (preflight != null) return preflight;
         if (deviceStability < 0.35f) return unstable(deviceStability);
+
+        LevelChangeObservation level =
+                PerceptionContext.levelChangeNear(depth.timestampMs(), LEVEL_DEPTH_MAX_SKEW_MS);
+        if (level != null) {
+            GuidanceDecision levelDecision = evaluateLevelChange(level, deviceStability);
+            if (levelDecision.risk() != Risk.INFO) return levelDecision;
+        }
+
         float fused = clamp(depth.depthConfidence() * (0.58f + 0.42f * deviceStability));
         if (depth.strongDiscontinuity() && fused >= 0.52f) {
             return new GuidanceDecision(
