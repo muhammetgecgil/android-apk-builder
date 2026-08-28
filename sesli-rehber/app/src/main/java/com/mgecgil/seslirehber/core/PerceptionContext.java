@@ -15,19 +15,31 @@ public final class PerceptionContext {
     private PerceptionContext() {}
 
     public static void noteSceneHealth(SceneHealthObservation observation) {
-        if (observation != null) sceneHealth = observation;
+        if (observation != null) {
+            sceneHealth = observation;
+            SituationalAwarenessContext.noteSceneHealth(observation);
+        }
     }
 
     public static void noteGround(GroundObservation observation) {
-        if (observation != null) ground = observation;
+        if (observation != null) {
+            ground = observation;
+            SituationalAwarenessContext.noteGround(observation);
+        }
     }
 
     public static void noteWalkable(WalkableCorridorObservation observation) {
-        if (observation != null) walkable = observation;
+        if (observation != null) {
+            walkable = observation;
+            SituationalAwarenessContext.noteWalkable(observation);
+        }
     }
 
     public static void noteLevelChange(LevelChangeObservation observation) {
-        if (observation != null) levelChange = observation;
+        if (observation != null) {
+            levelChange = observation;
+            SituationalAwarenessContext.noteLevelChange(observation);
+        }
     }
 
     public static SceneHealthObservation sceneHealthNear(long timestampMs, long maxSkewMs) {
@@ -59,5 +71,6 @@ public final class PerceptionContext {
         ground = null;
         walkable = null;
         levelChange = null;
+        SituationalAwarenessContext.reset();
     }
 }
