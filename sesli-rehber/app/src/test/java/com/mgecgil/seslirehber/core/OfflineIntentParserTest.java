@@ -13,6 +13,13 @@ public class OfflineIntentParserTest {
                 parser.parse("Hey Rehber önümde ne var?").intent());
     }
 
+    @Test public void parsesSituationalAwarenessQuestion() {
+        assertEquals(OfflineIntentParser.Intent.DESCRIBE_SCENE,
+                parser.parse("Hey Rehber durum ne?").intent());
+        assertEquals(OfflineIntentParser.Intent.DESCRIBE_SCENE,
+                parser.parse("Çevrede ne var?").intent());
+    }
+
     @Test public void parsesStop() {
         assertEquals(OfflineIntentParser.Intent.STOP_GUIDANCE,
                 parser.parse("Rehberliği durdur").intent());
