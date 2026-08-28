@@ -12,6 +12,7 @@ import com.google.mlkit.vision.text.TextRecognition;
 import com.google.mlkit.vision.text.TextRecognizer;
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
 import java.nio.ByteBuffer;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
@@ -53,9 +54,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
     }
 
     /** Requests OCR on the next usable frame. The safety luma/ground heartbeat still runs. */
-    public void requestTextScan() {
-        textScanRequested.set(true);
-    }
+    public void requestTextScan() { textScanRequested.set(true); }
 
     @Override
     public void analyze(@NonNull ImageProxy imageProxy) {
@@ -110,9 +109,9 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
 
             objectDetector.process(inputImage)
                     .addOnSuccessListener(objects -> {
-                        ObjectObservation best = objectTracker.selectMostRelevant(
+                        List<ObjectObservation> observations = objectTracker.observeAll(
                                 objects, uprightWidth, uprightHeight, nowMs);
-                        if (best != null) listener.onObject(best);
+                        for (ObjectObservation observation : observations) listener.onObject(observation);
                     })
                     .addOnFailureListener(error ->
                             listener.onVisionError("Nesne algılama geçici olarak kullanılamıyor."))
