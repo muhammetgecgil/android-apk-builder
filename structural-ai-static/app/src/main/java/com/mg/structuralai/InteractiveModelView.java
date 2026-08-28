@@ -25,12 +25,12 @@ public final class InteractiveModelView extends View {
     public InteractiveModelView(Context c){super(c);setBackgroundColor(Color.rgb(7,15,28));}
     public void setPickListener(PickListener l){listener=l;}
     public void setModel(MeshModel m){model=m;result=null;tetMesh=null;resultMaterial=null;supportPoints.clear();loadPoints.clear();resultField=ResultField.VON_MISES;probeElement=probeNode=-1;invalidate();}
-    public void setResult(TetMeshData tm,StaticFemSolver.Result r){setResult(tm,r,null);}
-    public void setResult(TetMeshData tm,StaticFemSolver.Result r,LinearElasticMaterial mat){tetMesh=tm;result=r;resultMaterial=mat;resultField=ResultField.MESH_QUALITY;probeElement=probeNode=-1;invalidate();}
+    public void setResult(TetMeshData tm,StaticFemSolver.Result r){setResult(tm,r,r==null?null:r.material);}
+    public void setResult(TetMeshData tm,StaticFemSolver.Result r,LinearElasticMaterial mat){tetMesh=tm;result=r;resultMaterial=mat!=null?mat:(r==null?null:r.material);resultField=ResultField.MESH_QUALITY;probeElement=probeNode=-1;invalidate();}
     public void setResultField(ResultField f){if(f!=null&&fieldAvailable(f)){resultField=f;probeElement=probeNode=-1;invalidate();}}
     public ResultField getResultField(){return resultField;}
     public void cycleResultField(){ResultField[] a=ResultField.values();int k=resultField.ordinal();do{k=(k+1)%a.length;}while(!fieldAvailable(a[k]));resultField=a[k];probeElement=probeNode=-1;invalidate();}
-    private boolean fieldAvailable(ResultField f){if(f==ResultField.PRINCIPAL_S1||f==ResultField.PRINCIPAL_S2||f==ResultField.PRINCIPAL_S3)return resultMaterial!=null;if(f==ResultField.SAFETY_FACTOR)return resultMaterial!=null&&resultMaterial.designReleaseEligible();return true;}
+    private boolean fieldAvailable(ResultField f){LinearElasticMaterial mat=resultMaterial!=null?resultMaterial:(result==null?null:result.material);if(f==ResultField.PRINCIPAL_S1||f==ResultField.PRINCIPAL_S2||f==ResultField.PRINCIPAL_S3)return mat!=null;if(f==ResultField.SAFETY_FACTOR)return mat!=null&&mat.designReleaseEligible();return true;}
     public void setPickMode(PickMode m){mode=m;invalidate();} public PickMode getPickMode(){return mode;}
     public void addSupportPoint(MeshModel.V3 v){if(v!=null)supportPoints.add(v);invalidate();}
     public void addLoadPoint(MeshModel.V3 v){if(v!=null)loadPoints.add(v);invalidate();}
@@ -71,11 +71,12 @@ public final class InteractiveModelView extends View {
     private boolean isElementField(){return resultField==ResultField.MESH_QUALITY||resultField==ResultField.VON_MISES||resultField==ResultField.PRINCIPAL_S1||resultField==ResultField.PRINCIPAL_S2||resultField==ResultField.PRINCIPAL_S3||resultField==ResultField.PRINCIPAL_E1||resultField==ResultField.PRINCIPAL_E2||resultField==ResultField.PRINCIPAL_E3||resultField==ResultField.SAFETY_FACTOR;}
     private double nodeField(int i){double ux=result.displacement[3*i],uy=result.displacement[3*i+1],uz=result.displacement[3*i+2];switch(resultField){case U_X:return ux;case U_Y:return uy;case U_Z:return uz;case REACTION_MAG:{double rx=result.reactions[3*i],ry=result.reactions[3*i+1],rz=result.reactions[3*i+2];return Math.sqrt(rx*rx+ry*ry+rz*rz);}case U_TOTAL:return Math.sqrt(ux*ux+uy*uy+uz*uz);default:return 0;}}
     private double elementField(int e){
+        LinearElasticMaterial mat=resultMaterial!=null?resultMaterial:(result==null?null:result.material);
         if(resultField==ResultField.MESH_QUALITY)return tetQuality(tetMesh.tets.get(e));
         if(resultField==ResultField.VON_MISES)return result.elementVonMisesPa[e];
-        if(resultField==ResultField.SAFETY_FACTOR){if(resultMaterial==null||!resultMaterial.designReleaseEligible())return Double.NaN;double vm=result.elementVonMisesPa[e];return vm>1e-20?resultMaterial.yieldPa/vm:Double.POSITIVE_INFINITY;}
+        if(resultField==ResultField.SAFETY_FACTOR){if(mat==null||!mat.designReleaseEligible())return Double.NaN;double vm=result.elementVonMisesPa[e];return vm>1e-20?mat.yieldPa/vm:Double.POSITIVE_INFINITY;}
         int[] t=tetMesh.tets.get(e);double[] ue=new double[12];for(int a=0;a<4;a++)for(int k=0;k<3;k++)ue[3*a+k]=result.displacement[3*t[a]+k];
-        if(resultField==ResultField.PRINCIPAL_S1||resultField==ResultField.PRINCIPAL_S2||resultField==ResultField.PRINCIPAL_S3){if(resultMaterial==null)return Double.NaN;double[] st=Tet4Element.stress(tetMesh.nodes.get(t[0]),tetMesh.nodes.get(t[1]),tetMesh.nodes.get(t[2]),tetMesh.nodes.get(t[3]),resultMaterial,ue);double[] ps=Tet4Element.principalValues(st,false);return resultField==ResultField.PRINCIPAL_S1?ps[0]:(resultField==ResultField.PRINCIPAL_S2?ps[1]:ps[2]);}
+        if(resultField==ResultField.PRINCIPAL_S1||resultField==ResultField.PRINCIPAL_S2||resultField==ResultField.PRINCIPAL_S3){if(mat==null)return Double.NaN;double[] st=Tet4Element.stress(tetMesh.nodes.get(t[0]),tetMesh.nodes.get(t[1]),tetMesh.nodes.get(t[2]),tetMesh.nodes.get(t[3]),mat,ue);double[] ps=Tet4Element.principalValues(st,false);return resultField==ResultField.PRINCIPAL_S1?ps[0]:(resultField==ResultField.PRINCIPAL_S2?ps[1]:ps[2]);}
         double[] eps=Tet4Element.strain(tetMesh.nodes.get(t[0]),tetMesh.nodes.get(t[1]),tetMesh.nodes.get(t[2]),tetMesh.nodes.get(t[3]),ue);double[] pe=Tet4Element.principalValues(eps,true);return resultField==ResultField.PRINCIPAL_E1?pe[0]:(resultField==ResultField.PRINCIPAL_E2?pe[1]:pe[2]);
     }
     private double tetQuality(int[] t){MeshModel.V3 a=tetMesh.nodes.get(t[0]),b=tetMesh.nodes.get(t[1]),c=tetMesh.nodes.get(t[2]),d=tetMesh.nodes.get(t[3]);double v=Math.abs(dot(sub(b,a),cross(sub(c,a),sub(d,a))))/6.0;double sum=edge2(a,b)+edge2(a,c)+edge2(a,d)+edge2(b,c)+edge2(b,d)+edge2(c,d);if(v<=1e-30||sum<=1e-30)return 0;double q=12.0*Math.pow(3.0*v,2.0/3.0)/sum;return Math.max(0,Math.min(1,q));}
