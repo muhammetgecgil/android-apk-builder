@@ -9,14 +9,17 @@ root = Path('unit-master')
 build = root / 'app/build.gradle'
 manifest = root / 'app/src/main/AndroidManifest.xml'
 main_activity = root / 'app/src/main/java/com/mg/unitmasterx/MainActivity.java'
+selected_row = root / 'app/src/main/res/layout/selected_spinner_row.xml'
+white_row = root / 'app/src/main/res/layout/white_menu_row.xml'
+selected_bg = root / 'app/src/main/res/drawable/selected_field_bg.xml'
 apk_debug = root / 'app/build/outputs/apk/debug/app-debug.apk'
 release_dir = root / 'app/build/outputs/apk/release'
 release_apks = sorted(release_dir.glob('*.apk')) if release_dir.exists() else []
 apk_release = release_apks[0] if release_apks else None
 aab_release = root / 'app/build/outputs/bundle/release/app-release.aab'
 
-EXPECTED_VERSION_CODE = 111
-EXPECTED_VERSION_NAME = '1.1.1'
+EXPECTED_VERSION_CODE = 112
+EXPECTED_VERSION_NAME = '1.1.2'
 
 errors = []
 
@@ -34,19 +37,39 @@ require(re.search(rf'versionName\s+[\"\']{re.escape(EXPECTED_VERSION_NAME)}[\"\'
         f'versionName must be {EXPECTED_VERSION_NAME}')
 require(re.search(r'targetSdk\s+36\b', b) is not None, 'targetSdk must be 36')
 require('minifyEnabled true' in b, 'release minification must be enabled')
-require("applicationIdSuffix '.rc110'" in b, 'debug package must be isolated with .rc110')
+require("applicationIdSuffix '.rc110'" in b, 'debug package must remain isolated with .rc110')
 require('<uses-permission' not in m, 'Unit Master X should not request Android permissions')
 require('android.webkit.WebView' not in a and 'WebView' not in a, 'WebView is not allowed in production converter shell')
 require('android:exported="true"' in m, 'launcher activity must explicitly declare exported=true')
 require('android:screenOrientation=' not in m, 'launcher activity must not force screen orientation')
 require('.commit()' not in a, 'blocking SharedPreferences.commit() is not allowed in production UI code')
 
-# White-menu regression gate. Samsung/One UI must not be able to recolor the popup.
-require('R.layout.white_menu_row' in a, 'app-owned white menu row must be used')
+# Picker contrast regression gate:
+# Closed fields must be dark/readable; opened menus must be white/readable.
+require(selected_row.exists(), 'selected_spinner_row.xml must exist for closed Spinner state')
+require(white_row.exists(), 'white_menu_row.xml must exist for opened menu rows')
+require(selected_bg.exists(), 'selected_field_bg.xml must exist for filled closed selector fields')
+if selected_row.exists():
+    sr = selected_row.read_text(encoding='utf-8')
+    require('@drawable/selected_field_bg' in sr, 'closed selector must use dark filled background drawable')
+    require('#FFF7FAFF' in sr, 'closed selector text must be high-contrast light text')
+if white_row.exists():
+    wr = white_row.read_text(encoding='utf-8')
+    require('#FFFFFFFF' in wr, 'opened menu rows must be opaque white')
+    require('#FF14181C' in wr, 'opened menu rows must use dark text')
+if selected_bg.exists():
+    sb = selected_bg.read_text(encoding='utf-8')
+    require('#FF0F2238' in sb, 'closed selector fill must be deep navy')
+
+require('R.layout.selected_spinner_row' in a, 'closed Spinners must use selected_spinner_row')
+require('R.layout.white_menu_row' in a, 'opened menus must use white_menu_row')
+require('setDropDownViewResource(R.layout.white_menu_row)' in a,
+        'Spinner dropdown rows must explicitly use white_menu_row')
 require('setPopupBackgroundDrawable(new android.graphics.drawable.ColorDrawable(MENU_BG))' in a,
         'Spinner popup windows must have explicit white background')
 require('private static final int MENU_BG=Color.WHITE;' in a,
-        'menu surface must be explicitly white')
+        'menu popup surface must be explicitly white')
+require('RC 1.1.2' in a, 'visible build label must identify RC 1.1.2')
 
 artifacts = [(apk_debug, 'debug APK')]
 if apk_release is None:
@@ -98,7 +121,11 @@ report = {
     'native_ui': True,
     'permissions_requested': 0,
     'release_minified': True,
-    'white_menu_regression_gate': True,
+    'picker_contrast_gate': {
+        'closed_fields': 'deep navy with light text',
+        'opened_menus': 'white with dark text',
+        'status': True,
+    },
     'unit_test_summary': summary,
     'artifact_checks': {
         'debug_apk': apk_debug.exists(),
