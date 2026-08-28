@@ -90,4 +90,23 @@ public class ProceduralFighterMeshTest {
         assertTrue("aft engine shoulder needs volume", AirframeShapeProfile.ENGINE_R[4] >= 0.60f);
         assertTrue("wing crank needs outboard reach", AirframeShapeProfile.WING_ROOT[4][0] >= 5.0f);
     }
+
+    @Test public void avm5UpperFuselageHasContinuousCrownWithoutBalloonBelly() {
+        AirframeShapeProfile.validate();
+        float c7=AirframeShapeProfile.upperCrown(7);
+        float c8=AirframeShapeProfile.upperCrown(8);
+        float c9=AirframeShapeProfile.upperCrown(9);
+        float c10=AirframeShapeProfile.upperCrown(10);
+        float c11=AirframeShapeProfile.upperCrown(11);
+        assertTrue("cockpit shoulder crown too low", c7 > 0.75f);
+        assertTrue("upper centre body needs stronger crown", c8 > 0.84f);
+        assertTrue("dorsal high point too weak", c9 > 0.86f);
+        assertTrue("spine must stay full behind cockpit", c10 > 0.80f);
+        assertTrue("spine must taper gradually into engine deck", c11 > 0.67f);
+        assertTrue("upper crown must taper aft", c9 > c10 && c10 > c11);
+        assertTrue("centre belly too deep", AirframeShapeProfile.lowerBelly(8) > -0.70f);
+        assertTrue("aft-centre belly too deep", AirframeShapeProfile.lowerBelly(9) > -0.70f);
+        assertTrue("intake shoulder should meet upper body", AirframeShapeProfile.INTAKE_SHOULDER[3][1] >= 0.31f);
+        assertTrue("wing root should blend into upper shoulder", AirframeShapeProfile.WING_ROOT[0][1] >= 0.21f);
+    }
 }
