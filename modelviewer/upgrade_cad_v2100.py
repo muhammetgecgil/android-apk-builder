@@ -53,10 +53,12 @@ if 'MG_STABLE_2100' not in s:
                 'if (android.os.Build.VERSION.SDK_INT >= 26) s.setSafeBrowsingEnabled(true);\n        s.setCacheMode(WebSettings.LOAD_DEFAULT); // MG_STABLE_2100')
     s=s.replace('web.setBackgroundColor(Color.rgb(3, 8, 15));',
                 'web.setBackgroundColor(Color.rgb(3, 8, 15));\n        web.setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null);\n        web.setOverScrollMode(android.view.View.OVER_SCROLL_NEVER);\n        if (android.os.Build.VERSION.SDK_INT >= 26) web.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT, false);')
-    old='''    @Override public void onBackPressed() {\n        if (web != null && web.canGoBack()) web.goBack(); else super.onBackPressed();\n    }\n}'''
-    new='''    @Override public void onBackPressed() {\n        if (web != null && web.canGoBack()) web.goBack(); else super.onBackPressed();\n    }\n\n    @Override protected void onDestroy() {\n        if (web != null) {\n            try { web.stopLoading(); } catch (Throwable ignored) {}\n            try { web.loadUrl("about:blank"); } catch (Throwable ignored) {}\n            try { web.clearHistory(); } catch (Throwable ignored) {}\n            try { web.removeAllViews(); } catch (Throwable ignored) {}\n            try { web.destroy(); } catch (Throwable ignored) {}\n            web = null;\n        }\n        super.onDestroy();\n    }\n}'''
-    if old in s:
-        s=s.replace(old,new,1)
+    # Add lifecycle cleanup only when no later patch has already supplied onDestroy.
+    if 'protected void onDestroy()' not in s:
+        old='''    @Override public void onBackPressed() {\n        if (web != null && web.canGoBack()) web.goBack(); else super.onBackPressed();\n    }\n}'''
+        new='''    @Override public void onBackPressed() {\n        if (web != null && web.canGoBack()) web.goBack(); else super.onBackPressed();\n    }\n\n    @Override protected void onDestroy() {\n        if (web != null) {\n            try { web.stopLoading(); } catch (Throwable ignored) {}\n            try { web.loadUrl("about:blank"); } catch (Throwable ignored) {}\n            try { web.clearHistory(); } catch (Throwable ignored) {}\n            try { web.removeAllViews(); } catch (Throwable ignored) {}\n            try { web.destroy(); } catch (Throwable ignored) {}\n            web = null;\n        }\n        super.onDestroy();\n    }\n}'''
+        if old in s:
+            s=s.replace(old,new,1)
     c.write_text(s,encoding='utf-8')
 
 # 4) Zero-polling runtime marker and lightweight interaction guards.
