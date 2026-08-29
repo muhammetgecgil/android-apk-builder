@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 65
-        versionName = "1.17.10-contact-regression-fixture-fix"
+        versionCode = 66
+        versionName = "1.17.11-p1-golden-regression"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
