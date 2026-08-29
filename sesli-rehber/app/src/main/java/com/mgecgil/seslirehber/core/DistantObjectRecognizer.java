@@ -51,13 +51,17 @@ public final class DistantObjectRecognizer implements AutoCloseable {
                 .addOnSuccessListener(labels -> {
                     Candidate candidate = selectCandidate(labels);
                     if (candidate == null) return;
+                    long semanticNow = System.currentTimeMillis();
+                    WideObjectContext.Environment environment = WideObjectContext.environment(semanticNow);
+                    if (!SpatialIdentityPolicy.allowDistant(
+                            candidate.turkishLabel, candidate.confidence, environment)) return;
                     DistantObjectObservation matured = tracker.observe(
                             candidate.turkishLabel,
                             tile.direction(),
                             candidate.confidence,
                             tile.zoomFactor(),
                             tile.contrastScore(),
-                            System.currentTimeMillis());
+                            semanticNow);
                     if (matured != null && matured.mature()) {
                         SituationalAwarenessContext.noteDistant(matured);
                         callback.onDistantObject(matured);
@@ -86,8 +90,9 @@ public final class DistantObjectRecognizer implements AutoCloseable {
 
     private static float priorityBonus(String label) {
         return switch (label) {
-            case "insan", "araç", "otobüs", "kamyon", "motosiklet", "bisiklet" -> 0.12f;
-            case "trafik ışığı", "trafik tabelası", "bariyer", "direk" -> 0.08f;
+            case "insan" -> 0.10f;
+            case "araç", "otobüs", "kamyon", "motosiklet", "bisiklet" -> 0.05f;
+            case "trafik ışığı", "trafik tabelası", "bariyer", "direk" -> 0.04f;
             default -> 0f;
         };
     }
