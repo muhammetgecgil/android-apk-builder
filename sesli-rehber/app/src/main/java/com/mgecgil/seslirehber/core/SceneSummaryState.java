@@ -6,7 +6,7 @@ import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
 /**
  * Keeps recent evidence for the user-triggered "çevremi anlat" command. The temporal world model
- * includes general and urban pixel-level semantic segmentation while preserving conservative fallbacks.
+ * includes segmentation, named-object inventory and conservative safety fallbacks.
  */
 public final class SceneSummaryState {
     private static final long VISION_FRESH_MS = 2200L;
@@ -50,6 +50,7 @@ public final class SceneSummaryState {
     }
 
     public synchronized String summarize(long nowMs) {
+        String inventory = WideObjectContext.inventorySummary(nowMs);
         SituationalAwarenessEngine.Snapshot awareness = SituationalAwarenessContext.snapshot(nowMs);
         boolean worldHasEvidence = awareness.left().occupancyScore() >= 0.24f
                 || awareness.center().occupancyScore() >= 0.24f
@@ -61,11 +62,13 @@ public final class SceneSummaryState {
                 || SituationalAwarenessContext.hasFreshSegmentation(nowMs)
                 || SituationalAwarenessContext.hasFreshUrbanSegmentation(nowMs);
         if (worldHasEvidence) {
-            return SituationalAwarenessContext.summarize(nowMs)
+            String world = SituationalAwarenessContext.summarize(nowMs)
                     .replace("bu bir yön güvenliği onayı değildir", "bu güvenli yol onayı değildir");
+            return inventory.isEmpty() ? world : inventory + " " + world;
         }
 
         List<String> parts = new ArrayList<>();
+        if (!inventory.isEmpty()) parts.add(inventory);
 
         if (fresh(sceneHealth == null ? 0L : sceneHealth.timestampMs(), nowMs, VISION_FRESH_MS)) {
             if (sceneHealth.persistentlyUnusable()) {
@@ -123,6 +126,7 @@ public final class SceneSummaryState {
         SituationalAwarenessContext.reset();
         HudPerceptionContext.reset();
         UrbanHudMaskContext.reset();
+        WideObjectContext.reset();
     }
 
     private static boolean fresh(long timestampMs, long nowMs, long maxAgeMs) {
