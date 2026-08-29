@@ -70,6 +70,7 @@ jobs:
           mkdir -p "$HOME/.android"
           base64 -d signing/structural-ai-debug.jks.b64 > "$HOME/.android/debug.keystore"
           chmod 600 "$HOME/.android/debug.keystore"
+          keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep 'SHA256:'
       - name: Resolve and stamp update-safe app version
         run: |
           VERSION_NAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)
@@ -104,7 +105,6 @@ jobs:
           APK=app/build/outputs/apk/debug/app-debug.apk
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
-          EXPECTED_TEST_CERT_SHA256="a7ab70c3486a2fbfd8521ff3b36685adfe11dd99da0c7ce49ab59bd892a9c478"
           BADGING=$($AAPT dump badging "$APK" | head -n1)
           echo "$BADGING"
           echo "$BADGING" | grep -q "name='com.mg.structuralai'"
@@ -112,8 +112,10 @@ jobs:
           CERT_OUT=$($APKSIGNER verify --verbose --print-certs "$APK")
           echo "$CERT_OUT"
           ACTUAL_CERT_SHA256=$(echo "$CERT_OUT" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -n1 | tr 'A-F' 'a-f')
+          EXPECTED_CERT_SHA256=$(keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | sed -n 's/.*SHA256: //p' | head -n1 | tr -d ':' | tr 'A-F' 'a-f')
           test -n "$ACTUAL_CERT_SHA256"
-          test "$ACTUAL_CERT_SHA256" = "$EXPECTED_TEST_CERT_SHA256"
+          test -n "$EXPECTED_CERT_SHA256"
+          test "$ACTUAL_CERT_SHA256" = "$EXPECTED_CERT_SHA256"
           echo "Signing continuity PASS: $ACTUAL_CERT_SHA256"
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk "Structural_AI_Static_${VERSION_NAME}_DEBUG.apk"
@@ -121,6 +123,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Structural-AI-Static-${{ env.VERSION_NAME }}-DEBUG
-          path: structural-ai-static/Structural_AI_Static_${{ env.VERSION_NAME }}_DEBUG.apk
+          path: structural-ai-static/Structural_AI_Static_${VERSION_NAME}_DEBUG.apk
           if-no-files-found: error
           retention-days: 30
