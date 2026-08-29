@@ -1,9 +1,6 @@
 package com.mg.fixturecockpitsim.sim;
 
-/**
- * Deterministic mobile-friendly first flight model.
- * Rendering/Bluetooth stay separated so this can evolve toward a higher fidelity 6-DoF model.
- */
+/** Deterministic mobile-friendly flight model with aerobatic manual roll authority. */
 public final class FlightDynamicsEngine {
     private static final double EARTH_RADIUS_M = 6371000.0;
     private static final double GEAR_RATE_PER_SEC = 0.55;
@@ -18,18 +15,31 @@ public final class FlightDynamicsEngine {
         s.gearPosition = approach(s.gearPosition, gearTarget, GEAR_RATE_PER_SEC * dtSec);
         s.brake01 += (in.brake - s.brake01) * Math.min(1.0, dtSec * 7.0);
 
-        double targetRoll = in.roll * 75.0;
+        // Normal autopilot values remain in the conventional ±75° bank envelope.
+        // A deliberate near-full manual stick command crosses into the aerobatic region,
+        // allowing a complete roll and sustained inverted flight instead of stopping at 75°.
+        double rollInput=Math.max(-1.0,Math.min(1.0,in.roll));
+        double absRoll=Math.abs(rollInput);
+        double targetRoll;
+        if(absRoll<=0.78) targetRoll=rollInput*96.15; // 0.78 -> about 75 degrees
+        else {
+            double t=(absRoll-0.78)/0.22;
+            targetRoll=Math.copySign(75.0+t*110.0,rollInput); // full stick -> ±185 degrees
+        }
         double targetPitch = in.pitch * 30.0;
-        s.rollDeg += (targetRoll - s.rollDeg) * Math.min(1.0, dtSec * 3.2);
+        double rollRate = absRoll>0.78 ? 4.2 : 3.2;
+        s.rollDeg += (targetRoll - s.rollDeg) * Math.min(1.0, dtSec * rollRate);
         s.pitchDeg += (targetPitch - s.pitchDeg) * Math.min(1.0, dtSec * 2.4);
         s.headingDeg = wrap360(s.headingDeg + Math.sin(Math.toRadians(s.rollDeg)) * 28.0 * dtSec + in.yaw * 18.0 * dtSec);
 
         s.throttle += (in.throttle - s.throttle) * Math.min(1.0, dtSec * 2.0);
-        // Ground propulsion starts at zero; airborne model keeps a minimum flying-speed tendency.
         double targetSpeed = s.onGround ? s.throttle * 125.0 : 55.0 + s.throttle * 250.0;
         s.trueAirspeedMps += (targetSpeed - s.trueAirspeedMps) * Math.min(1.0, dtSec * 0.55);
 
-        double airborneVs = s.trueAirspeedMps * Math.sin(Math.toRadians(s.pitchDeg));
+        // Inverted flight remains flyable: pitch command contributes lift direction while the
+        // simplified model avoids instantly forcing the aircraft into the ground at >90° bank.
+        double bankLift=Math.max(0.28,Math.abs(Math.cos(Math.toRadians(s.rollDeg))));
+        double airborneVs = s.trueAirspeedMps * Math.sin(Math.toRadians(s.pitchDeg)) * bankLift;
         double proposedAltitude = s.altitudeM + airborneVs * dtSec;
         boolean gearUsable = s.gearPosition > 0.82;
         boolean groundCandidate = proposedAltitude <= GROUND_HEIGHT_M + 0.12 && airborneVs <= 1.0;
@@ -39,14 +49,12 @@ public final class FlightDynamicsEngine {
             s.onGround = true;
             s.altitudeM = GROUND_HEIGHT_M;
             s.verticalSpeedMps = 0.0;
-
             double touchdownLoad = clamp01(s.touchdownSinkMps / 4.5);
             double speedLoad = clamp01(s.trueAirspeedMps / 95.0) * 0.18;
             double targetMainCompression = clamp01(0.16 + touchdownLoad * 0.72 + speedLoad);
             double targetNoseCompression = clamp01(0.10 + Math.max(0.0, -s.pitchDeg) / 12.0 * 0.48);
             s.mainStrutCompression01 += (targetMainCompression - s.mainStrutCompression01) * Math.min(1.0, dtSec * 7.5);
             s.noseStrutCompression01 += (targetNoseCompression - s.noseStrutCompression01) * Math.min(1.0, dtSec * 6.0);
-
             double rollingDecel = 0.55 + 9.0 * s.brake01;
             s.trueAirspeedMps = Math.max(0.0, s.trueAirspeedMps - rollingDecel * dtSec);
             double steerAuthority = 20.0 * clamp01(1.0 - s.trueAirspeedMps / 85.0);
@@ -63,8 +71,7 @@ public final class FlightDynamicsEngine {
         }
 
         s.angleOfAttackDeg = in.pitch * 10.0 - s.pitchDeg * 0.08;
-        s.loadFactor = Math.max(0.1, 1.0 / Math.max(0.18, Math.cos(Math.toRadians(s.rollDeg))));
-
+        s.loadFactor = Math.max(0.1, 1.0 / Math.max(0.18, Math.abs(Math.cos(Math.toRadians(s.rollDeg)))));
         double groundSpeed = s.trueAirspeedMps * Math.cos(Math.toRadians(s.pitchDeg));
         double distance = groundSpeed * dtSec;
         double hdg = Math.toRadians(s.headingDeg);
@@ -76,10 +83,7 @@ public final class FlightDynamicsEngine {
         s.timeSec += dtSec;
     }
 
-    private static double approach(double value,double target,double maxDelta){
-        if(value<target)return Math.min(target,value+maxDelta);
-        return Math.max(target,value-maxDelta);
-    }
-    private static double clamp01(double v){ return Math.max(0.0,Math.min(1.0,v)); }
-    private static double wrap360(double d){ d%=360.0; return d<0?d+360.0:d; }
+    private static double approach(double value,double target,double maxDelta){if(value<target)return Math.min(target,value+maxDelta);return Math.max(target,value-maxDelta);}
+    private static double clamp01(double v){return Math.max(0.0,Math.min(1.0,v));}
+    private static double wrap360(double d){d%=360.0;return d<0?d+360.0:d;}
 }
