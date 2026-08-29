@@ -24,8 +24,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 38
-        versionName '21.1-avm10.1-airframe-polish'
+        versionCode 39
+        versionName '21.2-avm10.2-flight-feel'
     }
 
     buildTypes {
