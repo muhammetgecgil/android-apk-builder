@@ -23,11 +23,13 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
     private final Vibrator vibrator;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private final Runnable navigationRetry = this::deliverPendingNavigation;
+    private final Runnable objectRetry = this::deliverPendingObjectRecognition;
     private final NavigationCoordinator navigation;
     private volatile boolean ready;
     private String lastSpeech = "";
     private long navigationBlockedUntilMs;
     private String pendingNavigationText = "";
+    private String pendingObjectText = "";
 
     public GuidanceSpeaker(Context context) {
         tts = new TextToSpeech(context.getApplicationContext(), this);
@@ -80,7 +82,7 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
                     "Sesli Rehber sürüm sıfır nokta on dört. Çoklu nesne izleme, uzak görüş ve sol orta sağ yakın orta uzak durumsal çevre modeli aktif.");
         }
         if (clean.startsWith("Sesli Rehber sürüm sıfır nokta on sekiz.")) {
-            clean = "Sesli Rehber sürüm sıfır nokta yirmi. Tam ekran gerçek kamera üzerinde segmentasyon, nesne izleri ve durumsal farkındalık HUD'u aktif. Otomatik M1 saha sihirbazı geliştirici panelinde hazır.";
+            clean = "Sesli Rehber sürüm sıfır nokta yirmi bir. Tam ekran kamera, segmentasyon ve güvene bağlı nesne isimlendirme aktif. Yüksek güvenli nesneler doğrudan söylenir.";
         }
         if (clean.startsWith("Urban Gate başladı.")) {
             clean = clean.replaceFirst(
@@ -90,16 +92,25 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
         speakRaw(clean, "speech");
     }
 
-    /**
-     * Validation-only prompt channel shared with UrbanGateRecorder. It deliberately reuses the
-     * navigation hold queue so STOP/CAUTION announcements cannot be spoken over by test prompts.
-     */
+    /** Validation-only prompt channel. STOP/CAUTION hold remains authoritative. */
     public static void speakTestPrompt(String text) {
         if (text == null || text.trim().isEmpty()) return;
         GuidanceSpeaker speaker = active.get();
         if (speaker == null) return;
         String clean = text.trim();
         speaker.mainHandler.post(() -> speaker.speakNavigation(clean));
+    }
+
+    /**
+     * Semantic object announcements never interrupt STOP/CAUTION. They are queued behind the active
+     * safety utterance instead of using QUEUE_FLUSH.
+     */
+    public static void speakObjectRecognition(String text) {
+        if (text == null || text.trim().isEmpty()) return;
+        GuidanceSpeaker speaker = active.get();
+        if (speaker == null) return;
+        String clean = text.trim();
+        speaker.mainHandler.post(() -> speaker.queueObjectRecognition(clean));
     }
 
     private void speakNavigation(String text) {
@@ -122,6 +133,28 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
         String text = pendingNavigationText;
         pendingNavigationText = "";
         speakRaw(text, "navigation");
+    }
+
+    private void queueObjectRecognition(String text) {
+        pendingObjectText = text;
+        mainHandler.removeCallbacks(objectRetry);
+        deliverPendingObjectRecognition();
+    }
+
+    private void deliverPendingObjectRecognition() {
+        if (pendingObjectText.isEmpty()) return;
+        long now = System.currentTimeMillis();
+        if (now < navigationBlockedUntilMs) {
+            long delay = Math.max(150L, navigationBlockedUntilMs - now + 100L);
+            mainHandler.removeCallbacks(objectRetry);
+            mainHandler.postDelayed(objectRetry, delay);
+            return;
+        }
+        mainHandler.removeCallbacks(objectRetry);
+        String text = pendingObjectText;
+        pendingObjectText = "";
+        lastSpeech = text;
+        if (ready) tts.speak(text, TextToSpeech.QUEUE_ADD, null, "object_semantic");
     }
 
     private void speakRaw(String text, String utteranceId) {
