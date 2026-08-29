@@ -10,39 +10,19 @@ if (!stableDevKeystore.exists() && stableDevKeystoreB64.exists()) {
 android {
     namespace 'com.mg.fixturecockpitsim'
     compileSdk 36
-
-    signingConfigs {
-        stableDev {
-            storeFile stableDevKeystore
-            storePassword 'aircraftdev'
-            keyAlias 'aircraftdev'
-            keyPassword 'aircraftdev'
-        }
-    }
-
+    signingConfigs { stableDev { storeFile stableDevKeystore; storePassword 'aircraftdev'; keyAlias 'aircraftdev'; keyPassword 'aircraftdev' } }
     defaultConfig {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 40
-        versionName '21.3-avm10.3-runway-aligned-flight'
+        versionCode 41
+        versionName '21.4-avm10.4-runway-pro'
     }
-
     buildTypes {
-        debug {
-            applicationIdSuffix '.dev'
-            versionNameSuffix '-debug'
-            signingConfig signingConfigs.stableDev
-        }
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
+        debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
+        release { minifyEnabled false; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro' }
     }
-
-    packagingOptions {
-        jniLibs { useLegacyPackaging = false }
-    }
+    packagingOptions { jniLibs { useLegacyPackaging = false } }
 }
 
 dependencies {
