@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 78
-        versionName = "1.19.8-p1-contact-golden-regression"
+        versionCode = 79
+        versionName = "1.19.9-p1-assembly-overlay-model"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
