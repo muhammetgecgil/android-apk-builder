@@ -15,6 +15,7 @@ public final class VoxelTetMesher {
         public final MeshQualityReport quality;
         public final BoundaryConformityReport conformity;
         public final int nx,ny,nz,insideCells;
+        /** Representative maximum cell edge in model units, used for normalized conformity gates. */
         public final double cellSizeModelUnits;
         Result(TetMeshData m,MeshQualityReport q,BoundaryConformityReport bc,int nx,int ny,int nz,int inside,double h){
             this.mesh=m; this.quality=q; this.conformity=bc; this.nx=nx; this.ny=ny; this.nz=nz; this.insideCells=inside; this.cellSizeModelUnits=h;
@@ -27,21 +28,29 @@ public final class VoxelTetMesher {
         if(s==null || s.vertices.size()<4 || s.triangles.size()<4) throw new IllegalArgumentException("Closed triangle surface required");
         if(!(unitScaleToMetres>0) || !Double.isFinite(unitScaleToMetres)) throw new IllegalArgumentException("Unit scale to metres must be resolved");
         int n=Math.max(4,Math.min(64,targetLongestAxisCells));
-        double longest=Math.max(s.dx(),Math.max(s.dy(),s.dz()));
-        double h=longest/n;
-        int nx=Math.max(1,(int)Math.ceil(s.dx()/h));
-        int ny=Math.max(1,(int)Math.ceil(s.dy()/h));
-        int nz=Math.max(1,(int)Math.ceil(s.dz()/h));
+        double dx=s.dx(),dy=s.dy(),dz=s.dz();
+        double longest=Math.max(dx,Math.max(dy,dz));
+        if(!(longest>0)||!Double.isFinite(longest))throw new IllegalArgumentException("Model bounding box is degenerate");
+        double hTarget=longest/n;
+        int nx=Math.max(1,(int)Math.ceil(dx/hTarget));
+        int ny=Math.max(1,(int)Math.ceil(dy/hTarget));
+        int nz=Math.max(1,(int)Math.ceil(dz/hTarget));
+        // Critical conformity rule: each axis is fitted exactly to its source bounding extent.
+        // The old single-h grid could overshoot short axes by nearly one full cell, creating a
+        // false geometry boundary and making production conformity fail even for an exact box.
+        double hx=dx>0?dx/nx:hTarget;
+        double hy=dy>0?dy/ny:hTarget;
+        double hz=dz>0?dz/nz:hTarget;
+        double h=Math.max(hx,Math.max(hy,hz));
         long cells=(long)nx*ny*nz;
         if(cells>65536) throw new IllegalArgumentException("Requested mesh exceeds mobile v1.9 cell budget: "+cells);
 
         boolean[][][] inside=new boolean[nx][ny][nz];
         int insideCount=0;
         for(int i=0;i<nx;i++) for(int j=0;j<ny;j++) for(int k=0;k<nz;k++){
-            double x=s.minX+(i+0.5)*h;
-            double y=s.minY+(j+0.5)*h;
-            double z=s.minZ+(k+0.5)*h;
-            if(x>s.maxX || y>s.maxY || z>s.maxZ) continue;
+            double x=s.minX+(i+0.5)*hx;
+            double y=s.minY+(j+0.5)*hy;
+            double z=s.minZ+(k+0.5)*hz;
             if(pointInside(s,x,y,z)){ inside[i][j][k]=true; insideCount++; }
         }
         if(insideCount==0) throw new IllegalStateException("No closed interior detected. Surface may be open/non-manifold or mesh resolution too coarse.");
@@ -56,7 +65,7 @@ public final class VoxelTetMesher {
                 int gi=i+corner[p][0], gj=j+corner[p][1], gk=k+corner[p][2];
                 long key=gridKey(gi,gj,gk); Integer idx=nodes.get(key);
                 if(idx==null){
-                    double x=(s.minX+gi*h)*unitScaleToMetres, y=(s.minY+gj*h)*unitScaleToMetres, z=(s.minZ+gk*h)*unitScaleToMetres;
+                    double x=(s.minX+gi*hx)*unitScaleToMetres, y=(s.minY+gj*hy)*unitScaleToMetres, z=(s.minZ+gk*hz)*unitScaleToMetres;
                     idx=out.addNode(x,y,z); nodes.put(key,idx);
                 }
                 c[p]=idx;
