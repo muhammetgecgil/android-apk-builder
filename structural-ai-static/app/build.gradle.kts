@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 85
-        versionName = "1.20.5-p1-pdf-multiview-evidence"
+        versionCode = 86
+        versionName = "1.21.0-p1-visual-pro"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
