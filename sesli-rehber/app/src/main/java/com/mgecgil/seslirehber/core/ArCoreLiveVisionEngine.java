@@ -1,6 +1,7 @@
 package com.mgecgil.seslirehber.core;
 
 import android.content.Context;
+import android.graphics.Bitmap;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraManager;
 import android.media.Image;
@@ -45,6 +46,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
 
     private static final int GRID_W = 48;
     private static final int GRID_H = 72;
+    private static final long VISUAL_FRAME_INTERVAL_MS = 180L;
     private final Context context;
     private final Listener listener;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -62,6 +64,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
     private final TextRecognizer textRecognizer;
     private volatile Session session;
     private volatile int displayRotation = Surface.ROTATION_0;
+    private long lastVisualFrameMs;
 
     public ArCoreLiveVisionEngine(Context context, Listener listener) {
         this.context = context.getApplicationContext();
@@ -120,6 +123,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         } finally {
             running.set(false);
             session = null;
+            ArCoreVisualFrameContext.reset();
             if (localSession != null) {
                 try { localSession.pause(); } catch (Throwable ignored) {}
                 try { localSession.close(); } catch (Throwable ignored) {}
@@ -134,6 +138,13 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         try {
             cameraImage = frame.acquireCameraImage();
             sampleLuma(cameraImage, lumaGrid);
+            int uprightWidth = (rotationDegrees == 90 || rotationDegrees == 270)
+                    ? cameraImage.getHeight() : cameraImage.getWidth();
+            int uprightHeight = (rotationDegrees == 90 || rotationDegrees == 270)
+                    ? cameraImage.getWidth() : cameraImage.getHeight();
+            float sourceAspect = uprightHeight <= 0 ? 9f / 16f : uprightWidth / (float) uprightHeight;
+            HudPerceptionContext.noteSourceAspect(sourceAspect);
+
             GridEvidenceEstimator.Result evidence = gridEstimator.analyze(lumaGrid, rotationDegrees, nowMs);
             listener.onSceneHealth(evidence.sceneHealth());
             listener.onMotion(evidence.motion());
@@ -159,13 +170,33 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                 }
             }
 
+            // Visual-only preview is intentionally generated after Depth evidence so HUD rendering can
+            // never outrank the safety path. Low resolution and rate keep the extra work bounded.
+            if (nowMs - lastVisualFrameMs >= VISUAL_FRAME_INTERVAL_MS) {
+                lastVisualFrameMs = nowMs;
+                Bitmap visual = null;
+                try {
+                    boolean portrait = rotationDegrees == 90 || rotationDegrees == 270;
+                    visual = UprightYuvBitmapExtractor.extract(
+                            cameraImage,
+                            rotationDegrees,
+                            portrait ? 270 : 480,
+                            portrait ? 480 : 270);
+                    if (visual != null) ArCoreVisualFrameContext.publish(visual, sourceAspect, nowMs);
+                } catch (Throwable ignored) {
+                    // Missing HUD preview is never a safety failure.
+                } finally {
+                    if (visual != null) try { visual.recycle(); } catch (Throwable ignored) {}
+                }
+            }
+
             if (!detectorBusy.compareAndSet(false, true)) return;
             final Image heldImage = cameraImage;
             cameraImage = null;
             int sourceWidth = heldImage.getWidth();
             int sourceHeight = heldImage.getHeight();
-            int uprightWidth = (rotationDegrees == 90 || rotationDegrees == 270) ? sourceHeight : sourceWidth;
-            int uprightHeight = (rotationDegrees == 90 || rotationDegrees == 270) ? sourceWidth : sourceHeight;
+            int objectUprightWidth = (rotationDegrees == 90 || rotationDegrees == 270) ? sourceHeight : sourceWidth;
+            int objectUprightHeight = (rotationDegrees == 90 || rotationDegrees == 270) ? sourceWidth : sourceHeight;
             InputImage input = InputImage.fromMediaImage(heldImage, rotationDegrees);
 
             boolean doTextScan = textScanRequested.getAndSet(false)
@@ -188,7 +219,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             objectDetector.process(input)
                     .addOnSuccessListener(objects -> {
                         List<ObjectObservation> observations = objectTracker.observeAll(
-                                objects, uprightWidth, uprightHeight, nowMs);
+                                objects, objectUprightWidth, objectUprightHeight, nowMs);
                         for (ObjectObservation observation : observations) listener.onObject(observation);
                     })
                     .addOnCompleteListener(task -> {
@@ -258,6 +289,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         distantRecognizer.close();
         segmentationEngine.close();
         urbanSegmentationEngine.close();
+        ArCoreVisualFrameContext.reset();
         try { objectDetector.close(); } catch (Throwable ignored) {}
         try { textRecognizer.close(); } catch (Throwable ignored) {}
     }
