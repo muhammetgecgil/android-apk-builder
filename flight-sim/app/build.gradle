@@ -24,8 +24,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 36
-        versionName '20.7-avm9.6-airframe-refinement'
+        versionCode 37
+        versionName '21.0-avm10-world-runway27'
     }
 
     buildTypes {
