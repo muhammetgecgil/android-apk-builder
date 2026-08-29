@@ -39,7 +39,6 @@ public final class SpatialIdentityPolicy {
         float overlap = iou(l1, t1, r1, b1, l2, t2, r2, b2);
         float distance = centerDistance(l1, t1, r1, b1, l2, t2, r2, b2);
         if (sameLabel) return overlap >= 0.16f || distance <= 0.13f;
-        // Different labels are fused only when boxes are nearly the same physical object.
         return overlap >= 0.58f && distance <= 0.10f;
     }
 
@@ -71,10 +70,6 @@ public final class SpatialIdentityPolicy {
         };
     }
 
-    /**
-     * Distant image-labeling is deliberately weakened when the broad world model does not support
-     * a street interpretation. This does not affect geometric obstacle detection.
-     */
     public static boolean allowDistant(
             String label,
             float confidence,
@@ -87,15 +82,41 @@ public final class SpatialIdentityPolicy {
         return true;
     }
 
+    /**
+     * Crop-level image labeling is a fallback ontology, not the primary boxed detector. Scale and
+     * scene context raise the bar for labels that were observed to generate broad-region mistakes.
+     */
+    public static boolean allowSupplementalCrop(
+            String label,
+            float confidence,
+            float areaRatio,
+            float aspectRatio,
+            WideObjectContext.Environment environment) {
+        if (label == null || label.isBlank() || confidence < 0.58f) return false;
+        if (streetOnly(label)) {
+            if (environment == WideObjectContext.Environment.HOME_OFFICE) return confidence >= 0.95f;
+            if (environment == WideObjectContext.Environment.MARKET) return confidence >= 0.92f;
+            if (environment == WideObjectContext.Environment.UNKNOWN) return confidence >= 0.82f;
+        }
+        if ("yastık".equals(label) && areaRatio >= 0.18f) return confidence >= 0.93f;
+        if (("saat".equals(label) || "lamba".equals(label)) && areaRatio >= 0.30f) {
+            return confidence >= 0.92f;
+        }
+        if ("kapı".equals(label) && areaRatio < 0.015f) return confidence >= 0.88f;
+        // Extremely thin or huge regions are poor identity crops unless the classifier is very sure.
+        if ((aspectRatio > 5.5f || aspectRatio < 0.18f || areaRatio > 0.72f) && confidence < 0.90f) {
+            return false;
+        }
+        return true;
+    }
+
     /** Prefer the joint boxed detector over crop-only image labeling for the same physical region. */
     public static boolean cropShouldYieldToWide(
             String cropLabel,
             float left, float top, float right, float bottom,
             List<WideObjectObservation> wide) {
         WideObjectObservation overlap = bestOverlap(wide, left, top, right, bottom, 0.28f);
-        if (overlap == null) return false;
-        // Even if the label agrees, the wide detector already owns the visual/speech identity.
-        return true;
+        return overlap != null;
     }
 
     public static boolean sameNamedObject(WideObjectObservation a, WideObjectObservation b) {
