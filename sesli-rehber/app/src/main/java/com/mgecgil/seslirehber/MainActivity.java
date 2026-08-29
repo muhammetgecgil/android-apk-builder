@@ -46,6 +46,8 @@ import com.mgecgil.seslirehber.core.OfflineIntentParser;
 import com.mgecgil.seslirehber.core.SafetyGate;
 import com.mgecgil.seslirehber.core.SceneSummaryState;
 import com.mgecgil.seslirehber.core.SensorFusionManager;
+import com.mgecgil.seslirehber.core.UrbanGateRecorder;
+import com.mgecgil.seslirehber.core.UrbanValidationTelemetry;
 import com.mgecgil.seslirehber.core.VisionFusionAnalyzer;
 import com.mgecgil.seslirehber.core.VisionHealthWatchdog;
 import com.mgecgil.seslirehber.core.VoiceCommandController;
@@ -62,9 +64,12 @@ public final class MainActivity extends ComponentActivity {
     private TextView depthStatusView;
     private TextView voiceStatusView;
     private TextView gateCStatusView;
+    private TextView urbanGateStatusView;
     private Button wakeButton;
     private Button gateCButton;
     private Button shareReportButton;
+    private Button urbanGateButton;
+    private Button urbanActionButton;
     private GuidanceSpeaker speaker;
     private VoiceCommandController voice;
     private SensorFusionManager sensors;
@@ -73,6 +78,7 @@ public final class MainActivity extends ComponentActivity {
     private ProcessCameraProvider cameraProvider;
     private ExecutorService cameraExecutor;
     private GateCRecorder gateCRecorder;
+    private UrbanGateRecorder urbanGateRecorder;
 
     private final SafetyGate safetyGate = new SafetyGate();
     private final AnnouncementGate announcementGate = new AnnouncementGate();
@@ -97,6 +103,9 @@ public final class MainActivity extends ComponentActivity {
     private final Runnable healthTick = new Runnable() {
         @Override public void run() {
             if (destroyed) return;
+            if (urbanGateRecorder != null && urbanGateRecorder.isActive()) {
+                urbanGateRecorder.sample(modeName());
+            }
             checkVisionHealth();
             healthHandler.postDelayed(this, 500L);
         }
@@ -132,6 +141,7 @@ public final class MainActivity extends ComponentActivity {
         speaker = new GuidanceSpeaker(this);
         sensors = new SensorFusionManager(this);
         gateCRecorder = new GateCRecorder(this);
+        urbanGateRecorder = new UrbanGateRecorder(this);
         cameraExecutor = Executors.newSingleThreadExecutor();
         voice = new VoiceCommandController(this, new VoiceCommandController.Listener() {
             @Override public void onVoiceText(String text) { handleVoice(text); }
@@ -158,7 +168,7 @@ public final class MainActivity extends ComponentActivity {
         updateVoiceUi();
         probeDepthCapability();
         requestCameraAndStart();
-        speaker.speak("Sesli Rehber sürüm sıfır nokta dokuz. Eller serbest ses, yazı okuma ve canlı çevre özeti hazırlanıyor. Kamera güvenliği çalışmaya devam ediyor.");
+        speaker.speak("Sesli Rehber sürüm sıfır nokta on yedi. Şehir segmentasyonu ve M1 cihaz doğrulama testi hazır. Kamera güvenliği çalışmaya devam ediyor.");
     }
 
     private View buildUi() {
@@ -200,6 +210,14 @@ public final class MainActivity extends ComponentActivity {
         gateCStatusView.setContentDescription("Gate C cihaz doğrulama durumu");
         root.addView(gateCStatusView, new LinearLayout.LayoutParams(-1, -2));
 
+        urbanGateStatusView = new TextView(this);
+        urbanGateStatusView.setText("Urban Gate: kayıt kapalı — başlangıç senaryosu Kaldırım");
+        urbanGateStatusView.setTextColor(Color.LTGRAY);
+        urbanGateStatusView.setTextSize(15f);
+        urbanGateStatusView.setMinHeight(dp(40));
+        urbanGateStatusView.setContentDescription("M1 şehir segmentasyonu cihaz doğrulama durumu");
+        root.addView(urbanGateStatusView, new LinearLayout.LayoutParams(-1, -2));
+
         previewView = new PreviewView(this);
         previewView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
         previewView.setContentDescription("Canlı kamera görüntüsü. ARCore derinlik modunda görsel önizleme enerji tasarrufu için kapatılabilir.");
@@ -233,6 +251,14 @@ public final class MainActivity extends ComponentActivity {
         shareReportButton.setEnabled(false);
         shareReportButton.setOnClickListener(v -> shareGateCReport());
         root.addView(shareReportButton);
+
+        urbanGateButton = bigButton("Urban Gate Testini Başlat", "M1 şehir segmentasyonu cihaz doğrulama kaydını başlat veya durdur");
+        urbanGateButton.setOnClickListener(v -> toggleUrbanGateTest());
+        root.addView(urbanGateButton);
+
+        urbanActionButton = bigButton("Senaryo: Kaldırım", "Urban Gate test senaryosunu sıradaki sahneye geçir");
+        urbanActionButton.setOnClickListener(v -> urbanAction());
+        root.addView(urbanActionButton);
 
         Button stopButton = bigButton("ACİL DUR", "Rehberliği hemen durdur ve güvenlik uyarısı ver");
         stopButton.setOnClickListener(v -> {
@@ -318,7 +344,7 @@ public final class MainActivity extends ComponentActivity {
             return;
         }
 
-        boolean started = gateCRecorder.start("0.9.0", modeName());
+        boolean started = gateCRecorder.start(BuildConfig.VERSION_NAME, modeName());
         if (!started) {
             gateCStatusView.setText("Gate C: kayıt dosyası açılamadı");
             speaker.speak("Gate C kayıt dosyası açılamadı.");
@@ -342,16 +368,77 @@ public final class MainActivity extends ComponentActivity {
             speaker.speak("Paylaşılacak Gate C raporu yok.");
             return;
         }
+        shareCsv(file, "Sesli Rehber Gate C cihaz doğrulama raporu", "Gate C raporunu paylaş", "Gate C raporu paylaşılamadı.");
+    }
+
+    private void toggleUrbanGateTest() {
+        if (urbanGateRecorder.isActive()) {
+            String summary = urbanGateRecorder.stop(modeName());
+            urbanGateButton.setText("Urban Gate Testini Başlat");
+            urbanGateStatusView.setText(summary);
+            urbanActionButton.setText(urbanGateRecorder.lastReportFile() != null
+                    ? "Urban Raporunu Paylaş" : "Senaryo: " + urbanGateRecorder.scenario().label());
+            urbanActionButton.setContentDescription(urbanGateRecorder.lastReportFile() != null
+                    ? "Son Urban Gate CSV raporunu paylaş" : "Urban Gate test senaryosunu değiştir");
+            speaker.speak("Urban Gate testi durduruldu. " + summary);
+            return;
+        }
+
+        boolean started = urbanGateRecorder.start(BuildConfig.VERSION_NAME, modeName());
+        if (!started) {
+            urbanGateStatusView.setText("Urban Gate: kayıt dosyası açılamadı");
+            speaker.speak("Urban Gate kayıt dosyası açılamadı.");
+            return;
+        }
+        urbanGateButton.setText("Urban Gate Testini Durdur");
+        urbanActionButton.setText("Sonraki: " + urbanGateRecorder.scenario().next().label());
+        urbanActionButton.setContentDescription("Urban Gate testini sıradaki sahneye geçir");
+        urbanGateStatusView.setText("Urban Gate: aktif — senaryo " + urbanGateRecorder.scenario().label());
+        speaker.speak("Urban Gate başladı. " + scenarioInstruction(urbanGateRecorder.scenario()));
+    }
+
+    private void urbanAction() {
+        if (urbanGateRecorder.isActive()) {
+            UrbanValidationTelemetry.Scenario next = urbanGateRecorder.cycleScenario(modeName());
+            urbanGateStatusView.setText("Urban Gate: aktif — senaryo " + next.label());
+            urbanActionButton.setText("Sonraki: " + next.next().label());
+            speaker.speak(scenarioInstruction(next));
+            return;
+        }
+        File report = urbanGateRecorder.lastReportFile();
+        if (report != null) {
+            shareCsv(report, "Sesli Rehber M1 Urban Gate raporu", "Urban Gate raporunu paylaş", "Urban Gate raporu paylaşılamadı.");
+            return;
+        }
+        UrbanValidationTelemetry.Scenario next = UrbanValidationTelemetry.cycleScenario();
+        urbanActionButton.setText("Senaryo: " + next.label());
+        urbanGateStatusView.setText("Urban Gate: kayıt kapalı — başlangıç senaryosu " + next.label());
+        speaker.speak("Başlangıç senaryosu " + next.label() + ".");
+    }
+
+    private String scenarioInstruction(UrbanValidationTelemetry.Scenario scenario) {
+        return switch (scenario) {
+            case SIDEWALK -> "Kaldırım senaryosu. Kamerayı yürüdüğün kaldırım yüzeyi ve kenarı görünecek şekilde tut.";
+            case ROAD_EDGE -> "Yol kenarı senaryosu. Güvenli bir noktadan yol yüzeyi ile kaldırım sınırını kadraja al.";
+            case BUILDING_WALL -> "Bina veya duvar senaryosu. Bina cephesi ya da duvarı kadrajın belirgin bölümüne al.";
+            case POLE_FENCE -> "Direk veya çit senaryosu. Sabit bir direk ya da çiti kadraja al.";
+            case TRAFFIC_CONTROL -> "Trafik kontrolü senaryosu. Güvenli bir noktadan trafik ışığı veya tabelayı kadraja al.";
+            case PERSON_VEHICLE -> "İnsan veya araç senaryosu. Güvenli mesafeden insan ya da aracı kadraja al.";
+            case LOW_LIGHT -> "Düşük ışık senaryosu. Normal yürüyüş yapmadan, düşük ışıklı bir sahneyi sabit tut.";
+        };
+    }
+
+    private void shareCsv(File file, String subject, String chooserTitle, String failureSpeech) {
         try {
             Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", file);
             Intent send = new Intent(Intent.ACTION_SEND);
             send.setType("text/csv");
             send.putExtra(Intent.EXTRA_STREAM, uri);
-            send.putExtra(Intent.EXTRA_SUBJECT, "Sesli Rehber Gate C cihaz doğrulama raporu");
+            send.putExtra(Intent.EXTRA_SUBJECT, subject);
             send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            startActivity(Intent.createChooser(send, "Gate C raporunu paylaş"));
+            startActivity(Intent.createChooser(send, chooserTitle));
         } catch (Throwable error) {
-            speaker.speak("Gate C raporu paylaşılamadı.");
+            speaker.speak(failureSpeech);
         }
     }
 
@@ -772,6 +859,7 @@ public final class MainActivity extends ComponentActivity {
             arCoreEngine = null;
         }
         if (gateCRecorder != null) gateCRecorder.close();
+        if (urbanGateRecorder != null) urbanGateRecorder.close();
         if (voice != null) voice.destroy();
         if (speaker != null) speaker.shutdown();
         if (cameraExecutor != null) cameraExecutor.shutdownNow();
