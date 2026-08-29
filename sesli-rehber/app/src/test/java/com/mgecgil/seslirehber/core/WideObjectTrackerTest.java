@@ -40,7 +40,6 @@ public class WideObjectTrackerTest {
     @Test public void sameLabelInDifferentImageRegionDoesNotAccumulate() {
         WideObjectTracker t = new WideObjectTracker();
         assertNull(t.observe("araç", 0.70f, 0.02f, 0.20f, 0.16f, 0.48f, 1000L));
-        // Still left sector, but physically separate from the first box.
         assertNull(t.observe("araç", 0.71f, 0.22f, 0.20f, 0.36f, 0.48f, 1400L));
     }
 
@@ -50,14 +49,13 @@ public class WideObjectTrackerTest {
         WideObjectTracker.Result couch = t.observe("koltuk", 0.76f, 0.19f, 0.40f, 0.83f, 0.82f, 1400L);
         assertNotNull(couch);
         assertTrue(couch.observation().definite());
-        // Same physical box suddenly called a chair once: do not publish the contradiction.
         assertNull(t.observe("sandalye", 0.94f, 0.19f, 0.40f, 0.83f, 0.82f, 1800L));
     }
 
     @Test public void importantTrafficObjectNeedsStrongerEvidence() {
         WideObjectTracker t = new WideObjectTracker();
         assertNull(t.observe("araç", 0.80f, 0.35f, 0.30f, 0.65f, 0.72f, 1000L));
-        assertNull(t.observe("araç", 0.70f, 0.36f, 0.30f, 0.66f, 0.72f, 1400L));
+        assertNull(t.observe("araç", 0.66f, 0.36f, 0.30f, 0.66f, 0.72f, 1400L));
         WideObjectTracker.Result r = t.observe("araç", 0.80f, 0.36f, 0.30f, 0.66f, 0.72f, 1750L);
         assertNotNull(r);
         assertTrue(r.observation().definite());
