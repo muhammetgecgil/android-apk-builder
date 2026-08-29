@@ -16,14 +16,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static com.mgecgil.seslirehber.core.GuidanceModels.Direction;
 
 /**
- * Low-rate crop-level semantic classifier for already detected/tracked objects.
- * Geometry/SafetyGate remains independent; this class only adds advisory identity + speech/HUD labels.
+ * Low-rate crop-level semantic fallback for already detected/tracked objects.
+ * Geometry/SafetyGate remains independent. The broad boxed detector wins when both see the same region.
  */
 public final class ObjectSemanticRecognizer implements AutoCloseable {
-    private static final long SCAN_INTERVAL_MS = 760L;
+    private static final long SCAN_INTERVAL_MS = 820L;
     private static final int MAX_OBJECTS_PER_SCAN = 2;
     private static final int MAX_BITMAP_DIM = 480;
-    private static final float MIN_LABEL_CONFIDENCE = 0.52f;
+    private static final float MIN_LABEL_CONFIDENCE = 0.56f;
     private static final float MIN_BOX_AREA = 0.010f;
 
     private final AtomicBoolean busy = new AtomicBoolean(false);
@@ -86,12 +86,30 @@ public final class ObjectSemanticRecognizer implements AutoCloseable {
                 .addOnSuccessListener(labels -> {
                     Candidate candidate = selectCandidate(labels);
                     if (candidate == null) return;
+                    long nowMs = System.currentTimeMillis();
+                    List<WideObjectObservation> wide = WideObjectContext.snapshot(nowMs);
+                    if (SpatialIdentityPolicy.cropShouldYieldToWide(
+                            candidate.label,
+                            crop.left, crop.top, crop.right, crop.bottom,
+                            wide)) return;
+
+                    float area = Math.max(0f, crop.right - crop.left) * Math.max(0f, crop.bottom - crop.top);
+                    float aspect = Math.max(0.01f, crop.right - crop.left)
+                            / Math.max(0.01f, crop.bottom - crop.top);
+                    WideObjectContext.Environment environment = WideObjectContext.environment(nowMs);
+                    if (!SpatialIdentityPolicy.allowSupplementalCrop(
+                            candidate.label,
+                            candidate.confidence,
+                            area,
+                            aspect,
+                            environment)) return;
+
                     ObjectSemanticTracker.Result result = tracker.observe(
                             crop.trackingId,
                             candidate.label,
                             candidate.confidence,
                             crop.direction,
-                            System.currentTimeMillis());
+                            nowMs);
                     if (result == null || result.observation() == null) return;
                     ObjectSemanticContext.note(result.observation());
                     if (result.announce()) {
@@ -138,17 +156,21 @@ public final class ObjectSemanticRecognizer implements AutoCloseable {
             Rect b = object.getBoundingBox();
             int marginX = Math.max(4, Math.round(b.width() * 0.08f));
             int marginY = Math.max(4, Math.round(b.height() * 0.08f));
-            int left = clamp(Math.round((b.left - marginX) * sx), 0, full.getWidth() - 1);
-            int top = clamp(Math.round((b.top - marginY) * sy), 0, full.getHeight() - 1);
-            int right = clamp(Math.round((b.right + marginX) * sx), left + 1, full.getWidth());
-            int bottom = clamp(Math.round((b.bottom + marginY) * sy), top + 1, full.getHeight());
-            if (right - left < 24 || bottom - top < 24) continue;
-            Bitmap crop = Bitmap.createBitmap(full, left, top, right - left, bottom - top);
+            int leftPx = clamp(Math.round((b.left - marginX) * sx), 0, full.getWidth() - 1);
+            int topPx = clamp(Math.round((b.top - marginY) * sy), 0, full.getHeight() - 1);
+            int rightPx = clamp(Math.round((b.right + marginX) * sx), leftPx + 1, full.getWidth());
+            int bottomPx = clamp(Math.round((b.bottom + marginY) * sy), topPx + 1, full.getHeight());
+            if (rightPx - leftPx < 24 || bottomPx - topPx < 24) continue;
+            Bitmap crop = Bitmap.createBitmap(full, leftPx, topPx, rightPx - leftPx, bottomPx - topPx);
             if (crop == full) crop = full.copy(Bitmap.Config.ARGB_8888, false);
             float centerX = b.exactCenterX() / Math.max(1f, uprightWidth);
             Direction direction = centerX < 0.38f ? Direction.LEFT
                     : centerX > 0.62f ? Direction.RIGHT : Direction.CENTER;
-            out.add(new Crop(id, direction, crop));
+            float left = clamp01(b.left / (float) uprightWidth);
+            float top = clamp01(b.top / (float) uprightHeight);
+            float right = clamp01(b.right / (float) uprightWidth);
+            float bottom = clamp01(b.bottom / (float) uprightHeight);
+            out.add(new Crop(id, direction, crop, left, top, right, bottom));
         }
         return out;
     }
@@ -169,8 +191,8 @@ public final class ObjectSemanticRecognizer implements AutoCloseable {
     private static float specificityBonus(String label) {
         return switch (label) {
             case "koltuk", "sandalye", "masa", "yatak", "yastık", "televizyon", "dolap",
-                    "insan", "araç", "otobüs", "kamyon", "motosiklet", "bisiklet" -> 0.14f;
-            case "kapı", "saat", "lamba", "çöp kutusu", "bank", "bariyer", "direk" -> 0.09f;
+                    "insan", "araç", "otobüs", "kamyon", "motosiklet", "bisiklet" -> 0.10f;
+            case "kapı", "saat", "lamba", "çöp kutusu", "bank", "bariyer", "direk" -> 0.06f;
             default -> 0f;
         };
     }
@@ -193,9 +215,17 @@ public final class ObjectSemanticRecognizer implements AutoCloseable {
         try { labeler.close(); } catch (Throwable ignored) {}
     }
 
-    private record Crop(int trackingId, Direction direction, Bitmap bitmap) {}
+    private record Crop(
+            int trackingId,
+            Direction direction,
+            Bitmap bitmap,
+            float left,
+            float top,
+            float right,
+            float bottom) {}
     private record Scored(DetectedObject object, float score) {}
     private record Candidate(String label, float confidence, float score) {}
 
     private static int clamp(int value, int lo, int hi) { return Math.max(lo, Math.min(hi, value)); }
+    private static float clamp01(float value) { return Math.max(0f, Math.min(1f, value)); }
 }
