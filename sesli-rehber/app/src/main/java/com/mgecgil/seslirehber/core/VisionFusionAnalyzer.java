@@ -87,6 +87,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
             int sourceHeight = imageProxy.getHeight();
             int uprightWidth = (rotation == 90 || rotation == 270) ? sourceHeight : sourceWidth;
             int uprightHeight = (rotation == 90 || rotation == 270) ? sourceWidth : sourceHeight;
+            if (uprightHeight > 0) HudPerceptionContext.noteSourceAspect(uprightWidth / (float) uprightHeight);
             InputImage inputImage = InputImage.fromMediaImage(mediaImage, rotation);
 
             boolean doTextScan = textScanRequested.getAndSet(false)
