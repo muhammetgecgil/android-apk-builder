@@ -144,6 +144,7 @@ public final class ObjectSemanticRecognizer implements AutoCloseable {
             int bottom = clamp(Math.round((b.bottom + marginY) * sy), top + 1, full.getHeight());
             if (right - left < 24 || bottom - top < 24) continue;
             Bitmap crop = Bitmap.createBitmap(full, left, top, right - left, bottom - top);
+            if (crop == full) crop = full.copy(Bitmap.Config.ARGB_8888, false);
             float centerX = b.exactCenterX() / Math.max(1f, uprightWidth);
             Direction direction = centerX < 0.38f ? Direction.LEFT
                     : centerX > 0.62f ? Direction.RIGHT : Direction.CENTER;
