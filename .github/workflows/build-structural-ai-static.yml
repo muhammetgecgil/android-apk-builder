@@ -117,12 +117,35 @@ jobs:
           test -n "$EXPECTED_CERT_SHA256"
           test "$ACTUAL_CERT_SHA256" = "$EXPECTED_CERT_SHA256"
           echo "Signing continuity PASS: $ACTUAL_CERT_SHA256"
+          echo "SIGNING_CERT_SHA256=$ACTUAL_CERT_SHA256" >> "$GITHUB_ENV"
       - name: Rename APK
         run: cp app/build/outputs/apk/debug/app-debug.apk "Structural_AI_Static_${VERSION_NAME}_DEBUG.apk"
+      - name: Generate traceable build evidence
+        run: |
+          set -euxo pipefail
+          APK="Structural_AI_Static_${VERSION_NAME}_DEBUG.apk"
+          sha256sum "$APK" > "$APK.sha256"
+          APK_SHA256=$(sha256sum "$APK" | awk '{print $1}')
+          cat > Structural_AI_build_info.txt <<EOF
+          product=Structural AI Static
+          applicationId=com.mg.structuralai
+          versionName=${VERSION_NAME}
+          versionCode=${VERSION_CODE}
+          gitCommit=${GITHUB_SHA}
+          gitRunNumber=${GITHUB_RUN_NUMBER}
+          abi=arm64-v8a
+          buildType=debug
+          signingCertificateSHA256=${SIGNING_CERT_SHA256}
+          apkSHA256=${APK_SHA256}
+          EOF
+          cat Structural_AI_build_info.txt
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: Structural-AI-Static-${{ env.VERSION_NAME }}-DEBUG
-          path: structural-ai-static/Structural_AI_Static_${{ env.VERSION_NAME }}_DEBUG.apk
+          path: |
+            structural-ai-static/Structural_AI_Static_${{ env.VERSION_NAME }}_DEBUG.apk
+            structural-ai-static/Structural_AI_Static_${{ env.VERSION_NAME }}_DEBUG.apk.sha256
+            structural-ai-static/Structural_AI_build_info.txt
           if-no-files-found: error
           retention-days: 30
