@@ -5,8 +5,8 @@ import java.util.List;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
 /**
- * Keeps recent evidence for the user-triggered "çevremi anlat" command. v0.14 mirrors evidence into
- * a temporal 3x3 world model, while preserving conservative legacy fallbacks for sparse scenes.
+ * Keeps recent evidence for the user-triggered "çevremi anlat" command. The temporal world model
+ * now includes low-rate pixel-level semantic segmentation while preserving conservative fallbacks.
  */
 public final class SceneSummaryState {
     private static final long VISION_FRESH_MS = 2200L;
@@ -52,9 +52,9 @@ public final class SceneSummaryState {
                 || awareness.groundDiscontinuity()
                 || awareness.depthDiscontinuity()
                 || awareness.levelChangeKind() != LevelChangeKind.UNKNOWN
-                || awareness.moreOpenDirection() != Direction.UNKNOWN;
+                || awareness.moreOpenDirection() != Direction.UNKNOWN
+                || SituationalAwarenessContext.hasFreshSegmentation(nowMs);
         if (worldHasEvidence) {
-            // Preserve the mature product-language contract used by existing accessibility tests.
             return SituationalAwarenessContext.summarize(nowMs)
                     .replace("bu bir yön güvenliği onayı değildir", "bu güvenli yol onayı değildir");
         }
