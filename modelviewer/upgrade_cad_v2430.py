@@ -21,7 +21,7 @@ function installAnalysis(){
  let a=document.getElementById('mgAnalysis2430');
  if(!a){a=document.createElement('button');a.id='mgAnalysis2430';a.type='button';a.textContent='ANALİZ';a.setAttribute('aria-expanded','false');styleLike(cad,a);a.style.whiteSpace='nowrap';a.style.flex='0 0 auto';a.onclick=function(e){e.preventDefault();e.stopPropagation();const opening=getComputedStyle(info).display==='none';placeInfo(info);info.style.display=opening?'block':'none';a.textContent=opening?'ANALİZ ◀':'ANALİZ';a.setAttribute('aria-expanded',opening?'true':'false');};}
  if(a.parentElement!==cad.parentElement || a.previousElementSibling!==cad) cad.insertAdjacentElement('afterend',a);
- info.style.display='none'; a.textContent='ANALİZ'; a.setAttribute('aria-expanded','false');
+ if(!info.dataset.mg2430Init){info.dataset.mg2430Init='1';info.style.display='none';a.textContent='ANALİZ';a.setAttribute('aria-expanded','false');}
  return true;
 }
 let pivotGuide=null;
@@ -35,14 +35,14 @@ function enhancePivot(){
  const row=pb.parentElement;
  if(row && !document.getElementById('mgPivotPart2430')){const part=document.createElement('button');part.id='mgPivotPart2430';part.type='button';part.textContent='PARÇA MERKEZİ';part.onclick=function(e){e.preventDefault();e.stopPropagation();try{if(!selected){toast('Önce bir parça seç');return}const b=new THREE.Box3().setFromObject(selected),c=new THREE.Vector3();b.getCenter(c);window.setPivot(c)}catch(err){toast('Parça merkezi alınamadı')}};row.insertBefore(part,row.lastElementChild);}
  const oldToggle=window.togglePivotPick, oldSet=window.setPivot, oldReset=window.resetPivot;
- window.togglePivotPick=function(){oldToggle();if(window.pivotPick===true || (typeof pivotPick!=='undefined'&&pivotPick)){setPivotButton('pick');const i=document.getElementById('pivotInfo');if(i)i.textContent='Model üzerinde dönme merkezi olacak yüzey noktasına dokun';toast('Pivot noktası seç: model yüzeyine dokun')}else if(window.pivotPoint || (typeof pivotPoint!=='undefined'&&pivotPoint)){setPivotButton('set')}else setPivotButton('idle')};
+ window.togglePivotPick=function(){oldToggle();if(typeof pivotPick!=='undefined'&&pivotPick){setPivotButton('pick');const i=document.getElementById('pivotInfo');if(i)i.textContent='Model üzerinde dönme merkezi olacak yüzey noktasına dokun';toast('Pivot noktası seç: model yüzeyine dokun')}else if(typeof pivotPoint!=='undefined'&&pivotPoint){setPivotButton('set')}else setPivotButton('idle')};
  window.setPivot=function(p){oldSet(p);addPivotGuide(p);setPivotButton('set');const i=document.getElementById('pivotInfo');if(i){const f=(v)=>{try{return typeof fmt==='function'?fmt(v):Number(v).toFixed(3)}catch(e){return Number(v).toFixed(3)}};i.innerHTML='<b>✓ Pivot seçildi</b><br>X '+f(p.x)+' • Y '+f(p.y)+' • Z '+f(p.z)+'<br><span style="color:#8bd8ff">Dönüş merkezi bu noktadır.</span>'}toast('✓ Pivot seçildi — model bu nokta etrafında dönecek')};
  window.resetPivot=function(){oldReset();clearPivotGuide();setPivotButton('idle');toast('Pivot model merkezine alındı')};
  setPivotButton('idle');
  return true;
 }
 function init(){
- const info=document.getElementById('info');if(info){placeInfo(info);info.style.display='none'}
+ const info=document.getElementById('info');if(info){placeInfo(info);if(!info.dataset.mg2430Init){info.dataset.mg2430Init='1';info.style.display='none'}}
  installAnalysis();enhancePivot();
  const mo=new MutationObserver(()=>{installAnalysis();enhancePivot()});mo.observe(document.body,{childList:true,subtree:true});
  window.addEventListener('resize',()=>{placeInfo(document.getElementById('info'));installAnalysis()},{passive:true});
