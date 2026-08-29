@@ -50,7 +50,13 @@ public final class UrbanSegmentationEngine implements AutoCloseable {
         nextScanMs = nowMs + (gpuMode ? GPU_INTERVAL_MS : CPU_INTERVAL_MS);
 
         Bitmap snapshot;
+        float sourceAspect;
         try {
+            int uprightWidth = (rotationDegrees == 90 || rotationDegrees == 270)
+                    ? image.getHeight() : image.getWidth();
+            int uprightHeight = (rotationDegrees == 90 || rotationDegrees == 270)
+                    ? image.getWidth() : image.getHeight();
+            sourceAspect = uprightHeight <= 0 ? 9f / 16f : uprightWidth / (float) uprightHeight;
             // Keep camera-thread work bounded. Full 1024 preprocessing happens on the urban worker.
             snapshot = UprightYuvBitmapExtractor.extract(image, rotationDegrees, CAPTURE, CAPTURE);
         } catch (Throwable ignored) {
@@ -63,10 +69,11 @@ public final class UrbanSegmentationEngine implements AutoCloseable {
             busy.set(false);
             return;
         }
-        executor.execute(() -> runInference(snapshot, nowMs));
+        final float aspect = sourceAspect;
+        executor.execute(() -> runInference(snapshot, nowMs, aspect));
     }
 
-    private void runInference(Bitmap snapshot, long sourceTimestampMs) {
+    private void runInference(Bitmap snapshot, long sourceTimestampMs, float sourceAspect) {
         long started = SystemClock.elapsedRealtime();
         Bitmap modelBitmap = null;
         boolean success = false;
@@ -87,6 +94,10 @@ public final class UrbanSegmentationEngine implements AutoCloseable {
             if (logits.length < CLASSES * OUTPUT * OUTPUT) return;
 
             UrbanSegmentationLogitAnalyzer.Raw raw = analyzer.analyze(logits, OUTPUT, OUTPUT);
+            byte[] labels = analyzer.labels(logits, OUTPUT, OUTPUT);
+            if (labels.length == OUTPUT * OUTPUT) {
+                UrbanHudMaskContext.publish(OUTPUT, OUTPUT, labels, sourceAspect, sourceTimestampMs);
+            }
             long inferenceMs = Math.max(0L, SystemClock.elapsedRealtime() - started);
             UrbanSegmentationObservation observation = temporal.update(raw, inferenceMs, sourceTimestampMs);
             if (observation != null) {
@@ -172,6 +183,7 @@ public final class UrbanSegmentationEngine implements AutoCloseable {
     public synchronized void reset() {
         nextScanMs = 0L;
         temporal.reset();
+        UrbanHudMaskContext.reset();
     }
 
     @Override
@@ -179,6 +191,7 @@ public final class UrbanSegmentationEngine implements AutoCloseable {
         closed = true;
         executor.shutdownNow();
         temporal.reset();
+        UrbanHudMaskContext.reset();
         closeBuffers(inputBuffers);
         closeBuffers(outputBuffers);
         inputBuffers = null;
