@@ -104,7 +104,7 @@ jobs:
           APK=app/build/outputs/apk/debug/app-debug.apk
           AAPT="$ANDROID_HOME/build-tools/35.0.0/aapt"
           APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
-          EXPECTED_TEST_CERT_SHA256="99ed4ece003ad7ad6fada9fbaf624ba6cb9ac84ea741563443fd391f7615863c"
+          EXPECTED_TEST_CERT_SHA256="a7ab70c3486a2fbfd8521ff3b36685adfe11dd99da0c7ce49ab59bd892a9c478"
           BADGING=$($AAPT dump badging "$APK" | head -n1)
           echo "$BADGING"
           echo "$BADGING" | grep -q "name='com.mg.structuralai'"
