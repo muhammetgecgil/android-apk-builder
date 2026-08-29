@@ -25,7 +25,7 @@ jobs:
           curl --retry 4 -fL $BASE/vitruvian_head.glb -o $A/v33_head.glb
           curl --retry 4 -fL $BASE/vitruvian_hair_rigged.glb -o $A/v33_hair.glb
           for f in vit_body_bc.png vit_body_n.png vit_body_rough.png vit_face_bc.png vit_face_n.png vit_face_rough.png vit_fabric_n.png vit_hair_ao.png vit_hair_atlas.png vit_hair_diffuse.png vit_hair_normal.png vit_hair_opacity.png vit_iris.png vit_lash_atlas.png vit_mouth.png vit_sclera.png; do curl --retry 4 -fL $BASE/$f -o $A/$f; done
-          test -s $A/product-core-v64.js
+          test -s $A/product-core-v65.js
       - name: Inject product layers
         run: |
           python3 - <<'PY'
@@ -33,13 +33,18 @@ jobs:
           p=Path('mg-tennis-tv/app/src/main/assets/index.html')
           s=p.read_text()
           s=s.replace('let scene,camera,renderer,clock,loader,player,opponent,','var scene,camera,renderer,clock,loader,player,opponent,').replace('let ballVel=new THREE.Vector3(),ballTrail=[];','var ballVel=new THREE.Vector3(),ballTrail=[];')
-          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','clean-core-v37.js','gameplay-v40.js','product-core-v41.js','gameplay-v42.js','gameplay-v43.js','gameplay-v44.js','product-core-v45.js','product-core-v46.js','product-core-v47.js','product-core-v48.js','product-core-v49.js','product-core-v50.js','product-core-v51.js','product-core-v52.js','product-core-v53.js','product-core-v54.js','product-core-v55.js','product-core-v56.js','product-core-v57.js','product-core-v58.js','product-core-v59.js','product-core-v60.js','product-core-v61.js','product-core-v62.js','product-core-v63.js','product-core-v64.js']
-          for old in ['match-start-v34.js','role-start-v38.js','gameplay-v36.js','gameplay-v39.js']:
+          scripts=['difficulty-v24.js','tennis-rules-v22.js','gameplay-feedback-v26.js','tv-mode-v29.js','gameplay-v30.js','visual-gameplay-v31.js','player-ball-v32.js','ultra-human-v33.js','clean-core-v37.js','gameplay-v40.js','product-core-v41.js','gameplay-v42.js','gameplay-v43.js','gameplay-v44.js','product-core-v45.js','product-core-v46.js','product-core-v47.js','product-core-v48.js','product-core-v49.js','product-core-v50.js','product-core-v51.js','product-core-v52.js','product-core-v53.js','product-core-v58.js','product-core-v59.js','product-core-v60.js','product-core-v61.js','product-core-v62.js','product-core-v63.js','product-core-v64.js','product-core-v65.js']
+          for old in ['match-start-v34.js','role-start-v38.js','gameplay-v36.js','gameplay-v39.js','product-core-v54.js','product-core-v55.js','product-core-v56.js','product-core-v57.js']:
               s=s.replace(f'<script src="{old}"></script>','')
           for fn in scripts:
               if fn not in s:s=s.replace('</body>',f'<script src="{fn}"></script></body>')
           p.write_text(s)
           PY
+      - name: JavaScript syntax check
+        run: |
+          node --check mg-tennis-tv/app/src/main/assets/product-core-v63.js
+          node --check mg-tennis-tv/app/src/main/assets/product-core-v64.js
+          node --check mg-tennis-tv/app/src/main/assets/product-core-v65.js
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -57,12 +62,16 @@ jobs:
           APK=mg-tennis-tv/app/build/outputs/apk/release/app-release.apk
           test -s $APK
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose $APK
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='64'"
-          unzip -p $APK assets/index.html | grep -q 'product-core-v64.js'
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging $APK | grep "versionCode='65'"
+          unzip -p $APK assets/index.html | grep -q 'product-core-v65.js'
+          ! unzip -p $APK assets/index.html | grep -q 'product-core-v54.js'
+          ! unzip -p $APK assets/index.html | grep -q 'product-core-v55.js'
+          ! unzip -p $APK assets/index.html | grep -q 'product-core-v56.js'
+          ! unzip -p $APK assets/index.html | grep -q 'product-core-v57.js'
           unzip -p $APK assets/gameplay-v44.js | grep -q "return 14"
-          cp $APK MG_Tennis_TV_v6.4_Product_RC.apk
+          cp $APK MG_Tennis_TV_v6.5_Consolidated_Product_RC.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: MG-Tennis-TV-v6.4-Product-RC-APK
-          path: MG_Tennis_TV_v6.4_Product_RC.apk
+          name: MG-Tennis-TV-v6.5-Consolidated-Product-RC-APK
+          path: MG_Tennis_TV_v6.5_Consolidated_Product_RC.apk
           retention-days: 30
