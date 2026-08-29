@@ -73,6 +73,10 @@ public final class SemanticSegmentationEngine implements AutoCloseable {
             if (result == null || result.categoryMask().isEmpty()) return;
             MPImage maskImage = result.categoryMask().get();
             ByteBuffer mask = ByteBufferExtractor.extract(maskImage);
+            // Copy the short-lived category mask into an advisory context so named detector boxes
+            // can receive an independent pixel-level corroboration/contradiction signal.
+            DeepLabIdentityMaskContext.publish(
+                    mask, maskImage.getWidth(), maskImage.getHeight(), sourceTimestampMs);
             SemanticSegmentationMaskAnalyzer.Raw raw = maskAnalyzer.analyze(
                     mask, maskImage.getWidth(), maskImage.getHeight());
             long inferenceMs = Math.max(0L, SystemClock.elapsedRealtime() - started);
@@ -110,6 +114,7 @@ public final class SemanticSegmentationEngine implements AutoCloseable {
         nextScanMs = 0L;
         temporal.reset();
         wideObjects.reset();
+        DeepLabIdentityMaskContext.reset();
     }
 
     @Override
@@ -118,6 +123,7 @@ public final class SemanticSegmentationEngine implements AutoCloseable {
         executor.shutdownNow();
         temporal.reset();
         wideObjects.close();
+        DeepLabIdentityMaskContext.reset();
         if (segmenter != null) {
             try { segmenter.close(); } catch (Throwable ignored) {}
             segmenter = null;
