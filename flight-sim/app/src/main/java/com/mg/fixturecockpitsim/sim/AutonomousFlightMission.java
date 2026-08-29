@@ -1,27 +1,36 @@
 package com.mg.fixturecockpitsim.sim;
 
-/** 150 s autonomous showcase: runway -> coast -> mountains -> valley road -> lake -> return/landing. */
+/** Hangar start -> taxi -> runway -> takeoff -> 5 min scenic flight -> return/landing. */
 public final class AutonomousFlightMission {
-    public enum Phase { RUNWAY_HOLD, TAKEOFF_ROLL, ROTATE_CLIMB, ORBIT, APPROACH, FLARE, ROLLOUT, COMPLETE }
-    private static final double SCENIC_DURATION_SEC=150.0, CRUISE_ALTITUDE_M=900.0, RUNWAY_HEADING_DEG=0.0;
-    private Phase phase=Phase.RUNWAY_HOLD; private double phaseTime, orbitTime;
-    public void reset(FlightState s){phase=Phase.RUNWAY_HOLD;phaseTime=orbitTime=0;s.timeSec=0;s.altitudeM=0;s.trueAirspeedMps=0;s.verticalSpeedMps=0;s.headingDeg=RUNWAY_HEADING_DEG;s.pitchDeg=s.rollDeg=0;s.throttle=0;s.gearPosition=1;s.brake01=1;s.onGround=true;}
+    public enum Phase { HANGAR_START, TAXI_OUT, RUNWAY_HOLD, TAKEOFF_ROLL, ROTATE_CLIMB, ORBIT, APPROACH, FLARE, ROLLOUT, COMPLETE }
+    public static final double SCENIC_DURATION_SEC=300.0;
+    private static final double CRUISE_ALTITUDE_M=900.0, RUNWAY_HEADING_DEG=0.0;
+    private Phase phase=Phase.HANGAR_START; private double phaseTime, orbitTime;
+    public void reset(FlightState s){phase=Phase.HANGAR_START;phaseTime=orbitTime=0;s.timeSec=0;s.altitudeM=0;s.trueAirspeedMps=0;s.verticalSpeedMps=0;s.headingDeg=90;s.pitchDeg=s.rollDeg=0;s.throttle=0;s.gearPosition=1;s.brake01=1;s.onGround=true;}
     public Phase getPhase(){return phase;} public double getOrbitTimeSec(){return orbitTime;}
     public void update(FlightState s,FlightControls c,double dt){phaseTime+=dt;c.pitch=c.roll=c.yaw=c.brake=0;
         switch(phase){
-            case RUNWAY_HOLD:c.throttle=.10;c.brake=1;c.gearDown=true;if(phaseTime>=2.0)next(Phase.TAKEOFF_ROLL);break;
+            case HANGAR_START:c.throttle=.08;c.brake=1;c.gearDown=true;if(phaseTime>=2.5)next(Phase.TAXI_OUT);break;
+            case TAXI_OUT:
+                c.throttle=.16;c.brake=0;c.gearDown=true;
+                // Leave hangar apron, join taxiway and align with runway heading.
+                double taxiTarget=phaseTime<5?70:phaseTime<10?35:RUNWAY_HEADING_DEG;
+                c.yaw=headingError(s.headingDeg,taxiTarget)*.045;
+                if(s.trueAirspeedMps>13)c.brake=.22;
+                if(phaseTime>=15.0)next(Phase.RUNWAY_HOLD);break;
+            case RUNWAY_HOLD:c.throttle=.10;c.brake=1;c.gearDown=true;c.yaw=headingError(s.headingDeg,0)*.04;if(phaseTime>=2.0)next(Phase.TAKEOFF_ROLL);break;
             case TAKEOFF_ROLL:c.throttle=1;c.gearDown=true;c.yaw=headingError(s.headingDeg,0)*.035;if(s.trueAirspeedMps>=82||phaseTime>=12)next(Phase.ROTATE_CLIMB);break;
             case ROTATE_CLIMB:c.throttle=.96;c.pitch=altitudePitch(s.altitudeM,CRUISE_ALTITUDE_M,.44);c.roll=headingRoll(s.headingDeg,8);c.gearDown=s.altitudeM<45;if(s.altitudeM>=CRUISE_ALTITUDE_M-45)next(Phase.ORBIT);break;
             case ORBIT:
                 orbitTime+=dt;c.gearDown=false;
-                // Scenic director: 0-20 coast/climb, 20-40 mountain approach, 40-70 valley,
-                // 70-105 mountain-road tracking, 105-130 lake/coast, 130-150 airport return.
+                // 5 minute route: coast, mountains, valley-road, lake, highlands, airport return.
                 double t=orbitTime,targetAlt=900,targetHdg=25,bank=.10,thr=.72;
-                if(t<20){targetAlt=980;targetHdg=25;bank=.10;thr=.76;}
-                else if(t<40){targetAlt=1180;targetHdg=55;bank=.16;thr=.74;}
-                else if(t<70){targetAlt=760;targetHdg=92;bank=-.12;thr=.68;}
-                else if(t<105){targetAlt=650;targetHdg=132;bank=.18;thr=.70;}
-                else if(t<130){targetAlt=820;targetHdg=185;bank=.14;thr=.72;}
+                if(t<45){targetAlt=980;targetHdg=28;bank=.10;thr=.76;}
+                else if(t<90){targetAlt=1220;targetHdg=58;bank=.16;thr=.74;}
+                else if(t<145){targetAlt=760;targetHdg=95;bank=-.12;thr=.68;}
+                else if(t<205){targetAlt=650;targetHdg=135;bank=.18;thr=.70;}
+                else if(t<250){targetAlt=840;targetHdg=190;bank=.14;thr=.72;}
+                else if(t<280){targetAlt=1040;targetHdg=245;bank=-.10;thr=.70;}
                 else {targetAlt=520;targetHdg=RUNWAY_HEADING_DEG;bank=headingRoll(s.headingDeg,RUNWAY_HEADING_DEG);thr=.58;}
                 c.throttle=thr;c.pitch=altitudePitch(s.altitudeM,targetAlt,.18);c.roll=clamp(bank+headingRoll(s.headingDeg,targetHdg)*.55,-.38,.38);
                 if(orbitTime>=SCENIC_DURATION_SEC)next(Phase.APPROACH);break;
