@@ -80,9 +80,7 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
                     "Sesli Rehber sürüm sıfır nokta on dört. Çoklu nesne izleme, uzak görüş ve sol orta sağ yakın orta uzak durumsal çevre modeli aktif.");
         }
         if (clean.startsWith("Sesli Rehber sürüm sıfır nokta on sekiz.")) {
-            clean = clean.replaceFirst(
-                    "Sesli Rehber sürüm sıfır nokta on sekiz\\.",
-                    "Sesli Rehber sürüm sıfır nokta on dokuz. Otomatik M1 Urban Gate saha sihirbazı hazır.");
+            clean = "Sesli Rehber sürüm sıfır nokta yirmi. Tam ekran gerçek kamera üzerinde segmentasyon, nesne izleri ve durumsal farkındalık HUD'u aktif. Otomatik M1 saha sihirbazı geliştirici panelinde hazır.";
         }
         if (clean.startsWith("Urban Gate başladı.")) {
             clean = clean.replaceFirst(
