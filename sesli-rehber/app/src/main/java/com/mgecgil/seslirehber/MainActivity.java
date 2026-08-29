@@ -168,7 +168,7 @@ public final class MainActivity extends ComponentActivity {
         updateVoiceUi();
         probeDepthCapability();
         requestCameraAndStart();
-        speaker.speak("Sesli Rehber sürüm sıfır nokta on yedi. Şehir segmentasyonu ve M1 cihaz doğrulama testi hazır. Kamera güvenliği çalışmaya devam ediyor.");
+        speaker.speak("Sesli Rehber sürüm sıfır nokta on sekiz. Şehir segmentasyonu ve otomatik M1 cihaz kabul testi hazır. Kamera güvenliği çalışmaya devam ediyor.");
     }
 
     private View buildUi() {
