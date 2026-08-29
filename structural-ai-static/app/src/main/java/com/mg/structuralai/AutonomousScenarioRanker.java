@@ -6,6 +6,7 @@ import java.util.List;
 
 /** Generates and ranks multiple plausible geometry-driven unit-load scenarios without claiming real service loads. */
 public final class AutonomousScenarioRanker {
+    public interface PreviewListener { void onMeshReady(String scenario,int cells,TetMeshData mesh,MeshQualityReport quality); }
     public static final class Scenario {
         public final String name;
         public final List<MeshModel.V3> supports;
@@ -23,7 +24,6 @@ public final class AutonomousScenarioRanker {
     public static List<Scenario> generate(MeshModel m, AutonomousAnalysisPlanner.Plan base){
         List<Scenario> out=new ArrayList<>();
         out.add(new Scenario("Dominant-axis transverse",base.supports,base.loads,base.fx,base.fy,base.fz,0.75));
-        // Add two alternate unit-load directions to measure sensitivity without pretending either is the true service case.
         double[][] dirs={{1,0,0},{0,1,0},{0,0,1}};
         for(double[] d:dirs){
             if(Math.abs(d[0]-Math.abs(base.fx))+Math.abs(d[1]-Math.abs(base.fy))+Math.abs(d[2]-Math.abs(base.fz))<0.5) continue;
@@ -32,11 +32,15 @@ public final class AutonomousScenarioRanker {
         return out;
     }
 
-    public static Scenario runAndRank(MeshModel surface, AutonomousAnalysisPlanner.Plan plan){
+    public static Scenario runAndRank(MeshModel surface, AutonomousAnalysisPlanner.Plan plan){return runAndRank(surface,plan,null);}
+
+    public static Scenario runAndRank(MeshModel surface, AutonomousAnalysisPlanner.Plan plan,PreviewListener listener){
         List<Scenario> scenarios=generate(surface,plan);
         for(Scenario s:scenarios){
             try{
-                s.convergence=MeshConvergenceStudy.run(surface,plan.unitScaleM,plan.material,s.supports,s.loads,s.fx,s.fy,s.fz,0,false,plan.material.densityKgM3);
+                MeshConvergenceStudy.MeshListener ml=listener==null?null:(cells,mesh,quality)->listener.onMeshReady(s.name,cells,mesh,quality);
+                java.util.ArrayList<AdvancedFemLoads.SupportPatch> patches=new java.util.ArrayList<>();if(s.supports!=null)for(MeshModel.V3 p:s.supports)patches.add(new AdvancedFemLoads.SupportPatch(p,true,true,true));
+                s.convergence=MeshConvergenceStudy.run(surface,plan.unitScaleM,plan.material,patches,s.loads,s.fx,s.fy,s.fz,0,false,plan.material.densityKgM3,ml);
                 MeshConvergenceStudy.Level f=s.convergence.fine;
                 double conv=s.convergence.converged?1.0:0.0;
                 double eq=Math.max(0,1.0-Math.min(1.0,f.fem.forceEquilibriumRelativeError*1e5));
