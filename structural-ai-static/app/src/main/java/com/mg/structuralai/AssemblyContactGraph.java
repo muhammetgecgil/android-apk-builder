@@ -7,8 +7,9 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * Conservative graph view of a multi-body assembly. Only touching/coincident
- * and near-contact candidates are considered possible load-transfer edges.
+ * Conservative graph view of a multi-body assembly. Only actual touching/coincident
+ * candidates are automatic load-transfer edges. Near-contact remains a geometric
+ * candidate but is NOT connected until explicit closure/contact evidence exists.
  * Finite gaps never create connectivity and any suspected interference blocks
  * automatic assembly readiness.
  *
@@ -79,7 +80,7 @@ public final class AssemblyContactGraph {
         if(contacts!=null&&contacts.pairs!=null)for(ContactCandidateEngine.Pair p:contacts.pairs){
             boolean transferCandidate=false,block=false;
             if(p.state==ContactCandidateEngine.State.TOUCHING_OR_COINCIDENT){touch++;transferCandidate=true;}
-            else if(p.state==ContactCandidateEngine.State.NEAR_CONTACT){near++;transferCandidate=true;}
+            else if(p.state==ContactCandidateEngine.State.NEAR_CONTACT){near++;}
             else if(p.state==ContactCandidateEngine.State.FINITE_GAP)gap++;
             else if(p.state==ContactCandidateEngine.State.INTERFERENCE_SUSPECTED){interference++;block=true;}
             boolean acceptedTransfer=transferCandidate&&addTransferEdge(adj,p.bodyA,p.bodyB,n);
@@ -96,6 +97,7 @@ public final class AssemblyContactGraph {
         String reason;
         if(n<2)reason="NOT_AN_ASSEMBLY";
         else if(hasInterference)reason="INTERFERENCE_SUSPECTED";
+        else if(isolated>0&&near>0)reason="NEAR_CONTACT_REQUIRES_CLOSURE_EVIDENCE";
         else if(isolated>0)reason="ISOLATED_BODY";
         else if(!connected)reason="DISCONNECTED_SUBASSEMBLIES";
         else reason="CONNECTED_TRANSFER_GRAPH";
