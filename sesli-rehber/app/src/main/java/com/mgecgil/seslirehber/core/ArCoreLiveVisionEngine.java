@@ -24,7 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
-/** Headless ARCore camera owner with aligned Depth16 and advisory semantic segmentation. */
+/** Headless ARCore camera owner with aligned Depth16 plus advisory general and urban segmentation. */
 public final class ArCoreLiveVisionEngine implements AutoCloseable {
     public interface Listener {
         void onMotion(MotionObservation observation);
@@ -57,6 +57,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
     private final DepthImageAdapter depthAdapter = new DepthImageAdapter();
     private final DistantObjectRecognizer distantRecognizer = new DistantObjectRecognizer();
     private final SemanticSegmentationEngine segmentationEngine = new SemanticSegmentationEngine();
+    private final UrbanSegmentationEngine urbanSegmentationEngine = new UrbanSegmentationEngine();
     private final ObjectDetector objectDetector;
     private final TextRecognizer textRecognizer;
     private volatile Session session;
@@ -101,7 +102,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             session = localSession;
 
             int imageRotationDegrees = resolveImageRotation(localSession, displayRotation);
-            listener.onStatus("ARCore canlı derinlik modu aktif. Yakın güvenlik, segmentasyon, çoklu nesne ve uzak görüş birlikte izleniyor.");
+            listener.onStatus("ARCore canlı derinlik modu aktif. Yakın güvenlik, şehir segmentasyonu, çoklu nesne ve uzak görüş birlikte izleniyor.");
 
             long lastFrameTimestampNs = Long.MIN_VALUE;
             while (running.get()) {
@@ -139,6 +140,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             if (evidence.ground().viewConfidence() > 0.08f) listener.onGround(evidence.ground());
 
             segmentationEngine.maybeAnalyze(cameraImage, rotationDegrees, nowMs);
+            urbanSegmentationEngine.maybeAnalyze(cameraImage, rotationDegrees, nowMs);
 
             if (frame.getCamera().getTrackingState() == TrackingState.TRACKING) {
                 try {
@@ -255,6 +257,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         depthAdapter.reset();
         distantRecognizer.close();
         segmentationEngine.close();
+        urbanSegmentationEngine.close();
         try { objectDetector.close(); } catch (Throwable ignored) {}
         try { textRecognizer.close(); } catch (Throwable ignored) {}
     }
