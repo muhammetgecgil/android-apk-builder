@@ -42,9 +42,8 @@ jobs:
           curl --fail --location --retry 3 \
             'https://huggingface.co/litert-community/PIDNet-S-Cityscapes-LiteRT/resolve/5f0a8789f7c0909f5f183f38a75fbb0b1e4a5e8b/pidnet_s.tflite?download=true' \
             --output app/src/main/assets/pidnet_s.tflite
-          test "$(stat -c%s app/src/main/assets/pidnet_s.tflite)" -gt "30000000"
-          echo "PIDNET_SIZE=$(stat -c%s app/src/main/assets/pidnet_s.tflite)"
-          echo "PIDNET_SHA256=$(sha256sum app/src/main/assets/pidnet_s.tflite | cut -d' ' -f1)"
+          test "$(stat -c%s app/src/main/assets/pidnet_s.tflite)" = "30645332"
+          echo '9f11e66b223eefb9a35ca70bf1451b6a0104623e4c178e422f7cf3eb72eace26  app/src/main/assets/pidnet_s.tflite' | sha256sum -c -
       - name: Unit tests
         run: gradle testDebugUnitTest --stacktrace
       - name: Build debug APK
