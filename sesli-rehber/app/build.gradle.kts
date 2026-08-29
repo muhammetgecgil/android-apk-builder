@@ -10,8 +10,8 @@ android {
         applicationId = "com.mgecgil.seslirehber"
         minSdk = 26
         targetSdk = 36
-        versionCode = 15
-        versionName = "0.15.0"
+        versionCode = 16
+        versionName = "0.16.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -44,6 +44,7 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("com.google.mlkit:image-labeling:17.0.9")
     implementation("com.google.mediapipe:tasks-vision:0.10.29")
+    implementation("com.google.ai.edge.litert:litert:2.1.0")
     implementation("com.google.ar:core:1.54.0")
     testImplementation("junit:junit:4.13.2")
 }
