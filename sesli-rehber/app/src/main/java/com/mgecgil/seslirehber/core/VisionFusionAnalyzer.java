@@ -41,6 +41,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
     private final ObjectDetector objectDetector;
     private final TextRecognizer textRecognizer;
     private final DistantObjectRecognizer distantRecognizer = new DistantObjectRecognizer();
+    private final ObjectSemanticRecognizer objectSemanticRecognizer = new ObjectSemanticRecognizer();
     private final SemanticSegmentationEngine segmentationEngine = new SemanticSegmentationEngine();
     private final UrbanSegmentationEngine urbanSegmentationEngine = new UrbanSegmentationEngine();
     private final GridEvidenceEstimator gridEstimator = new GridEvidenceEstimator(GRID_W, GRID_H);
@@ -118,6 +119,10 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
                         List<ObjectObservation> observations = objectTracker.observeAll(
                                 objects, uprightWidth, uprightHeight, nowMs);
                         for (ObjectObservation observation : observations) listener.onObject(observation);
+                        // Safety-relevant geometry has already been emitted above. Semantic crop labeling
+                        // is deliberately low-rate and advisory, so it cannot gate STOP/CAUTION.
+                        objectSemanticRecognizer.maybeAnalyze(
+                                mediaImage, rotation, objects, uprightWidth, uprightHeight, nowMs);
                     })
                     .addOnFailureListener(error ->
                             listener.onVisionError("Nesne algılama geçici olarak kullanılamıyor."))
@@ -160,6 +165,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         objectDetector.close();
         textRecognizer.close();
         distantRecognizer.close();
+        objectSemanticRecognizer.close();
         segmentationEngine.close();
         urbanSegmentationEngine.close();
         objectTracker.reset();
