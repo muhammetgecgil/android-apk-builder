@@ -1,4 +1,4 @@
-name: Build MG CAD PRO 2.4.2 Analysis Layout
+name: Build MG CAD PRO 2.4.3 Analysis Pivot
 on:
   push:
     branches: [ camera3d-cad-v140-release ]
@@ -18,12 +18,12 @@ jobs:
       - uses: android-actions/setup-android@v3
       - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
       - run: base64 -d .github/mg3d-release.jks.b64 > mg3d-release.jks
-      - name: Apply CAD stack + pivot + analysis layout
+      - name: Apply CAD stack + robust analysis + enhanced pivot
         run: |
           python3 modelviewer/upgrade_units_playstore.py
-          for v in 140 160 170 171 172 173 174 175 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 199 200 201 202 203 204 212 213 214 215 216 217 218 2100 2200 2300 2400 2410 2420; do python3 modelviewer/upgrade_cad_v${v}.py; done
-          sed -i "s/versionCode 15/versionCode 72/" modelviewer/build.gradle
-          sed -i "s/versionName '1.3.2'/versionName '2.4.2'/" modelviewer/build.gradle
+          for v in 140 160 170 171 172 173 174 175 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194 195 196 197 199 200 201 202 203 204 212 213 214 215 216 217 218 2100 2200 2300 2400 2410 2420 2430; do python3 modelviewer/upgrade_cad_v${v}.py; done
+          sed -i "s/versionCode 15/versionCode 73/" modelviewer/build.gradle
+          sed -i "s/versionName '1.3.2'/versionName '2.4.3'/" modelviewer/build.gradle
       - name: Bundle offline CAD engines
         run: |
           set -euxo pipefail
@@ -34,7 +34,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.11.1' }
       - run: gradle --no-daemon :modelviewer:assembleRelease :modelviewer:bundleRelease --stacktrace
-      - name: Verify v2.4.2 analysis layout
+      - name: Verify v2.4.3 analysis and pivot
         run: |
           APK=modelviewer/build/outputs/apk/release/modelviewer-release.apk
           AAB=modelviewer/build/outputs/bundle/release/modelviewer-release.aab
@@ -42,21 +42,22 @@ jobs:
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK" > cert.txt
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" > badging.txt
           grep -q "package: name='com.muhammetgecgil.mg3dmodelviewer'" badging.txt
-          grep -q "versionCode='72'" badging.txt
-          grep -q "versionName='2.4.2'" badging.txt
+          grep -q "versionCode='73'" badging.txt
+          grep -q "versionName='2.4.3'" badging.txt
           grep -qi "cff09eb09175519edd966d02d00a36027d047b59ba8ca03923a3a44c39615dc7" cert.txt
           unzip -p "$APK" assets/cadviewer/index.html | grep -q 'pivotPointRotation:true'
-          unzip -p "$APK" assets/cadviewer/cad-v2420.js | grep -q 'analysisNextToCad:true'
-          unzip -p "$APK" assets/cadviewer/cad-v2420.js | grep -q 'analysisClosedOnStart:true'
-          unzip -p "$APK" assets/cadviewer/cad-v2420.js | grep -q 'analysisBottomLeft:true'
-          cp "$APK" MG_CAD_PRO_v2.4.2_ANALYSIS_LAYOUT.apk
-          cp "$AAB" MG_CAD_PRO_v2.4.2_ANALYSIS_LAYOUT.aab
-          sha256sum MG_CAD_PRO_v2.4.2_ANALYSIS_LAYOUT.apk MG_CAD_PRO_v2.4.2_ANALYSIS_LAYOUT.aab > SHA256SUMS.txt
+          unzip -p "$APK" assets/cadviewer/cad-v2430.js | grep -q 'analysisButtonPersistent:true'
+          unzip -p "$APK" assets/cadviewer/cad-v2430.js | grep -q 'pivotSelectedFeedback:true'
+          unzip -p "$APK" assets/cadviewer/cad-v2430.js | grep -q 'pivotCrosshairGuide:true'
+          unzip -p "$APK" assets/cadviewer/cad-v2430.js | grep -q 'pivotPartCenter:true'
+          cp "$APK" MG_CAD_PRO_v2.4.3_ANALYSIS_PIVOT.apk
+          cp "$AAB" MG_CAD_PRO_v2.4.3_ANALYSIS_PIVOT.aab
+          sha256sum MG_CAD_PRO_v2.4.3_ANALYSIS_PIVOT.apk MG_CAD_PRO_v2.4.3_ANALYSIS_PIVOT.aab > SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: MG-CAD-PRO-v2.4.2-ANALYSIS-LAYOUT
+          name: MG-CAD-PRO-v2.4.3-ANALYSIS-PIVOT
           path: |
-            MG_CAD_PRO_v2.4.2_ANALYSIS_LAYOUT.apk
-            MG_CAD_PRO_v2.4.2_ANALYSIS_LAYOUT.aab
+            MG_CAD_PRO_v2.4.3_ANALYSIS_PIVOT.apk
+            MG_CAD_PRO_v2.4.3_ANALYSIS_PIVOT.aab
             SHA256SUMS.txt
           if-no-files-found: error
