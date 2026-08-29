@@ -42,6 +42,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
     private final TextRecognizer textRecognizer;
     private final DistantObjectRecognizer distantRecognizer = new DistantObjectRecognizer();
     private final SemanticSegmentationEngine segmentationEngine = new SemanticSegmentationEngine();
+    private final UrbanSegmentationEngine urbanSegmentationEngine = new UrbanSegmentationEngine();
     private final GridEvidenceEstimator gridEstimator = new GridEvidenceEstimator(GRID_W, GRID_H);
     private final ObjectObservationTracker objectTracker = new ObjectObservationTracker();
 
@@ -80,6 +81,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
             }
 
             segmentationEngine.maybeAnalyze(mediaImage, rotation, nowMs);
+            urbanSegmentationEngine.maybeAnalyze(mediaImage, rotation, nowMs);
 
             int sourceWidth = imageProxy.getWidth();
             int sourceHeight = imageProxy.getHeight();
@@ -158,6 +160,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         textRecognizer.close();
         distantRecognizer.close();
         segmentationEngine.close();
+        urbanSegmentationEngine.close();
         objectTracker.reset();
         gridEstimator.reset();
     }
