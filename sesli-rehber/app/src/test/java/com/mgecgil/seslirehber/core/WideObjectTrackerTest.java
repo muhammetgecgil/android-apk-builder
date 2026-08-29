@@ -55,9 +55,15 @@ public class WideObjectTrackerTest {
     @Test public void importantTrafficObjectNeedsStrongerEvidence() {
         WideObjectTracker t = new WideObjectTracker();
         assertNull(t.observe("araç", 0.80f, 0.35f, 0.30f, 0.65f, 0.72f, 1000L));
-        assertNull(t.observe("araç", 0.66f, 0.36f, 0.30f, 0.66f, 0.72f, 1400L));
+        WideObjectTracker.Result candidate = t.observe(
+                "araç", 0.66f, 0.36f, 0.30f, 0.66f, 0.72f, 1400L);
+        assertNotNull(candidate);
+        assertFalse(candidate.observation().definite());
+        assertTrue(WideObjectDetectorEngine.speech(candidate.observation()).contains("olabilir"));
+
         WideObjectTracker.Result r = t.observe("araç", 0.80f, 0.36f, 0.30f, 0.66f, 0.72f, 1750L);
         assertNotNull(r);
         assertTrue(r.observation().definite());
+        assertTrue(WideObjectDetectorEngine.speech(r.observation()).contains(" var."));
     }
 }
