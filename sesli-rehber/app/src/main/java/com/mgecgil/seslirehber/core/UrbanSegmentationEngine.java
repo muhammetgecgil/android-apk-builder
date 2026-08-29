@@ -54,10 +54,12 @@ public final class UrbanSegmentationEngine implements AutoCloseable {
             // Keep camera-thread work bounded. Full 1024 preprocessing happens on the urban worker.
             snapshot = UprightYuvBitmapExtractor.extract(image, rotationDegrees, CAPTURE, CAPTURE);
         } catch (Throwable ignored) {
+            UrbanValidationTelemetry.noteFailure();
             busy.set(false);
             return;
         }
         if (snapshot == null) {
+            UrbanValidationTelemetry.noteFailure();
             busy.set(false);
             return;
         }
@@ -67,6 +69,7 @@ public final class UrbanSegmentationEngine implements AutoCloseable {
     private void runInference(Bitmap snapshot, long sourceTimestampMs) {
         long started = SystemClock.elapsedRealtime();
         Bitmap modelBitmap = null;
+        boolean success = false;
         try {
             if (!ensureModel() || closed) return;
             modelBitmap = snapshot.getWidth() == INPUT && snapshot.getHeight() == INPUT
@@ -86,10 +89,15 @@ public final class UrbanSegmentationEngine implements AutoCloseable {
             UrbanSegmentationLogitAnalyzer.Raw raw = analyzer.analyze(logits, OUTPUT, OUTPUT);
             long inferenceMs = Math.max(0L, SystemClock.elapsedRealtime() - started);
             UrbanSegmentationObservation observation = temporal.update(raw, inferenceMs, sourceTimestampMs);
-            if (observation != null) SituationalAwarenessContext.noteUrbanSegmentation(observation);
+            if (observation != null) {
+                SituationalAwarenessContext.noteUrbanSegmentation(observation);
+                UrbanValidationTelemetry.noteSuccess(observation);
+                success = true;
+            }
         } catch (Throwable ignored) {
             // Urban segmentation is advisory. A runtime failure must not affect safety guidance.
         } finally {
+            if (!success) UrbanValidationTelemetry.noteFailure();
             if (modelBitmap != null && modelBitmap != snapshot) {
                 try { modelBitmap.recycle(); } catch (Throwable ignored) {}
             }
@@ -104,13 +112,16 @@ public final class UrbanSegmentationEngine implements AutoCloseable {
 
         if (tryCreate(Accelerator.GPU)) {
             gpuMode = true;
+            UrbanValidationTelemetry.noteBackend(UrbanValidationTelemetry.Backend.GPU);
             return true;
         }
         if (tryCreate(Accelerator.CPU)) {
             gpuMode = false;
+            UrbanValidationTelemetry.noteBackend(UrbanValidationTelemetry.Backend.CPU);
             return true;
         }
         permanentlyUnavailable = true;
+        UrbanValidationTelemetry.noteBackend(UrbanValidationTelemetry.Backend.UNAVAILABLE);
         return false;
     }
 
