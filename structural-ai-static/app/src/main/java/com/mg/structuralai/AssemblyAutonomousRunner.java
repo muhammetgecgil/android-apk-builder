@@ -14,6 +14,14 @@ public final class AssemblyAutonomousRunner {
         ContactRegressionGate.Result regression=ContactRegressionGate.run();
         if(!regression.pass)throw new IllegalStateException(regression.summary);
 
+        AssemblyBodyDecomposer.Result dec=AssemblyBodyDecomposer.decompose(source);
+        ContactCandidateEngine.Result candidates=ContactCandidateEngine.analyze(source,dec);
+        AssemblyContactGraph.Result graph=AssemblyContactGraph.evaluate(dec,candidates);
+        if(!graph.assemblyReady){
+            throw new IllegalStateException("ASSEMBLY CONTACT GRAPH BLOCKED: "+graph.summary+
+                    " | Automatic bonded solve requires one connected load-transfer graph, no isolated bodies and no suspected interference.");
+        }
+
         final double scale=0.001;
         AssemblyTetContactBuilder.Result a=AssemblyTetContactBuilder.build(source,10,scale);
         if(!a.safeBondedOnly)throw new IllegalStateException("CONTACT QA BLOCKED: "+a.summary);
@@ -38,8 +46,8 @@ public final class AssemblyAutonomousRunner {
         boolean numerical=f.linearSolve.converged&&f.forceEquilibriumRelativeError<1e-5&&Double.isFinite(f.maxDisplacementM)&&f.maxDisplacementM>0&&Double.isFinite(f.maxVonMisesPa)&&f.maxVonMisesPa>0;
         String axisName=axis==0?"X":axis==1?"Y":"Z";
         String text=String.format(Locale.US,
-            "CONTACT REGRESSION\n%s\n\nAUTONOMOUS BONDED ASSEMBLY\n%s\nDominant axis: %s\nReference unit assumption: 1 model unit = 1 mm (screening only)\nReference material: E=210 GPa, nu=0.30 (normalization only)\nSupport nodes: %d\nLoaded nodes: %d\nInfluence load: 1 N transverse\nBonded tie pairs: %d\nNodes: %d | TET4: %d\n\nSOLVER\nPCG converged: %s | iter=%d\nResidual: %.3e\nForce equilibrium error: %.3e\nUmax per 1N: %.9f mm\nVon Mises raw max per 1N: %.9f MPa\n\nAUTONOMOUS ASSEMBLY NUMERICAL GATE: %s\nDESIGN CAPACITY: BLOCKED — actual units, material, service load and physical contact definition are not proven.\nReference material is not release-eligible, so safety factor remains blocked.",
-            regression.summary,a.summary,axisName,fixed,loaded,a.constraints.bondedCount(),a.mesh.nodes.size(),a.mesh.tets.size(),f.linearSolve.converged,f.linearSolve.iterations,f.linearSolve.relativeResidual,f.forceEquilibriumRelativeError,f.maxDisplacementM*1000,f.maxVonMisesPa/1e6,numerical?"PASS":"BLOCKED");
+            "CONTACT REGRESSION\n%s\n\nASSEMBLY CONTACT GRAPH\n%s\n\nAUTONOMOUS BONDED ASSEMBLY\n%s\nDominant axis: %s\nReference unit assumption: 1 model unit = 1 mm (screening only)\nReference material: E=210 GPa, nu=0.30 (normalization only)\nSupport nodes: %d\nLoaded nodes: %d\nInfluence load: 1 N transverse\nBonded tie pairs: %d\nNodes: %d | TET4: %d\n\nSOLVER\nPCG converged: %s | iter=%d\nResidual: %.3e\nForce equilibrium error: %.3e\nUmax per 1N: %.9f mm\nVon Mises raw max per 1N: %.9f MPa\n\nAUTONOMOUS ASSEMBLY NUMERICAL GATE: %s\nDESIGN CAPACITY: BLOCKED — actual units, material, service load and physical contact definition are not proven.\nReference material is not release-eligible, so safety factor remains blocked.",
+            regression.summary,graph.summary,a.summary,axisName,fixed,loaded,a.constraints.bondedCount(),a.mesh.nodes.size(),a.mesh.tets.size(),f.linearSolve.converged,f.linearSolve.iterations,f.linearSolve.relativeResidual,f.forceEquilibriumRelativeError,f.maxDisplacementM*1000,f.maxVonMisesPa/1e6,numerical?"PASS":"BLOCKED");
         return new Result(a.mesh,f,mat,numerical,text);
     }
 }
