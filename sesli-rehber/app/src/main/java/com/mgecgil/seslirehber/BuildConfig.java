@@ -5,6 +5,6 @@ package com.mgecgil.seslirehber;
  * Keep VERSION_NAME aligned with app/build.gradle.kts.
  */
 public final class BuildConfig {
-    public static final String VERSION_NAME = "0.19.0";
+    public static final String VERSION_NAME = "0.20.0";
     private BuildConfig() {}
 }
