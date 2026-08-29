@@ -41,7 +41,7 @@ public final class SemanticSegmentationEngine implements AutoCloseable {
         if (closed || image == null || nowMs < nextScanMs || !busy.compareAndSet(false, true)) return;
         nextScanMs = nowMs + MIN_INTERVAL_MS;
 
-        Bitmap bitmap = null;
+        Bitmap bitmap;
         try {
             bitmap = UprightYuvBitmapExtractor.extract(image, rotationDegrees, INPUT, INPUT);
         } catch (Throwable ignored) {
@@ -70,7 +70,7 @@ public final class SemanticSegmentationEngine implements AutoCloseable {
                     mask, maskImage.getWidth(), maskImage.getHeight());
             long inferenceMs = Math.max(0L, SystemClock.elapsedRealtime() - started);
             SemanticSegmentationObservation observation = temporal.update(raw, inferenceMs, sourceTimestampMs);
-            if (observation != null) SituationalAwarenessHub.note(observation);
+            if (observation != null) SituationalAwarenessContext.noteSegmentation(observation);
         } catch (Throwable ignored) {
             // Segmentation is advisory. Failure must never interrupt camera/depth safety guidance.
         } finally {
