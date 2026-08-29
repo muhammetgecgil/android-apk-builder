@@ -24,6 +24,11 @@ public final class SituationalAwarenessContext {
 
     public static SituationalAwarenessEngine.Snapshot snapshot(long nowMs) { return ENGINE.snapshot(nowMs); }
 
+    public static synchronized boolean hasFreshSegmentation(long nowMs) {
+        SemanticSegmentationObservation s = segmentation;
+        return s != null && fresh(s.timestampMs(), nowMs, SEGMENTATION_FRESH_MS) && s.mature();
+    }
+
     public static synchronized String summarize(long nowMs) {
         String base = ENGINE.summarize(nowMs);
         SemanticSegmentationObservation s = segmentation;
