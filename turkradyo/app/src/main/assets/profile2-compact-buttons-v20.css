@@ -1,0 +1,20 @@
+/* v20.1 — Profil 2 kompakt düzen + fonksiyon eşleştirme. */
+body.profile2-active .p2Hub{margin-top:10px!important}
+body.profile2-active .p2Grid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;grid-auto-flow:row!important}
+body.profile2-active .p2Tile,body.profile2-active .p2Wide,body.profile2-active .p2Tile.p2Wide{grid-column:span 1!important;min-height:78px!important;height:78px!important;border-radius:18px!important;padding:9px 10px!important;display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:9px!important;overflow:hidden!important;background:linear-gradient(145deg,color-mix(in srgb,var(--card2) 95%,var(--natureA)),var(--card))!important;box-shadow:inset 0 1px 0 #ffffff10,0 5px 14px #0005!important}
+/* Satır eşleşmeleri kesin: DNA+Son50 / Alarm+Zamanlayıcı / Zapping+Türkiye Grupları */
+body.profile2-active #p2DNA{order:1!important}body.profile2-active #p2Tracks{order:2!important}body.profile2-active #p2Alarm{order:3!important}body.profile2-active #p2Sleep{order:4!important}body.profile2-active #p2Zap{order:5!important}body.profile2-active #p2Genres{order:6!important}
+body.profile2-active .p2Tile b{font-size:20px!important;line-height:1!important;margin:0!important;min-width:36px!important;color:var(--natureC)!important}
+body.profile2-active .p2Tile small{font-size:8px!important;line-height:1.15!important;margin:2px 0 0!important;color:var(--muted)!important;max-width:68%!important}
+/* Daha temiz ürün görünümü: eş kart boyu, daha ince glow, daha net aktif dokunma. */
+body.profile2-active #p2Alarm,body.profile2-active #p2Sleep{border-color:color-mix(in srgb,var(--natureA) 48%,#ffffff12)!important}
+body.profile2-active #p2Zap,body.profile2-active #p2Genres{border-color:color-mix(in srgb,var(--natureC) 38%,#ffffff12)!important}
+body.profile2-active .p2Tile:active{transform:scale(.975)!important;box-shadow:inset 0 0 0 1px var(--natureC),0 2px 8px #0006!important}
+/* Önceki büyük görsel kart katmanını tamamen bastır. */
+body.profile2-active .p2Tile::before{width:42px!important;height:42px!important;right:10px!important;top:50%!important;transform:translateY(-50%)!important;opacity:.12!important;border-width:1px!important;box-shadow:none!important}
+body.profile2-active .p2Tile::after{right:7px!important;font-size:18px!important;opacity:.55!important}
+body.profile2-active .p2Tile:nth-child(n){min-height:78px!important;height:78px!important;grid-column:span 1!important}
+body.profile2-active .p2Tile:nth-child(n) b{font-size:20px!important}
+body.profile2-active .p2Tile:nth-child(n) small{max-width:68%!important;font-size:8px!important}
+body.profile2-active .p2Tile svg{max-width:38px!important;max-height:38px!important;opacity:.78!important}
+@media(max-width:430px){body.profile2-active .p2Grid{gap:7px!important}body.profile2-active .p2Tile,body.profile2-active .p2Wide,body.profile2-active .p2Tile.p2Wide{height:70px!important;min-height:70px!important;border-radius:16px!important;padding:8px!important}body.profile2-active .p2Tile b{font-size:18px!important}body.profile2-active .p2Tile small{font-size:7px!important;max-width:64%!important}}
