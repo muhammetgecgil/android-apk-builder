@@ -26,22 +26,27 @@ public final class SceneSummaryState {
     public synchronized void update(ObjectObservation value) {
         object = value;
         SituationalAwarenessContext.noteObject(value);
+        HudPerceptionContext.noteObject(value);
     }
     public synchronized void update(GroundObservation value) {
         ground = value;
         SituationalAwarenessContext.noteGround(value);
+        HudPerceptionContext.noteGround(value);
     }
     public synchronized void update(DepthObservation value) {
         depth = value;
         SituationalAwarenessContext.noteDepth(value);
+        HudPerceptionContext.noteDepth(value);
     }
     public synchronized void update(WalkableCorridorObservation value) {
         walkable = value;
         SituationalAwarenessContext.noteWalkable(value);
+        HudPerceptionContext.noteWalkable(value);
     }
     public synchronized void update(SceneHealthObservation value) {
         sceneHealth = value;
         SituationalAwarenessContext.noteSceneHealth(value);
+        HudPerceptionContext.noteSceneHealth(value);
     }
 
     public synchronized String summarize(long nowMs) {
@@ -116,6 +121,8 @@ public final class SceneSummaryState {
         walkable = null;
         sceneHealth = null;
         SituationalAwarenessContext.reset();
+        HudPerceptionContext.reset();
+        UrbanHudMaskContext.reset();
     }
 
     private static boolean fresh(long timestampMs, long nowMs, long maxAgeMs) {
