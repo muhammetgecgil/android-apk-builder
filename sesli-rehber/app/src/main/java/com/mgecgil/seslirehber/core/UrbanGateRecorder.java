@@ -12,8 +12,10 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -42,6 +44,7 @@ public final class UrbanGateRecorder implements AutoCloseable {
     private float maxBatteryC = Float.NaN;
     private int maxThermalStatus;
     private int rowsSinceFlush;
+    private UrbanGateAcceptance.Result lastAcceptance;
 
     public UrbanGateRecorder(Context context) {
         this.context = context.getApplicationContext();
@@ -143,6 +146,9 @@ public final class UrbanGateRecorder implements AutoCloseable {
 
     public synchronized String stop(String mode) {
         if (!active) return summaryText();
+        refreshThermal();
+        lastAcceptance = acceptanceResultInternal();
+        writeMarker("ACCEPTANCE", mode, lastAcceptance.shortText());
         writeMarker("SESSION_STOP", mode, "user_stop");
         stopInternal();
         return summaryText();
@@ -150,6 +156,10 @@ public final class UrbanGateRecorder implements AutoCloseable {
 
     public synchronized File lastReportFile() {
         return lastFile != null && lastFile.exists() ? lastFile : null;
+    }
+
+    public synchronized UrbanGateAcceptance.Result acceptanceResult() {
+        return lastAcceptance != null ? lastAcceptance : acceptanceResultInternal();
     }
 
     public synchronized String summaryText() {
@@ -171,7 +181,29 @@ public final class UrbanGateRecorder implements AutoCloseable {
                     .append(Math.round(100f * st.evidence / st.frames)).append("%(")
                     .append(st.frames).append(" kare).");
         }
+        UrbanGateAcceptance.Result result = lastAcceptance != null
+                ? lastAcceptance : acceptanceResultInternal();
+        out.append(' ').append(result.shortText());
         return out.toString();
+    }
+
+    private UrbanGateAcceptance.Result acceptanceResultInternal() {
+        UrbanValidationTelemetry.Snapshot s = UrbanValidationTelemetry.snapshot();
+        List<UrbanGateAcceptance.ScenarioMetric> scenarioMetrics = new ArrayList<>();
+        for (UrbanValidationTelemetry.Scenario scenario : UrbanValidationTelemetry.Scenario.values()) {
+            ScenarioStats st = stats.get(scenario);
+            long frames = st == null ? 0L : st.frames;
+            long evidence = st == null ? 0L : st.evidence;
+            scenarioMetrics.add(new UrbanGateAcceptance.ScenarioMetric(scenario, frames, evidence));
+        }
+        return UrbanGateAcceptance.evaluate(new UrbanGateAcceptance.Input(
+                s.backend(),
+                s.successfulInferences(),
+                s.failedInferences(),
+                s.p95InferenceMs(),
+                maxBatteryC,
+                maxThermalStatus,
+                scenarioMetrics));
     }
 
     private void writeMarker(String marker, String mode, String detail) {
@@ -224,6 +256,7 @@ public final class UrbanGateRecorder implements AutoCloseable {
         maxBatteryC = Float.NaN;
         maxThermalStatus = 0;
         rowsSinceFlush = 0;
+        lastAcceptance = null;
     }
 
     private void stopInternal() {
