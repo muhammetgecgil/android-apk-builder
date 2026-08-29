@@ -41,11 +41,6 @@ Bu dosya `PRODUCT_REQUIREMENTS.md` ve `GUIDE_MATURITY_ROADMAP.md` ile birlikte o
 | OCR-002 | DEVICE-TEST | Tabela, kapı numarası, düşük ışık ve eğik metin doğruluk testi bekliyor |
 | SCENE-001 | DONE-CI | “Çevremi anlat” yalnız taze scene/object/ground/depth/walkable kanıtından muhafazakâr özet üretir |
 | NAV-001 | PARTIAL-CI | “Beni <hedef> götür” hedef metni çıkarılır; rota motoru henüz bağlı değildir |
-| SEG-001 | DONE-CI | Genel DeepLab semantic segmentation advisory kanalı |
-| SEG-002 | DONE-CI | PIDNet-S Cityscapes urban semantic segmentation; SafetyGate yetkisi yok |
-| SEG-003 | DEVICE-TEST | S24 Ultra gerçek sahnede urban sınıf tekrarı, GPU/CPU backend, p95 ve termal doğrulama |
-| VALID-004 | DONE-CI | Urban Gate CSV: senaryo, backend, p95, sınıf oranları, battery/thermal |
-| VALID-005 | DONE-CI | Urban Gate otomatik PASS/REVIEW/FAIL kabul motoru; sonuç tek başına M1 DONE değildir |
 
 ## Release kapıları
 
@@ -90,25 +85,21 @@ Bu dosya `PRODUCT_REQUIREMENTS.md` ve `GUIDE_MATURITY_ROADMAP.md` ile birlikte o
 - **Final Gate A:** GitHub Actions run `33102884137`, head `0f9cb09d0f177017e6aa74d1d67d60648090e0fe`: unit test SUCCESS, debug APK SUCCESS, artifact SUCCESS.
 - Gate C / saha sonucu hâlâ `DEVICE-TEST`; CI gerçek telefon, ses modeli ve gerçek yürüyüş güvenilirliğini kanıtlamaz.
 
-## v0.15–v0.16 — semantic + urban segmentation
-- Genel DeepLab semantic segmentation ve PIDNet-S Cityscapes urban segmentation eklendi.
-- Urban kanal ayrı worker’da çalışır; kamera/safety thread’ini bloke etmez.
-- GPU tercih edilir; CPU yalnız düşük-frekans fallback’tir.
-- Road/sidewalk/building/wall/fence/pole/traffic-control/person/vehicle/two-wheeler gibi urban kanıtlar advisory world-model girdisidir.
-- Segmentasyon tek başına “güvenli yol”, “geç” veya zorunlu dönüş komutu üretmez.
+## v0.18 — M1 automatic urban acceptance
+- `UrbanGateAcceptance` gerçek cihaz Urban Gate ölçümünü PASS / REVIEW / FAIL olarak muhafazakâr değerlendirir.
+- Backend, inference hata oranı, p95 latency, batarya sıcaklığı, Android thermal status ve yedi urban saha senaryosunun minimum kare/kanıt tekrar oranı birlikte kullanılır.
+- CPU fallback otomatik PASS değildir; en iyi durumda REVIEW olur. Eksik/zayıf senaryo, ciddi hata/ısı/thermal veya aşırı latency FAIL üretebilir.
+- Sonuç CSV içine `ACCEPTANCE` marker olarak yazılır ve test özetine eklenir.
+- Urban Gate PASS yalnız segmentasyon cihaz-kabul sonucudur; bağımsız kör navigasyon güvenliği değildir.
 
-## v0.17 — M1 Urban Gate cihaz ölçümü
-- Ayrı Urban Gate CSV akışı eklendi.
-- Senaryolar: Kaldırım, Yol kenarı, Bina/Duvar, Direk/Çit, Trafik ışığı/Tabela, İnsan/Araç, Düşük ışık.
-- Backend, inference sayıları, p95, temporal stability, sınıf oranları, lower-center yüzey/engel, batarya sıcaklığı ve Android thermal status kaydedilir.
-- Urban Gate telemetrisi SafetyGate kararlarını değiştirmez.
-
-## v0.18 — M1 otomatik cihaz kabul motoru
-- `UrbanGateAcceptance` test sonunda muhafazakâr `PASS / REVIEW / FAIL` sonucu üretir.
-- Değerlendirme: backend, toplam inference, hata oranı, GPU/CPU p95, batarya sıcaklığı, thermal status, her zorunlu urban senaryoda minimum kare ve beklenen kanıt tekrar oranı.
-- CPU fallback otomatik PASS değildir; en iyi durumda REVIEW olur.
-- Missing scenario, ciddi inference hatası, aşırı p95/ısı/thermal veya belirgin zayıf semantik kanıt FAIL üretir.
-- Düşük ışık semantik güvenlik kanıtı değildir; scene-health kanalı otoritesini korur.
-- Sonuç CSV’ye `ACCEPTANCE` marker olarak yazılır ve uygulama özetinde gösterilir.
-- PASS yalnız Urban Gate mühendislik sonucudur. **M1 ancak gerçek S24 Ultra Urban Gate sonucu + aynı cihaz Gate C safety-latency incelemesi kabul edilirse DONE olabilir.**
-- **Gate A:** GitHub Actions run `33242690144`, code head `9ab8abab6f76652a6190d82d478cd6761927ae05`: pinned model doğrulama SUCCESS, unit/regression SUCCESS, debug APK SUCCESS, artifact SUCCESS.
+## v0.20 — camera-first situational HUD
+- Ana arayüz kamera görüntüsünü neredeyse tam ekran tutar; mühendislik/test kontrolleri varsayılan olarak gizli `Test / Geliştirici` çekmecesine taşınır.
+- Ana ekranda kalıcı üç kontrol vardır: `SES`, `TEST …`, `ACİL DUR`.
+- PIDNet Cityscapes 128x128 label maskesi gerçek CameraX görüntüsü üstünde yarı saydam piksel overlay olarak çizilir.
+- HUD, 3x3 world-model occupancy, çoklu nesne izleri, yaklaşma/hareket işaretleri, zemin sınırı, göreli açık koridor adayı ve awareness/complexity telemetrisi gösterir.
+- ARCore kamera sahibi olduğunda CameraX PreviewView gizlense bile düşük oranlı gerçek ARCore CPU kamera kareleri HUD arka planına verilir; görsel HUD hiçbir zaman SafetyGate girdisi değildir.
+- ARCore görsel frame üretimi Depth evidence işlendikten sonra yapılır ve yalnız görselleştirme amaçlı düşük çözünürlük/rate ile sınırlandırılır.
+- Segmentasyon maskesi ve HUD izleri stale olduğunda otomatik söner.
+- HUD ve UI katmanı konuşulan/yazılı güvenlik kararlarını değiştirmez; mevcut STOP > CAUTION > navigation/OCR/test sırası korunur.
+- **Gate A code head:** run `33246614034`, head `98bdfdb38592409cb3100ddbcb700be576f5dcf6`: pinned model verification SUCCESS, unit/regression SUCCESS, debug APK SUCCESS, artifact SUCCESS.
+- v0.20 gerçek S24 Ultra ekran/ARCore performans testi hâlâ DEVICE-TEST’tir.
