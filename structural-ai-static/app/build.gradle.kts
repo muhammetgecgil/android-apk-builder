@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 70
-        versionName = "1.19.0-p1-surface-mesh-contour"
+        versionCode = 71
+        versionName = "1.19.1-p1-visual-vv"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
