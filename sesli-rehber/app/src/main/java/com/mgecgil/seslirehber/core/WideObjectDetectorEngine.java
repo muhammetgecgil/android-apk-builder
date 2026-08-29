@@ -26,6 +26,7 @@ public final class WideObjectDetectorEngine implements AutoCloseable {
     private static final long MIN_INTERVAL_MS = 520L;
     private static final float SCORE_THRESHOLD = 0.45f;
     private static final int MAX_RESULTS = 12;
+    private static final long GLOBAL_SPEECH_GAP_MS = 2600L;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean busy = new AtomicBoolean(false);
@@ -33,6 +34,7 @@ public final class WideObjectDetectorEngine implements AutoCloseable {
     private volatile ObjectDetector detector;
     private volatile boolean closed;
     private volatile long nextScanMs;
+    private volatile long lastGlobalSpeechMs;
 
     public WideObjectDetectorEngine() {
         executor.execute(this::ensureDetector);
@@ -62,6 +64,9 @@ public final class WideObjectDetectorEngine implements AutoCloseable {
             MPImage image = new BitmapImageBuilder(bitmap).build();
             ObjectDetectorResult result = local.detect(image);
             if (result == null || result.detections() == null) return;
+
+            WideObjectObservation bestAnnouncement = null;
+            float bestAnnouncementScore = -1f;
             for (Detection detection : result.detections()) {
                 if (detection == null || detection.categories() == null || detection.categories().isEmpty()) continue;
                 Category best = detection.categories().get(0);
@@ -80,8 +85,24 @@ public final class WideObjectDetectorEngine implements AutoCloseable {
                 WideObjectObservation observation = tracked.observation();
                 WideObjectContext.note(observation);
                 if (tracked.announce()) {
-                    String speech = speech(observation);
-                    if (!speech.isEmpty()) GuidanceSpeaker.speakObjectRecognition(speech);
+                    float center = 1f - Math.min(1f, Math.abs((left + right) * 0.5f - 0.5f) * 2f);
+                    float salience = observation.confidence()
+                            + (observation.important() ? 0.28f : 0f)
+                            + Math.min(0.16f, observation.areaRatio())
+                            + center * 0.05f;
+                    if (salience > bestAnnouncementScore) {
+                        bestAnnouncementScore = salience;
+                        bestAnnouncement = observation;
+                    }
+                }
+            }
+
+            if (bestAnnouncement != null
+                    && sourceTimestampMs - lastGlobalSpeechMs >= GLOBAL_SPEECH_GAP_MS) {
+                String speech = speech(bestAnnouncement);
+                if (!speech.isEmpty()) {
+                    lastGlobalSpeechMs = sourceTimestampMs;
+                    GuidanceSpeaker.speakObjectRecognition(speech);
                 }
             }
         } catch (Throwable ignored) {
@@ -123,6 +144,7 @@ public final class WideObjectDetectorEngine implements AutoCloseable {
 
     public void reset() {
         nextScanMs = 0L;
+        lastGlobalSpeechMs = 0L;
         tracker.reset();
         WideObjectContext.reset();
     }
