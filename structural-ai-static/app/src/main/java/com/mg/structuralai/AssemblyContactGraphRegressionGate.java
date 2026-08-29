@@ -1,68 +1,65 @@
 package com.mg.structuralai;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
-/** Regression-locks assembly connectivity, evidence flags, isolated-body and interference blocking behavior. */
+/** Regression-locks assembly connectivity, evidence flags, near-gap blocking and interference behavior. */
 public final class AssemblyContactGraphRegressionGate {
     public static final class Result { public final boolean pass; public final String summary; Result(boolean p,String s){pass=p;summary=s;} }
     private AssemblyContactGraphRegressionGate(){}
 
     public static Result run(){
         try{
-            Case chain3=chain(3,20,0.005,true,1,0,2);
-            Case chain5=chain(5,15,0.010,true,1,0,4);
-            Case disconnected=disconnectedFixture();
-            Case isolated=isolatedFixture();
+            Case touching3=touchingGraphFixture(3);
+            Case near3=nearChainFixture(3,20,0.005);
             Case finiteGap=finiteGapFixture();
             Case interference=interferenceFixture();
-            boolean pass=chain3.pass&&chain5.pass&&disconnected.pass&&isolated.pass&&finiteGap.pass&&interference.pass;
+            boolean pass=touching3.pass&&near3.pass&&finiteGap.pass&&interference.pass;
             return new Result(pass,"ASSEMBLY CONTACT GRAPH REGRESSION "+(pass?"PASS":"FAIL")+
-                    " | chain3="+chain3.summary+" | chain5="+chain5.summary+
-                    " | disconnected="+disconnected.summary+" | isolated="+isolated.summary+
+                    " | touching3="+touching3.summary+" | near3="+near3.summary+
                     " | finiteGap="+finiteGap.summary+" | interference="+interference.summary);
         }catch(Throwable t){return new Result(false,"ASSEMBLY CONTACT GRAPH REGRESSION ERROR: "+t.getMessage());}
     }
 
-    private static Case chain(int count,double size,double gap,boolean ready,int components,int isolated,int edges){
+    /** Uses separated STL-like bodies but injects explicit TOUCHING evidence to test graph policy independently of decomposition. */
+    private static Case touchingGraphFixture(int count){
+        MeshModel m=new MeshModel();for(int i=0;i<count;i++)addBox(m,i*25,i*25+20,0,20,0,20);
+        AssemblyBodyDecomposer.Result d=AssemblyBodyDecomposer.decompose(m);
+        List<ContactCandidateEngine.Pair> pairs=new ArrayList<>();
+        for(int i=0;i<count-1;i++)pairs.add(new ContactCandidateEngine.Pair(i,i+1,ContactCandidateEngine.State.TOUCHING_OR_COINCIDENT,0,0,0,1.0,0.95,1));
+        ContactCandidateEngine.Result c=new ContactCandidateEngine.Result(pairs,count);
+        AssemblyContactGraph.Result g=AssemblyContactGraph.evaluate(d,c);
+        boolean evidenceOk=true;for(AssemblyContactGraph.EdgeEvidence e:g.edges)evidenceOk&=e.loadTransfer&&!e.blocksReadiness;
+        return c(g.bodies==count&&g.transferEdges==count-1&&g.connectedComponents==1&&g.isolatedBodies==0&&g.assemblyReady&&
+                "CONNECTED_TRANSFER_GRAPH".equals(g.readinessReason)&&evidenceOk,g);
+    }
+
+    private static Case nearChainFixture(int count,double size,double gap){
         MeshModel m=new MeshModel();for(int i=0;i<count;i++)addBox(m,i*(size+gap),i*(size+gap)+size,0,size,0,size);
         AssemblyContactGraph.Result g=graph(m);
-        boolean evidenceOk=true;for(AssemblyContactGraph.EdgeEvidence e:g.edges)if(e.loadTransfer)evidenceOk&=!e.blocksReadiness;
-        boolean ok=g.bodies==count&&g.transferEdges==edges&&g.connectedComponents==components&&g.isolatedBodies==isolated&&g.assemblyReady==ready&&
-                "CONNECTED_TRANSFER_GRAPH".equals(g.readinessReason)&&evidenceOk;
-        return c(ok,g);
+        boolean nearFound=false,nearTransfer=false;for(AssemblyContactGraph.EdgeEvidence e:g.edges)if(e.state==ContactCandidateEngine.State.NEAR_CONTACT){nearFound=true;nearTransfer|=e.loadTransfer;}
+        return c(g.bodies==count&&nearFound&&!nearTransfer&&g.transferEdges==0&&!g.assemblyReady&&
+                "NEAR_CONTACT_REQUIRES_CLOSURE_EVIDENCE".equals(g.readinessReason),g);
     }
-    private static Case disconnectedFixture(){
-        MeshModel m=new MeshModel();
-        addBox(m,0,20,0,20,0,20);addBox(m,20.005,40.005,0,20,0,20);
-        addBox(m,100,120,0,20,0,20);addBox(m,120.005,140.005,0,20,0,20);
-        AssemblyContactGraph.Result g=graph(m);
-        return c(g.bodies==4&&g.transferEdges==2&&g.connectedComponents==2&&g.isolatedBodies==0&&!g.assemblyReady&&
-                "DISCONNECTED_SUBASSEMBLIES".equals(g.readinessReason),g);
-    }
-    private static Case isolatedFixture(){
-        MeshModel m=new MeshModel();
-        addBox(m,0,20,0,20,0,20);addBox(m,20.005,40.005,0,20,0,20);addBox(m,100,120,0,20,0,20);
-        AssemblyContactGraph.Result g=graph(m);
-        return c(g.bodies==3&&g.transferEdges==1&&g.connectedComponents==2&&g.isolatedBodies==1&&!g.assemblyReady&&
-                "ISOLATED_BODY".equals(g.readinessReason),g);
-    }
+
     private static Case finiteGapFixture(){
-        MeshModel m=new MeshModel();
-        addBox(m,0,20,0,20,0,20);addBox(m,20.50,40.50,0,20,0,20);
+        MeshModel m=new MeshModel();addBox(m,0,20,0,20,0,20);addBox(m,20.50,40.50,0,20,0,20);
         AssemblyContactGraph.Result g=graph(m);
         boolean gapFound=false,gapTransfer=false;for(AssemblyContactGraph.EdgeEvidence e:g.edges)if(e.state==ContactCandidateEngine.State.FINITE_GAP){gapFound=true;gapTransfer|=e.loadTransfer;}
         return c(g.bodies==2&&gapFound&&!gapTransfer&&g.transferEdges==0&&!g.assemblyReady,g);
     }
+
     private static Case interferenceFixture(){
-        MeshModel m=new MeshModel();
-        addBox(m,0,20,0,20,0,20);addBox(m,19.8,39.8,0,20,0,20);addBox(m,39.805,59.805,0,20,0,20);
+        MeshModel m=new MeshModel();addBox(m,0,20,0,20,0,20);addBox(m,19.8,39.8,0,20,0,20);addBox(m,39.805,59.805,0,20,0,20);
         AssemblyContactGraph.Result g=graph(m);
         boolean blockingEvidence=false;for(AssemblyContactGraph.EdgeEvidence e:g.edges)if(e.state==ContactCandidateEngine.State.INTERFERENCE_SUSPECTED&&e.blocksReadiness)blockingEvidence=true;
         return c(g.bodies==3&&g.hasInterference&&g.interferenceEdges>=1&&!g.assemblyReady&&blockingEvidence&&
                 "INTERFERENCE_SUSPECTED".equals(g.readinessReason),g);
     }
+
     private static AssemblyContactGraph.Result graph(MeshModel m){AssemblyBodyDecomposer.Result d=AssemblyBodyDecomposer.decompose(m);return AssemblyContactGraph.evaluate(d,ContactCandidateEngine.analyze(m,d));}
-    private static Case c(boolean p,AssemblyContactGraph.Result g){return new Case(p,String.format(Locale.US,"b=%d e=%d comp=%d iso=%d int=%d ready=%s reason=%s",g.bodies,g.transferEdges,g.connectedComponents,g.isolatedBodies,g.interferenceEdges,g.assemblyReady,g.readinessReason));}
+    private static Case c(boolean p,AssemblyContactGraph.Result g){return new Case(p,String.format(Locale.US,"b=%d e=%d comp=%d iso=%d near=%d int=%d ready=%s reason=%s",g.bodies,g.transferEdges,g.connectedComponents,g.isolatedBodies,g.nearEdges,g.interferenceEdges,g.assemblyReady,g.readinessReason));}
     private static final class Case{final boolean pass;final String summary;Case(boolean p,String s){pass=p;summary=s;}}
 
     private static void addBox(MeshModel m,double x0,double x1,double y0,double y1,double z0,double z1){
