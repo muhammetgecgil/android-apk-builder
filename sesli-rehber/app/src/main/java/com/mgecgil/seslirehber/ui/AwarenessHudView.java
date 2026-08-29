@@ -13,6 +13,7 @@ import com.mgecgil.seslirehber.core.ObjectSemanticContext;
 import com.mgecgil.seslirehber.core.ObjectSemanticObservation;
 import com.mgecgil.seslirehber.core.SituationalAwarenessContext;
 import com.mgecgil.seslirehber.core.SituationalAwarenessEngine;
+import com.mgecgil.seslirehber.core.SpatialIdentityPolicy;
 import com.mgecgil.seslirehber.core.UrbanHudMaskContext;
 import com.mgecgil.seslirehber.core.WideObjectContext;
 import com.mgecgil.seslirehber.core.WideObjectObservation;
@@ -55,14 +56,14 @@ public final class AwarenessHudView extends View {
 
         objectPaint.setStyle(Paint.Style.STROKE);
         objectPaint.setStrokeWidth(dp(2f));
-        objectPaint.setColor(Color.argb(220, 90, 220, 255));
+        objectPaint.setColor(Color.argb(185, 90, 220, 255));
 
         approachingPaint.setStyle(Paint.Style.STROKE);
         approachingPaint.setStrokeWidth(dp(3f));
         approachingPaint.setColor(Color.argb(235, 255, 190, 50));
 
         wideObjectPaint.setStyle(Paint.Style.STROKE);
-        wideObjectPaint.setStrokeWidth(dp(2.4f));
+        wideObjectPaint.setStrokeWidth(dp(2.6f));
         wideObjectPaint.setColor(Color.argb(235, 120, 255, 190));
 
         importantObjectPaint.setStyle(Paint.Style.STROKE);
@@ -168,22 +169,29 @@ public final class AwarenessHudView extends View {
         if (perception == null) return;
         List<ObjectObservation> objects = perception.objects();
         long nowMs = perception.timestampMs();
+        int anonymousDrawn = 0;
         for (ObjectObservation o : objects) {
-            float hNorm = clamp(2f * Math.max(0.025f, o.bottomY() - o.centerY()), 0.06f, 0.88f);
-            float wNorm = clamp(o.areaRatio() / Math.max(0.035f, hNorm), 0.06f, 0.82f);
-            float cx = mapX(r, o.centerX());
-            float cy = mapY(r, o.centerY());
-            float halfW = r.width() * wNorm * 0.5f;
-            float halfH = r.height() * hNorm * 0.5f;
-            RectF box = new RectF(cx - halfW, cy - halfH, cx + halfW, cy + halfH);
-            Paint p = o.isApproaching() ? approachingPaint : objectPaint;
-            canvas.drawRoundRect(box, dp(7f), dp(7f), p);
+            RectF normalized = genericNormalizedBox(o);
+            WideObjectObservation named = SpatialIdentityPolicy.bestOverlap(
+                    wideObjects, normalized.left, normalized.top, normalized.right, normalized.bottom, 0.24f);
+            if (named != null) continue;
 
             ObjectSemanticObservation semantic = o.trackingId() >= 0
                     ? ObjectSemanticContext.forTrackingId(o.trackingId(), nowMs)
                     : null;
+            boolean hasSemantic = semantic != null && semantic.usable();
+            boolean moving = o.isApproaching() || Math.abs(o.centerVelocityX()) > 0.04f;
+            if (!hasSemantic && !moving) {
+                if (o.areaRatio() < 0.035f || anonymousDrawn >= 4) continue;
+                anonymousDrawn++;
+            }
+
+            RectF box = mapNormalizedRect(r, normalized);
+            Paint p = o.isApproaching() ? approachingPaint : objectPaint;
+            canvas.drawRoundRect(box, dp(7f), dp(7f), p);
+
             String id;
-            if (semantic != null && semantic.usable()) {
+            if (hasSemantic) {
                 int pct = Math.max(0, Math.min(100, Math.round(semantic.confidence() * 100f)));
                 id = semantic.label().toUpperCase() + (semantic.definite() ? " " : "? ") + pct + "%";
             } else {
@@ -200,19 +208,38 @@ public final class AwarenessHudView extends View {
         if (wideObjects == null || wideObjects.isEmpty()) return;
         int drawn = 0;
         for (WideObjectObservation o : wideObjects) {
-            if (o == null || !o.usable() || drawn >= 10) continue;
+            if (o == null || !o.usable() || drawn >= 9) continue;
             RectF box = new RectF(
                     mapX(r, o.left()),
                     mapY(r, o.top()),
                     mapX(r, o.right()),
                     mapY(r, o.bottom()));
-            Paint p = o.important() ? importantObjectPaint : wideObjectPaint;
+            MotionTag motion = motionForWide(o);
+            Paint p = o.important() ? importantObjectPaint
+                    : motion.approaching ? approachingPaint : wideObjectPaint;
             canvas.drawRoundRect(box, dp(8f), dp(8f), p);
             int pct = Math.max(0, Math.min(100, Math.round(o.confidence() * 100f)));
             String name = o.label().toUpperCase() + (o.definite() ? " " : "? ") + pct + "%";
+            if (motion.approaching) name += "  YAKLAŞIYOR";
+            else if (motion.moving) name += "  HAREKET";
             canvas.drawText(name, box.left + dp(5f), Math.max(r.top + dp(15f), box.top - dp(5f)), textPaint);
             drawn++;
         }
+    }
+
+    private MotionTag motionForWide(WideObjectObservation named) {
+        if (perception == null || perception.objects() == null) return MotionTag.NONE;
+        boolean moving = false;
+        for (ObjectObservation o : perception.objects()) {
+            RectF g = genericNormalizedBox(o);
+            float overlap = SpatialIdentityPolicy.iou(
+                    named.left(), named.top(), named.right(), named.bottom(),
+                    g.left, g.top, g.right, g.bottom);
+            if (overlap < 0.22f) continue;
+            if (o.isApproaching()) return new MotionTag(true, true);
+            if (Math.abs(o.centerVelocityX()) > 0.04f) moving = true;
+        }
+        return moving ? new MotionTag(false, true) : MotionTag.NONE;
     }
 
     private void drawWorldLabels(Canvas canvas, RectF r) {
@@ -229,11 +256,22 @@ public final class AwarenessHudView extends View {
             SituationalAwarenessEngine.SectorSnapshot s) {
         String label = s.farSemanticLabel();
         if (label == null || label.isBlank() || s.farSemanticConfidence() < 0.35f) return;
+        if (!SpatialIdentityPolicy.allowDistant(label, s.farSemanticConfidence(), environment)) return;
+        if (wideAlreadyShows(label, sector)) return;
         float x = r.left + r.width() * (sector + 0.5f) / 3f;
         float y = r.top + r.height() * 0.18f;
         textPaint.setTextAlign(Paint.Align.CENTER);
         canvas.drawText(label.toUpperCase(), x, y, textPaint);
         textPaint.setTextAlign(Paint.Align.LEFT);
+    }
+
+    private boolean wideAlreadyShows(String label, int sector) {
+        if (wideObjects == null || wideObjects.isEmpty()) return false;
+        Direction target = sector == 0 ? Direction.LEFT : sector == 2 ? Direction.RIGHT : Direction.CENTER;
+        for (WideObjectObservation o : wideObjects) {
+            if (o != null && o.usable() && o.label().equals(label) && o.direction() == target) return true;
+        }
+        return false;
     }
 
     private void drawOpenDirection(Canvas canvas, RectF r) {
@@ -280,18 +318,32 @@ public final class AwarenessHudView extends View {
 
     private static int colorFor(int label) {
         return switch (label) {
-            case 0 -> Color.argb(90, 65, 110, 245);       // road
-            case 1 -> Color.argb(105, 50, 220, 235);     // sidewalk
-            case 2, 3 -> Color.argb(72, 190, 200, 215);  // building/wall
-            case 4, 5 -> Color.argb(110, 245, 145, 55);  // fence/pole
-            case 6, 7 -> Color.argb(145, 255, 225, 45);  // traffic control
-            case 8, 9 -> Color.argb(72, 80, 210, 110);   // vegetation/terrain
-            case 10 -> Color.TRANSPARENT;                // sky
-            case 11, 12 -> Color.argb(145, 255, 195, 55);// person/rider
-            case 13, 14, 15, 16 -> Color.argb(135, 255, 80, 95); // vehicles
-            case 17, 18 -> Color.argb(135, 230, 85, 255);// two-wheelers
+            case 0 -> Color.argb(90, 65, 110, 245);
+            case 1 -> Color.argb(105, 50, 220, 235);
+            case 2, 3 -> Color.argb(72, 190, 200, 215);
+            case 4, 5 -> Color.argb(110, 245, 145, 55);
+            case 6, 7 -> Color.argb(145, 255, 225, 45);
+            case 8, 9 -> Color.argb(72, 80, 210, 110);
+            case 10 -> Color.TRANSPARENT;
+            case 11, 12 -> Color.argb(145, 255, 195, 55);
+            case 13, 14, 15, 16 -> Color.argb(135, 255, 80, 95);
+            case 17, 18 -> Color.argb(135, 230, 85, 255);
             default -> Color.TRANSPARENT;
         };
+    }
+
+    private static RectF genericNormalizedBox(ObjectObservation o) {
+        float h = clamp(2f * Math.max(0.025f, o.bottomY() - o.centerY()), 0.06f, 0.88f);
+        float w = clamp(o.areaRatio() / Math.max(0.035f, h), 0.06f, 0.82f);
+        float left = clamp(o.centerX() - w * 0.5f, 0f, 1f);
+        float right = clamp(o.centerX() + w * 0.5f, 0f, 1f);
+        float top = clamp(o.centerY() - h * 0.5f, 0f, 1f);
+        float bottom = clamp(o.centerY() + h * 0.5f, 0f, 1f);
+        return new RectF(left, top, right, bottom);
+    }
+
+    private static RectF mapNormalizedRect(RectF r, RectF n) {
+        return new RectF(mapX(r, n.left), mapY(r, n.top), mapX(r, n.right), mapY(r, n.bottom));
     }
 
     private static RectF centerCropRect(int width, int height, float sourceAspect) {
@@ -309,6 +361,7 @@ public final class AwarenessHudView extends View {
     private static float mapX(RectF r, float x) { return r.left + clamp(x, 0f, 1f) * r.width(); }
     private static float mapY(RectF r, float y) { return r.top + clamp(y, 0f, 1f) * r.height(); }
     private static float clamp(float v, float lo, float hi) { return Math.max(lo, Math.min(hi, v)); }
+    private static float clamp(float v) { return clamp(v, 0f, 1f); }
 
     private float dp(float value) { return value * getResources().getDisplayMetrics().density; }
 
@@ -318,5 +371,9 @@ public final class AwarenessHudView extends View {
             maskBitmap = null;
         }
         super.onDetachedFromWindow();
+    }
+
+    private record MotionTag(boolean approaching, boolean moving) {
+        static final MotionTag NONE = new MotionTag(false, false);
     }
 }
