@@ -25,6 +25,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         default void onSceneHealth(SceneHealthObservation observation) {}
         default void onTextRecognized(String text) {}
         default void onDistantObject(DistantObjectObservation observation) {
+            SituationalAwarenessContext.noteDistant(observation);
             String text = DistantObjectSpeech.format(observation);
             if (!text.isEmpty()) onTextRecognized(text);
         }
@@ -40,6 +41,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
     private final ObjectDetector objectDetector;
     private final TextRecognizer textRecognizer;
     private final DistantObjectRecognizer distantRecognizer = new DistantObjectRecognizer();
+    private final SemanticSegmentationEngine segmentationEngine = new SemanticSegmentationEngine();
     private final GridEvidenceEstimator gridEstimator = new GridEvidenceEstimator(GRID_W, GRID_H);
     private final ObjectObservationTracker objectTracker = new ObjectObservationTracker();
 
@@ -53,7 +55,6 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         textRecognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
     }
 
-    /** Requests OCR on the next usable frame. The safety luma/ground heartbeat still runs. */
     public void requestTextScan() { textScanRequested.set(true); }
 
     @Override
@@ -77,6 +78,8 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
                 imageProxy.close();
                 return;
             }
+
+            segmentationEngine.maybeAnalyze(mediaImage, rotation, nowMs);
 
             int sourceWidth = imageProxy.getWidth();
             int sourceHeight = imageProxy.getHeight();
@@ -154,6 +157,7 @@ public final class VisionFusionAnalyzer implements ImageAnalysis.Analyzer, AutoC
         objectDetector.close();
         textRecognizer.close();
         distantRecognizer.close();
+        segmentationEngine.close();
         objectTracker.reset();
         gridEstimator.reset();
     }
