@@ -14,6 +14,8 @@ import com.mgecgil.seslirehber.core.ObjectSemanticObservation;
 import com.mgecgil.seslirehber.core.SituationalAwarenessContext;
 import com.mgecgil.seslirehber.core.SituationalAwarenessEngine;
 import com.mgecgil.seslirehber.core.UrbanHudMaskContext;
+import com.mgecgil.seslirehber.core.WideObjectContext;
+import com.mgecgil.seslirehber.core.WideObjectObservation;
 import java.util.List;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
@@ -26,6 +28,8 @@ public final class AwarenessHudView extends View {
     private final Paint gridPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint objectPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint approachingPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint wideObjectPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint importantObjectPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint bandPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint groundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -34,6 +38,8 @@ public final class AwarenessHudView extends View {
 
     private HudPerceptionContext.Snapshot perception;
     private SituationalAwarenessEngine.Snapshot world;
+    private List<WideObjectObservation> wideObjects = List.of();
+    private WideObjectContext.Environment environment = WideObjectContext.Environment.UNKNOWN;
     private Bitmap maskBitmap;
     private long maskTimestampMs;
     private float sourceAspect = 9f / 16f;
@@ -55,6 +61,14 @@ public final class AwarenessHudView extends View {
         approachingPaint.setStrokeWidth(dp(3f));
         approachingPaint.setColor(Color.argb(235, 255, 190, 50));
 
+        wideObjectPaint.setStyle(Paint.Style.STROKE);
+        wideObjectPaint.setStrokeWidth(dp(2.4f));
+        wideObjectPaint.setColor(Color.argb(235, 120, 255, 190));
+
+        importantObjectPaint.setStyle(Paint.Style.STROKE);
+        importantObjectPaint.setStrokeWidth(dp(3.2f));
+        importantObjectPaint.setColor(Color.argb(245, 255, 100, 70));
+
         textPaint.setStyle(Paint.Style.FILL);
         textPaint.setTextSize(dp(12f));
         textPaint.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
@@ -75,6 +89,8 @@ public final class AwarenessHudView extends View {
     public void refresh(long nowMs) {
         perception = HudPerceptionContext.snapshot(nowMs);
         world = SituationalAwarenessContext.snapshot(nowMs);
+        wideObjects = WideObjectContext.snapshot(nowMs);
+        environment = WideObjectContext.environment(nowMs);
         UrbanHudMaskContext.Frame mask = UrbanHudMaskContext.latest(nowMs);
         if (mask != null) {
             sourceAspect = mask.sourceAspect();
@@ -96,6 +112,7 @@ public final class AwarenessHudView extends View {
         drawGrid(canvas, camera);
         drawGround(canvas, camera);
         drawObjects(canvas, camera);
+        drawWideObjects(canvas, camera);
         drawWorldLabels(canvas, camera);
         drawOpenDirection(canvas, camera);
         drawTelemetry(canvas, camera);
@@ -178,6 +195,26 @@ public final class AwarenessHudView extends View {
         }
     }
 
+    /** Direct boxes from the broad named detector: knife/cup/TV/laptop/bag/food/traffic etc. */
+    private void drawWideObjects(Canvas canvas, RectF r) {
+        if (wideObjects == null || wideObjects.isEmpty()) return;
+        int drawn = 0;
+        for (WideObjectObservation o : wideObjects) {
+            if (o == null || !o.usable() || drawn >= 10) continue;
+            RectF box = new RectF(
+                    mapX(r, o.left()),
+                    mapY(r, o.top()),
+                    mapX(r, o.right()),
+                    mapY(r, o.bottom()));
+            Paint p = o.important() ? importantObjectPaint : wideObjectPaint;
+            canvas.drawRoundRect(box, dp(8f), dp(8f), p);
+            int pct = Math.max(0, Math.min(100, Math.round(o.confidence() * 100f)));
+            String name = o.label().toUpperCase() + (o.definite() ? " " : "? ") + pct + "%";
+            canvas.drawText(name, box.left + dp(5f), Math.max(r.top + dp(15f), box.top - dp(5f)), textPaint);
+            drawn++;
+        }
+    }
+
     private void drawWorldLabels(Canvas canvas, RectF r) {
         if (world == null) return;
         drawSectorLabel(canvas, r, 0, world.left());
@@ -215,7 +252,13 @@ public final class AwarenessHudView extends View {
 
     private void drawTelemetry(Canvas canvas, RectF r) {
         if (world == null) return;
-        String text = "WORLD " + Math.round(world.awarenessConfidence() * 100f)
+        String env = switch (environment) {
+            case HOME_OFFICE -> "EV/OFİS";
+            case MARKET -> "MARKET";
+            case STREET -> "SOKAK";
+            default -> "BAĞLAM ?";
+        };
+        String text = env + "  •  WORLD " + Math.round(world.awarenessConfidence() * 100f)
                 + "%  •  COMPLEX " + Math.round(world.environmentComplexity() * 100f) + "%";
         textPaint.setTextAlign(Paint.Align.RIGHT);
         canvas.drawText(text, r.right - dp(10f), r.top + dp(22f), textPaint);
