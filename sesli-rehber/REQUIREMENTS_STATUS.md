@@ -101,5 +101,8 @@ Bu dosya `PRODUCT_REQUIREMENTS.md` ve `GUIDE_MATURITY_ROADMAP.md` ile birlikte o
 - ARCore görsel frame üretimi Depth evidence işlendikten sonra yapılır ve yalnız görselleştirme amaçlı düşük çözünürlük/rate ile sınırlandırılır.
 - Segmentasyon maskesi ve HUD izleri stale olduğunda otomatik söner.
 - HUD ve UI katmanı konuşulan/yazılı güvenlik kararlarını değiştirmez; mevcut STOP > CAUTION > navigation/OCR/test sırası korunur.
-- **Gate A code head:** run `33246614034`, head `98bdfdb38592409cb3100ddbcb700be576f5dcf6`: pinned model verification SUCCESS, unit/regression SUCCESS, debug APK SUCCESS, artifact SUCCESS.
+- **Final Gate A:** run `33246766653`, head `7bd18b6d1384cc867f51a3f683375a5253174ba3`: pinned DeepLab/PIDNet verification SUCCESS, unit/regression SUCCESS, debug APK SUCCESS, artifact SUCCESS.
+- Artifact id `9713118736`; ZIP digest `sha256:4b2f0fcc9c48b5f0b78678caaa57cc5abd5dffec653415818492142413200b6f`.
+- Final APK size `196,378,376` bytes; SHA-256 `9c34b95455eeff6dcc87394c9517e93628d81db7ae158fb818666546ca34126e`.
+- APK ZIP integrity passed, `APK Sig Block 42` mevcut; packaged DeepLab/PIDNet asset hashes pinned build contract ile eşleşti.
 - v0.20 gerçek S24 Ultra ekran/ARCore performans testi hâlâ DEVICE-TEST’tir.
