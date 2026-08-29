@@ -93,21 +93,26 @@ public final class ObjectSemanticRecognizer implements AutoCloseable {
                             crop.left, crop.top, crop.right, crop.bottom,
                             wide)) return;
 
+                    DeepLabIdentityMaskContext.Evidence maskEvidence = DeepLabIdentityMaskContext.evidenceFor(
+                            candidate.label, crop.left, crop.top, crop.right, crop.bottom, nowMs);
+                    IdentityFusionPolicy.Result fused = IdentityFusionPolicy.fuse(
+                            candidate.label, candidate.confidence, maskEvidence);
+
                     float area = Math.max(0f, crop.right - crop.left) * Math.max(0f, crop.bottom - crop.top);
                     float aspect = Math.max(0.01f, crop.right - crop.left)
                             / Math.max(0.01f, crop.bottom - crop.top);
                     WideObjectContext.Environment environment = WideObjectContext.environment(nowMs);
                     if (!SpatialIdentityPolicy.allowSupplementalCrop(
-                            candidate.label,
-                            candidate.confidence,
+                            fused.label(),
+                            fused.confidence(),
                             area,
                             aspect,
                             environment)) return;
 
                     ObjectSemanticTracker.Result result = tracker.observe(
                             crop.trackingId,
-                            candidate.label,
-                            candidate.confidence,
+                            fused.label(),
+                            fused.confidence(),
                             crop.direction,
                             nowMs);
                     if (result == null || result.observation() == null) return;
