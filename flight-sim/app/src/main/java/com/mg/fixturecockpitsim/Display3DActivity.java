@@ -1,248 +1,31 @@
 package com.mg.fixturecockpitsim;
 
-import android.Manifest;
-import android.app.Activity;
-import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothServerSocket;
-import android.bluetooth.BluetoothSocket;
-import android.content.pm.PackageManager;
-import android.graphics.Color;
-import android.os.Build;
-import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
-import android.view.Gravity;
-import android.view.View;
-import android.widget.Button;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.TextView;
-import android.widget.Toast;
-
-import com.mg.fixturecockpitsim.sim.AutonomousFlightMission;
-import com.mg.fixturecockpitsim.sim.FlightControls;
-import com.mg.fixturecockpitsim.sim.FlightDynamicsEngine;
-import com.mg.fixturecockpitsim.sim.FlightState;
-
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
-import java.util.Locale;
-import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import android.Manifest;import android.app.Activity;import android.bluetooth.*;import android.content.pm.PackageManager;import android.graphics.Color;import android.os.*;import android.view.*;import android.widget.*;
+import com.mg.fixturecockpitsim.sim.*;
+import java.io.*;import java.nio.charset.StandardCharsets;import java.util.*;import java.util.concurrent.*;
 
 public final class Display3DActivity extends Activity {
-    private static final UUID SIM_UUID = UUID.fromString("6d9b6c72-4d47-4d8e-9b58-b5e7465b4a22");
-    private static final int REQ_BT = 61;
-    private final ExecutorService io = Executors.newSingleThreadExecutor();
-    private final Handler simHandler = new Handler(Looper.getMainLooper());
-    private final FlightDynamicsEngine dynamics = new FlightDynamicsEngine();
-    private final FlightState simState = new FlightState();
-    private final FlightControls simControls = new FlightControls();
-    private final AutonomousFlightMission mission = new AutonomousFlightMission();
-    private volatile boolean running = true, connected;
-    private volatile float roll, pitch, yaw, throttle = 0.62f, linkHz;
-    private volatile int lastSeq, drops;
-    private volatile long previousRxMs;
-    private BluetoothAdapter bt;
-    private BluetoothServerSocket server;
-    private BluetoothSocket socket;
-    private BufferedWriter writer;
-    private Jet3DView jetView;
-    private RunwayHudView runwayView;
-    private TextView missionHud;
-    private LinearLayout waitingPanel;
-    private long lastSimNs;
-    private boolean demoMode;
-    private int demoCameraMode=Jet3DView.CAMERA_CHASE;
+ private static final UUID SIM_UUID=UUID.fromString("6d9b6c72-4d47-4d8e-9b58-b5e7465b4a22");private static final int REQ_BT=61;
+ private final ExecutorService io=Executors.newSingleThreadExecutor();private final Handler simHandler=new Handler(Looper.getMainLooper());private final FlightDynamicsEngine dynamics=new FlightDynamicsEngine();private final FlightState simState=new FlightState();private final FlightControls simControls=new FlightControls();private final AutonomousFlightMission mission=new AutonomousFlightMission();private final FlightSoundEngine sound=new FlightSoundEngine();
+ private volatile boolean running=true,connected;private volatile float roll,pitch,yaw,throttle=.62f,linkHz;private volatile int lastSeq,drops;private volatile long previousRxMs;private BluetoothAdapter bt;private BluetoothServerSocket server;private BluetoothSocket socket;private BufferedWriter writer;private Jet3DView jetView;private RunwayHudView runwayView;private TextView missionHud;private LinearLayout waitingPanel,manualPanel;private Button modeButton;private long lastSimNs;private boolean demoMode,manualDemo;private int demoCameraMode=Jet3DView.CAMERA_CHASE;private double manualPitch,manualRoll,manualYaw,manualThrottle=.72;private boolean manualGearDown;
 
-    private final Runnable simTick = new Runnable() {
-        @Override public void run() {
-            if (!running) return;
-            long now = System.nanoTime();
-            double dt = lastSimNs == 0 ? 0.02 : Math.min(0.05, Math.max(0.005, (now-lastSimNs)/1_000_000_000.0));
-            lastSimNs = now;
-            // Autonomous mission belongs ONLY to Demo Mode. In aircraft-display mode the old
-            // stand-alone aircraft scene must never appear before the pilot phone connects.
-            if (demoMode) {
-                mission.update(simState, simControls, dt);
-                dynamics.step(simState, simControls, dt);
-                roll=(float)simState.rollDeg; pitch=(float)simState.pitchDeg; yaw=(float)simState.headingDeg; throttle=(float)simState.throttle;
-                jetView.setTelemetry(roll,pitch,yaw,throttle,50f,0,true);
-                jetView.setSimulationState((float)simState.gearPosition,(float)simState.mainStrutCompression01,(float)simState.noseStrutCompression01,(float)simState.brake01,simState.onGround);
-                runwayView.setFlightState(simState.altitudeM,simState.trueAirspeedMps,simState.onGround,mission.getPhase().name());
-                runwayView.setDemoProgress(mission.getOrbitTimeSec());
-                updateDemoCameraDirector();
-                updateMissionHud();
-            }
-            simHandler.postDelayed(this,20);
-        }
-    };
+ private final Runnable simTick=new Runnable(){@Override public void run(){if(!running)return;long now=System.nanoTime();double dt=lastSimNs==0?.02:Math.min(.05,Math.max(.005,(now-lastSimNs)/1e9));lastSimNs=now;if(demoMode){mission.update(simState,simControls,dt);if(manualDemo&&mission.getPhase()==AutonomousFlightMission.Phase.ORBIT){simControls.pitch=manualPitch;simControls.roll=manualRoll;simControls.yaw=manualYaw;simControls.throttle=manualThrottle;simControls.gearDown=manualGearDown;simControls.brake=0;simControls.clamp();}else if(mission.getPhase()!=AutonomousFlightMission.Phase.ORBIT&&manualDemo){manualDemo=false;syncManualUi();}
+  dynamics.step(simState,simControls,dt);roll=(float)simState.rollDeg;pitch=(float)simState.pitchDeg;yaw=(float)simState.headingDeg;throttle=(float)simState.throttle;jetView.setTelemetry(roll,pitch,yaw,throttle,50,0,true);jetView.setSimulationState((float)simState.gearPosition,(float)simState.mainStrutCompression01,(float)simState.noseStrutCompression01,(float)simState.brake01,simState.onGround);runwayView.setFlightState(simState.altitudeM,simState.trueAirspeedMps,simState.onGround,mission.getPhase().name());runwayView.setDemoProgress(mission.getOrbitTimeSec());sound.update(simState.throttle,simState.trueAirspeedMps,simState.gearPosition,simState.brake01,simState.onGround);if(!manualDemo)updateDemoCameraDirector();updateMissionHud();}simHandler.postDelayed(this,20);}};
 
-    @Override protected void onCreate(Bundle b) {
-        super.onCreate(b);
-        demoMode=getIntent()!=null && getIntent().getBooleanExtra(LauncherActivity.EXTRA_DEMO_MODE,false);
-        getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN, android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN);
-        bt = BluetoothAdapter.getDefaultAdapter();
-        mission.reset(simState);
-        simControls.gearDown=true;
+ @Override protected void onCreate(Bundle b){super.onCreate(b);demoMode=getIntent()!=null&&getIntent().getBooleanExtra(LauncherActivity.EXTRA_DEMO_MODE,false);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,WindowManager.LayoutParams.FLAG_FULLSCREEN);bt=BluetoothAdapter.getDefaultAdapter();mission.reset(simState);simControls.gearDown=true;runwayView=new RunwayHudView(this);runwayView.setDemoMode(demoMode);jetView=new Jet3DView(this);
+  FrameLayout root=new FrameLayout(this);root.setBackgroundColor(Color.rgb(3,9,13));root.addView(runwayView,new FrameLayout.LayoutParams(-1,-1));root.addView(jetView,new FrameLayout.LayoutParams(-1,-1));missionHud=new TextView(this);missionHud.setTextColor(Color.WHITE);missionHud.setTextSize(14);missionHud.setPadding(dp(12),dp(8),dp(12),dp(8));missionHud.setBackgroundColor(0x66000000);FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT);hp.setMargins(dp(10),dp(10),0,0);root.addView(missionHud,hp);
+  waitingPanel=new LinearLayout(this);waitingPanel.setOrientation(LinearLayout.VERTICAL);waitingPanel.setGravity(Gravity.CENTER);waitingPanel.setPadding(dp(36),dp(28),dp(36),dp(28));waitingPanel.setBackgroundColor(Color.rgb(3,9,13));TextView wt=new TextView(this);wt.setText("UÇAK EKRANI");wt.setTextColor(Color.rgb(160,255,190));wt.setTextSize(28);wt.setGravity(Gravity.CENTER);TextView wx=new TextView(this);wx.setText("Pilot telefonu bağlantısı bekleniyor\n\nPilot telefonunda kokpiti aç ve bu telefona bağlan.");wx.setTextColor(Color.LTGRAY);wx.setTextSize(16);wx.setGravity(Gravity.CENTER);wx.setPadding(0,dp(18),0,0);waitingPanel.addView(wt);waitingPanel.addView(wx);root.addView(waitingPanel,new FrameLayout.LayoutParams(-1,-1));
+  Button back=button("GERİ");FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(dp(84),dp(46),Gravity.TOP|Gravity.RIGHT);bp.setMargins(0,10,10,0);root.addView(back,bp);back.setOnClickListener(v->finish());buildManualPanel(root);setContentView(root);jetView.setSimulationState((float)simState.gearPosition,0,0,0,true);jetView.setCameraMode(Jet3DView.CAMERA_CHASE);runwayView.setFlightState(0,0,true,mission.getPhase().name());if(demoMode){showFlightScene();sound.start();updateMissionHud();simHandler.post(simTick);Toast.makeText(this,"HANGAR → TAKSİ → PİST → 5 DK UÇUŞ. Gezi sırasında MANUEL ile kontrolü alabilirsin.",Toast.LENGTH_LONG).show();}else{showWaitingScreen();requestBtThenStart();}}
 
-        runwayView = new RunwayHudView(this);
-        runwayView.setDemoMode(demoMode);
-        jetView = new Jet3DView(this);
-
-        FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.rgb(3,9,13));
-        root.addView(runwayView, new FrameLayout.LayoutParams(-1,-1));
-        root.addView(jetView, new FrameLayout.LayoutParams(-1,-1));
-
-        missionHud=new TextView(this);
-        missionHud.setTextColor(0xffffffff); missionHud.setTextSize(14f); missionHud.setPadding(dp(12),dp(8),dp(12),dp(8));
-        missionHud.setBackgroundColor(0x66000000);
-        FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT); hp.setMargins(dp(10),dp(10),0,0); root.addView(missionHud,hp);
-
-        waitingPanel=new LinearLayout(this);
-        waitingPanel.setOrientation(LinearLayout.VERTICAL);
-        waitingPanel.setGravity(Gravity.CENTER);
-        waitingPanel.setPadding(dp(36),dp(28),dp(36),dp(28));
-        waitingPanel.setBackgroundColor(Color.rgb(3,9,13));
-        TextView waitTitle=new TextView(this);
-        waitTitle.setText("UÇAK EKRANI"); waitTitle.setTextColor(Color.rgb(160,255,190)); waitTitle.setTextSize(28f); waitTitle.setGravity(Gravity.CENTER);
-        TextView waitText=new TextView(this);
-        waitText.setText("Pilot telefonu bağlantısı bekleniyor\n\nPilot telefonunda PİLOT TELEFONU / KOKPİT seçeneğini aç ve bu telefona bağlan.\nBağlantı kurulunca 3D uçak ekranı otomatik açılacak.");
-        waitText.setTextColor(Color.LTGRAY); waitText.setTextSize(16f); waitText.setGravity(Gravity.CENTER); waitText.setPadding(0,dp(18),0,0);
-        waitingPanel.addView(waitTitle,new LinearLayout.LayoutParams(-1,-2));
-        waitingPanel.addView(waitText,new LinearLayout.LayoutParams(-1,-2));
-        FrameLayout.LayoutParams wp=new FrameLayout.LayoutParams(-1,-1); root.addView(waitingPanel,wp);
-
-        Button back = new Button(this); back.setText("MOD"); back.setAllCaps(false);
-        FrameLayout.LayoutParams bp = new FrameLayout.LayoutParams(dp(96),dp(48), Gravity.TOP|Gravity.RIGHT); bp.setMargins(0,10,10,0); root.addView(back,bp);
-        back.setOnClickListener(v -> finish());
-        setContentView(root);
-
-        jetView.setSimulationState((float)simState.gearPosition,0f,0f,0f,true);
-        jetView.setCameraMode(Jet3DView.CAMERA_CHASE);
-        runwayView.setFlightState(0,0,true,mission.getPhase().name());
-
-        if(demoMode){
-            showFlightScene();
-            updateMissionHud();
-            simHandler.post(simTick);
-            Toast.makeText(this,"DEMO MODE — sinematik kamera, otomatik kalkış, gezi ve iniş",Toast.LENGTH_LONG).show();
-        } else {
-            showWaitingScreen();
-            requestBtThenStart();
-        }
-    }
-
-    private void showWaitingScreen(){
-        waitingPanel.setVisibility(View.VISIBLE);
-        runwayView.setVisibility(View.GONE);
-        jetView.setVisibility(View.GONE);
-        missionHud.setVisibility(View.GONE);
-    }
-
-    private void showFlightScene(){
-        waitingPanel.setVisibility(View.GONE);
-        runwayView.setVisibility(View.VISIBLE);
-        jetView.setVisibility(View.VISIBLE);
-        missionHud.setVisibility(View.VISIBLE);
-    }
-
-    private void updateDemoCameraDirector(){
-        AutonomousFlightMission.Phase p=mission.getPhase();
-        int wanted;
-        switch(p){
-            case RUNWAY_HOLD: wanted=Jet3DView.CAMERA_RIGHT_QUARTER; break;
-            case TAKEOFF_ROLL: wanted=Jet3DView.CAMERA_CHASE; break;
-            case ROTATE_CLIMB: wanted=Jet3DView.CAMERA_REAR; break;
-            case ORBIT:
-                int shot=((int)(mission.getOrbitTimeSec()/18.0))%4;
-                wanted=shot==0?Jet3DView.CAMERA_CHASE:shot==1?Jet3DView.CAMERA_RIGHT_QUARTER:shot==2?Jet3DView.CAMERA_LEFT_QUARTER:Jet3DView.CAMERA_REAR;
-                break;
-            case APPROACH: wanted=Jet3DView.CAMERA_RIGHT_QUARTER; break;
-            case FLARE: wanted=Jet3DView.CAMERA_REAR; break;
-            case ROLLOUT: wanted=Jet3DView.CAMERA_LEFT_QUARTER; break;
-            case COMPLETE: wanted=Jet3DView.CAMERA_RIGHT_QUARTER; break;
-            default: wanted=Jet3DView.CAMERA_CHASE;
-        }
-        if(wanted!=demoCameraMode){demoCameraMode=wanted;jetView.setCameraMode(wanted);}
-    }
-
-    private String cameraName(){
-        int c=demoMode?demoCameraMode:jetView.getCameraMode();
-        switch(c){case Jet3DView.CAMERA_REAR:return "REAR";case Jet3DView.CAMERA_RIGHT_QUARTER:return "RIGHT 3/4";case Jet3DView.CAMERA_LEFT_QUARTER:return "LEFT 3/4";default:return "CHASE";}
-    }
-
-    private void updateMissionHud(){
-        if(!demoMode && !connected) return;
-        String phase=mission.getPhase().name().replace('_',' ');
-        String extra=mission.getPhase()== AutonomousFlightMission.Phase.ORBIT ? String.format(Locale.US,"  GEZİ %.0f/300 s",mission.getOrbitTimeSec()) : "";
-        String mode=demoMode?"DEMO":"UÇAK EKRANI / PILOT BAĞLI";
-        missionHud.setText(String.format(Locale.US,
-                "%s  %s%s   CAM %s\nALT %.0f m   SPD %.0f m/s   HDG %03.0f\nGEAR %.0f%%   BRK %.0f%%   WOW %s\nSTRUT M %.0f%% N %.0f%%   SINK %.1f m/s",
-                mode,phase,extra,cameraName(),simState.altitudeM,simState.trueAirspeedMps,simState.headingDeg,
-                simState.gearPosition*100.0,simState.brake01*100.0,simState.onGround?"GROUND":"AIR",
-                simState.mainStrutCompression01*100.0,simState.noseStrutCompression01*100.0,simState.touchdownSinkMps));
-    }
-
-    private void requestBtThenStart(){
-        if(Build.VERSION.SDK_INT>=31 && checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)!=PackageManager.PERMISSION_GRANTED){
-            requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT,Manifest.permission.BLUETOOTH_SCAN},REQ_BT);
-        } else startServer();
-    }
-
-    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
-        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
-        if(requestCode==REQ_BT && grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED) startServer();
-        else Toast.makeText(this,"Bluetooth izni yok — uçak ekranı pilot bağlantısını bekleyemez",Toast.LENGTH_LONG).show();
-    }
-
-    private void startServer(){
-        if(bt==null){Toast.makeText(this,"Bluetooth donanımı yok",Toast.LENGTH_LONG).show();return;}
-        if(!bt.isEnabled()){Toast.makeText(this,"Bluetooth kapalı — açıp tekrar UÇAK EKRANI'nı seç",Toast.LENGTH_LONG).show();return;}
-        io.execute(() -> {
-            while(running && !demoMode){
-                try{
-                    server=bt.listenUsingRfcommWithServiceRecord("FixtureCockpit3D",SIM_UUID);
-                    socket=server.accept(); connected=true;
-                    runOnUiThread(() -> {
-                        showFlightScene();
-                        missionHud.setText("UÇAK EKRANI — PILOT BAĞLANDI");
-                        Toast.makeText(this,"Pilot bağlandı — 3D uçak ekranı aktif",Toast.LENGTH_SHORT).show();
-                    });
-                    writer=new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8));
-                    BufferedReader r=new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8));
-                    String line;
-                    while(running && (line=r.readLine())!=null){
-                        String[] a=line.split(","); if(a.length<7 || !"V2".equals(a[0])) continue;
-                        try{
-                            int seq=Integer.parseInt(a[1]); float nr=Float.parseFloat(a[3]),np=Float.parseFloat(a[4]),ny=Float.parseFloat(a[5]),nt=Float.parseFloat(a[6]); long now=System.currentTimeMillis();
-                            if(lastSeq>0 && seq>lastSeq+1)drops+=seq-lastSeq-1; lastSeq=seq;
-                            if(previousRxMs>0){float d=Math.max(1,now-previousRxMs);linkHz=linkHz+(1000f/d-linkHz)*0.15f;}previousRxMs=now;
-                            roll=approach(roll,nr,7.5f);pitch=approach(pitch,np,5f);yaw=angleLerp(yaw,ny,0.24f);throttle+=(nt-throttle)*0.20f;
-                            jetView.setTelemetry(roll,pitch,yaw,throttle,linkHz,drops,true);
-                            synchronized(this){writer.write("A,"+seq+"\n");writer.flush();}
-                        }catch(Exception ignored){}
-                    }
-                }catch(Exception ignored){connected=false;}
-                finally{
-                    closeLink();
-                    if(running && !demoMode) runOnUiThread(this::showWaitingScreen);
-                }
-            }
-        });
-    }
-
-    private static float approach(float c,float t,float step){float d=t-c;if(d>step)d=step;if(d<-step)d=-step;return c+d;}
-    private static float angleLerp(float a,float b,float k){float d=b-a;while(d>180)d-=360;while(d<-180)d+=360;return a+d*k;}
-    private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
-    private void closeLink(){try{if(socket!=null)socket.close();}catch(Exception ignored){}try{if(server!=null)server.close();}catch(Exception ignored){}socket=null;server=null;writer=null;connected=false;}
-    @Override protected void onPause(){super.onPause();jetView.onPause();}
-    @Override protected void onResume(){super.onResume();jetView.onResume();lastSimNs=0;}
-    @Override protected void onDestroy(){running=false;simHandler.removeCallbacks(simTick);closeLink();io.shutdownNow();super.onDestroy();}
+ private void buildManualPanel(FrameLayout root){manualPanel=new LinearLayout(this);manualPanel.setOrientation(LinearLayout.HORIZONTAL);manualPanel.setGravity(Gravity.CENTER);manualPanel.setPadding(dp(4),dp(3),dp(4),dp(3));manualPanel.setBackgroundColor(0xB8000000);modeButton=button("MANUEL");Button left=button("◀");Button right=button("▶");Button up=button("BURUN↑");Button down=button("BURUN↓");Button level=button("DÜZLE");Button tm=button("THR−");Button tp=button("THR+");Button gear=button("GEAR");manualPanel.addView(modeButton);manualPanel.addView(left);manualPanel.addView(right);manualPanel.addView(up);manualPanel.addView(down);manualPanel.addView(level);manualPanel.addView(tm);manualPanel.addView(tp);manualPanel.addView(gear);FrameLayout.LayoutParams mp=new FrameLayout.LayoutParams(-1,dp(58),Gravity.BOTTOM);root.addView(manualPanel,mp);modeButton.setOnClickListener(v->{if(mission.getPhase()!=AutonomousFlightMission.Phase.ORBIT){Toast.makeText(this,"Manuel kontrol kalkıştan sonra 5 dakikalık uçuşta açılır",Toast.LENGTH_SHORT).show();return;}manualDemo=!manualDemo;if(manualDemo){manualPitch=manualRoll=manualYaw=0;manualThrottle=simState.throttle;manualGearDown=simState.gearPosition>.5;jetView.setCameraMode(Jet3DView.CAMERA_CHASE);demoCameraMode=Jet3DView.CAMERA_CHASE;}syncManualUi();});left.setOnClickListener(v->{if(manualDemo)manualRoll=Math.max(-1,manualRoll-.10);});right.setOnClickListener(v->{if(manualDemo)manualRoll=Math.min(1,manualRoll+.10);});up.setOnClickListener(v->{if(manualDemo)manualPitch=Math.min(1,manualPitch+.08);});down.setOnClickListener(v->{if(manualDemo)manualPitch=Math.max(-1,manualPitch-.08);});level.setOnClickListener(v->{manualPitch=manualRoll=manualYaw=0;});tm.setOnClickListener(v->{if(manualDemo)manualThrottle=Math.max(0,manualThrottle-.05);});tp.setOnClickListener(v->{if(manualDemo)manualThrottle=Math.min(1,manualThrottle+.05);});gear.setOnClickListener(v->{if(manualDemo)manualGearDown=!manualGearDown;});}
+ private Button button(String s){Button b=new Button(this);b.setText(s);b.setAllCaps(false);b.setTextSize(11);b.setMinWidth(0);b.setPadding(dp(4),0,dp(4),0);return b;}private void syncManualUi(){if(modeButton!=null)modeButton.setText(manualDemo?"OTOMATİK":"MANUEL");}
+ private void showWaitingScreen(){waitingPanel.setVisibility(View.VISIBLE);runwayView.setVisibility(View.GONE);jetView.setVisibility(View.GONE);missionHud.setVisibility(View.GONE);manualPanel.setVisibility(View.GONE);}private void showFlightScene(){waitingPanel.setVisibility(View.GONE);runwayView.setVisibility(View.VISIBLE);jetView.setVisibility(View.VISIBLE);missionHud.setVisibility(View.VISIBLE);manualPanel.setVisibility(demoMode?View.VISIBLE:View.GONE);}
+ private void updateDemoCameraDirector(){AutonomousFlightMission.Phase p=mission.getPhase();int w;switch(p){case HANGAR_START:w=Jet3DView.CAMERA_RIGHT_QUARTER;break;case TAXI_OUT:w=Jet3DView.CAMERA_REAR;break;case RUNWAY_HOLD:w=Jet3DView.CAMERA_RIGHT_QUARTER;break;case TAKEOFF_ROLL:w=Jet3DView.CAMERA_CHASE;break;case ROTATE_CLIMB:w=Jet3DView.CAMERA_REAR;break;case ORBIT:int shot=((int)(mission.getOrbitTimeSec()/22))%4;w=shot==0?0:shot==1?2:shot==2?3:1;break;case APPROACH:w=2;break;case FLARE:w=1;break;case ROLLOUT:w=3;break;default:w=2;}if(w!=demoCameraMode){demoCameraMode=w;jetView.setCameraMode(w);}}
+ private String cameraName(){int c=demoMode?demoCameraMode:jetView.getCameraMode();switch(c){case 1:return"REAR";case 2:return"RIGHT 3/4";case 3:return"LEFT 3/4";default:return"CHASE";}}
+ private void updateMissionHud(){if(!demoMode&&!connected)return;String ph=mission.getPhase().name().replace('_',' '),extra=mission.getPhase()==AutonomousFlightMission.Phase.ORBIT?String.format(Locale.US,"  UÇUŞ %.0f/300 s",mission.getOrbitTimeSec()):"",mode=demoMode?(manualDemo?"MANUEL":"DEMO AUTO"):"UÇAK EKRANI / PILOT BAĞLI";missionHud.setText(String.format(Locale.US,"%s  %s%s   CAM %s\nALT %.0f m   SPD %.0f m/s   HDG %03.0f\nTHR %.0f%%  GEAR %.0f%%   BRK %.0f%%   %s",mode,ph,extra,cameraName(),simState.altitudeM,simState.trueAirspeedMps,simState.headingDeg,simState.throttle*100,simState.gearPosition*100,simState.brake01*100,simState.onGround?"GROUND":"AIR"));}
+ private void requestBtThenStart(){if(Build.VERSION.SDK_INT>=31&&checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.BLUETOOTH_CONNECT,Manifest.permission.BLUETOOTH_SCAN},REQ_BT);else startServer();}
+ @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==REQ_BT&&g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)startServer();}
+ private void startServer(){if(bt==null)return;if(!bt.isEnabled()){Toast.makeText(this,"Bluetooth kapalı",Toast.LENGTH_LONG).show();return;}io.execute(()->{while(running&&!demoMode){try{server=bt.listenUsingRfcommWithServiceRecord("AircraftSimulator3D",SIM_UUID);socket=server.accept();connected=true;runOnUiThread(()->{showFlightScene();sound.start();missionHud.setText("UÇAK EKRANI — PILOT BAĞLANDI");});writer=new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8));BufferedReader r=new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8));String line;while(running&&(line=r.readLine())!=null){String[] a=line.split(",");if(a.length<7||!"V2".equals(a[0]))continue;try{int seq=Integer.parseInt(a[1]);float nr=Float.parseFloat(a[3]),np=Float.parseFloat(a[4]),ny=Float.parseFloat(a[5]),nt=Float.parseFloat(a[6]);long now=System.currentTimeMillis();if(lastSeq>0&&seq>lastSeq+1)drops+=seq-lastSeq-1;lastSeq=seq;if(previousRxMs>0){float d=Math.max(1,now-previousRxMs);linkHz+=(1000f/d-linkHz)*.15f;}previousRxMs=now;roll=approach(roll,nr,7.5f);pitch=approach(pitch,np,5);yaw=angleLerp(yaw,ny,.24f);throttle+=(nt-throttle)*.20f;jetView.setTelemetry(roll,pitch,yaw,throttle,linkHz,drops,true);sound.update(throttle,45+throttle*210,0,0,false);synchronized(this){writer.write("A,"+seq+"\n");writer.flush();}}catch(Exception ignored){}}}catch(Exception ignored){connected=false;}finally{closeLink();sound.stop();if(running&&!demoMode)runOnUiThread(this::showWaitingScreen);}}});}
+ private static float approach(float c,float t,float s){float d=t-c;if(d>s)d=s;if(d<-s)d=-s;return c+d;}private static float angleLerp(float a,float b,float k){float d=b-a;while(d>180)d-=360;while(d<-180)d+=360;return a+d*k;}private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}private void closeLink(){try{if(socket!=null)socket.close();}catch(Exception ignored){}try{if(server!=null)server.close();}catch(Exception ignored){}socket=null;server=null;writer=null;connected=false;}
+ @Override protected void onPause(){super.onPause();jetView.onPause();sound.stop();}@Override protected void onResume(){super.onResume();jetView.onResume();lastSimNs=0;if(demoMode&&running)sound.start();}@Override protected void onDestroy(){running=false;simHandler.removeCallbacks(simTick);sound.stop();closeLink();io.shutdownNow();super.onDestroy();}
 }
