@@ -4,7 +4,7 @@ plugins {
 android {
     namespace 'com.mg.tennistv'
     compileSdk 35
-    defaultConfig { applicationId 'com.mg.tennistv'; minSdk 26; targetSdk 35; versionCode 64; versionName '6.4.0' }
+    defaultConfig { applicationId 'com.mg.tennistv'; minSdk 26; targetSdk 35; versionCode 65; versionName '6.5.0' }
     signingConfigs { release { storeFile file('../signing/mg-tennis-update.jks'); storePassword 'MGtennis2026!'; keyAlias 'mgtennis'; keyPassword 'MGtennis2026!' } }
     buildTypes { release { signingConfig signingConfigs.release; minifyEnabled false; shrinkResources false } }
 }
