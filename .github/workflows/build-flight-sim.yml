@@ -32,7 +32,7 @@ jobs:
           APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='27'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='28'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "application-label:'Aircraft Simulator 3D'"
       - run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk "Aircraft Simulator 3D.apk"
