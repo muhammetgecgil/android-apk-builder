@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 80
-        versionName = "1.20.0-p1-assembly-overlay-viewport"
+        versionCode = 81
+        versionName = "1.20.1-p1-assembly-overlay-gap-evidence"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
