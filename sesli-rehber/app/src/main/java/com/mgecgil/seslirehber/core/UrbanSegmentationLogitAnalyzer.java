@@ -79,6 +79,17 @@ public final class UrbanSegmentationLogitAnalyzer {
                 ratio(lowerObstacle, lowerCenterPixels));
     }
 
+    /** Compact visual label mask used only by the on-screen HUD, never by SafetyGate. */
+    public byte[] labels(float[] logits, int width, int height) {
+        int pixels = width * height;
+        if (logits == null || width <= 0 || height <= 0 || logits.length < CLASSES * pixels) {
+            return new byte[0];
+        }
+        byte[] out = new byte[pixels];
+        for (int p = 0; p < pixels; p++) out[p] = (byte) argmax(logits, p, pixels);
+        return out;
+    }
+
     static int argmax(float[] logits, int pixelIndex, int pixelsPerClass) {
         int best = 0;
         float bestValue = logits[pixelIndex];
