@@ -9,7 +9,7 @@ if (!stableDevKeystore.exists() && stableDevKeystoreB64.exists()) {
 android {
     namespace 'com.mg.fixturecockpitsim'; compileSdk 36
     signingConfigs { stableDev { storeFile stableDevKeystore; storePassword 'aircraftdev'; keyAlias 'aircraftdev'; keyPassword 'aircraftdev' } }
-    defaultConfig { applicationId 'com.mg.fixturecockpitsim'; minSdk 26; targetSdk 36; versionCode 23; versionName '19.4-avm8.3-audio' }
+    defaultConfig { applicationId 'com.mg.fixturecockpitsim'; minSdk 26; targetSdk 36; versionCode 24; versionName '19.5-avm8.4-hangar-manual' }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
         release { minifyEnabled false; proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro' }
