@@ -74,9 +74,8 @@ jobs:
         run: |
           VERSION_NAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)
           test -n "$VERSION_NAME"
-          # GitHub run number is monotonically increasing for this workflow. Add a high base so
-          # every CI APK is safely newer than historical hand-maintained versionCodes.
           VERSION_CODE=$((10000 + GITHUB_RUN_NUMBER))
+          export VERSION_NAME VERSION_CODE
           echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           python3 - <<'PY'
@@ -88,14 +87,14 @@ jobs:
           if s2==s:
               raise SystemExit('versionCode pattern not found')
           g.write_text(s2)
-
           p=Path('app/src/main/java/com/mg/structuralai/AutoMainActivity.java')
           s=p.read_text()
-          s2=re.sub(r'sub\.setText\("v[^\"]*•[^\"]*OCCT ARM64"\);',
-                    'sub.setText("v"+BuildConfig.VERSION_NAME+" • PRODUCT ENGINEERING GATE • OCCT ARM64");',s,count=1)
-          if s2==s:
-              raise SystemExit('version banner pattern not found')
-          p.write_text(s2)
+          replacement='sub.setText("v"+BuildConfig.VERSION_NAME+" • PRODUCT ENGINEERING GATE • OCCT ARM64");'
+          if replacement not in s:
+              s2=re.sub(r'sub\.setText\("v[^\"]*•[^\"]*OCCT ARM64"\);', replacement, s, count=1)
+              if s2==s:
+                  raise SystemExit('version banner pattern not found')
+              p.write_text(s2)
           PY
       - name: Build debug APK with OCCT exact CAD kernel
         run: gradle --no-daemon :app:assembleDebug --stacktrace
