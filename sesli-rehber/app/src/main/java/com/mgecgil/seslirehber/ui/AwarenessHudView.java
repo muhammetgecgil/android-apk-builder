@@ -9,6 +9,8 @@ import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.view.View;
 import com.mgecgil.seslirehber.core.HudPerceptionContext;
+import com.mgecgil.seslirehber.core.ObjectSemanticContext;
+import com.mgecgil.seslirehber.core.ObjectSemanticObservation;
 import com.mgecgil.seslirehber.core.SituationalAwarenessContext;
 import com.mgecgil.seslirehber.core.SituationalAwarenessEngine;
 import com.mgecgil.seslirehber.core.UrbanHudMaskContext;
@@ -148,6 +150,7 @@ public final class AwarenessHudView extends View {
     private void drawObjects(Canvas canvas, RectF r) {
         if (perception == null) return;
         List<ObjectObservation> objects = perception.objects();
+        long nowMs = perception.timestampMs();
         for (ObjectObservation o : objects) {
             float hNorm = clamp(2f * Math.max(0.025f, o.bottomY() - o.centerY()), 0.06f, 0.88f);
             float wNorm = clamp(o.areaRatio() / Math.max(0.035f, hNorm), 0.06f, 0.82f);
@@ -158,7 +161,17 @@ public final class AwarenessHudView extends View {
             RectF box = new RectF(cx - halfW, cy - halfH, cx + halfW, cy + halfH);
             Paint p = o.isApproaching() ? approachingPaint : objectPaint;
             canvas.drawRoundRect(box, dp(7f), dp(7f), p);
-            String id = o.trackingId() >= 0 ? "#" + o.trackingId() : "NESNE";
+
+            ObjectSemanticObservation semantic = o.trackingId() >= 0
+                    ? ObjectSemanticContext.forTrackingId(o.trackingId(), nowMs)
+                    : null;
+            String id;
+            if (semantic != null && semantic.usable()) {
+                int pct = Math.max(0, Math.min(100, Math.round(semantic.confidence() * 100f)));
+                id = semantic.label().toUpperCase() + (semantic.definite() ? " " : "? ") + pct + "%";
+            } else {
+                id = o.trackingId() >= 0 ? "NESNE #" + o.trackingId() : "NESNE";
+            }
             if (o.isApproaching()) id += "  YAKLAŞIYOR";
             else if (Math.abs(o.centerVelocityX()) > 0.04f) id += "  HAREKET";
             canvas.drawText(id, box.left + dp(5f), Math.max(r.top + dp(15f), box.top - dp(5f)), textPaint);
