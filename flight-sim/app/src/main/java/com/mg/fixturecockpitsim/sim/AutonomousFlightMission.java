@@ -7,13 +7,17 @@ public final class AutonomousFlightMission {
     private static final double CRUISE_ALTITUDE_M=900.0, RUNWAY_HEADING_DEG=0.0;
     private Phase phase=Phase.HANGAR_START; private double phaseTime, orbitTime;
     public void reset(FlightState s){phase=Phase.HANGAR_START;phaseTime=orbitTime=0;s.timeSec=0;s.altitudeM=0;s.trueAirspeedMps=0;s.verticalSpeedMps=0;s.headingDeg=90;s.pitchDeg=s.rollDeg=0;s.throttle=0;s.gearPosition=1;s.brake01=1;s.onGround=true;}
-    public Phase getPhase(){return phase;} public double getOrbitTimeSec(){return orbitTime;}
+    public Phase getPhase(){return phase;} public double getOrbitTimeSec(){return orbitTime;} public double getPhaseTimeSec(){return phaseTime;}
+    public double getPhaseProgress01(){
+        double duration;
+        switch(phase){case HANGAR_START:duration=2.5;break;case TAXI_OUT:duration=15.0;break;case RUNWAY_HOLD:duration=2.0;break;case ORBIT:duration=SCENIC_DURATION_SEC;break;default:duration=1.0;}
+        return clamp(phaseTime/duration,0,1);
+    }
     public void update(FlightState s,FlightControls c,double dt){phaseTime+=dt;c.pitch=c.roll=c.yaw=c.brake=0;
         switch(phase){
             case HANGAR_START:c.throttle=.08;c.brake=1;c.gearDown=true;if(phaseTime>=2.5)next(Phase.TAXI_OUT);break;
             case TAXI_OUT:
                 c.throttle=.16;c.brake=0;c.gearDown=true;
-                // Leave hangar apron, join taxiway and align with runway heading.
                 double taxiTarget=phaseTime<5?70:phaseTime<10?35:RUNWAY_HEADING_DEG;
                 c.yaw=headingError(s.headingDeg,taxiTarget)*.045;
                 if(s.trueAirspeedMps>13)c.brake=.22;
@@ -23,7 +27,6 @@ public final class AutonomousFlightMission {
             case ROTATE_CLIMB:c.throttle=.96;c.pitch=altitudePitch(s.altitudeM,CRUISE_ALTITUDE_M,.44);c.roll=headingRoll(s.headingDeg,8);c.gearDown=s.altitudeM<45;if(s.altitudeM>=CRUISE_ALTITUDE_M-45)next(Phase.ORBIT);break;
             case ORBIT:
                 orbitTime+=dt;c.gearDown=false;
-                // 5 minute route: coast, mountains, valley-road, lake, highlands, airport return.
                 double t=orbitTime,targetAlt=900,targetHdg=25,bank=.10,thr=.72;
                 if(t<45){targetAlt=980;targetHdg=28;bank=.10;thr=.76;}
                 else if(t<90){targetAlt=1220;targetHdg=58;bank=.16;thr=.74;}
