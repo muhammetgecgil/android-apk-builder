@@ -17,7 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-/** Offline engineering viewport with real TET4 surface mesh, filled FEM contours, extrema, probe and direct view controls. */
+/** Offline engineering viewport with real TET4 surface mesh, filled FEM contours, extrema, probe and assembly QA overlay. */
 public final class InteractiveModelView extends View {
     public interface PickListener { void onPick(MeshModel.V3 point, int vertexIndex); }
     public enum PickMode { NONE, SUPPORT, LOAD }
@@ -29,13 +29,17 @@ public final class InteractiveModelView extends View {
     private PickListener listener; private PickMode mode=PickMode.NONE; private ResultField resultField=ResultField.VON_MISES;
     private final List<MeshModel.V3> supportPoints=new ArrayList<>(),loadPoints=new ArrayList<>();
     private List<SurfaceFace> surfaceFaces=Collections.emptyList();
+    private AssemblyOverlayModel assemblyOverlay;
     private double yaw=0.65,pitch=-0.45,zoom=0.92; private float lastX,lastY,lastPinchDistance; private boolean dragging=false,pinching=false; private long downMs=0;
     private int probeElement=-1,probeNode=-1; private boolean deformedVisible=true;
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG); private final Path triPath=new Path();
 
     public InteractiveModelView(Context c){super(c);setBackgroundColor(Color.rgb(7,15,28));}
     public void setPickListener(PickListener l){listener=l;}
-    public void setModel(MeshModel m){model=m;result=null;tetMesh=null;resultMaterial=null;surfaceFaces=Collections.emptyList();supportPoints.clear();loadPoints.clear();resultField=ResultField.VON_MISES;probeElement=probeNode=-1;deformedVisible=true;resetView();}
+    public void setModel(MeshModel m){model=m;result=null;tetMesh=null;resultMaterial=null;surfaceFaces=Collections.emptyList();supportPoints.clear();loadPoints.clear();resultField=ResultField.VON_MISES;probeElement=probeNode=-1;deformedVisible=true;assemblyOverlay=buildAssemblyOverlay(m);resetView();}
+    private AssemblyOverlayModel buildAssemblyOverlay(MeshModel m){if(m==null||m.triangles==null||m.triangles.isEmpty())return null;try{AssemblyBodyDecomposer.Result d=AssemblyBodyDecomposer.decompose(m);if(d==null||!d.isAssembly())return null;ContactCandidateEngine.Result c=ContactCandidateEngine.analyze(m,d);AssemblyContactGraph.Result g=AssemblyContactGraph.evaluate(d,c);return AssemblyOverlayModel.build(d,g);}catch(Throwable ignored){return null;}}
+    public void setAssemblyOverlay(AssemblyOverlayModel a){assemblyOverlay=a;invalidate();}
+    public AssemblyOverlayModel getAssemblyOverlay(){return assemblyOverlay;}
     public void setMeshPreview(TetMeshData tm){tetMesh=tm;result=null;resultMaterial=null;surfaceFaces=buildBoundaryFaces(tm);resultField=ResultField.MESH_QUALITY;probeElement=probeNode=-1;deformedVisible=false;resetView();}
     public boolean hasMeshPreview(){return tetMesh!=null;}
     public boolean hasSolvedResult(){return result!=null;}
@@ -56,9 +60,20 @@ public final class InteractiveModelView extends View {
 
     @Override protected void onDraw(Canvas c){super.onDraw(c);if(model==null||model.vertices.isEmpty()){drawText(c,"Model yüklenmedi",24,38,Color.LTGRAY);return;}double[] tr=screenTransform();double s=tr[0],ox=tr[1],oy=tr[2];
         if(tetMesh==null)drawImportedWireframe(c,ox,oy,s);else drawResults(c,ox,oy,s);
+        drawAssemblyOverlay(c,ox,oy,s);
         for(int i=0;i<supportPoints.size();i++)drawMarker(c,supportPoints.get(i),ox,oy,s,Color.CYAN,"S"+(i+1));for(int i=0;i<loadPoints.size();i++)drawMarker(c,loadPoints.get(i),ox,oy,s,Color.YELLOW,"L"+(i+1));
         String hint=tetMesh!=null&&result==null?"GERÇEK TET4 PREVIEW • sürükle: döndür • iki parmak: zoom • uzun bas: probe":result!=null?"sürükle: döndür • iki parmak: zoom • uzun bas: probe":"Mod: "+mode+" • sürükle: döndür • dokun: patch";drawSmallText(c,hint,12,getHeight()-50,Color.LTGRAY);drawToolbar(c);
     }
+
+    private void drawAssemblyOverlay(Canvas c,double ox,double oy,double s){
+        if(assemblyOverlay==null||assemblyOverlay.bodies.size()<2)return;
+        Map<Integer,AssemblyOverlayModel.BodyNode> byId=new HashMap<>();for(AssemblyOverlayModel.BodyNode b:assemblyOverlay.bodies)byId.put(b.bodyId,b);
+        for(AssemblyOverlayModel.Edge e:assemblyOverlay.edges){AssemblyOverlayModel.BodyNode ba=byId.get(e.bodyA),bb=byId.get(e.bodyB);if(ba==null||bb==null)continue;double[] a=pr(ba.center),b=pr(bb.center);float x1=(float)(ox+s*a[0]),y1=(float)(oy-s*a[1]),x2=(float)(ox+s*b[0]),y2=(float)(oy-s*b[1]);int col=edgeColor(e.style);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(e.blocksReadiness?5f:(e.loadTransfer?3.5f:2f));p.setColor(col);c.drawLine(x1,y1,x2,y2,p);float mx=(x1+x2)/2f,my=(y1+y2)/2f;String lab=e.style==AssemblyOverlayModel.EdgeStyle.INTERFERENCE?"INT":e.style==AssemblyOverlayModel.EdgeStyle.TOUCH?"TOUCH":e.style==AssemblyOverlayModel.EdgeStyle.NEAR?"NEAR":"GAP";drawSmallText(c,lab,mx+4,my-4,col);}
+        for(AssemblyOverlayModel.BodyNode b:assemblyOverlay.bodies){double[] q=pr(b.center);float x=(float)(ox+s*q[0]),y=(float)(oy-s*q[1]);int col=b.isolated?Color.rgb(255,165,0):Color.WHITE;p.setStyle(Paint.Style.FILL);p.setColor(Color.argb(220,8,18,31));c.drawCircle(x,y,13,p);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2.5f);p.setColor(col);c.drawCircle(x,y,13,p);p.setStyle(Paint.Style.FILL);p.setTextSize(12);p.setColor(col);String t=b.label();float tw=p.measureText(t);c.drawText(t,x-tw/2,y+4,p);drawSmallText(c,"C"+b.componentId,x+15,y-9,col);}
+        int bg=assemblyOverlay.assemblyReady?Color.rgb(20,125,70):Color.rgb(145,45,45);String text=assemblyOverlay.badgeText;p.setTextSize(13);float w=Math.min(getWidth()-24,p.measureText(text)+22);float x=12,y=68;p.setStyle(Paint.Style.FILL);p.setColor(Color.argb(225,Color.red(bg),Color.green(bg),Color.blue(bg)));c.drawRoundRect(x,y,x+w,y+27,8,8,p);p.setColor(Color.WHITE);c.drawText(text,x+10,y+18,p);
+    }
+    private int edgeColor(AssemblyOverlayModel.EdgeStyle s){if(s==AssemblyOverlayModel.EdgeStyle.INTERFERENCE)return Color.rgb(255,70,70);if(s==AssemblyOverlayModel.EdgeStyle.TOUCH)return Color.rgb(80,225,150);if(s==AssemblyOverlayModel.EdgeStyle.NEAR)return Color.rgb(255,205,70);return Color.rgb(150,160,175);}
+
     private void drawImportedWireframe(Canvas c,double ox,double oy,double s){p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.2f);p.setColor(Color.rgb(80,145,180));int maxTri=Math.min(model.triangles.size(),6000);for(int ti=0;ti<maxTri;ti++){int[] t=model.triangles.get(ti);if(t.length<3)continue;double[] a=pr(model.vertices.get(t[0])),b=pr(model.vertices.get(t[1])),d=pr(model.vertices.get(t[2]));c.drawLine((float)(ox+s*a[0]),(float)(oy-s*a[1]),(float)(ox+s*b[0]),(float)(oy-s*b[1]),p);c.drawLine((float)(ox+s*b[0]),(float)(oy-s*b[1]),(float)(ox+s*d[0]),(float)(oy-s*d[1]),p);c.drawLine((float)(ox+s*d[0]),(float)(oy-s*d[1]),(float)(ox+s*a[0]),(float)(oy-s*a[1]),p);}}
 
     private void drawResults(Canvas c,double ox,double oy,double s){boolean meshView=resultField==ResultField.MESH_QUALITY;if(result==null&&!meshView){resultField=ResultField.MESH_QUALITY;meshView=true;}double amp=currentAmp();boolean elem=isElementField();double min=Double.POSITIVE_INFINITY,max=Double.NEGATIVE_INFINITY;int iMin=-1,iMax=-1;int count=elem?tetMesh.tets.size():tetMesh.nodes.size();for(int i=0;i<count;i++){double v=elem?elementField(i):nodeField(i);if(!Double.isFinite(v))continue;if(v<min){min=v;iMin=i;}if(v>max){max=v;iMax=i;}}
