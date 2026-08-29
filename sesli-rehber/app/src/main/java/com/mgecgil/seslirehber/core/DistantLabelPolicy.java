@@ -49,16 +49,36 @@ public final class DistantLabelPolicy {
         if (containsAny(s, "microwave")) return "mikrodalga";
         if (containsAny(s, "sink", "washbasin")) return "lavabo";
         if (containsAny(s, "toilet")) return "tuvalet";
-        if (containsAny(s, "book")) return "kitap";
-        if (containsAny(s, "bottle")) return "şişe";
-        if (containsAny(s, "cup", "mug")) return "bardak";
+        if (containsAny(s, "book", "notebook")) return "kitap";
         if (containsAny(s, "phone", "smartphone", "mobile phone")) return "telefon";
         if (containsAny(s, "laptop", "notebook computer")) return "dizüstü bilgisayar";
         if (containsAny(s, "computer", "desktop computer")) return "bilgisayar";
         if (containsAny(s, "keyboard")) return "klavye";
+        if (containsAny(s, "computer mouse", "mouse")) return "fare";
+        if (containsAny(s, "remote control", "remote")) return "kumanda";
+        if (containsAny(s, "pen", "ballpoint pen", "marker")) return "kalem";
+        if (containsAny(s, "pencil")) return "kurşun kalem";
         if (containsAny(s, "shoe", "footwear")) return "ayakkabı";
-        if (containsAny(s, "bag", "handbag", "backpack")) return "çanta";
+        if (containsAny(s, "bag", "handbag", "backpack", "briefcase")) return "çanta";
         if (containsAny(s, "umbrella")) return "şemsiye";
+        if (containsAny(s, "plant pot", "flowerpot", "potted plant", "pot plant")) return "saksı";
+        if (containsAny(s, "vase")) return "vazo";
+        if (containsAny(s, "flower")) return "çiçek";
+        if (containsAny(s, "scissors")) return "makas";
+        if (containsAny(s, "knife", "kitchen knife")) return "bıçak";
+
+        // Kitchen / market / daily living.
+        if (containsAny(s, "bottle", "water bottle")) return "şişe";
+        if (containsAny(s, "drinking glass", "glass tumbler", "tumbler")) return "su bardağı";
+        if (containsAny(s, "cup", "mug")) return "bardak";
+        if (containsAny(s, "plate", "dish")) return "tabak";
+        if (containsAny(s, "bowl")) return "kase";
+        if (containsAny(s, "fork")) return "çatal";
+        if (containsAny(s, "spoon")) return "kaşık";
+        if (containsAny(s, "can", "tin can")) return "konserve kutusu";
+        if (containsAny(s, "carton", "package", "packaging")) return "paket";
+        if (containsAny(s, "shopping cart", "grocery cart")) return "alışveriş arabası";
+        if (containsAny(s, "shopping basket", "basket")) return "sepet";
         if (containsAny(s, "trash", "garbage", "waste bin", "dustbin")) return "çöp kutusu";
 
         if (containsAny(s, "dog")) return "köpek";
