@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 84
-        versionName = "1.20.4-p1-live-solver-mesh"
+        versionCode = 85
+        versionName = "1.20.5-p1-pdf-multiview-evidence"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
