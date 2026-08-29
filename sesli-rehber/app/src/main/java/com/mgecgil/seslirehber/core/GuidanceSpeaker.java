@@ -8,6 +8,7 @@ import android.os.VibrationEffect;
 import android.os.Vibrator;
 import android.speech.tts.TextToSpeech;
 import com.mgecgil.seslirehber.navigation.NavigationCoordinator;
+import java.lang.ref.WeakReference;
 import java.util.Locale;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
@@ -16,6 +17,7 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
     private static final long CAUTION_NAV_HOLD_MS = 1800L;
     private static final String DESTINATION_PREFIX = "Hedef algılandı: ";
     private static final String OLD_ROUTE_SUFFIX = ". Rota motoru henüz bağlı değil; yönlendirme başlatılmadı.";
+    private static volatile WeakReference<GuidanceSpeaker> active = new WeakReference<>(null);
 
     private final TextToSpeech tts;
     private final Vibrator vibrator;
@@ -38,6 +40,7 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
             @Override public void speakSystem(String text) { GuidanceSpeaker.this.speakNavigation(text); }
             @Override public void speakNavigation(String text) { GuidanceSpeaker.this.speakNavigation(text); }
         });
+        active = new WeakReference<>(this);
     }
 
     @Override public void onInit(int status) {
@@ -76,7 +79,29 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
                     "Sesli Rehber sürüm sıfır nokta dokuz\\.",
                     "Sesli Rehber sürüm sıfır nokta on dört. Çoklu nesne izleme, uzak görüş ve sol orta sağ yakın orta uzak durumsal çevre modeli aktif.");
         }
+        if (clean.startsWith("Sesli Rehber sürüm sıfır nokta on sekiz.")) {
+            clean = clean.replaceFirst(
+                    "Sesli Rehber sürüm sıfır nokta on sekiz\\.",
+                    "Sesli Rehber sürüm sıfır nokta on dokuz. Otomatik M1 Urban Gate saha sihirbazı hazır.");
+        }
+        if (clean.startsWith("Urban Gate başladı.")) {
+            clean = clean.replaceFirst(
+                    "Urban Gate başladı\\.",
+                    "Urban Gate otomatik saha sihirbazı başladı. Senaryo düğmesine basman gerekmiyor.");
+        }
         speakRaw(clean, "speech");
+    }
+
+    /**
+     * Validation-only prompt channel shared with UrbanGateRecorder. It deliberately reuses the
+     * navigation hold queue so STOP/CAUTION announcements cannot be spoken over by test prompts.
+     */
+    public static void speakTestPrompt(String text) {
+        if (text == null || text.trim().isEmpty()) return;
+        GuidanceSpeaker speaker = active.get();
+        if (speaker == null) return;
+        String clean = text.trim();
+        speaker.mainHandler.post(() -> speaker.speakNavigation(clean));
     }
 
     private void speakNavigation(String text) {
@@ -119,6 +144,8 @@ public final class GuidanceSpeaker implements TextToSpeech.OnInitListener {
         navigation.close();
         tts.stop();
         tts.shutdown();
+        GuidanceSpeaker current = active.get();
+        if (current == this) active.clear();
     }
 
     private void vibrate(Direction direction, Risk risk) {
