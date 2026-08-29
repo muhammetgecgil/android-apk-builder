@@ -44,13 +44,13 @@ jobs:
             --output app/src/main/assets/pidnet_s.tflite
           test "$(stat -c%s app/src/main/assets/pidnet_s.tflite)" = "30645332"
           echo '9f11e66b223eefb9a35ca70bf1451b6a0104623e4c178e422f7cf3eb72eace26  app/src/main/assets/pidnet_s.tflite' | sha256sum -c -
-      - name: Bundle official EfficientDet-Lite0 broad object model
+      - name: Bundle pinned EfficientDet-Lite0 broad object model
         run: |
           curl --fail --location --retry 3 \
             'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/latest/efficientdet_lite0.tflite' \
             --output app/src/main/assets/efficientdet_lite0.tflite
-          stat -c 'EFFICIENTDET_SIZE=%s' app/src/main/assets/efficientdet_lite0.tflite
-          sha256sum app/src/main/assets/efficientdet_lite0.tflite
+          test "$(stat -c%s app/src/main/assets/efficientdet_lite0.tflite)" = "4602795"
+          echo '0720bf247bd76e6594ea28fa9c6f7c5242be774818997dbbeffc4da460c723bb  app/src/main/assets/efficientdet_lite0.tflite' | sha256sum -c -
       - name: Unit tests
         run: gradle testDebugUnitTest --stacktrace
       - name: Build debug APK
