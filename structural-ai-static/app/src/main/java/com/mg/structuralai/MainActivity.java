@@ -82,7 +82,23 @@ public class MainActivity extends Activity {
         }catch(Exception e){runOnUiThread(()->{status.setText("FEM/convergence çözülemedi");modeBadge.setText("MOD: ANALYSIS ERROR");modeBadge.setBackgroundColor(Color.rgb(150,45,45));lastReport="ANALYSIS ERROR\n"+e.getMessage();report.setText(lastReport);});}});}
 
     private void savePdf(){if(lastReport==null||lastReport.trim().isEmpty()){status.setText("Önce rapor/analiz oluştur");return;}Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("application/pdf");i.putExtra(Intent.EXTRA_TITLE,"Structural_AI_"+currentName.replaceAll("[^A-Za-z0-9._-]","_")+"_"+BuildConfig.VERSION_NAME+".pdf");startActivityForResult(i,SAVE_PDF);}
-    private void exportPdf(Uri uri){Bitmap bmp=null;try{if(viewport.getWidth()>0&&viewport.getHeight()>0){bmp=Bitmap.createBitmap(viewport.getWidth(),viewport.getHeight(),Bitmap.Config.ARGB_8888);viewport.draw(new Canvas(bmp));}EngineeringPdfExporter.write(getContentResolver(),uri,"STRUCTURAL AI ENGINEERING REPORT",lastReport,bmp);status.setText("PDF rapor kaydedildi");}catch(Exception e){status.setText("PDF kaydedilemedi: "+e.getMessage());}finally{if(bmp!=null)bmp.recycle();}}
+
+    private Bitmap captureViewport(){if(viewport.getWidth()<=0||viewport.getHeight()<=0)return null;Bitmap b=Bitmap.createBitmap(viewport.getWidth(),viewport.getHeight(),Bitmap.Config.ARGB_8888);viewport.draw(new Canvas(b));return b;}
+
+    private void exportPdf(Uri uri){
+        List<EngineeringPdfExporter.EvidenceImage> evidence=new ArrayList<>();List<Bitmap> owned=new ArrayList<>();InteractiveModelView.ResultField oldField=viewport.getResultField();boolean oldDef=viewport.isDeformedVisible();
+        try{
+            if(viewport.hasMeshPreview()){
+                viewport.setDeformedVisible(false);viewport.setResultField(InteractiveModelView.ResultField.MESH_QUALITY);Bitmap meshBmp=captureViewport();if(meshBmp!=null){owned.add(meshBmp);evidence.add(new EngineeringPdfExporter.EvidenceImage("TET4 MESH QUALITY EVIDENCE","Undeformed TET4 surface mesh-quality view. Assembly QA overlay/status is retained when present.",meshBmp));}
+            }
+            if(viewport.hasSolvedResult()){
+                viewport.setResultField(InteractiveModelView.ResultField.VON_MISES);viewport.setDeformedVisible(true);Bitmap vmBmp=captureViewport();if(vmBmp!=null){owned.add(vmBmp);evidence.add(new EngineeringPdfExporter.EvidenceImage("VON MISES RESULT EVIDENCE","Solved filled Von Mises contour with legend/extrema and displayed deformation state.",vmBmp));}
+            }
+            viewport.setResultField(oldField);viewport.setDeformedVisible(oldDef);
+            EngineeringPdfExporter.write(getContentResolver(),uri,"STRUCTURAL AI ENGINEERING REPORT",lastReport,evidence);status.setText("PDF rapor kaydedildi • mesh + VM evidence");
+        }catch(Exception e){status.setText("PDF kaydedilemedi: "+e.getMessage());}
+        finally{viewport.setResultField(oldField);viewport.setDeformedVisible(oldDef);for(Bitmap b:owned)if(b!=null&&!b.isRecycled())b.recycle();}
+    }
     private String getName(Uri uri){String n="model";Cursor c=getContentResolver().query(uri,null,null,null,null);if(c!=null){try{int i=c.getColumnIndex(OpenableColumns.DISPLAY_NAME);if(c.moveToFirst()&&i>=0)n=c.getString(i);}finally{c.close();}}return n;}
     @Override protected void onDestroy(){super.onDestroy();executor.shutdownNow();}
 }
