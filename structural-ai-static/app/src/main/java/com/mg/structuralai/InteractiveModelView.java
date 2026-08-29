@@ -4,29 +4,47 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.view.MotionEvent;
 import android.view.View;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
-/** Offline engineering viewport with real TET4 mesh, selectable FEM fields, extrema markers, probe and deformed overlay. */
+/** Offline engineering viewport with real TET4 surface mesh, filled FEM contours, extrema markers, probe and deformed overlay. */
 public final class InteractiveModelView extends View {
     public interface PickListener { void onPick(MeshModel.V3 point, int vertexIndex); }
     public enum PickMode { NONE, SUPPORT, LOAD }
     public enum ResultField { MESH_QUALITY, U_TOTAL, U_X, U_Y, U_Z, VON_MISES, PRINCIPAL_S1, PRINCIPAL_S2, PRINCIPAL_S3, PRINCIPAL_E1, PRINCIPAL_E2, PRINCIPAL_E3, SAFETY_FACTOR, REACTION_MAG }
+    private static final class SurfaceFace {
+        final int a,b,c,element;
+        SurfaceFace(int a,int b,int c,int element){this.a=a;this.b=b;this.c=c;this.element=element;}
+    }
+    private static final class RenderFace {
+        final SurfaceFace face; final double depth;
+        RenderFace(SurfaceFace f,double d){face=f;depth=d;}
+    }
+
     private MeshModel model; private StaticFemSolver.Result result; private TetMeshData tetMesh; private LinearElasticMaterial resultMaterial;
     private PickListener listener; private PickMode mode=PickMode.NONE; private ResultField resultField=ResultField.VON_MISES;
     private final List<MeshModel.V3> supportPoints=new ArrayList<>(), loadPoints=new ArrayList<>();
+    private List<SurfaceFace> surfaceFaces=Collections.emptyList();
     private double yaw=0.65,pitch=-0.45; private float lastX,lastY; private boolean dragging=false; private long downMs=0;
     private int probeElement=-1,probeNode=-1;
     private final Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Path triPath=new Path();
 
     public InteractiveModelView(Context c){super(c);setBackgroundColor(Color.rgb(7,15,28));}
     public void setPickListener(PickListener l){listener=l;}
-    public void setModel(MeshModel m){model=m;result=null;tetMesh=null;resultMaterial=null;supportPoints.clear();loadPoints.clear();resultField=ResultField.VON_MISES;probeElement=probeNode=-1;invalidate();}
+    public void setModel(MeshModel m){model=m;result=null;tetMesh=null;resultMaterial=null;surfaceFaces=Collections.emptyList();supportPoints.clear();loadPoints.clear();resultField=ResultField.VON_MISES;probeElement=probeNode=-1;invalidate();}
     public void setResult(TetMeshData tm,StaticFemSolver.Result r){setResult(tm,r,r==null?null:r.material);}
-    public void setResult(TetMeshData tm,StaticFemSolver.Result r,LinearElasticMaterial mat){tetMesh=tm;result=r;resultMaterial=mat!=null?mat:(r==null?null:r.material);resultField=ResultField.MESH_QUALITY;probeElement=probeNode=-1;invalidate();}
+    public void setResult(TetMeshData tm,StaticFemSolver.Result r,LinearElasticMaterial mat){tetMesh=tm;result=r;resultMaterial=mat!=null?mat:(r==null?null:r.material);surfaceFaces=buildBoundaryFaces(tm);resultField=ResultField.MESH_QUALITY;probeElement=probeNode=-1;invalidate();}
     public void setResultField(ResultField f){if(f!=null&&fieldAvailable(f)){resultField=f;probeElement=probeNode=-1;invalidate();}}
     public ResultField getResultField(){return resultField;}
     public void cycleResultField(){ResultField[] a=ResultField.values();int k=resultField.ordinal();do{k=(k+1)%a.length;}while(!fieldAvailable(a[k]));resultField=a[k];probeElement=probeNode=-1;invalidate();}
@@ -40,33 +58,56 @@ public final class InteractiveModelView extends View {
 
     @Override protected void onDraw(Canvas c){super.onDraw(c);if(model==null||model.vertices.isEmpty()){drawText(c,"Model yüklenmedi",24,38,Color.LTGRAY);return;}
         double[] box=projectBounds();double sx=(getWidth()-32)/Math.max(box[2]-box[0],1e-9),sy=(getHeight()-48)/Math.max(box[3]-box[1],1e-9),s=Math.min(sx,sy);double ox=getWidth()/2.0-s*(box[0]+box[2])/2.0,oy=getHeight()/2.0-s*(box[1]+box[3])/2.0;
-        if(resultField!=ResultField.MESH_QUALITY||tetMesh==null){
+        if(result==null||tetMesh==null){
             p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(1.1f);p.setColor(Color.rgb(78,120,150));int maxTri=Math.min(model.triangles.size(),5000);
             for(int ti=0;ti<maxTri;ti++){int[] t=model.triangles.get(ti);if(t.length<3)continue;double[] a=pr(model.vertices.get(t[0])),b=pr(model.vertices.get(t[1])),d=pr(model.vertices.get(t[2]));c.drawLine((float)(ox+s*a[0]),(float)(oy-s*a[1]),(float)(ox+s*b[0]),(float)(oy-s*b[1]),p);c.drawLine((float)(ox+s*b[0]),(float)(oy-s*b[1]),(float)(ox+s*d[0]),(float)(oy-s*d[1]),p);c.drawLine((float)(ox+s*d[0]),(float)(oy-s*d[1]),(float)(ox+s*a[0]),(float)(oy-s*a[1]),p);}
         }
         if(result!=null&&tetMesh!=null)drawResults(c,ox,oy,s);
         for(int i=0;i<supportPoints.size();i++)drawMarker(c,supportPoints.get(i),ox,oy,s,Color.CYAN,"S"+(i+1));
         for(int i=0;i<loadPoints.size();i++)drawMarker(c,loadPoints.get(i),ox,oy,s,Color.YELLOW,"L"+(i+1));
-        String hint=result!=null&&mode==PickMode.NONE?"dokun: MESH/sonuç alanı • uzun bas: probe • sürükle: döndür":"Mod: "+mode+" • sürükle: döndür • dokun: patch ekle";
+        String hint=result!=null&&mode==PickMode.NONE?"dokun: MESH/CONTOUR alanı • uzun bas: probe • sürükle: döndür":"Mod: "+mode+" • sürükle: döndür • dokun: patch ekle";
         drawSmallText(c,hint,12,getHeight()-12,Color.LTGRAY);
     }
 
     private void drawResults(Canvas c,double ox,double oy,double s){
         boolean meshView=resultField==ResultField.MESH_QUALITY;
-        double modelDiag=Math.max(model.diagonal(),1e-12),uMax=Math.max(result.maxDisplacementM,1e-20);double amp=meshView?0.0:Math.min(250.0,0.12*modelDiag/uMax);int nRender=Math.min(tetMesh.tets.size(),2500);
+        double modelDiag=Math.max(model.diagonal(),1e-12),uMax=Math.max(result.maxDisplacementM,1e-20);double amp=meshView?0.0:Math.min(250.0,0.12*modelDiag/uMax);
         boolean elem=isElementField();double min=Double.POSITIVE_INFINITY,max=Double.NEGATIVE_INFINITY;int iMin=-1,iMax=-1;
         int count=elem?tetMesh.tets.size():tetMesh.nodes.size();for(int i=0;i<count;i++){double v=elem?elementField(i):nodeField(i);if(!Double.isFinite(v))continue;if(v<min){min=v;iMin=i;}if(v>max){max=v;iMax=i;}}
         if(!Double.isFinite(min)||!Double.isFinite(max)){drawText(c,fieldLabel()+"  BLOCKED",12,22,Color.WHITE);drawSmallText(c,"Required material/design evidence is not available.",12,43,Color.LTGRAY);return;}double range=Math.max(max-min,1e-30);
-        p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(meshView?1.15f:0.85f);
-        for(int e=0;e<nRender;e++){int[] t=tetMesh.tets.get(e);double v=elem?elementField(e):tetAverage(t);if(!Double.isFinite(v))continue;double q=meshView?Math.max(0,Math.min(1,v)):Math.max(0,Math.min(1,(v-min)/range));p.setColor(meshView?meshQualityColor(q):fieldColor(q));drawTetEdges(c,t,amp,ox,oy,s);}
-        if(!meshView){p.setStyle(Paint.Style.FILL);for(int e=0;e<nRender;e++){int[] t=tetMesh.tets.get(e);double v=elem?elementField(e):tetAverage(t);if(!Double.isFinite(v))continue;MeshModel.V3 m=deformedCentroid(t,amp);double[] z=pr(m);double q=Math.max(0,Math.min(1,(v-min)/range));p.setColor(fieldColor(q));c.drawCircle((float)(ox+s*z[0]),(float)(oy-s*z[1]),2.0f,p);}}
+
+        drawFilledSurface(c,ox,oy,s,amp,min,range,meshView,elem);
+
         drawText(c,fieldLabel()+"  MAX "+fmtField(max)+"  MIN "+fmtField(min),12,22,Color.WHITE);
-        drawSmallText(c,meshView?String.format(Locale.US,"TET4=%d • nodes=%d • extrema=ALL • rendered=%d",tetMesh.tets.size(),tetMesh.nodes.size(),nRender):String.format(Locale.US,"TET=%d • extrema=ALL • rendered=%d • Umax %.4f mm • deform x%.1f",tetMesh.tets.size(),nRender,result.maxDisplacementM*1000,amp),12,43,Color.LTGRAY);
+        drawSmallText(c,meshView?String.format(Locale.US,"SURFACE MESH • TET4=%d • nodes=%d • boundaryFaces=%d • extrema=ALL",tetMesh.tets.size(),tetMesh.nodes.size(),surfaceFaces.size()):String.format(Locale.US,"FILLED CONTOUR • boundaryFaces=%d • Umax %.4f mm • deform x%.1f • extrema=ALL",surfaceFaces.size(),result.maxDisplacementM*1000,amp),12,43,Color.LTGRAY);
         drawLegend(c,min,max);
         if(iMax>=0)drawResultMarker(c,resultPoint(iMax,elem,amp),ox,oy,s,Color.WHITE,"MAX");
         if(iMin>=0)drawResultMarker(c,resultPoint(iMin,elem,amp),ox,oy,s,Color.LTGRAY,"MIN");
-        if((elem&&probeElement>=0&&probeElement<nRender)||(!elem&&probeNode>=0&&probeNode<tetMesh.nodes.size())){int idx=elem?probeElement:probeNode;double val=elem?elementField(idx):nodeField(idx);if(Double.isFinite(val)){MeshModel.V3 pt=resultPoint(idx,elem,amp);drawResultMarker(c,pt,ox,oy,s,Color.YELLOW,"P");drawSmallText(c,"PROBE "+fmtField(val),12,62,Color.YELLOW);}}
+        if((elem&&probeElement>=0&&probeElement<tetMesh.tets.size())||(!elem&&probeNode>=0&&probeNode<tetMesh.nodes.size())){int idx=elem?probeElement:probeNode;double val=elem?elementField(idx):nodeField(idx);if(Double.isFinite(val)){MeshModel.V3 pt=resultPoint(idx,elem,amp);drawResultMarker(c,pt,ox,oy,s,Color.YELLOW,"P");drawSmallText(c,"PROBE "+fmtField(val),12,62,Color.YELLOW);}}
     }
+
+    private void drawFilledSurface(Canvas c,double ox,double oy,double s,double amp,double min,double range,boolean meshView,boolean elem){
+        if(surfaceFaces==null||surfaceFaces.isEmpty())return;
+        int maxFaces=Math.min(surfaceFaces.size(),12000);
+        List<RenderFace> ordered=new ArrayList<>(maxFaces);
+        for(int i=0;i<maxFaces;i++){SurfaceFace f=surfaceFaces.get(i);double d=(viewDepth(deformedNode(f.a,amp))+viewDepth(deformedNode(f.b,amp))+viewDepth(deformedNode(f.c,amp)))/3.0;ordered.add(new RenderFace(f,d));}
+        Collections.sort(ordered,new Comparator<RenderFace>(){@Override public int compare(RenderFace x,RenderFace y){return Double.compare(x.depth,y.depth);}});
+        for(RenderFace rf:ordered){SurfaceFace f=rf.face;MeshModel.V3 va=deformedNode(f.a,amp),vb=deformedNode(f.b,amp),vc=deformedNode(f.c,amp);double[] a=pr(va),b=pr(vb),d=pr(vc);
+            double v;if(elem)v=elementField(f.element);else v=(nodeField(f.a)+nodeField(f.b)+nodeField(f.c))/3.0;if(!Double.isFinite(v))continue;
+            double q=meshView?Math.max(0,Math.min(1,v)):Math.max(0,Math.min(1,(v-min)/range));int color=meshView?meshQualityColor(q):heatmapColor(q);
+            triPath.reset();triPath.moveTo((float)(ox+s*a[0]),(float)(oy-s*a[1]));triPath.lineTo((float)(ox+s*b[0]),(float)(oy-s*b[1]));triPath.lineTo((float)(ox+s*d[0]),(float)(oy-s*d[1]));triPath.close();
+            p.setStyle(Paint.Style.FILL);p.setColor(color);c.drawPath(triPath,p);
+            p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(meshView?0.95f:0.45f);p.setColor(meshView?Color.argb(210,25,32,40):Color.argb(125,20,25,32));c.drawPath(triPath,p);
+        }
+    }
+
+    private List<SurfaceFace> buildBoundaryFaces(TetMeshData tm){
+        if(tm==null||tm.tets==null)return Collections.emptyList();Map<String,SurfaceFace> exposed=new HashMap<>();Set<String> internal=new HashSet<>();
+        for(int e=0;e<tm.tets.size();e++){int[] t=tm.tets.get(e);if(t==null||t.length<4)continue;addBoundaryFace(exposed,internal,t[0],t[1],t[2],e);addBoundaryFace(exposed,internal,t[0],t[1],t[3],e);addBoundaryFace(exposed,internal,t[0],t[2],t[3],e);addBoundaryFace(exposed,internal,t[1],t[2],t[3],e);}
+        return new ArrayList<>(exposed.values());
+    }
+    private void addBoundaryFace(Map<String,SurfaceFace> exposed,Set<String> internal,int a,int b,int c,int e){String k=faceKey(a,b,c);if(internal.contains(k))return;if(exposed.containsKey(k)){exposed.remove(k);internal.add(k);}else exposed.put(k,new SurfaceFace(a,b,c,e));}
+    private String faceKey(int a,int b,int c){int x=a,y=b,z=c;if(x>y){int q=x;x=y;y=q;}if(y>z){int q=y;y=z;z=q;}if(x>y){int q=x;x=y;y=q;}return x+":"+y+":"+z;}
 
     private boolean isElementField(){return resultField==ResultField.MESH_QUALITY||resultField==ResultField.VON_MISES||resultField==ResultField.PRINCIPAL_S1||resultField==ResultField.PRINCIPAL_S2||resultField==ResultField.PRINCIPAL_S3||resultField==ResultField.PRINCIPAL_E1||resultField==ResultField.PRINCIPAL_E2||resultField==ResultField.PRINCIPAL_E3||resultField==ResultField.SAFETY_FACTOR;}
     private double nodeField(int i){double ux=result.displacement[3*i],uy=result.displacement[3*i+1],uz=result.displacement[3*i+2];switch(resultField){case U_X:return ux;case U_Y:return uy;case U_Z:return uz;case REACTION_MAG:{double rx=result.reactions[3*i],ry=result.reactions[3*i+1],rz=result.reactions[3*i+2];return Math.sqrt(rx*rx+ry*ry+rz*rz);}case U_TOTAL:return Math.sqrt(ux*ux+uy*uy+uz*uz);default:return 0;}}
@@ -81,13 +122,11 @@ public final class InteractiveModelView extends View {
     }
     private double tetQuality(int[] t){MeshModel.V3 a=tetMesh.nodes.get(t[0]),b=tetMesh.nodes.get(t[1]),c=tetMesh.nodes.get(t[2]),d=tetMesh.nodes.get(t[3]);double v=Math.abs(dot(sub(b,a),cross(sub(c,a),sub(d,a))))/6.0;double sum=edge2(a,b)+edge2(a,c)+edge2(a,d)+edge2(b,c)+edge2(b,d)+edge2(c,d);if(v<=1e-30||sum<=1e-30)return 0;double q=12.0*Math.pow(3.0*v,2.0/3.0)/sum;return Math.max(0,Math.min(1,q));}
     private static MeshModel.V3 sub(MeshModel.V3 a,MeshModel.V3 b){return new MeshModel.V3(a.x-b.x,a.y-b.y,a.z-b.z);}private static MeshModel.V3 cross(MeshModel.V3 a,MeshModel.V3 b){return new MeshModel.V3(a.y*b.z-a.z*b.y,a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x);}private static double dot(MeshModel.V3 a,MeshModel.V3 b){return a.x*b.x+a.y*b.y+a.z*b.z;}private static double edge2(MeshModel.V3 a,MeshModel.V3 b){double x=a.x-b.x,y=a.y-b.y,z=a.z-b.z;return x*x+y*y+z*z;}
-    private double tetAverage(int[] t){double q=0;for(int i:t)q+=nodeField(i);return q/4.0;}
-    private String fieldLabel(){switch(resultField){case MESH_QUALITY:return "TET4 MESH QUALITY";case U_TOTAL:return "U TOTAL";case U_X:return "UX";case U_Y:return "UY";case U_Z:return "UZ";case REACTION_MAG:return "REACTION |R|";case PRINCIPAL_S1:return "PRINCIPAL STRESS S1";case PRINCIPAL_S2:return "PRINCIPAL STRESS S2";case PRINCIPAL_S3:return "PRINCIPAL STRESS S3";case PRINCIPAL_E1:return "PRINCIPAL STRAIN E1";case PRINCIPAL_E2:return "PRINCIPAL STRAIN E2";case PRINCIPAL_E3:return "PRINCIPAL STRAIN E3";case SAFETY_FACTOR:return "SAFETY FACTOR (YIELD/VM)";default:return "VON MISES";}}
+    private String fieldLabel(){switch(resultField){case MESH_QUALITY:return "TET4 SURFACE MESH QUALITY";case U_TOTAL:return "DISPLACEMENT U TOTAL";case U_X:return "DISPLACEMENT UX";case U_Y:return "DISPLACEMENT UY";case U_Z:return "DISPLACEMENT UZ";case REACTION_MAG:return "REACTION |R|";case PRINCIPAL_S1:return "PRINCIPAL STRESS S1";case PRINCIPAL_S2:return "PRINCIPAL STRESS S2";case PRINCIPAL_S3:return "PRINCIPAL STRESS S3";case PRINCIPAL_E1:return "PRINCIPAL STRAIN E1";case PRINCIPAL_E2:return "PRINCIPAL STRAIN E2";case PRINCIPAL_E3:return "PRINCIPAL STRAIN E3";case SAFETY_FACTOR:return "SAFETY FACTOR (YIELD/VM)";default:return "VON MISES STRESS";}}
     private String fmtField(double v){if(!Double.isFinite(v))return "N/A";if(resultField==ResultField.MESH_QUALITY)return String.format(Locale.US,"%.1f%%",v*100);if(resultField==ResultField.VON_MISES||resultField==ResultField.PRINCIPAL_S1||resultField==ResultField.PRINCIPAL_S2||resultField==ResultField.PRINCIPAL_S3)return String.format(Locale.US,"%.3f MPa",v/1e6);if(resultField==ResultField.SAFETY_FACTOR)return String.format(Locale.US,"%.3f",v);if(resultField==ResultField.REACTION_MAG)return String.format(Locale.US,"%.3f N",v);if(resultField==ResultField.PRINCIPAL_E1||resultField==ResultField.PRINCIPAL_E2||resultField==ResultField.PRINCIPAL_E3)return String.format(Locale.US,"%.3f µε",v*1e6);return String.format(Locale.US,"%.5f mm",v*1000);}
-    private int fieldColor(double q){q=Math.max(0,Math.min(1,q));return Color.rgb((int)(255*q),(int)(220*(1-Math.abs(q-.5)*2)),(int)(255*(1-q)));}
+    private int heatmapColor(double q){q=Math.max(0,Math.min(1,q));double r,g,b;if(q<0.25){double t=q/0.25;r=0;g=255*t;b=255;}else if(q<0.5){double t=(q-0.25)/0.25;r=0;g=255;b=255*(1-t);}else if(q<0.75){double t=(q-0.5)/0.25;r=255*t;g=255;b=0;}else{double t=(q-0.75)/0.25;r=255;g=255*(1-t);b=0;}return Color.rgb((int)r,(int)g,(int)b);}
     private int meshQualityColor(double q){q=Math.max(0,Math.min(1,q));if(q<=0.5)return Color.rgb(255,(int)Math.round(510*q),0);return Color.rgb((int)Math.round(510*(1-q)),255,0);}
-    private void drawLegend(Canvas c,double min,double max){float x=getWidth()-34,y0=58,h=Math.min(160,getHeight()/3f);for(int i=0;i<40;i++){double q=i/39.0;p.setColor(resultField==ResultField.MESH_QUALITY?meshQualityColor(1-q):fieldColor(1-q));p.setStyle(Paint.Style.FILL);c.drawRect(x,y0+i*h/40f,x+16,y0+(i+1)*h/40f,p);}drawSmallText(c,"MAX",x-4,y0-6,Color.WHITE);drawSmallText(c,"MIN",x-4,y0+h+14,Color.WHITE);}
-    private void drawTetEdges(Canvas c,int[] t,double amp,double ox,double oy,double s){int[][] edge={{0,1},{0,2},{0,3},{1,2},{1,3},{2,3}};for(int[] e:edge){MeshModel.V3 a=deformedNode(t[e[0]],amp),b=deformedNode(t[e[1]],amp);double[] pa=pr(a),pb=pr(b);c.drawLine((float)(ox+s*pa[0]),(float)(oy-s*pa[1]),(float)(ox+s*pb[0]),(float)(oy-s*pb[1]),p);}}
+    private void drawLegend(Canvas c,double min,double max){float x=getWidth()-42,y0=64,h=Math.min(180,getHeight()/3f);for(int i=0;i<50;i++){double q=i/49.0;p.setColor(resultField==ResultField.MESH_QUALITY?meshQualityColor(1-q):heatmapColor(1-q));p.setStyle(Paint.Style.FILL);c.drawRect(x,y0+i*h/50f,x+20,y0+(i+1)*h/50f,p);}drawSmallText(c,"MAX",x-6,y0-7,Color.WHITE);drawSmallText(c,"MIN",x-6,y0+h+15,Color.WHITE);drawSmallText(c,fmtField(max),Math.max(4,x-110),y0+10,Color.WHITE);drawSmallText(c,fmtField(min),Math.max(4,x-110),y0+h,Color.WHITE);}
     private MeshModel.V3 deformedNode(int n,double amp){MeshModel.V3 a=tetMesh.nodes.get(n);return new MeshModel.V3(a.x+amp*result.displacement[3*n],a.y+amp*result.displacement[3*n+1],a.z+amp*result.displacement[3*n+2]);}
     private MeshModel.V3 deformedCentroid(int[] t,double amp){double x=0,y=0,z=0;for(int n:t){MeshModel.V3 a=deformedNode(n,amp);x+=a.x;y+=a.y;z+=a.z;}return new MeshModel.V3(x/4,y/4,z/4);}
     private MeshModel.V3 resultPoint(int idx,boolean elem,double amp){return elem?deformedCentroid(tetMesh.tets.get(idx),amp):deformedNode(idx,amp);}
@@ -97,10 +136,11 @@ public final class InteractiveModelView extends View {
     private void drawSmallText(Canvas c,String text,float x,float y,int color){p.setStyle(Paint.Style.FILL);p.setColor(color);p.setTextSize(12);c.drawText(text,x,y,p);}
     @Override public boolean onTouchEvent(MotionEvent e){if(model==null)return true;if(e.getAction()==MotionEvent.ACTION_DOWN){lastX=e.getX();lastY=e.getY();dragging=false;downMs=System.currentTimeMillis();return true;}if(e.getAction()==MotionEvent.ACTION_MOVE){float dx=e.getX()-lastX,dy=e.getY()-lastY;if(Math.abs(dx)+Math.abs(dy)>5)dragging=true;yaw+=dx*.008;pitch+=dy*.008;pitch=Math.max(-1.4,Math.min(1.4,pitch));lastX=e.getX();lastY=e.getY();invalidate();return true;}if(e.getAction()==MotionEvent.ACTION_UP&&!dragging){if(mode!=PickMode.NONE){int idx=nearestVertex(e.getX(),e.getY());if(idx>=0&&listener!=null)listener.onPick(model.vertices.get(idx),idx);}else if(result!=null){if(System.currentTimeMillis()-downMs>=450)probeAt(e.getX(),e.getY());else cycleResultField();}return true;}return true;}
     private void probeAt(float tx,float ty){if(isElementField()){probeElement=nearestElement(tx,ty);probeNode=-1;}else{probeNode=nearestTetNode(tx,ty);probeElement=-1;}invalidate();}
-    private int nearestElement(float tx,float ty){double[] tr=screenTransform();double s=tr[0],ox=tr[1],oy=tr[2];int n=Math.min(tetMesh.tets.size(),2500),best=-1;double bd=Double.POSITIVE_INFINITY;for(int i=0;i<n;i++){MeshModel.V3 m=deformedCentroid(tetMesh.tets.get(i),0);double[] a=pr(m);double x=ox+s*a[0],y=oy-s*a[1],d=(x-tx)*(x-tx)+(y-ty)*(y-ty);if(d<bd){bd=d;best=i;}}return bd<3600?best:-1;}
+    private int nearestElement(float tx,float ty){double[] tr=screenTransform();double s=tr[0],ox=tr[1],oy=tr[2];int n=tetMesh.tets.size(),best=-1;double bd=Double.POSITIVE_INFINITY;for(int i=0;i<n;i++){MeshModel.V3 m=deformedCentroid(tetMesh.tets.get(i),0);double[] a=pr(m);double x=ox+s*a[0],y=oy-s*a[1],d=(x-tx)*(x-tx)+(y-ty)*(y-ty);if(d<bd){bd=d;best=i;}}return bd<3600?best:-1;}
     private int nearestTetNode(float tx,float ty){double[] tr=screenTransform();double s=tr[0],ox=tr[1],oy=tr[2];int best=-1;double bd=Double.POSITIVE_INFINITY;for(int i=0;i<tetMesh.nodes.size();i++){double[] a=pr(tetMesh.nodes.get(i));double x=ox+s*a[0],y=oy-s*a[1],d=(x-tx)*(x-tx)+(y-ty)*(y-ty);if(d<bd){bd=d;best=i;}}return bd<3600?best:-1;}
     private int nearestVertex(float tx,float ty){double[] tr=screenTransform();double s=tr[0],ox=tr[1],oy=tr[2];int best=-1;double bd=Double.POSITIVE_INFINITY;for(int i=0;i<model.vertices.size();i++){double[] a=pr(model.vertices.get(i));double x=ox+s*a[0],y=oy-s*a[1],d=(x-tx)*(x-tx)+(y-ty)*(y-ty);if(d<bd){bd=d;best=i;}}return bd<2500?best:-1;}
     private double[] screenTransform(){double[] box=projectBounds();double sx=(getWidth()-32)/Math.max(box[2]-box[0],1e-9),sy=(getHeight()-48)/Math.max(box[3]-box[1],1e-9),s=Math.min(sx,sy);double ox=getWidth()/2.0-s*(box[0]+box[2])/2.0,oy=getHeight()/2.0-s*(box[1]+box[3])/2.0;return new double[]{s,ox,oy};}
     private double[] projectBounds(){double minx=Double.POSITIVE_INFINITY,miny=minx,maxx=-minx,maxy=-minx;for(MeshModel.V3 v:model.vertices){double[] a=pr(v);minx=Math.min(minx,a[0]);maxx=Math.max(maxx,a[0]);miny=Math.min(miny,a[1]);maxy=Math.max(maxy,a[1]);}return new double[]{minx,miny,maxx,maxy};}
     private double[] pr(MeshModel.V3 v){double cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);double x=cy*v.x-sy*v.z,z=sy*v.x+cy*v.z,y=cp*v.y-sp*z;return new double[]{x,y};}
+    private double viewDepth(MeshModel.V3 v){double cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(pitch),sp=Math.sin(pitch);double z=sy*v.x+cy*v.z;return sp*v.y+cp*z;}
 }
