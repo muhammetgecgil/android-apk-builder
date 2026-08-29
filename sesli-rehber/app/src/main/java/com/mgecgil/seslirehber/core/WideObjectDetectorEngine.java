@@ -67,6 +67,7 @@ public final class WideObjectDetectorEngine implements AutoCloseable {
 
             WideObjectObservation bestAnnouncement = null;
             float bestAnnouncementScore = -1f;
+            long decisionNowMs = System.currentTimeMillis();
             for (Detection detection : result.detections()) {
                 if (detection == null || detection.categories() == null || detection.categories().isEmpty()) continue;
                 Category best = detection.categories().get(0);
@@ -79,8 +80,14 @@ public final class WideObjectDetectorEngine implements AutoCloseable {
                 float top = clamp(box.top / INPUT);
                 float right = clamp(box.right / INPUT);
                 float bottom = clamp(box.bottom / INPUT);
+
+                DeepLabIdentityMaskContext.Evidence maskEvidence = DeepLabIdentityMaskContext.evidenceFor(
+                        label, left, top, right, bottom, decisionNowMs);
+                IdentityFusionPolicy.Result fused = IdentityFusionPolicy.fuse(
+                        label, best.score(), maskEvidence);
+
                 WideObjectTracker.Result tracked = tracker.observe(
-                        label, best.score(), left, top, right, bottom, sourceTimestampMs);
+                        fused.label(), fused.confidence(), left, top, right, bottom, sourceTimestampMs);
                 if (tracked == null || tracked.observation() == null) continue;
                 WideObjectObservation observation = tracked.observation();
                 WideObjectContext.note(observation);
@@ -88,6 +95,8 @@ public final class WideObjectDetectorEngine implements AutoCloseable {
                     float center = 1f - Math.min(1f, Math.abs((left + right) * 0.5f - 0.5f) * 2f);
                     float salience = observation.confidence()
                             + (observation.important() ? 0.28f : 0f)
+                            + (fused.corroborated() ? 0.10f : 0f)
+                            - (fused.conflicting() ? 0.16f : 0f)
                             + Math.min(0.16f, observation.areaRatio())
                             + center * 0.05f;
                     if (salience > bestAnnouncementScore) {
