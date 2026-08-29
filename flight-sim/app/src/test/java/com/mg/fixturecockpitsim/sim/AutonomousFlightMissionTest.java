@@ -14,4 +14,12 @@ public final class AutonomousFlightMissionTest {
         }
         assertTrue("aircraft must taxi out from hangar",sawTaxi);assertTrue("aircraft must leave runway",becameAirborne);assertTrue("landing gear must retract in flight",gearRetracted);assertTrue("aircraft must climb near cruise altitude",maxAltitude>800);assertTrue("scenic flight must last five minutes",mission.getOrbitTimeSec()>=299.9);assertTrue("aircraft must touch runway again",returnedToGround);assertEquals("mission must finish rollout",AutonomousFlightMission.Phase.COMPLETE,mission.getPhase());assertTrue("aircraft must be stopped on runway",s.onGround&&s.trueAirspeedMps<2);assertTrue("gear must be down after landing",s.gearPosition>.82);
     }
+
+    @Test public void groundPhaseProgressIsNormalized() {
+        FlightState s=new FlightState();FlightControls c=new FlightControls();AutonomousFlightMission m=new AutonomousFlightMission();m.reset(s);
+        assertEquals(AutonomousFlightMission.Phase.HANGAR_START,m.getPhase());assertEquals(0.0,m.getPhaseProgress01(),1e-9);
+        m.update(s,c,1.25);assertEquals(.5,m.getPhaseProgress01(),.03);
+        m.update(s,c,1.30);assertEquals(AutonomousFlightMission.Phase.TAXI_OUT,m.getPhase());assertTrue(m.getPhaseProgress01()>=0&&m.getPhaseProgress01()<=1);
+        for(int i=0;i<10;i++)m.update(s,c,.5);assertTrue(m.getPhaseProgress01()>.25&&m.getPhaseProgress01()<.5);
+    }
 }
