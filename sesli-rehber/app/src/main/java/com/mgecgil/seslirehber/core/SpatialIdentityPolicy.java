@@ -61,7 +61,7 @@ public final class SpatialIdentityPolicy {
         return best;
     }
 
-    /** Street-only labels are especially suspicious in a stable home/office context. */
+    /** Street-only labels are especially suspicious outside a confirmed street scene. */
     public static boolean streetOnly(String label) {
         if (label == null) return false;
         return switch (label) {
@@ -72,20 +72,18 @@ public final class SpatialIdentityPolicy {
     }
 
     /**
-     * Distant image-labeling is deliberately weakened when the current broad detector strongly
-     * says the scene is indoor/home. This does not affect geometric obstacle detection.
+     * Distant image-labeling is deliberately weakened when the broad world model does not support
+     * a street interpretation. This does not affect geometric obstacle detection.
      */
     public static boolean allowDistant(
             String label,
             float confidence,
             WideObjectContext.Environment environment) {
         if (label == null || label.isBlank()) return false;
-        if (environment == WideObjectContext.Environment.HOME_OFFICE && streetOnly(label)) {
-            return confidence >= 0.92f;
-        }
-        if (environment == WideObjectContext.Environment.MARKET && streetOnly(label)) {
-            return confidence >= 0.88f;
-        }
+        if (!streetOnly(label)) return true;
+        if (environment == WideObjectContext.Environment.HOME_OFFICE) return confidence >= 0.92f;
+        if (environment == WideObjectContext.Environment.MARKET) return confidence >= 0.88f;
+        if (environment == WideObjectContext.Environment.UNKNOWN) return confidence >= 0.74f;
         return true;
     }
 
