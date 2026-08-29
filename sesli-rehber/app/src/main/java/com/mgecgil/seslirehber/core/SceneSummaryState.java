@@ -6,7 +6,7 @@ import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
 /**
  * Keeps recent evidence for the user-triggered "çevremi anlat" command. The temporal world model
- * now includes low-rate pixel-level semantic segmentation while preserving conservative fallbacks.
+ * includes general and urban pixel-level semantic segmentation while preserving conservative fallbacks.
  */
 public final class SceneSummaryState {
     private static final long VISION_FRESH_MS = 2200L;
@@ -53,7 +53,8 @@ public final class SceneSummaryState {
                 || awareness.depthDiscontinuity()
                 || awareness.levelChangeKind() != LevelChangeKind.UNKNOWN
                 || awareness.moreOpenDirection() != Direction.UNKNOWN
-                || SituationalAwarenessContext.hasFreshSegmentation(nowMs);
+                || SituationalAwarenessContext.hasFreshSegmentation(nowMs)
+                || SituationalAwarenessContext.hasFreshUrbanSegmentation(nowMs);
         if (worldHasEvidence) {
             return SituationalAwarenessContext.summarize(nowMs)
                     .replace("bu bir yön güvenliği onayı değildir", "bu güvenli yol onayı değildir");
