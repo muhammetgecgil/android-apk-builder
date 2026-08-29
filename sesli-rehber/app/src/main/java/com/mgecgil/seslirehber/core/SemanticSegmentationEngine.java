@@ -17,8 +17,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Low-rate real pixel-level segmentation path. It is deliberately advisory and independent from
- * the SafetyGate frame loop so heavy inference can never block a STOP decision.
+ * Low-rate real pixel-level segmentation path. The shared camera entry also fans out to the broad
+ * named-object detector. Both are advisory and independent from the SafetyGate frame loop.
  */
 public final class SemanticSegmentationEngine implements AutoCloseable {
     private static final int INPUT = 257;
@@ -29,6 +29,7 @@ public final class SemanticSegmentationEngine implements AutoCloseable {
     private final AtomicBoolean busy = new AtomicBoolean(false);
     private final SemanticSegmentationMaskAnalyzer maskAnalyzer = new SemanticSegmentationMaskAnalyzer();
     private final SemanticSegmentationTemporalFilter temporal = new SemanticSegmentationTemporalFilter();
+    private final WideObjectDetectorEngine wideObjects = new WideObjectDetectorEngine();
     private volatile ImageSegmenter segmenter;
     private volatile boolean closed;
     private volatile long nextScanMs;
@@ -38,7 +39,13 @@ public final class SemanticSegmentationEngine implements AutoCloseable {
     }
 
     public void maybeAnalyze(Image image, int rotationDegrees, long nowMs) {
-        if (closed || image == null || nowMs < nextScanMs || !busy.compareAndSet(false, true)) return;
+        if (closed || image == null) return;
+
+        // This call copies its own small bitmap synchronously and returns immediately. It therefore
+        // remains safe even though the camera-owned Image is closed later by CameraX/ARCore.
+        wideObjects.maybeAnalyze(image, rotationDegrees, nowMs);
+
+        if (nowMs < nextScanMs || !busy.compareAndSet(false, true)) return;
         nextScanMs = nowMs + MIN_INTERVAL_MS;
 
         Bitmap bitmap;
@@ -102,6 +109,7 @@ public final class SemanticSegmentationEngine implements AutoCloseable {
     public void reset() {
         nextScanMs = 0L;
         temporal.reset();
+        wideObjects.reset();
     }
 
     @Override
@@ -109,6 +117,7 @@ public final class SemanticSegmentationEngine implements AutoCloseable {
         closed = true;
         executor.shutdownNow();
         temporal.reset();
+        wideObjects.close();
         if (segmenter != null) {
             try { segmenter.close(); } catch (Throwable ignored) {}
             segmenter = null;
