@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 73
-        versionName = "1.19.3-p1-assembly-vv"
+        versionCode = 74
+        versionName = "1.19.4-p1-contact-graph-vv"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
