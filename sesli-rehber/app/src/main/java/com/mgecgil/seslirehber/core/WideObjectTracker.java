@@ -86,7 +86,10 @@ public final class WideObjectTracker {
         float strongFloor = important ? IMPORTANT_STRONG : STRONG;
         float repeatedFloor = important ? IMPORTANT_REPEAT : REPEATED_DEFINITE;
         float margin = winner.score - winner.secondScore;
-        boolean strongSingle = winner.vote.hits == 1 && confidence >= strongFloor;
+        // A high-confidence single frame may name a brand-new track, but may not instantly replace
+        // an existing competing identity on the same physical region.
+        boolean uncontested = track.votes.size() == 1 || winner.secondScore < 0.10f;
+        boolean strongSingle = winner.vote.hits == 1 && confidence >= strongFloor && uncontested;
         boolean repeatedDefinite = track.consecutive >= 2
                 && winner.vote.emaConfidence >= repeatedFloor
                 && margin >= 0.08f;
@@ -139,7 +142,6 @@ public final class WideObjectTracker {
         float bestScore = -Float.MAX_VALUE;
         for (Track t : tracks.values()) {
             if (nowMs - t.lastSeenMs > TRACK_STALE_MS) continue;
-            // A track can consume at most one detector result from the same frame.
             if (t.lastFrameMs == nowMs) continue;
             String previous = t.lastObservedLabel == null ? "" : t.lastObservedLabel;
             boolean sameLabel = label.equals(previous);
