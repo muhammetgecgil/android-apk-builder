@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 63
-        versionName = "1.17.8-global-extrema-interference-gate"
+        versionCode = 64
+        versionName = "1.17.9-p1-conformity-lock"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
