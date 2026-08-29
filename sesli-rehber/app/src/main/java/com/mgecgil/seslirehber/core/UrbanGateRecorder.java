@@ -34,6 +34,7 @@ public final class UrbanGateRecorder implements AutoCloseable {
     private final Context context;
     private final EnumMap<UrbanValidationTelemetry.Scenario, ScenarioStats> stats =
             new EnumMap<>(UrbanValidationTelemetry.Scenario.class);
+    private final UrbanGateWizard wizard = new UrbanGateWizard();
     private BufferedWriter writer;
     private File currentFile;
     private File lastFile;
@@ -56,7 +57,9 @@ public final class UrbanGateRecorder implements AutoCloseable {
     public synchronized boolean start(String version, String mode) {
         stopInternal();
         resetStats();
+        UrbanValidationTelemetry.setScenario(UrbanValidationTelemetry.Scenario.SIDEWALK);
         UrbanValidationTelemetry.resetSessionCounters();
+        wizard.start(SystemClock.elapsedRealtime());
         try {
             File dir = new File(context.getCacheDir(), "gate_c");
             if (!dir.exists() && !dir.mkdirs()) return false;
@@ -65,7 +68,7 @@ public final class UrbanGateRecorder implements AutoCloseable {
             writer = new BufferedWriter(new FileWriter(currentFile, false), 32 * 1024);
             writer.write("wall_ms,elapsed_ms,scenario,vision_mode,backend,successes,failures,inference_ms,p95_inference_ms,temporal_stability,evidence_match,road,sidewalk,building_wall,fence_pole,traffic_control,vegetation,terrain,person_rider,vehicle,two_wheeler,sky,left_obstacle,center_obstacle,right_obstacle,lower_center_road,lower_center_sidewalk,lower_center_obstacle,battery_c,thermal_status\n");
             active = true;
-            writeMarker("SESSION_START", mode, "version=" + version);
+            writeMarker("SESSION_START", mode, "version=" + version + ";wizard=auto");
             return true;
         } catch (IOException error) {
             stopInternal();
@@ -79,9 +82,12 @@ public final class UrbanGateRecorder implements AutoCloseable {
         return UrbanValidationTelemetry.scenario();
     }
 
+    /** Manual skip remains available for a sighted test assistant, but normal operation is automatic. */
     public synchronized UrbanValidationTelemetry.Scenario cycleScenario(String mode) {
+        if (wizard.isComplete()) return UrbanValidationTelemetry.scenario();
         UrbanValidationTelemetry.Scenario next = UrbanValidationTelemetry.cycleScenario();
-        if (active) writeMarker("SCENARIO_CHANGE", mode, next.label());
+        wizard.beginScenario(SystemClock.elapsedRealtime());
+        if (active) writeMarker("SCENARIO_CHANGE", mode, "manual:" + next.label());
         return next;
     }
 
@@ -142,6 +148,8 @@ public final class UrbanGateRecorder implements AutoCloseable {
         } catch (IOException ignored) {
             // Validation recording must never affect camera/safety guidance.
         }
+
+        handleWizard(elapsed, visionMode, s.scenario(), scenarioStats);
     }
 
     public synchronized String stop(String mode) {
@@ -149,7 +157,7 @@ public final class UrbanGateRecorder implements AutoCloseable {
         refreshThermal();
         lastAcceptance = acceptanceResultInternal();
         writeMarker("ACCEPTANCE", mode, lastAcceptance.shortText());
-        writeMarker("SESSION_STOP", mode, "user_stop");
+        writeMarker("SESSION_STOP", mode, wizard.isComplete() ? "wizard_complete" : "user_stop_before_wizard_complete");
         stopInternal();
         return summaryText();
     }
@@ -162,6 +170,8 @@ public final class UrbanGateRecorder implements AutoCloseable {
         return lastAcceptance != null ? lastAcceptance : acceptanceResultInternal();
     }
 
+    public synchronized boolean wizardComplete() { return wizard.isComplete(); }
+
     public synchronized String summaryText() {
         UrbanValidationTelemetry.Snapshot s = UrbanValidationTelemetry.snapshot();
         long total = s.successfulInferences() + s.failedInferences();
@@ -173,7 +183,8 @@ public final class UrbanGateRecorder implements AutoCloseable {
                 .append(", hata=").append(failurePct).append("%")
                 .append(", p95=").append(s.p95InferenceMs()).append(" ms")
                 .append(", max batarya=").append(battery)
-                .append(", thermal=").append(maxThermalStatus).append('.');
+                .append(", thermal=").append(maxThermalStatus).append('.')
+                .append(" Otomatik akış=").append(wizard.isComplete() ? "tamam" : "tamamlanmadı").append('.');
         for (UrbanValidationTelemetry.Scenario scenario : UrbanValidationTelemetry.Scenario.values()) {
             ScenarioStats st = stats.get(scenario);
             if (st == null || st.frames == 0L) continue;
@@ -185,6 +196,62 @@ public final class UrbanGateRecorder implements AutoCloseable {
                 ? lastAcceptance : acceptanceResultInternal();
         out.append(' ').append(result.shortText());
         return out.toString();
+    }
+
+    private void handleWizard(
+            long elapsed,
+            String visionMode,
+            UrbanValidationTelemetry.Scenario currentScenario,
+            ScenarioStats scenarioStats) {
+        if (wizard.isComplete() || scenarioStats == null) return;
+        UrbanGateWizard.Decision decision = wizard.tick(
+                elapsed, currentScenario, scenarioStats.frames, scenarioStats.evidence);
+        switch (decision.action()) {
+            case NONE -> { }
+            case RETRY_PROMPT -> {
+                writeMarker("AUTO_RETRY", visionMode,
+                        currentScenario.label() + ";frames=" + scenarioStats.frames + ";evidence=" + scenarioStats.evidence);
+                GuidanceSpeaker.speakTestPrompt(retryInstruction(currentScenario));
+            }
+            case ADVANCE -> {
+                UrbanValidationTelemetry.Scenario next = UrbanValidationTelemetry.cycleScenario();
+                wizard.beginScenario(elapsed);
+                writeMarker("AUTO_SCENARIO_CHANGE", visionMode,
+                        currentScenario.label() + "->" + next.label());
+                GuidanceSpeaker.speakTestPrompt(
+                        "Sıradaki otomatik senaryo: " + next.label() + ". " + scenarioInstruction(next));
+            }
+            case COMPLETE -> {
+                writeMarker("AUTO_WIZARD_COMPLETE", visionMode,
+                        currentScenario.label() + ";frames=" + scenarioStats.frames + ";evidence=" + scenarioStats.evidence);
+                GuidanceSpeaker.speakTestPrompt(
+                        "Urban Gate'in yedi senaryosu tamamlandı. Ölçümü mühürlemek ve PASS, REVIEW veya FAIL sonucunu almak için Urban Gate Testini Durdur düğmesine bas.");
+            }
+        }
+    }
+
+    private static String scenarioInstruction(UrbanValidationTelemetry.Scenario scenario) {
+        return switch (scenario) {
+            case SIDEWALK -> "Kamerayı kaldırım yüzeyi ve kaldırım kenarı birlikte görünecek şekilde sabit tut.";
+            case ROAD_EDGE -> "Güvenli ve sabit bir noktadan yol yüzeyi ile kaldırım sınırını birlikte kadraja al.";
+            case BUILDING_WALL -> "Bina cephesi veya duvarı kadrajın belirgin bölümüne al.";
+            case POLE_FENCE -> "Sabit bir direk veya çiti kadrajda belirgin tut.";
+            case TRAFFIC_CONTROL -> "Güvenli bir noktadan trafik ışığı veya tabelayı kadrajda belirgin tut.";
+            case PERSON_VEHICLE -> "Güvenli mesafeden bir insan veya aracı kadrajda belirgin tut.";
+            case LOW_LIGHT -> "Yürümeden, düşük ışıklı bir sahneyi sabit tut.";
+        };
+    }
+
+    private static String retryInstruction(UrbanValidationTelemetry.Scenario scenario) {
+        return switch (scenario) {
+            case SIDEWALK -> "Kaldırım kanıtı zayıf. Kamerayı biraz aşağı alıp yüzey ile kenarı birlikte göster.";
+            case ROAD_EDGE -> "Yol kenarı kanıtı zayıf. Güvenli konumunu değiştirmeden yol ve kaldırım sınırını birlikte büyüt.";
+            case BUILDING_WALL -> "Bina veya duvar kanıtı zayıf. Cepheyi kadrajın daha büyük bölümüne al.";
+            case POLE_FENCE -> "Direk veya çit kanıtı zayıf. Nesneyi kadrajın daha büyük bölümünde sabit tut.";
+            case TRAFFIC_CONTROL -> "Trafik ışığı veya tabela kanıtı zayıf. Güvenli konumdan hedefi kadrajda büyüt.";
+            case PERSON_VEHICLE -> "İnsan veya araç kanıtı zayıf. Güvenli mesafeyi koruyarak hedefi daha belirgin kadraja al.";
+            case LOW_LIGHT -> "Düşük ışık örneği yetersiz. Yürümeden kamerayı birkaç saniye daha sabit tut.";
+        };
     }
 
     private UrbanGateAcceptance.Result acceptanceResultInternal() {
