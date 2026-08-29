@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 81
-        versionName = "1.20.1-p1-assembly-overlay-gap-evidence"
+        versionCode = 82
+        versionName = "1.20.2-p1-near-contact-safe"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
