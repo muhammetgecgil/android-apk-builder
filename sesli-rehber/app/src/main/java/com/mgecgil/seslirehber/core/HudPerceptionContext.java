@@ -54,6 +54,7 @@ public final class HudPerceptionContext {
 
     public static synchronized Snapshot snapshot(long nowMs) {
         TRACKS.entrySet().removeIf(e -> !fresh(e.getValue().timestampMs(), nowMs, OBJECT_FRESH_MS));
+        ObjectSemanticContext.prune(nowMs);
         List<ObjectObservation> objects = new ArrayList<>(TRACKS.values());
         return new Snapshot(
                 List.copyOf(objects),
@@ -73,6 +74,7 @@ public final class HudPerceptionContext {
         walkable = null;
         sceneHealth = null;
         sourceAspect = 9f / 16f;
+        ObjectSemanticContext.reset();
     }
 
     private static boolean fresh(long timestampMs, long nowMs, long ttlMs) {
