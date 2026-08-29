@@ -24,11 +24,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
-/**
- * Headless ARCore camera owner. It consumes CPU camera frames and aligned Depth16 without visual
- * rendering. A fatal callback is emitted only after the ARCore Session has released the camera,
- * so CameraX fallback can safely bind the rear camera.
- */
+/** Headless ARCore camera owner with aligned Depth16 and advisory semantic segmentation. */
 public final class ArCoreLiveVisionEngine implements AutoCloseable {
     public interface Listener {
         void onMotion(MotionObservation observation);
@@ -39,6 +35,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         default void onWalkable(WalkableCorridorObservation observation) {}
         default void onTextRecognized(String text) {}
         default void onDistantObject(DistantObjectObservation observation) {
+            SituationalAwarenessContext.noteDistant(observation);
             String text = DistantObjectSpeech.format(observation);
             if (!text.isEmpty()) onTextRecognized(text);
         }
@@ -59,6 +56,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
     private final ObjectObservationTracker objectTracker = new ObjectObservationTracker();
     private final DepthImageAdapter depthAdapter = new DepthImageAdapter();
     private final DistantObjectRecognizer distantRecognizer = new DistantObjectRecognizer();
+    private final SemanticSegmentationEngine segmentationEngine = new SemanticSegmentationEngine();
     private final ObjectDetector objectDetector;
     private final TextRecognizer textRecognizer;
     private volatile Session session;
@@ -83,8 +81,6 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
     }
 
     public boolean isRunning() { return running.get(); }
-
-    /** Requests OCR on the next CPU camera frame; luma/depth safety evidence still runs first. */
     public void requestTextScan() { textScanRequested.set(true); }
 
     private void runLoop() {
@@ -105,7 +101,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             session = localSession;
 
             int imageRotationDegrees = resolveImageRotation(localSession, displayRotation);
-            listener.onStatus("ARCore canlı derinlik modu aktif. Yakın güvenlik, çoklu nesne izleri ve uzak görüş birlikte izleniyor.");
+            listener.onStatus("ARCore canlı derinlik modu aktif. Yakın güvenlik, segmentasyon, çoklu nesne ve uzak görüş birlikte izleniyor.");
 
             long lastFrameTimestampNs = Long.MIN_VALUE;
             while (running.get()) {
@@ -119,9 +115,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                 processFrame(frame, imageRotationDegrees, System.currentTimeMillis());
             }
         } catch (Throwable error) {
-            if (running.get()) {
-                fatalMessage = "ARCore canlı derinlik modu kullanılamadı. CameraX güvenli moda dönülüyor.";
-            }
+            if (running.get()) fatalMessage = "ARCore canlı derinlik modu kullanılamadı. CameraX güvenli moda dönülüyor.";
         } finally {
             running.set(false);
             session = null;
@@ -143,6 +137,8 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             listener.onSceneHealth(evidence.sceneHealth());
             listener.onMotion(evidence.motion());
             if (evidence.ground().viewConfidence() > 0.08f) listener.onGround(evidence.ground());
+
+            segmentationEngine.maybeAnalyze(cameraImage, rotationDegrees, nowMs);
 
             if (frame.getCamera().getTrackingState() == TrackingState.TRACKING) {
                 try {
@@ -176,8 +172,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                 textRecognizer.process(input)
                         .addOnSuccessListener(result -> {
                             String text = result.getText() == null ? "" : result.getText().trim();
-                            listener.onTextRecognized(
-                                    VisionTextContext.enrichOcr(text, System.currentTimeMillis()));
+                            listener.onTextRecognized(VisionTextContext.enrichOcr(text, System.currentTimeMillis()));
                         })
                         .addOnCompleteListener(task -> {
                             heldImage.close();
@@ -186,11 +181,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                 return;
             }
 
-            distantRecognizer.maybeAnalyze(
-                    heldImage,
-                    rotationDegrees,
-                    nowMs,
-                    listener::onDistantObject);
+            distantRecognizer.maybeAnalyze(heldImage, rotationDegrees, nowMs, listener::onDistantObject);
 
             objectDetector.process(input)
                     .addOnSuccessListener(objects -> {
@@ -252,9 +243,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
     public void stop() { running.set(false); }
 
     private static void sleepQuietly(long ms) {
-        try { Thread.sleep(ms); } catch (InterruptedException interrupted) {
-            Thread.currentThread().interrupt();
-        }
+        try { Thread.sleep(ms); } catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); }
     }
 
     @Override
@@ -265,6 +254,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         gridEstimator.reset();
         depthAdapter.reset();
         distantRecognizer.close();
+        segmentationEngine.close();
         try { objectDetector.close(); } catch (Throwable ignored) {}
         try { textRecognizer.close(); } catch (Throwable ignored) {}
     }
