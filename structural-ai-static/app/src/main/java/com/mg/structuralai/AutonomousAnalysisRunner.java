@@ -4,6 +4,7 @@ import java.util.Locale;
 
 /** End-to-end autonomous static screening pipeline for geometry-only models. */
 public final class AutonomousAnalysisRunner {
+    public interface PreviewListener { void onMeshReady(String scenario,int cells,TetMeshData mesh,MeshQualityReport quality); }
     public static final class Result {
         public final AutonomousAnalysisPlanner.Plan plan; public final AutonomousScenarioRanker.Scenario scenario;
         public final MaterialScaleScenarioEngine.Result uncertainty; public final HotspotSingularityAnalyzer.Result hotspot;
@@ -14,9 +15,13 @@ public final class AutonomousAnalysisRunner {
     }
     private AutonomousAnalysisRunner(){}
 
-    public static Result run(MeshModel model){
+    public static Result run(MeshModel model){return run(model,null);}
+
+    public static Result run(MeshModel model,PreviewListener preview){
         SurfaceTopologyReport topo=SurfaceTopologyReport.evaluate(model);if(!topo.closedManifold)throw new IllegalStateException("Geometry QA blocked: "+topo.summary());
-        AutonomousAnalysisPlanner.Plan p=AutonomousAnalysisPlanner.infer(model);AutonomousScenarioRanker.Scenario s=AutonomousScenarioRanker.runAndRank(model,p);if(s.convergence==null)throw new IllegalStateException("No autonomous scenario passed numerical setup");
+        AutonomousAnalysisPlanner.Plan p=AutonomousAnalysisPlanner.infer(model);
+        AutonomousScenarioRanker.PreviewListener rankPreview=preview==null?null:(scenario,cells,mesh,quality)->preview.onMeshReady(scenario,cells,mesh,quality);
+        AutonomousScenarioRanker.Scenario s=AutonomousScenarioRanker.runAndRank(model,p,rankPreview);if(s.convergence==null)throw new IllegalStateException("No autonomous scenario passed numerical setup");
         AutoIdealizationEngine.Result ideal=AutoIdealizationEngine.analyze(model,p,s.fx,s.fy,s.fz);
         SectionProfileClassifier.Result profile=SectionProfileClassifier.classify(model);
         SectionProperties.Result secProps=SectionProperties.compute(profile.section);
@@ -51,8 +56,6 @@ public final class AutonomousAnalysisRunner {
 
         MaterialScaleScenarioEngine.Result u=MaterialScaleScenarioEngine.evaluate(model,p,s.fx,s.fy,s.fz);boolean bandReady=u.passed>=3&&Double.isFinite(u.minCapacityN)&&Double.isFinite(u.maxCapacityN);
         boolean rawPeakCredible=!(regional!=null&&regional.isolatedPeakSuspected)&&solidHotspotReady;
-        // Numerical readiness is independent of material certification/capacity. A regionally converged
-        // field may be numerically accepted while a singular raw peak remains advisory.
         boolean solidNumericalReady=solidPrimaryReady&&solidHotspotReady;
         boolean ready=idealReady||solidNumericalReady;
         String capacityLine;
