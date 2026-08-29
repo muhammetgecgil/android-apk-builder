@@ -13,15 +13,14 @@
     <uses-feature android:name="android.hardware.camera.any" android:required="true" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <uses-feature android:name="android.hardware.location.gps" android:required="false" />
-    <!-- Depth is optional: unsupported devices keep the CameraX safety pipeline. -->
     <uses-feature android:name="com.google.ar.core.depth" android:required="false" />
 
     <application
+        android:name=".SesliRehberApplication"
         android:allowBackup="false"
         android:label="Sesli Rehber"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
-        <!-- ARCore remains optional; no install prompt is forced for basic guidance. -->
         <meta-data android:name="com.google.ar.core" android:value="optional" />
 
         <provider
