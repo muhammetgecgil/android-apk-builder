@@ -123,6 +123,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Structural-AI-Static-${{ env.VERSION_NAME }}-DEBUG
-          path: structural-ai-static/Structural_AI_Static_${VERSION_NAME}_DEBUG.apk
+          path: structural-ai-static/Structural_AI_Static_${{ env.VERSION_NAME }}_DEBUG.apk
           if-no-files-found: error
           retention-days: 30
