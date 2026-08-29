@@ -25,7 +25,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import static com.mgecgil.seslirehber.core.GuidanceModels.*;
 
-/** Headless ARCore camera owner with aligned Depth16 plus advisory general and urban segmentation. */
+/** Headless ARCore camera owner with aligned Depth16 plus advisory semantic/urban perception. */
 public final class ArCoreLiveVisionEngine implements AutoCloseable {
     public interface Listener {
         void onMotion(MotionObservation observation);
@@ -58,6 +58,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
     private final ObjectObservationTracker objectTracker = new ObjectObservationTracker();
     private final DepthImageAdapter depthAdapter = new DepthImageAdapter();
     private final DistantObjectRecognizer distantRecognizer = new DistantObjectRecognizer();
+    private final ObjectSemanticRecognizer objectSemanticRecognizer = new ObjectSemanticRecognizer();
     private final SemanticSegmentationEngine segmentationEngine = new SemanticSegmentationEngine();
     private final UrbanSegmentationEngine urbanSegmentationEngine = new UrbanSegmentationEngine();
     private final ObjectDetector objectDetector;
@@ -105,7 +106,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
             session = localSession;
 
             int imageRotationDegrees = resolveImageRotation(localSession, displayRotation);
-            listener.onStatus("ARCore canlı derinlik modu aktif. Yakın güvenlik, şehir segmentasyonu, çoklu nesne ve uzak görüş birlikte izleniyor.");
+            listener.onStatus("ARCore canlı derinlik modu aktif. Yakın güvenlik, şehir segmentasyonu, nesne isimlendirme ve uzak görüş birlikte izleniyor.");
 
             long lastFrameTimestampNs = Long.MIN_VALUE;
             while (running.get()) {
@@ -170,8 +171,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                 }
             }
 
-            // Visual-only preview is intentionally generated after Depth evidence so HUD rendering can
-            // never outrank the safety path. Low resolution and rate keep the extra work bounded.
+            // Visual-only preview is generated after Depth evidence so HUD rendering never outranks safety.
             if (nowMs - lastVisualFrameMs >= VISUAL_FRAME_INTERVAL_MS) {
                 lastVisualFrameMs = nowMs;
                 Bitmap visual = null;
@@ -221,6 +221,9 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
                         List<ObjectObservation> observations = objectTracker.observeAll(
                                 objects, objectUprightWidth, objectUprightHeight, nowMs);
                         for (ObjectObservation observation : observations) listener.onObject(observation);
+                        objectSemanticRecognizer.maybeAnalyze(
+                                heldImage, rotationDegrees, objects,
+                                objectUprightWidth, objectUprightHeight, nowMs);
                     })
                     .addOnCompleteListener(task -> {
                         heldImage.close();
@@ -287,6 +290,7 @@ public final class ArCoreLiveVisionEngine implements AutoCloseable {
         gridEstimator.reset();
         depthAdapter.reset();
         distantRecognizer.close();
+        objectSemanticRecognizer.close();
         segmentationEngine.close();
         urbanSegmentationEngine.close();
         ArCoreVisualFrameContext.reset();
