@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * It is advisory and deliberately isolated from the SafetyGate frame loop.
  */
 public final class UrbanSegmentationEngine implements AutoCloseable {
+    private static final int CAPTURE = 512;
     private static final int INPUT = 1024;
     private static final int OUTPUT = 128;
     private static final int CLASSES = 19;
@@ -48,25 +49,30 @@ public final class UrbanSegmentationEngine implements AutoCloseable {
                 || !busy.compareAndSet(false, true)) return;
         nextScanMs = nowMs + (gpuMode ? GPU_INTERVAL_MS : CPU_INTERVAL_MS);
 
-        Bitmap bitmap;
+        Bitmap snapshot;
         try {
-            bitmap = UprightYuvBitmapExtractor.extract(image, rotationDegrees, INPUT, INPUT);
+            // Keep camera-thread work bounded. Full 1024 preprocessing happens on the urban worker.
+            snapshot = UprightYuvBitmapExtractor.extract(image, rotationDegrees, CAPTURE, CAPTURE);
         } catch (Throwable ignored) {
             busy.set(false);
             return;
         }
-        if (bitmap == null) {
+        if (snapshot == null) {
             busy.set(false);
             return;
         }
-        executor.execute(() -> runInference(bitmap, nowMs));
+        executor.execute(() -> runInference(snapshot, nowMs));
     }
 
-    private void runInference(Bitmap bitmap, long sourceTimestampMs) {
+    private void runInference(Bitmap snapshot, long sourceTimestampMs) {
         long started = SystemClock.elapsedRealtime();
+        Bitmap modelBitmap = null;
         try {
             if (!ensureModel() || closed) return;
-            float[] input = toNchw(bitmap);
+            modelBitmap = snapshot.getWidth() == INPUT && snapshot.getHeight() == INPUT
+                    ? snapshot
+                    : Bitmap.createScaledBitmap(snapshot, INPUT, INPUT, true);
+            float[] input = toNchw(modelBitmap);
             List<TensorBuffer> in = inputBuffers;
             List<TensorBuffer> out = outputBuffers;
             CompiledModel local = model;
@@ -84,7 +90,10 @@ public final class UrbanSegmentationEngine implements AutoCloseable {
         } catch (Throwable ignored) {
             // Urban segmentation is advisory. A runtime failure must not affect safety guidance.
         } finally {
-            try { bitmap.recycle(); } catch (Throwable ignored) {}
+            if (modelBitmap != null && modelBitmap != snapshot) {
+                try { modelBitmap.recycle(); } catch (Throwable ignored) {}
+            }
+            try { snapshot.recycle(); } catch (Throwable ignored) {}
             busy.set(false);
         }
     }
