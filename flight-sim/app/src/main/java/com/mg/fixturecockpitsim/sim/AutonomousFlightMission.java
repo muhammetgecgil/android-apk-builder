@@ -1,16 +1,16 @@
 package com.mg.fixturecockpitsim.sim;
-/** Continuous demo loop: hangar -> straight taxi -> RWY27 -> takeoff -> scenic flight -> realistic stabilized landing -> hangar. */
+/** Continuous demo loop: post-hangar taxi -> RWY27 -> takeoff -> scenic flight -> stabilized landing -> post-hangar taxi restart. */
 public final class AutonomousFlightMission {
  public enum Phase { HANGAR_START,TAXI_OUT,RUNWAY_HOLD,TAKEOFF_ROLL,ROTATE_CLIMB,ORBIT,APPROACH,FLARE,ROLLOUT,TAXI_IN,HANGAR_PARK,COMPLETE }
  public static final double SCENIC_DURATION_SEC=300.0;
  public static final double RUNWAY_HEADING_DEG=270.0;
  private static final double CRUISE_ALTITUDE_M=900.0;
- private Phase phase=Phase.HANGAR_START;private double phaseTime,orbitTime;
- public void reset(FlightState s){phase=Phase.HANGAR_START;phaseTime=orbitTime=0;s.timeSec=0;s.altitudeM=0;s.trueAirspeedMps=0;s.verticalSpeedMps=0;s.headingDeg=RUNWAY_HEADING_DEG;s.pitchDeg=s.rollDeg=0;s.throttle=0;s.gearPosition=1;s.brake01=1;s.onGround=true;}
+ private Phase phase=Phase.TAXI_OUT;private double phaseTime,orbitTime;
+ public void reset(FlightState s){phase=Phase.TAXI_OUT;phaseTime=orbitTime=0;s.timeSec=0;s.altitudeM=0;s.trueAirspeedMps=0;s.verticalSpeedMps=0;s.headingDeg=RUNWAY_HEADING_DEG;s.pitchDeg=s.rollDeg=0;s.throttle=0;s.gearPosition=1;s.brake01=1;s.onGround=true;}
  public Phase getPhase(){return phase;}public double getOrbitTimeSec(){return orbitTime;}public double getPhaseTimeSec(){return phaseTime;}
  public double getPhaseProgress01(){double d;switch(phase){case HANGAR_START:d=5;break;case TAXI_OUT:d=18;break;case RUNWAY_HOLD:d=3;break;case TAKEOFF_ROLL:d=14;break;case ROTATE_CLIMB:d=18;break;case ORBIT:d=300;break;case APPROACH:d=32;break;case FLARE:d=6;break;case ROLLOUT:d=17;break;case TAXI_IN:d=18;break;case HANGAR_PARK:d=6;break;default:d=1;}return clamp(phaseTime/d,0,1);}
  public void update(FlightState s,FlightControls c,double dt){phaseTime+=dt;c.pitch=c.roll=c.yaw=c.brake=0;switch(phase){
-  case HANGAR_START:c.throttle=.055;c.brake=phaseTime<1.8?1:.35;c.gearDown=true;groundLock(c,s,.18);if(phaseTime>=5)next(Phase.TAXI_OUT);break;
+  case HANGAR_START:next(Phase.TAXI_OUT);break;
   case TAXI_OUT:c.throttle=.13;c.gearDown=true;groundLock(c,s,.20);if(s.trueAirspeedMps>9)c.brake=.24;if(phaseTime>=18)next(Phase.RUNWAY_HOLD);break;
   case RUNWAY_HOLD:c.throttle=.09;c.brake=1;c.gearDown=true;groundLock(c,s,.24);if(phaseTime>=3)next(Phase.TAKEOFF_ROLL);break;
   case TAKEOFF_ROLL:c.throttle=1;c.gearDown=true;groundLock(c,s,.30);if(s.trueAirspeedMps>=86||phaseTime>=14)next(Phase.ROTATE_CLIMB);break;
@@ -20,7 +20,7 @@ public final class AutonomousFlightMission {
   case FLARE:{c.gearDown=true;c.throttle=.10;double ferr=headingError(s.headingDeg,RUNWAY_HEADING_DEG);c.roll=clamp(ferr/95.0,-.08,.08);c.yaw=clamp(ferr*.055,-.65,.65);c.pitch=s.altitudeM>2.2?-.018:s.altitudeM>.45?.055:.025;if(s.onGround||s.altitudeM<=.05||phaseTime>7)next(Phase.ROLLOUT);break;}
   case ROLLOUT:c.gearDown=true;c.throttle=0;c.brake=.86;groundLock(c,s,.28);if(s.trueAirspeedMps<2&&phaseTime>2)next(Phase.TAXI_IN);break;
   case TAXI_IN:c.gearDown=true;c.throttle=.10;groundLock(c,s,.20);if(s.trueAirspeedMps>8)c.brake=.22;if(phaseTime>=18)next(Phase.HANGAR_PARK);break;
-  case HANGAR_PARK:c.gearDown=true;c.throttle=.035;c.brake=.78;groundLock(c,s,.22);if(phaseTime>=6)reset(s);break;
+  case HANGAR_PARK:reset(s);break;
   case COMPLETE:c.gearDown=true;c.throttle=0;c.brake=1;groundLock(c,s,.25);break;}c.clamp();}
  private static void groundLock(FlightControls c,FlightState s,double k){double e=headingError(s.headingDeg,RUNWAY_HEADING_DEG);c.yaw=clamp(e*k,-.72,.72);c.roll=0;c.pitch=0;}
  private void next(Phase p){phase=p;phaseTime=0;}
