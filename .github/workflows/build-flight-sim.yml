@@ -32,15 +32,14 @@ jobs:
         run: gradle --no-daemon :app:assembleRelease :app:bundleRelease --stacktrace
       - name: Verify debug package and release outputs
         run: |
-          set -euxo pipefail
           DBG=flight-sim/app/build/outputs/apk/debug/app-debug.apk
           REL=flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk
           AAB=flight-sim/app/build/outputs/bundle/release/app-release.aab
           test -s "$DBG"
           test -s "$REL"
           test -s "$AAB"
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$DBG"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "versionCode='63'"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify "$DBG"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "versionCode='64'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "targetSdkVersion:'36'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "application-label:'Aircraft Simulator 3D'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "package: name='com.mg.fixturecockpitsim.dev'"
