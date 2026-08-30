@@ -4,19 +4,20 @@ plugins {
 
 android {
     namespace 'com.mg.hafizadostum.v4'
-    compileSdk 35
+    compileSdk 36
 
     defaultConfig {
-        applicationId 'com.mg.hafizadostum.v42'
+        applicationId 'com.mg.hafizadostum.app'
         minSdk 23
-        targetSdk 35
-        versionCode 42
-        versionName '4.2'
+        targetSdk 36
+        versionCode 50
+        versionName '5.0'
     }
 
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
