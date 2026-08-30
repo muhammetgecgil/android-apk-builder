@@ -1,10 +1,6 @@
 package com.mg.fixturecockpitsim.visual;
 
-/**
- * AVM-7.3 final upper-airframe continuity profile for the generic modern fighter.
- * The foredeck, canopy shoulders, wing roots, twin-engine deck and exhaust shoulder
- * are constrained as one aerodynamic volume rather than stacked procedural parts.
- */
+/** AVM-10.7 continuous airframe profile with spanwise wing crown/taper refinement. */
 public final class AirframeShapeProfile {
     private AirframeShapeProfile() {}
 
@@ -22,23 +18,19 @@ public final class AirframeShapeProfile {
             {1.06f,.39f,-2.96f},{1.39f,.42f,-2.54f},{1.62f,.41f,-1.96f},{1.76f,.38f,-1.24f},
             {1.76f,.36f,-.48f},{1.60f,.36f,.20f},{1.30f,.38f,.82f}
     };
+    /* Root is visibly fuller; crown and section height fall toward the tip instead of reading as a flat slab. */
     public static final float[][] WING_ROOT = {
-            {.78f,.23f,-2.66f},{1.54f,.24f,-2.18f},{2.26f,.24f,-1.68f},{3.28f,.23f,-1.02f},
-            {5.10f,.21f,.02f},{4.48f,.21f,.92f},{3.48f,.22f,1.54f},{2.14f,.23f,1.88f},{1.04f,.25f,2.10f}
+            {.78f,.315f,-2.66f},{1.54f,.305f,-2.18f},{2.26f,.286f,-1.68f},{3.28f,.255f,-1.02f},
+            {5.10f,.175f,.02f},{4.48f,.185f,.92f},{3.48f,.218f,1.54f},{2.14f,.270f,1.88f},{1.04f,.305f,2.10f}
     };
 
-    /* Engine pod overlaps the nozzle shoulder longitudinally so the exhaust does not read as pasted on. */
     public static final float[] ENGINE_Z = {-.78f,-.42f,-.02f,.44f,.98f,1.56f,2.12f,2.56f,2.88f,3.10f,3.34f};
     public static final float[] ENGINE_R = {.24f,.32f,.43f,.53f,.61f,.66f,.67f,.65f,.60f,.53f,.46f};
-
     public static final float[] UPPER_BLEND_Z = {-2.82f,-2.38f,-1.92f,-1.30f,-.62f,.10f,.76f,1.36f,1.94f,2.46f,2.88f,3.18f};
     public static final float[] UPPER_BLEND_HALF_WIDTH = {.48f,.58f,.68f,.79f,.88f,.94f,.91f,.86f,.79f,.72f,.65f,.58f};
     public static final float[] UPPER_BLEND_Y = {.60f,.70f,.80f,.87f,.91f,.93f,.90f,.84f,.76f,.66f,.55f,.43f};
-
-    /* Seven stations deliberately match the procedural valley skin width guide. */
     public static final float[] ENGINE_VALLEY_Y = {.82f,.79f,.72f,.62f,.50f,.38f,.27f};
     public static final float[] ENGINE_VALLEY_Z = {.82f,1.28f,1.78f,2.28f,2.72f,3.10f,3.42f};
-
     public static final float[] NOZZLE_SHROUD_Z = {2.74f,2.94f,3.12f,3.30f,3.46f};
     public static final float[] NOZZLE_SHROUD_HALF_WIDTH = {1.12f,1.08f,1.02f,.94f,.86f};
     public static final float[] NOZZLE_SHROUD_Y = {.47f,.43f,.38f,.31f,.24f};
@@ -60,6 +52,7 @@ public final class AirframeShapeProfile {
         for(int i=1;i<ENGINE_VALLEY_Z.length;i++) if(ENGINE_VALLEY_Z[i]<=ENGINE_VALLEY_Z[i-1]) throw new IllegalStateException("Engine valley must increase aftward");
         for(int i=1;i<NOZZLE_SHROUD_Z.length;i++) if(NOZZLE_SHROUD_Z[i]<=NOZZLE_SHROUD_Z[i-1]) throw new IllegalStateException("Nozzle shroud must increase aftward");
         if(WING_ROOT[4][0]<5f) throw new IllegalStateException("Wing span below AVM target");
+        if(WING_ROOT[0][1]<=WING_ROOT[4][1]) throw new IllegalStateException("Wing crown must taper root-to-tip");
         if(HALF_WIDTH[8]<1.05f||HALF_WIDTH[9]<1.05f) throw new IllegalStateException("Centre body too narrow");
         if(upperCrown(7)<.75f||upperCrown(8)<.82f||upperCrown(9)<.84f) throw new IllegalStateException("Upper cockpit/deck crown below target");
         if(upperCrown(10)<.78f||upperCrown(11)<.66f) throw new IllegalStateException("Dorsal spine collapses too quickly aft");
