@@ -23,7 +23,6 @@ import java.util.Locale;
 
 public class ArchiveActivity extends Activity {
     private static final int NAVY = Color.rgb(13,53,86);
-    private static final int TEAL = Color.rgb(23,184,151);
     private static final int BG = Color.rgb(245,249,251);
     private long selectedDay = System.currentTimeMillis();
     private CalendarView calendar;
@@ -33,6 +32,7 @@ public class ArchiveActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        UiUtil.prepareWindow(this);
         ArchiveStore.importLegacy(this, MemoryStore.getEvents(this));
         render();
     }
@@ -41,10 +41,10 @@ public class ArchiveActivity extends Activity {
         ScrollView sv = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(16), dp(18), dp(16), dp(36));
         root.setBackgroundColor(BG);
         sv.addView(root);
         setContentView(sv);
+        UiUtil.applyInsets(root, 16, 18, 16, 36);
 
         TextView title = text("6 Aylık Hafıza Arşivi", 28, NAVY, true);
         root.addView(title);
@@ -134,6 +134,7 @@ public class ArchiveActivity extends Activity {
     private String sourceText(String s) {
         if ("notification".equals(s)) return "bildirimden kaydedildi";
         if ("legacy".equals(s)) return "önceki sürüm kaydı";
+        if ("backup".equals(s)) return "yedekten geri yüklendi";
         return "uygulamadan kaydedildi";
     }
 
