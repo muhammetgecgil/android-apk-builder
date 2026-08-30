@@ -30,6 +30,11 @@
             android:exported="false"
             android:screenOrientation="unspecified" />
 
+        <activity
+            android:name=".ArchiveActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+
         <receiver
             android:name=".ReminderReceiver"
             android:exported="false" />
