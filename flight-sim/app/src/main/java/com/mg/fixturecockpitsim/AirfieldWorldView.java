@@ -9,7 +9,7 @@ import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.view.View;
 
-/** AVM-12.9 world view: realistic runway visibility envelope and approach growth. */
+/** AVM-13.0 world view: bright daylight terrain/coast plus realistic runway visibility and approach growth. */
 public final class AirfieldWorldView extends View {
     private static final float RUNWAY_VISIBLE_ALT_M=1200f;
     private static final float RUNWAY_VISIBLE_XTRACK_M=6500f;
@@ -79,38 +79,73 @@ public final class AirfieldWorldView extends View {
         return altitudeM<900f&&hdgErr<78f;
     }
 
-    private float approach01(){
-        return 1f-clamp((altitudeM-8f)/(RUNWAY_VISIBLE_ALT_M-8f),0f,1f);
-    }
+    private float approach01(){return 1f-clamp((altitudeM-8f)/(RUNWAY_VISIBLE_ALT_M-8f),0f,1f);}
 
     private void drawSky(Canvas c,int w,int h,float hz){
-        p.setShader(new LinearGradient(0,0,0,hz,new int[]{0xff061621,0xff177a9d,0xffb8d9df},null,Shader.TileMode.CLAMP));
+        // Bright neutral daylight base. WeatherEffectsView supplies sunset/night darkness on top.
+        p.setShader(new LinearGradient(0,0,0,hz,new int[]{0xff176a9c,0xff43acd0,0xffc8e9ef},null,Shader.TileMode.CLAMP));
         c.drawRect(0,0,w,hz,p);p.setShader(null);
         for(int i=0;i<6;i++){
             float x=(w*(.10f+i*.19f)+alongTrackM*.17f)%Math.max(1,w);
             float y=hz*(.10f+(i%3)*.07f),ww=w*(.09f+(i%2)*.035f);
-            p.setColor(0x25ffffff);
+            p.setColor(0x32ffffff);
             c.drawOval(x,y,x+ww,y+hz*.022f,p);
             c.drawOval(x+ww*.20f,y-hz*.012f,x+ww*.70f,y+hz*.017f,p);
         }
     }
 
+    private boolean coastalSector(){
+        if(onGround||altitudeM<430f)return false;
+        double wave=Math.sin((alongTrackM+crossTrackM*.12f)*.00023);
+        return wave>.05;
+    }
+
     private void drawHighTerrain(Canvas c,int w,int h,float hz){
-        p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff526b48,0xff324c39,0xff23362c},null,Shader.TileMode.CLAMP));
-        c.drawRect(0,hz,w,h,p);p.setShader(null);
-        drawMountains(c,w,h,hz,.20f*(1-clamp(altitudeM/2500f,0,.55f)));
+        if(coastalSector()){
+            drawCoastalTerrain(c,w,h,hz);
+        }else{
+            p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff789662,0xff5f805c,0xff45694f},null,Shader.TileMode.CLAMP));
+            c.drawRect(0,hz,w,h,p);p.setShader(null);
+            drawMountains(c,w,h,hz,.20f*(1-clamp(altitudeM/2500f,0,.55f)));
+        }
         float gh=h-hz;
         for(int i=0;i<38;i++){
             float depth=.05f+((i*19)%37)/40f,y=hz+gh*depth*depth;
             float x=(i*131f+alongTrackM*.45f)%Math.max(1,w),ww=w*(.018f+.052f*depth),hh=h*(.003f+.009f*depth);
-            p.setColor(i%3==0?0x22334d2d:i%3==1?0x1f49603a:0x1c263c2b);
+            p.setColor(coastalSector()?(i%2==0?0x247fd2d8:0x1fbee9de):(i%3==0?0x2f4f783d:i%3==1?0x295f844d:0x24446439));
             c.drawOval(x,y,x+ww,y+hh,p);
         }
         if(runwayVisible())drawRunway(c,w,h,hz,false);
     }
 
+    private void drawCoastalTerrain(Canvas c,int w,int h,float hz){
+        // Clear bright sea; time-of-day/weather overlays can darken it naturally at dusk/night.
+        p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff62c6df,0xff2f9fc8,0xff1976a7},null,Shader.TileMode.CLAMP));
+        c.drawRect(0,hz,w,h,p);p.setShader(null);
+
+        // Irregular coast enters from the left, leaving a broad visible water surface.
+        path.reset();path.moveTo(0,hz);
+        path.lineTo(w*.46f,hz+h*.07f);
+        path.lineTo(w*.38f,hz+h*.19f);
+        path.lineTo(w*.51f,hz+h*.30f);
+        path.lineTo(w*.33f,hz+h*.44f);
+        path.lineTo(w*.43f,h);
+        path.lineTo(0,h);path.close();
+        p.setColor(0xff6f8f58);c.drawPath(path,p);
+
+        path.reset();path.moveTo(w*.46f,hz+h*.07f);path.lineTo(w*.38f,hz+h*.19f);path.lineTo(w*.51f,hz+h*.30f);path.lineTo(w*.33f,hz+h*.44f);path.lineTo(w*.43f,h);
+        stroke.setColor(0xffe1d19b);stroke.setStrokeWidth(Math.max(3,w*.004f));c.drawPath(path,stroke);
+
+        for(int i=0;i<15;i++){
+            float yy=hz+(h-hz)*(.15f+i*.052f),xx=w*(.52f+(i%4)*.08f);
+            stroke.setColor(0x50d9f5ff);stroke.setStrokeWidth(Math.max(1,w*.001f));
+            c.drawLine(xx,yy,Math.min(w,xx+w*(.08f+.02f*(i%3))),yy,stroke);
+        }
+        drawMountains(c,w,h,hz,.12f*(1-clamp(altitudeM/2600f,0,.6f)));
+    }
+
     private void drawRunwayWorld(Canvas c,int w,int h,float hz){
-        p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff456247,0xff34523c,0xff274331},null,Shader.TileMode.CLAMP));
+        p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff6f8d5f,0xff587650,0xff416246},null,Shader.TileMode.CLAMP));
         c.drawRect(0,hz,w,h,p);p.setShader(null);
         drawMountains(c,w,h,hz,.18f);
         if(runwayVisible())drawRunway(c,w,h,hz,onGround);
@@ -136,15 +171,14 @@ public final class AirfieldWorldView extends View {
             fy=lerp(hz+h*.018f,hz+h*.050f,a);
             ny=lerp(hz+h*.10f,h*.985f,(float)Math.pow(a,.74));
             if(!isApproachScene()){
-                nearHalf*=.58f;
-                farHalf*=.72f;
+                nearHalf*=.58f;farHalf*=.72f;
                 ny=lerp(hz+h*.09f,h*.55f,clamp(1-altitudeM/RUNWAY_VISIBLE_ALT_M,0,1));
             }
         }
 
-        quad(c,cx-farHalf*1.52f,fy,cx+farHalf*1.52f,fy,cx+nearHalf*1.20f,ny,cx-nearHalf*1.20f,ny,0xff777a72);
+        quad(c,cx-farHalf*1.52f,fy,cx+farHalf*1.52f,fy,cx+nearHalf*1.20f,ny,cx-nearHalf*1.20f,ny,0xff858982);
         path.reset();path.moveTo(cx-farHalf,fy);path.lineTo(cx+farHalf,fy);path.lineTo(cx+nearHalf,ny);path.lineTo(cx-nearHalf,ny);path.close();
-        p.setShader(new LinearGradient(cx,fy,cx,ny,new int[]{0xff3a3e40,0xff292d2f,0xff1d2224},null,Shader.TileMode.CLAMP));
+        p.setShader(new LinearGradient(cx,fy,cx,ny,new int[]{0xff484c4e,0xff35393b,0xff282d2f},null,Shader.TileMode.CLAMP));
         c.drawPath(path,p);p.setShader(null);
         stroke.setColor(0xfff5f4ed);stroke.setStrokeWidth(Math.max(2,w*.0026f));
         c.drawLine(cx-farHalf,fy,cx-nearHalf,ny,stroke);c.drawLine(cx+farHalf,fy,cx+nearHalf,ny,stroke);
@@ -181,7 +215,7 @@ public final class AirfieldWorldView extends View {
     private void drawMountains(Canvas c,int w,int h,float hz,float scale){
         path.reset();path.moveTo(0,hz);
         for(int i=0;i<=12;i++){float x=w*i/12f,n=(float)(.45+.55*Math.abs(Math.sin(i*1.73+alongTrackM*.0008)));path.lineTo(x,hz-h*scale*n);}
-        path.lineTo(w,hz);path.close();p.setColor(0xff294c3d);c.drawPath(path,p);
+        path.lineTo(w,hz);path.close();p.setColor(0xff456f55);c.drawPath(path,p);
     }
 
     private void drawCrash(Canvas c,int w,int h){
@@ -192,9 +226,7 @@ public final class AirfieldWorldView extends View {
         p.setTypeface(Typeface.create("sans",Typeface.NORMAL));p.setTextAlign(Paint.Align.LEFT);
     }
 
-    private void quad(Canvas c,float x1,float y1,float x2,float y2,float x3,float y3,float x4,float y4,int color){
-        path.reset();path.moveTo(x1,y1);path.lineTo(x2,y2);path.lineTo(x3,y3);path.lineTo(x4,y4);path.close();p.setColor(color);c.drawPath(path,p);
-    }
+    private void quad(Canvas c,float x1,float y1,float x2,float y2,float x3,float y3,float x4,float y4,int color){path.reset();path.moveTo(x1,y1);path.lineTo(x2,y2);path.lineTo(x3,y3);path.lineTo(x4,y4);path.close();p.setColor(color);c.drawPath(path,p);}
     private static float lerp(float a,float b,float t){return a+(b-a)*t;}
     private static float clamp(float v,float a,float b){return Math.max(a,Math.min(b,v));}
     private static float angleError(float current,float target){float d=target-current;while(d>180)d-=360;while(d<-180)d+=360;return d;}
