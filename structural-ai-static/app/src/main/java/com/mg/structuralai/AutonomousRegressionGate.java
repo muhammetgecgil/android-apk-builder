@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-/** Fast in-app regression that catches FEM, post-processing, contact, mesh, BC/load and evidence regressions before user analyses. */
+/** Fast in-app regression that catches FEM, post-processing, contact, mesh, BC/load, ZIP and evidence regressions before user analyses. */
 public final class AutonomousRegressionGate {
     public static final class Result { public final boolean pass; public final String summary; Result(boolean p,String s){pass=p;summary=s;} }
     private static volatile Result cached;
@@ -39,9 +39,10 @@ public final class AutonomousRegressionGate {
             TriangleContactDistanceRegressionGate.Result tcg=TriangleContactDistanceRegressionGate.run();
             AssemblyOverlayRegressionGate.Result aog=AssemblyOverlayRegressionGate.run();
             PreSolvePreviewRegressionGate.Result psg=PreSolvePreviewRegressionGate.run();
-            boolean pass=femPass&&tet.pass&&theory.pass&&axial.pass&&cr.pass&&fcr.pass&&pm.pass&&mcr.pass&&bc.pass&&mg.pass&&ceg.pass&&pr.pass&&abs.pass&&ccr.pass&&erg.pass&&gpr.pass&&veg.pass&&asr.pass&&acg.pass&&tcg.pass&&aog.pass&&psg.pass;
+            ZipArchiveRegressionGate.Result zag=ZipArchiveRegressionGate.run();
+            boolean pass=femPass&&tet.pass&&theory.pass&&axial.pass&&cr.pass&&fcr.pass&&pm.pass&&mcr.pass&&bc.pass&&mg.pass&&ceg.pass&&pr.pass&&abs.pass&&ccr.pass&&erg.pass&&gpr.pass&&veg.pass&&asr.pass&&acg.pass&&tcg.pass&&aog.pass&&psg.pass&&zag.pass;
             P1ReleaseAcceptanceGate.Result p1=P1ReleaseAcceptanceGate.run(gpr.pass,erg.pass);
-            return cached=new Result(pass,femMsg+"\n"+tet.message+"\n"+theory.message+"\n"+axial.message+"\n"+cr.summary+"\n"+fcr.summary+"\n"+pm.summary+"\n"+mcr.summary+"\n"+bc.summary+"\n"+mg.summary+"\n"+ceg.summary+"\n"+pr.summary+"\n"+abs.summary+"\n"+ccr.summary+"\n"+erg.summary+"\n"+gpr.summary+"\n"+veg.summary+"\n"+asr.summary+"\n"+acg.summary+"\n"+tcg.summary+"\n"+aog.summary+"\n"+psg.summary+"\n"+p1.summary);
+            return cached=new Result(pass,femMsg+"\n"+tet.message+"\n"+theory.message+"\n"+axial.message+"\n"+cr.summary+"\n"+fcr.summary+"\n"+pm.summary+"\n"+mcr.summary+"\n"+bc.summary+"\n"+mg.summary+"\n"+ceg.summary+"\n"+pr.summary+"\n"+abs.summary+"\n"+ccr.summary+"\n"+erg.summary+"\n"+gpr.summary+"\n"+veg.summary+"\n"+asr.summary+"\n"+acg.summary+"\n"+tcg.summary+"\n"+aog.summary+"\n"+psg.summary+"\n"+zag.summary+"\n"+p1.summary);
         }catch(Throwable t){return cached=new Result(false,"REGRESSION ERROR: "+t.getMessage());}
     }
     private static MeshModel beamSurface(){MeshModel m=new MeshModel();double[][] v={{0,-10,-5},{0,10,-5},{0,10,5},{0,-10,5},{100,-10,-5},{100,10,-5},{100,10,5},{100,-10,5}};for(double[] p:v)m.addVertex(new MeshModel.V3(p[0],p[1],p[2]));int[][] f={{0,2,1},{0,3,2},{4,5,6},{4,6,7},{0,1,5},{0,5,4},{3,7,6},{3,6,2},{0,4,7},{0,7,3},{1,2,6},{1,6,5}};for(int[] t:f)m.triangles.add(t);return m;}
