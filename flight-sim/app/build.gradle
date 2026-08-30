@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 72
-        versionName '25.0-avm14.0-moving-runway-side-bars'
+        versionCode 73
+        versionName '25.1-avm14.1-advanced-airframe-cad-sync'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
