@@ -8,7 +8,7 @@
         android:shortcutLongLabel="@string/profile_long">
         <intent
             android:action="com.mg.hafizadostum.v4.EDIT_PROFILE"
-            android:targetPackage="com.mg.hafizadostum.v41"
+            android:targetPackage="com.mg.hafizadostum.v42"
             android:targetClass="com.mg.hafizadostum.v4.ProfileActivity" />
     </shortcut>
 </shortcuts>
