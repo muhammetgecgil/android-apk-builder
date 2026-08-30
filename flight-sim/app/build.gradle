@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 58
-        versionName '23.6-avm12.6-stable-roll-day-weather'
+        versionCode 59
+        versionName '23.7-avm12.7-audio-direct-imu-groundlock'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
