@@ -1,10 +1,13 @@
 package com.mg.fixturecockpitsim.sim;
 
-/** Deterministic mobile-friendly flight model with progressive takeoff acceleration and manual approach energy control. */
+/** Deterministic mobile-friendly flight model with progressive takeoff acceleration and a stable gated deep-bank envelope. */
 public final class FlightDynamicsEngine {
     private static final double EARTH_RADIUS_M = 6371000.0;
     private static final double GEAR_RATE_PER_SEC = 0.55;
     private static final double GROUND_HEIGHT_M = 0.0;
+    private static final double NORMAL_BANK_DEG = 68.0;
+    private static final double DEEP_BANK_DEG = 160.0;
+    private static final double DEEP_BANK_GATE = 0.90;
 
     public void step(FlightState s, FlightControls in, double dtSec) {
         if (dtSec <= 0) return;
@@ -15,20 +18,26 @@ public final class FlightDynamicsEngine {
         s.gearPosition = approach(s.gearPosition, gearTarget, GEAR_RATE_PER_SEC * dtSec);
         s.brake01 += (in.brake - s.brake01) * Math.min(1.0, dtSec * 7.0);
 
+        // Normal stick/IMU travel remains calm and predictable. A deliberate near-full
+        // roll command opens a second, much slower envelope that can reach 160 degrees.
+        // This prevents small phone movements from causing an abrupt inversion.
         double rollInput=Math.max(-1.0,Math.min(1.0,in.roll));
         double absRoll=Math.abs(rollInput);
         if(absRoll<0.025) rollInput=0.0;
         absRoll=Math.abs(rollInput);
         double targetRoll;
-        if(absRoll<=0.96) {
-            targetRoll=rollInput*(65.0/0.96);
-        } else {
-            double t=(absRoll-0.96)/0.04;
-            targetRoll=Math.copySign(65.0+t*115.0,rollInput);
+        double rollRate;
+        if(absRoll<=DEEP_BANK_GATE){
+            targetRoll=rollInput*(NORMAL_BANK_DEG/DEEP_BANK_GATE);
+            rollRate=Math.abs(s.rollDeg)>75.0?1.28:2.05;
+        }else{
+            // Deep bank is intentionally a gated "hold to roll" region.
+            targetRoll=Math.copySign(DEEP_BANK_DEG,rollInput);
+            rollRate=.56;
         }
         double targetPitch = in.pitch * 30.0;
-        double rollRate = absRoll>0.96 ? 3.25 : 2.30;
         s.rollDeg += (targetRoll - s.rollDeg) * Math.min(1.0, dtSec * rollRate);
+        s.rollDeg = Math.max(-DEEP_BANK_DEG,Math.min(DEEP_BANK_DEG,s.rollDeg));
         s.pitchDeg += (targetPitch - s.pitchDeg) * Math.min(1.0, dtSec * 2.4);
         s.headingDeg = wrap360(s.headingDeg + Math.sin(Math.toRadians(s.rollDeg)) * 28.0 * dtSec + in.yaw * 18.0 * dtSec);
 
