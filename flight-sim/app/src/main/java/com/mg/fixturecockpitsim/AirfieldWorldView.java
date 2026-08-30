@@ -9,7 +9,7 @@ import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.view.View;
 
-/** AVM-13.7 world: natural scenic terrain, realistic taxiway motion, runway optical flow and approach perspective. */
+/** AVM-13.8 world: stronger speed-linked taxi/runway flow, natural scenery and approach perspective. */
 public final class AirfieldWorldView extends View {
     private static final float RUNWAY_VISIBLE_ALT_M=1000f;
     private static final float RUNWAY_VISIBLE_XTRACK_M=6500f;
@@ -30,9 +30,10 @@ public final class AirfieldWorldView extends View {
     @Override protected void onDraw(Canvas c){
         super.onDraw(c);long now=System.nanoTime();float dt=lastNs==0?.016f:Math.min(.05f,(now-lastNs)/1e9f);lastNs=now;
         float groundInfluence=onGround?1f:clamp(1f-altitudeM/150f,0f,1f);
-        float visualGain=onGround?(phase.contains("TAXI")?1.70f:phase.contains("TAKEOFF_ROLL")?1.32f:1.10f):1f;
-        float opticalSpeed=speedMps*groundInfluence*visualGain;
-        runwayFlow=(runwayFlow+opticalSpeed*dt/78f)%1f;groundFlow=(groundFlow+opticalSpeed*dt/108f)%1f;
+        float speedRamp=.85f+.65f*clamp(speedMps/90f,0f,1f);
+        float visualGain=onGround?(phase.contains("TAXI")?2.40f:phase.contains("TAKEOFF_ROLL")?2.10f:1.45f):1f;
+        float opticalSpeed=speedMps*groundInfluence*visualGain*speedRamp;
+        runwayFlow=(runwayFlow+opticalSpeed*dt/70f)%1f;groundFlow=(groundFlow+opticalSpeed*dt/88f)%1f;
         if(phase.contains("ORBIT"))scenicClock+=dt;else if(onGround)scenicClock=0;
         int w=getWidth(),h=getHeight();boolean approach=isApproachScene();float alt01=onGround?0:clamp(altitudeM/2200f,0,1);float horizon=h*(onGround?.455f:lerp(.455f,.205f,alt01));
         if(!onGround)horizon+=h*clamp(pitchDeg/32f,-.095f,.095f);if(approach){float a=approach01();horizon=lerp(h*.225f,h*.405f,a)+h*clamp(pitchDeg/35f,-.065f,.065f);}
@@ -102,19 +103,19 @@ public final class AirfieldWorldView extends View {
 
     private void drawRunwayWorld(Canvas c,int w,int h,float hz){
         p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff6f8d5f,0xff587650,0xff416246},null,Shader.TileMode.CLAMP));c.drawRect(0,hz,w,h,p);p.setShader(null);drawMountains(c,w,h,hz,.18f);
-        if(onGround&&speedMps>.8f)drawGroundOpticalFlow(c,w,h,hz);
+        if(onGround&&speedMps>.6f)drawGroundOpticalFlow(c,w,h,hz);
         boolean taxi=onGround&&(phase.contains("TAXI_OUT")||phase.contains("TAXI_IN"));
         if(taxi)drawTaxiway(c,w,h,hz);else if(runwayVisible())drawRunway(c,w,h,hz,onGround);
         if(onGround&&!taxi&&Math.abs(crossTrackM)>31f){p.setColor(0xddffd45a);p.setTextSize(Math.max(16,w*.016f));p.setTextAlign(Paint.Align.CENTER);c.drawText("OFF RUNWAY  •  GRASS",w*.5f,h*.89f,p);p.setTextAlign(Paint.Align.LEFT);}
     }
 
     private void drawGroundOpticalFlow(Canvas c,int w,int h,float hz){
-        float speed01=clamp(speedMps/48f,0f,1f);if(speed01<=.015f)return;
-        for(int i=0;i<34;i++){
-            float q=(i/34f+groundFlow)%1f,z=q*q,y=lerp(hz+h*.025f,h*.998f,z);
-            float len=w*(.008f+.052f*z)*(.35f+.90f*speed01),leftX=w*(.025f+((i*37)%25)/100f),rightX=w-leftX;
-            stroke.setColor(z>.55f?0x607ca06a:0x358fb27a);stroke.setStrokeWidth(Math.max(1f,w*(.0008f+.0028f*z)));
-            c.drawLine(leftX,y,leftX-len,y+len*.22f,stroke);c.drawLine(rightX,y,rightX+len,y+len*.22f,stroke);
+        float speed01=clamp(speedMps/42f,0f,1f);if(speed01<=.012f)return;
+        for(int i=0;i<40;i++){
+            float q=(i/40f+groundFlow*1.06f)%1f,z=q*q,y=lerp(hz+h*.022f,h*.999f,z);
+            float len=w*(.009f+.060f*z)*(.34f+1.05f*speed01),leftX=w*(.020f+((i*37)%27)/100f),rightX=w-leftX;
+            stroke.setColor(z>.52f?0x667ca06a:0x388fb27a);stroke.setStrokeWidth(Math.max(1f,w*(.0008f+.0030f*z)));
+            c.drawLine(leftX,y,leftX-len,y+len*.24f,stroke);c.drawLine(rightX,y,rightX+len,y+len*.24f,stroke);
         }
     }
 
@@ -126,26 +127,29 @@ public final class AirfieldWorldView extends View {
         path.reset();path.moveTo(farCx-farHalf,fy);path.lineTo(farCx+farHalf,fy);path.lineTo(nearCx+nearHalf,ny);path.lineTo(nearCx-nearHalf,ny);path.close();
         p.setShader(new LinearGradient(0,fy,0,ny,new int[]{0xff505457,0xff3b4042,0xff292e30},null,Shader.TileMode.CLAMP));c.drawPath(path,p);p.setShader(null);
 
-        // Moving asphalt joints: perspective expansion is what creates the strongest taxi sensation.
-        for(int i=0;i<26;i++){
-            float q=(i/26f+groundFlow)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(farHalf,nearHalf,z),cx=lerp(farCx,nearCx,z);
-            stroke.setColor(z>.52f?0x4e111517:0x2b15191b);stroke.setStrokeWidth(Math.max(1f,w*(.0005f+.0019f*z)));
+        for(int i=0;i<34;i++){
+            float q=(i/34f+groundFlow*1.14f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(farHalf,nearHalf,z),cx=lerp(farCx,nearCx,z);
+            stroke.setColor(z>.52f?0x54111517:0x2d15191b);stroke.setStrokeWidth(Math.max(1f,w*(.0005f+.0021f*z)));
             c.drawLine(cx-half*.96f,y,cx+half*.96f,y,stroke);
         }
 
-        // Continuous yellow taxi centreline follows a slight natural bend.
         path.reset();path.moveTo(farCx,fy);path.quadTo(w*.5f-bend*.35f,lerp(fy,ny,.48f),nearCx,ny);
         stroke.setColor(0xffffd448);stroke.setStrokeWidth(Math.max(2f,w*.0032f));c.drawPath(path,stroke);
         stroke.setColor(0x88fff0a0);stroke.setStrokeWidth(Math.max(1f,w*.0011f));c.drawPath(path,stroke);
 
-        // Blue edge lights stream from the vanishing point toward the aircraft.
-        for(int i=0;i<30;i++){
-            float q=(i/30f+runwayFlow*.86f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(farHalf,nearHalf,z),cx=lerp(farCx,nearCx,z),r=1f+4.8f*z;
-            p.setColor(z>.55f?0xff74bfff:0xff5c9ed9);c.drawCircle(cx-half,y,r,p);c.drawCircle(cx+half,y,r,p);
-            if(speedMps>7f&&z>.55f){float blur=h*.012f*z*clamp(speedMps/18f,0,1);stroke.setColor(0x587fc9ff);stroke.setStrokeWidth(Math.max(1f,r*.55f));c.drawLine(cx-half,y,cx-half,y+blur,stroke);c.drawLine(cx+half,y,cx+half,y+blur,stroke);}
+        // Green inset centreline lights add a direct speed cue without breaking the real continuous yellow line.
+        for(int i=0;i<24;i++){
+            float q=(i/24f+groundFlow*1.26f)%1f,z=q*q,y=lerp(fy,ny,z),cx=lerp(farCx,nearCx,z),r=.8f+3.2f*z;
+            p.setColor(z>.52f?0xff8dff9d:0xff58c879);c.drawCircle(cx,y,r,p);
+            if(speedMps>6f&&z>.50f){stroke.setColor(0x4e8dff9d);stroke.setStrokeWidth(Math.max(1f,r*.45f));c.drawLine(cx,y,cx,y+h*.010f*z*clamp(speedMps/18f,0,1),stroke);}
         }
 
-        // Approaching runway hold line gives a clear transition from taxi to takeoff area.
+        for(int i=0;i<36;i++){
+            float q=(i/36f+runwayFlow*1.02f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(farHalf,nearHalf,z),cx=lerp(farCx,nearCx,z),r=1f+5.0f*z;
+            p.setColor(z>.55f?0xff74bfff:0xff5c9ed9);c.drawCircle(cx-half,y,r,p);c.drawCircle(cx+half,y,r,p);
+            if(speedMps>6f&&z>.50f){float blur=h*.015f*z*clamp(speedMps/20f,0,1);stroke.setColor(0x607fc9ff);stroke.setStrokeWidth(Math.max(1f,r*.55f));c.drawLine(cx-half,y,cx-half,y+blur,stroke);c.drawLine(cx+half,y,cx+half,y+blur,stroke);}
+        }
+
         if(phase.contains("TAXI_OUT")&&alongTrackM>72f){float q=clamp((alongTrackM-72f)/28f,0,1),z=.34f+.14f*q,y=lerp(fy,ny,z*z),half=lerp(farHalf,nearHalf,z),cx=lerp(farCx,nearCx,z);stroke.setColor(0xffffd448);stroke.setStrokeWidth(Math.max(2f,w*.0025f));c.drawLine(cx-half*.84f,y,cx+half*.84f,y,stroke);c.drawLine(cx-half*.84f,y+h*.012f,cx+half*.84f,y+h*.012f,stroke);}
     }
 
@@ -153,11 +157,17 @@ public final class AirfieldWorldView extends View {
         if(!ground&&!runwayVisible())return;float headingErr=angleError(headingDeg,270f),lateralPixels=clamp(crossTrackM/44f,-2.5f,2.5f)*w*.235f,cx=w*.5f-lateralPixels+clamp(headingErr/32f,-1,1)*w*.095f;float farHalf,nearHalf,fy,ny;
         if(ground){farHalf=w*.032f;nearHalf=w*.44f;fy=hz+h*.015f;ny=h*.999f;}else{float a=approach01(),eased=(float)Math.pow(a,.82);nearHalf=w*lerp(.018f,.405f,eased);farHalf=w*lerp(.009f,.040f,a);fy=lerp(hz+h*.018f,hz+h*.050f,a);ny=lerp(hz+h*.10f,h*.985f,(float)Math.pow(a,.74));if(!isApproachScene()){nearHalf*=.58f;farHalf*=.72f;ny=lerp(hz+h*.09f,h*.55f,clamp(1-altitudeM/RUNWAY_VISIBLE_ALT_M,0,1));}}
         quad(c,cx-farHalf*1.52f,fy,cx+farHalf*1.52f,fy,cx+nearHalf*1.20f,ny,cx-nearHalf*1.20f,ny,0xff858982);path.reset();path.moveTo(cx-farHalf,fy);path.lineTo(cx+farHalf,fy);path.lineTo(cx+nearHalf,ny);path.lineTo(cx-nearHalf,ny);path.close();p.setShader(new LinearGradient(cx,fy,cx,ny,new int[]{0xff484c4e,0xff35393b,0xff282d2f},null,Shader.TileMode.CLAMP));c.drawPath(path,p);p.setShader(null);drawRunwaySurfaceFlow(c,w,h,cx,fy,ny,farHalf,nearHalf,ground);stroke.setColor(0xfff5f4ed);stroke.setStrokeWidth(Math.max(2,w*.0026f));c.drawLine(cx-farHalf,fy,cx-nearHalf,ny,stroke);c.drawLine(cx+farHalf,fy,cx+nearHalf,ny,stroke);
-        float speed01=clamp(speedMps/90f,0f,1f);for(int i=0;i<20;i++){float q=(i/20f+runwayFlow)%1f,z=q*q,y=lerp(fy,ny,z),dash=lerp(3f,60f,z)*(1f+.9f*speed01),gap=lerp(1f,13f,z);stroke.setColor(0xfff6f5ef);stroke.setStrokeWidth(1.5f+10*z);c.drawLine(cx,y,cx,Math.min(ny,y+dash+gap),stroke);}for(int i=0;i<28;i++){float q=(i/28f+runwayFlow*.82f)%1f,z=q*q,y=lerp(fy,ny,z),hh=lerp(farHalf,nearHalf,z),r=1+5*z;p.setColor(i>24?0xffffd465:0xfff5f0d9);c.drawCircle(cx-hh,y,r,p);c.drawCircle(cx+hh,y,r,p);if(ground&&speed01>.34f&&z>.48f){stroke.setColor(0x62fff8d9);stroke.setStrokeWidth(Math.max(1f,r*.55f));float blur=h*.022f*z*speed01;c.drawLine(cx-hh,y,cx-hh,y+blur,stroke);c.drawLine(cx+hh,y,cx+hh,y+blur,stroke);}}
+        float speed01=clamp(speedMps/88f,0f,1f);
+        for(int i=0;i<26;i++){float q=(i/26f+runwayFlow*1.10f)%1f,z=q*q,y=lerp(fy,ny,z),dash=lerp(3f,64f,z)*(1f+1.05f*speed01),gap=lerp(1f,14f,z);stroke.setColor(0xfff6f5ef);stroke.setStrokeWidth(1.5f+11*z);c.drawLine(cx,y,cx,Math.min(ny,y+dash+gap),stroke);}
+        for(int i=0;i<34;i++){float q=(i/34f+runwayFlow*1.03f)%1f,z=q*q,y=lerp(fy,ny,z),hh=lerp(farHalf,nearHalf,z),r=1+5.3f*z;p.setColor(i>30?0xffffd465:0xfff5f0d9);c.drawCircle(cx-hh,y,r,p);c.drawCircle(cx+hh,y,r,p);if(ground&&speed01>.20f&&z>.42f){stroke.setColor(0x6afff8d9);stroke.setStrokeWidth(Math.max(1f,r*.55f));float blur=h*.026f*z*(.35f+.85f*speed01);c.drawLine(cx-hh,y,cx-hh,y+blur,stroke);c.drawLine(cx+hh,y,cx+hh,y+blur,stroke);}}
         for(int set=0;set<4;set++){float z=.30f+set*.085f,y=lerp(fy,ny,z*z),hh=lerp(farHalf,nearHalf,z),bw=Math.max(2,hh*.075f),bh=4+19*z;p.setColor(0xfff6f5ef);c.drawRect(cx-hh*.54f-bw,y,cx-hh*.54f+bw,y+bh,p);c.drawRect(cx+hh*.54f-bw,y,cx+hh*.54f+bw,y+bh,p);}if(!ground&&isApproachScene())drawApproachGuidance(c,w,h,cx,fy,ny,farHalf,nearHalf,headingErr);if(ground&&alongTrackM<115f){float z=clamp(.48f+alongTrackM/260f,0,1),y=lerp(fy,ny,z*z);p.setColor(0xfffaf9f4);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(Math.max(30,w*(.038f+.02f*z)));c.drawText("27",cx,Math.min(ny-6,y+54),p);p.setTextAlign(Paint.Align.LEFT);}
     }
 
-    private void drawRunwaySurfaceFlow(Canvas c,int w,int h,float cx,float fy,float ny,float farHalf,float nearHalf,boolean ground){float lowAlt=ground?1f:clamp(1f-altitudeM/150f,0f,1f),speed01=clamp(speedMps/95f,0f,1f)*lowAlt;if(speed01<=.015f)return;for(int i=0;i<24;i++){float q=(i/24f+runwayFlow)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(farHalf,nearHalf,z)*.92f;stroke.setColor(z>.55f?0x48101517:0x29121719);stroke.setStrokeWidth(Math.max(1f,w*(.00045f+.0017f*z)));c.drawLine(cx-half,y,cx+half,y,stroke);}if(ground&&speed01>.12f){for(int i=0;i<18;i++){float q=(i/18f+runwayFlow*.73f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(farHalf,nearHalf,z),x=cx+((i&1)==0?-1:1)*half*(.24f+.52f*((i*17)%10)/10f),len=h*(.006f+.055f*z)*(.25f+.9f*speed01);stroke.setColor(z>.6f?0x529da3a6:0x309da3a6);stroke.setStrokeWidth(Math.max(1f,w*(.0005f+.0017f*z)));c.drawLine(x,y,x,y+len,stroke);}}}
+    private void drawRunwaySurfaceFlow(Canvas c,int w,int h,float cx,float fy,float ny,float farHalf,float nearHalf,boolean ground){
+        float lowAlt=ground?1f:clamp(1f-altitudeM/150f,0f,1f),speed01=clamp(speedMps/92f,0f,1f)*lowAlt;if(speed01<=.012f)return;
+        for(int i=0;i<34;i++){float q=(i/34f+runwayFlow*1.24f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(farHalf,nearHalf,z)*.92f;stroke.setColor(z>.52f?0x4e101517:0x2c121719);stroke.setStrokeWidth(Math.max(1f,w*(.00045f+.0019f*z)));c.drawLine(cx-half,y,cx+half,y,stroke);}
+        if(ground&&speed01>.08f){for(int i=0;i<24;i++){float q=(i/24f+runwayFlow*.98f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(farHalf,nearHalf,z),x=cx+((i&1)==0?-1:1)*half*(.20f+.60f*((i*17)%10)/10f),len=h*(.008f+.068f*z)*(.25f+1.05f*speed01);stroke.setColor(z>.58f?0x589da3a6:0x349da3a6);stroke.setStrokeWidth(Math.max(1f,w*(.0005f+.0019f*z)));c.drawLine(x,y,x,y+len,stroke);}}
+    }
 
     private void drawApproachGuidance(Canvas c,int w,int h,float cx,float fy,float ny,float farHalf,float nearHalf,float headingErr){float a=approach01(),py=lerp(fy,ny,.46f),ph=lerp(farHalf,nearHalf,.46f),r=Math.max(2,w*(.0023f+.0015f*a));for(int i=0;i<4;i++){p.setColor(i<2?0xfff5f4e8:0xffff3b31);c.drawCircle(cx-ph*1.42f+i*r*3.1f,py,r,p);}p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.create("sans",Typeface.BOLD));p.setTextSize(Math.max(13,w*.012f));p.setColor(Math.abs(headingErr)<8&&Math.abs(crossTrackM)<18?0xff8dff9c:0xffffd45a);c.drawText(String.format(java.util.Locale.US,"RWY27  ΔHDG %+.0f°  X-TRK %+.0f m",-headingErr,crossTrackM),w*.5f,h*.70f,p);p.setTypeface(Typeface.create("sans",Typeface.NORMAL));p.setTextAlign(Paint.Align.LEFT);}
     private void drawMountains(Canvas c,int w,int h,float hz,float scale){path.reset();path.moveTo(0,hz);for(int i=0;i<=12;i++){float x=w*i/12f,n=(float)(.45+.55*Math.abs(Math.sin(i*1.73+alongTrackM*.0008)));path.lineTo(x,hz-h*scale*n);}path.lineTo(w,hz);path.close();p.setColor(0xff456f55);c.drawPath(path,p);}
