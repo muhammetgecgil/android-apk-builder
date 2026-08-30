@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 49
-        versionName '22.2-avm11.2-dynamic-tower-surfaces'
+        versionCode 50
+        versionName '22.3-avm11.3-altitude-perspective'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
