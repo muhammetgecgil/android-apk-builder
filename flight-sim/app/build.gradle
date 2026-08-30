@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 55
-        versionName '23.3-avm12.3-ultra-premium-controller'
+        versionCode 56
+        versionName '23.4-avm12.4-posthangar-orientation-imu'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
@@ -28,6 +28,6 @@ android {
 dependencies {
     implementation 'com.google.android.filament:filament-android:1.72.0'
     implementation 'com.google.android.filament:gltfio-android:1.72.0'
-    implementation 'com.google.android.filament:filament-utils-android:1.72.0'
+    implementation 'com.google.android.filament:filament-utils:1.72.0'
     testImplementation 'junit:junit:4.13.2'
 }
