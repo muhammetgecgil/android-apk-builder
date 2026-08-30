@@ -766,7 +766,7 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
             str = String.valueOf(primaryClip.getItemAt(0).coerceToText(this));
         }
         String strNormalize = normalize(str);
-        LinkedHashMap linkedHashMap = new LinkedHashMap();
+        LinkedHashMap<String, Integer> linkedHashMap = new LinkedHashMap<>();
         linkedHashMap.put("sifre", 3);
         linkedHashMap.put("dogrulama kodu", 3);
         linkedHashMap.put("iban", 2);
@@ -778,11 +778,11 @@ public class MainActivity extends Activity implements TextToSpeech.OnInitListene
         linkedHashMap.put("odul kazandiniz", 3);
         linkedHashMap.put("para gonder", 3);
         linkedHashMap.put("uzaktan baglan", 3);
-        ArrayList arrayList = new ArrayList();
-        for (Map.Entry entry : linkedHashMap.entrySet()) {
+        ArrayList<String> arrayList = new ArrayList<>();
+        for (Map.Entry<String, Integer> entry : linkedHashMap.entrySet()) {
             if (strNormalize.contains((CharSequence) entry.getKey())) {
-                iIntValue += ((Integer) entry.getValue()).intValue();
-                arrayList.add((String) entry.getKey());
+                iIntValue += entry.getValue().intValue();
+                arrayList.add(entry.getKey());
             }
         }
         if (iIntValue >= 5) {
