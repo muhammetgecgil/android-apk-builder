@@ -42,7 +42,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** AVM-12.8 runtime: direct-angle IMU, full manual approach/landing, runway perspective, crash validation and flight audio. */
+/** AVM-13.0 runtime: progressive takeoff, 2x safe IMU bank, clean HUD, manual landing and flight audio. */
 public final class FlightRuntimeActivity extends Activity implements SensorEventListener {
     private static final UUID SIM_UUID=UUID.fromString("6d9b6c72-4d47-4d8e-9b58-b5e7465b4a22");
     private static final int REQ_BT=72;
@@ -119,15 +119,15 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         root.addView(world,new FrameLayout.LayoutParams(-1,-1));
         root.addView(weather,new FrameLayout.LayoutParams(-1,-1));
         root.addView(jet,new FrameLayout.LayoutParams(-1,-1));
-        hud=new TextView(this);hud.setTextColor(Color.WHITE);hud.setTextSize(13);hud.setPadding(dp(12),dp(8),dp(12),dp(8));hud.setBackgroundColor(0x72000000);FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT);hp.setMargins(dp(10),dp(10),0,0);root.addView(hud,hp);
+        hud=new TextView(this);hud.setTextColor(Color.WHITE);hud.setTextSize(13);hud.setPadding(dp(12),dp(8),dp(12),dp(8));hud.setBackgroundColor(Color.TRANSPARENT);hud.setShadowLayer(2.2f,1f,1f,0xcc000000);FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT);hp.setMargins(dp(10),dp(10),0,0);root.addView(hud,hp);
         Button back=button("GERİ");FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(dp(78),dp(43),Gravity.TOP|Gravity.RIGHT);bp.setMargins(0,dp(8),dp(10),0);root.addView(back,bp);back.setOnClickListener(v->finish());
         resetButton=button("RESET");FrameLayout.LayoutParams rp=new FrameLayout.LayoutParams(dp(78),dp(43),Gravity.TOP|Gravity.RIGHT);rp.setMargins(0,dp(56),dp(10),0);root.addView(resetButton,rp);resetButton.setVisibility(View.GONE);resetButton.setOnClickListener(v->resetSimulation());
         crashBanner=new TextView(this);crashBanner.setTextColor(Color.WHITE);crashBanner.setTextSize(25);crashBanner.setGravity(Gravity.CENTER);crashBanner.setBackgroundColor(0xaa7c170d);crashBanner.setVisibility(View.GONE);FrameLayout.LayoutParams cp=new FrameLayout.LayoutParams(dp(480),dp(105),Gravity.CENTER);root.addView(crashBanner,cp);
         buildBottomPanel(root);setContentView(root);
         jet.setCameraMode(cameraMode);jet.setSimulationState(1,0,0,1,true);jet.setFlightMotion(0,0,true);jet.setControlInputs(0,0,0,0);
         renderState();handler.post(simLoop);
-        String imuText=rotationSensor==null?"IMU sensörü bulunamadı — AUTO/BT kullanılabilir.":"MANUEL IMU: bank açısı telefonla yaklaşık birebir; yaklaşmada pitch ve hizalama tamamen sende.";
-        Toast.makeText(this,"Manuel iniş aktif: THR azalt • BRAKE=speed-brake • GEAR aç • pitch/yaw ile RWY27'ye hizalan. Uygunsuz temas crash olur. "+imuText,Toast.LENGTH_LONG).show();
+        String imuText=rotationSensor==null?"IMU sensörü bulunamadı — AUTO/BT kullanılabilir.":"MANUEL IMU: havada telefon yatışının yaklaşık 2 katına kadar bank; güvenli sınır ±64°.";
+        Toast.makeText(this,"Kalkış ivmelenmesi kademeli. HUD arka planı kaldırıldı. "+imuText,Toast.LENGTH_LONG).show();
     }
 
     private void buildBottomPanel(FrameLayout root){
@@ -153,7 +153,7 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         if(localManual){
             autoRecovery=false;autoRecoveryStableSec=0;seedFreeNavigation();localThrottle=Math.max(.08,state.throttle);localGearDown=state.gearPosition>.5;localBrake=0;localYawHold=0;
             requestImuCenter();
-            Toast.makeText(this,"LOCAL IMU — yerde NWS; havada tam manuel. İnişte pist büyür, ama uçak kendini otomatik hizalamaz.",Toast.LENGTH_LONG).show();
+            Toast.makeText(this,"LOCAL IMU — yerde hassas NWS; havada telefon yatışı yaklaşık 2x bank, ±64° güvenli limit.",Toast.LENGTH_LONG).show();
         }else{
             localBrake=0;localYawHold=0;imuRoll=imuPitch=imuYaw=0;seedFreeNavigation();autoRecovery=true;autoRecoveryStableSec=0;
             Toast.makeText(this,"AUTO RUNWAY CAPTURE — merkez hat yakalanıyor",Toast.LENGTH_LONG).show();
@@ -178,7 +178,7 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
             if(state.onGround){
                 controls.roll=0;
                 controls.pitch=(state.trueAirspeedMps>=MANUAL_ROTATION_SPEED_MPS&&localThrottle>.72&&Math.abs(runwayCrossTrackM)<36)?Math.max(.18,Math.min(.34,imuPitch)):0;
-                controls.yaw=localYawHold!=0?localYawHold:clamp(imuRoll*1.45f+imuYaw*.25f,-1,1);
+                controls.yaw=localYawHold!=0?localYawHold:clamp(imuRoll*.75f+imuYaw*.25f,-1,1);
             }else{
                 controls.roll=imuRoll;controls.pitch=imuPitch;controls.yaw=localYawHold!=0?localYawHold:imuYaw;
             }
@@ -308,7 +308,7 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         if(imuCenterPending||!imuCentered){centerImuNow(rotation);return;}
         float[] delta=new float[3];SensorManager.getAngleChange(delta,screenRm,zeroScreenRm);
         float dYaw=(float)Math.toDegrees(delta[0]),dPitch=(float)Math.toDegrees(delta[1]),dRoll=(float)Math.toDegrees(delta[2]);
-        float bankDeg=Math.abs(dRoll)<1.4f?0:clamp(dRoll,-55f,55f);float tr=bankDeg/67.708f;
+        float bankDeg=Math.abs(dRoll)<1.4f?0:clamp(dRoll*2f,-64f,64f);float tr=bankDeg/67.708f;
         float tp=-axisCurve(dPitch,34f,2.2f);float ty=axisCurve(dYaw,64f,4.0f);
         imuRoll=lerp(imuRoll,tr,.18f);imuPitch=lerp(imuPitch,tp,.18f);imuYaw=lerp(imuYaw,ty,.10f);
     }
@@ -324,7 +324,7 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         if(!linkArmed||serverLoopRunning||bt==null)return;
         if(!bt.isEnabled()){startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE));Toast.makeText(this,"Bluetooth'u aç; LINK WAIT açık kalacak",Toast.LENGTH_LONG).show();return;}
         serverLoopRunning=true;
-        io.execute(()->{try{while(running&&linkArmed){try{server=bt.listenUsingRfcommWithServiceRecord("AircraftSimulator3D-v60",SIM_UUID);socket=server.accept();if(!running||!linkArmed)break;connected=true;remoteTakeover=false;writer=new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8));BufferedReader r=new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8));runOnUiThread(()->{updateButtons();Toast.makeText(this,"Bluetooth bağlı — kumanda verisi bekleniyor",Toast.LENGTH_SHORT).show();});String line;while(running&&linkArmed&&(line=r.readLine())!=null)parseRemote(line);}catch(Exception ignored){}finally{connected=false;remoteTakeover=false;closeSocketAndServer();runOnUiThread(this::updateButtons);}}}finally{serverLoopRunning=false;}});
+        io.execute(()->{try{while(running&&linkArmed){try{server=bt.listenUsingRfcommWithServiceRecord("AircraftSimulator3D-v62",SIM_UUID);socket=server.accept();if(!running||!linkArmed)break;connected=true;remoteTakeover=false;writer=new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8));BufferedReader r=new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8));runOnUiThread(()->{updateButtons();Toast.makeText(this,"Bluetooth bağlı — kumanda verisi bekleniyor",Toast.LENGTH_SHORT).show();});String line;while(running&&linkArmed&&(line=r.readLine())!=null)parseRemote(line);}catch(Exception ignored){}finally{connected=false;remoteTakeover=false;closeSocketAndServer();runOnUiThread(this::updateButtons);}}}finally{serverLoopRunning=false;}});
     }
 
     private void parseRemote(String line){String[] a=line.split(",");if(a.length<10||!"V3".equals(a[0])||!linkArmed)return;try{lastRemoteSeq=Integer.parseInt(a[1]);remoteRoll=clamp(Float.parseFloat(a[3]),-1,1);remotePitch=clamp(Float.parseFloat(a[4]),-1,1);remoteYaw=clamp(Float.parseFloat(a[5]),-1,1);remoteThrottle=clamp(Float.parseFloat(a[6]),0,1);remoteBrake=clamp(Float.parseFloat(a[7]),0,1);remoteGearDown=Integer.parseInt(a[8])!=0;remoteTakeover=true;autoRecovery=false;seedFreeNavigation();}catch(Exception ignored){}}
