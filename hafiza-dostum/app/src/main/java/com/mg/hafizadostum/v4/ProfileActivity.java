@@ -1,13 +1,11 @@
 package com.mg.hafizadostum.v4;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
-import android.view.Gravity;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.CheckBox;
@@ -27,6 +25,7 @@ public class ProfileActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        UiUtil.prepareWindow(this);
         boolean edit = ACTION_EDIT.equals(getIntent().getAction());
         if (ProfileEngine.isSaved(this) && !edit) {
             goHome();
@@ -39,12 +38,12 @@ public class ProfileActivity extends Activity {
         ScrollView sv = new ScrollView(this);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(22), dp(18), dp(36));
         root.setBackgroundColor(BG);
         sv.addView(root);
         setContentView(sv);
+        UiUtil.applyInsets(root, 18, 22, 18, 36);
 
-        TextView title = text("Seni tanıyayım", 30, NAVY, true);
+        TextView title = text(ProfileEngine.isSaved(this) ? "Profil ayarları" : "Seni tanıyayım", 30, NAVY, true);
         root.addView(title);
         TextView sub = text("Hafıza Dostum sana göre şekillenecek. Mesleğin + yaşam rollerin + ihtiyaç duyduğun hafıza desteği birlikte çalışır.", 16, Color.DKGRAY, false);
         sub.setPadding(0, dp(5), 0, dp(18)); root.addView(sub);
@@ -94,11 +93,12 @@ public class ProfileActivity extends Activity {
 
         LinearLayout note = card();
         note.addView(text("Nasıl çalışacak?", 17, NAVY, true));
-        note.addView(text("• Mesleğine özel 3 temel rutin\n• Seçtiğin her yaşam rolüne ek rutinler\n• Hafıza desteği seçtiysen ek güvenlik / günlük yönlendirme\n• Hepsi tek 'Şimdi ne önemli?' ekranında birleşir\n• Sonradan istediğin rutini değiştirebilir veya silebilirsin", 15, Color.DKGRAY, false));
+        note.addView(text("• Mesleğine özel temel rutinler\n• Seçtiğin her yaşam rolüne ek rutinler\n• Hafıza desteği seçtiysen ek güvenlik / günlük yönlendirme\n• Hepsi tek 'Şimdi ne önemli?' ekranında birleşir\n• Elle eklediğin özel rutinler profil değişince korunur", 15, Color.DKGRAY, false));
         root.addView(note, full(-2, dp(12)));
 
         Button save = new Button(this);
-        save.setText("✓ PROFİLİ KAYDET VE BAŞLA");
+        save.setText("✓ PROFİLİ KAYDET");
+        save.setContentDescription("Profili kaydet");
         save.setTextSize(17); save.setTypeface(Typeface.DEFAULT, Typeface.BOLD); save.setTextColor(Color.WHITE); save.setAllCaps(false);
         GradientDrawable bg = new GradientDrawable(); bg.setColor(TEAL); bg.setCornerRadius(dp(16)); save.setBackground(bg);
         root.addView(save, full(dp(62), dp(16)));
@@ -116,7 +116,7 @@ public class ProfileActivity extends Activity {
         if (ProfileEngine.isSaved(this)) {
             Button cancel = new Button(this);
             cancel.setText("Değişiklik yapmadan geri dön"); cancel.setAllCaps(false); cancel.setTextSize(15);
-            cancel.setOnClickListener(v -> goHome());
+            cancel.setOnClickListener(v -> finish());
             root.addView(cancel, full(dp(52), dp(5)));
         }
     }
