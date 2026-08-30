@@ -1,0 +1,63 @@
+name: Build Sesli Rehber
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'sesli-rehber/**'
+      - '.github/workflows/build-sesli-rehber.yml'
+  pull_request:
+    paths:
+      - 'sesli-rehber/**'
+      - '.github/workflows/build-sesli-rehber.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sesli-rehber
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android 16 SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Bundle pinned DeepLab v3 segmentation model
+        run: |
+          mkdir -p app/src/main/assets
+          curl --fail --location --retry 3 \
+            'https://storage.googleapis.com/mediapipe-models/image_segmenter/deeplab_v3/float32/1/deeplab_v3.tflite' \
+            --output app/src/main/assets/deeplab_v3.tflite
+          test "$(stat -c%s app/src/main/assets/deeplab_v3.tflite)" = "2780176"
+          echo 'ff36e24d40547fe9e645e2f4e8745d1876d6e38b332d39a82f0bf0f5d1d561b3  app/src/main/assets/deeplab_v3.tflite' | sha256sum -c -
+      - name: Bundle pinned PIDNet-S Cityscapes model
+        run: |
+          curl --fail --location --retry 3 \
+            'https://huggingface.co/litert-community/PIDNet-S-Cityscapes-LiteRT/resolve/5f0a8789f7c0909f5f183f38a75fbb0b1e4a5e8b/pidnet_s.tflite?download=true' \
+            --output app/src/main/assets/pidnet_s.tflite
+          test "$(stat -c%s app/src/main/assets/pidnet_s.tflite)" = "30645332"
+          echo '9f11e66b223eefb9a35ca70bf1451b6a0104623e4c178e422f7cf3eb72eace26  app/src/main/assets/pidnet_s.tflite' | sha256sum -c -
+      - name: Bundle pinned EfficientDet-Lite0 broad object model
+        run: |
+          curl --fail --location --retry 3 \
+            'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/latest/efficientdet_lite0.tflite' \
+            --output app/src/main/assets/efficientdet_lite0.tflite
+          test "$(stat -c%s app/src/main/assets/efficientdet_lite0.tflite)" = "4602795"
+          echo '0720bf247bd76e6594ea28fa9c6f7c5242be774818997dbbeffc4da460c723bb  app/src/main/assets/efficientdet_lite0.tflite' | sha256sum -c -
+      - name: Unit tests
+        run: gradle testDebugUnitTest --stacktrace
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SesliRehber-debug-apk
+          path: sesli-rehber/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
