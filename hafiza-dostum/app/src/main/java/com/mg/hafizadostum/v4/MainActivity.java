@@ -45,6 +45,7 @@ public class MainActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        UiUtil.prepareWindow(this);
         if (!ProfileEngine.isSaved(this)) {
             startActivity(new Intent(this, ProfileActivity.class));
             finish();
@@ -89,10 +90,10 @@ public class MainActivity extends Activity {
         scroll.setFillViewport(true);
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(16), dp(18), dp(16), dp(40));
         content.setBackgroundColor(C_BG);
         scroll.addView(content, new ScrollView.LayoutParams(ScrollView.LayoutParams.MATCH_PARENT, ScrollView.LayoutParams.WRAP_CONTENT));
         setContentView(scroll);
+        UiUtil.applyInsets(content, 16, 18, 16, 40);
 
         TextView title = text("Hafıza Dostum", simpleMode ? 34 : 30, C_NAVY, true);
         content.addView(title);
@@ -134,13 +135,17 @@ public class MainActivity extends Activity {
         });
         archive.setOnClickListener(v -> startActivity(new Intent(this, ArchiveActivity.class)));
 
-        Button simple = secondary(simpleMode ? "↩ Normal görünüme dön" : "👓 Sade / büyük yazı görünümü");
+        LinearLayout row2 = row();
+        Button settings = secondary("⚙ Ayarlar");
+        Button simple = secondary(simpleMode ? "↩ Normal görünüm" : "👓 Sade / büyük yazı");
+        row2.addView(settings, weight()); row2.addView(simple, weight());
+        settings.setOnClickListener(v -> startActivity(new Intent(this, SettingsActivity.class)));
         simple.setOnClickListener(v -> {
             simpleMode = !simpleMode;
             uiPrefs().edit().putBoolean("simple", simpleMode).apply();
             render();
         });
-        box.addView(simple, margin(dp(5)));
+        box.addView(row2);
         content.addView(box, margin(dp(7)));
     }
 
@@ -272,7 +277,7 @@ public class MainActivity extends Activity {
                 render();
             } else new AlertDialog.Builder(this).setTitle("Rutini sil?").setMessage(t.optString("name") + "\n\nGeçmiş arşiv kayıtları korunur.")
                     .setNegativeButton("Vazgeç", null)
-                    .setPositiveButton("Sil", (x, y) -> { MemoryStore.removeTask(this, t.optString("id")); render(); }).show();
+                    .setPositiveButton("Sil", (x, y) -> { ReminderScheduler.cancelTask(this, t.optString("id")); MemoryStore.removeTask(this, t.optString("id")); render(); }).show();
         }).show();
     }
 
@@ -318,6 +323,7 @@ public class MainActivity extends Activity {
             if (existing == null) {
                 a.put(MemoryStore.task(MemoryStore.newId(), n, hm[0], hm[1], critical.isChecked(), dayStr.toString(), "ozel"));
             } else {
+                ReminderScheduler.cancelTask(this, existing.optString("id"));
                 for (int i = 0; i < a.length(); i++) {
                     JSONObject t = a.optJSONObject(i);
                     if (t != null && existing.optString("id").equals(t.optString("id"))) {
@@ -462,6 +468,7 @@ public class MainActivity extends Activity {
         content.addView(r);
         TextView privacy = text("🔒 Profil, rutin, eşya hafızası ve arşiv kayıtları cihazda tutulur. Uygulama ilaç dozu kararı vermez.", 12, Color.GRAY, false);
         privacy.setPadding(dp(4), dp(16), dp(4), 0);
+        privacy.setOnClickListener(v -> startActivity(new Intent(this, PrivacyActivity.class)));
         content.addView(privacy);
     }
 
