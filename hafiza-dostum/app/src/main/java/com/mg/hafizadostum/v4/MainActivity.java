@@ -17,7 +17,6 @@ import android.os.Bundle;
 import android.speech.RecognizerIntent;
 import android.speech.tts.TextToSpeech;
 import android.view.Gravity;
-import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -32,7 +31,6 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
@@ -47,7 +45,13 @@ public class MainActivity extends Activity {
 
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
+        if (!ProfileEngine.isSaved(this)) {
+            startActivity(new Intent(this, ProfileActivity.class));
+            finish();
+            return;
+        }
         MemoryStore.ensureDefaults(this);
+        ArchiveStore.importLegacy(this, MemoryStore.getEvents(this));
         simpleMode = uiPrefs().getBoolean("simple", false);
         initTts();
         askNotificationPermission();
@@ -57,7 +61,11 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        if (content != null) render();
+        simpleMode = uiPrefs().getBoolean("simple", false);
+        if (content != null) {
+            ArchiveStore.importLegacy(this, MemoryStore.getEvents(this));
+            render();
+        }
     }
 
     private void initTts() {
@@ -88,49 +96,71 @@ public class MainActivity extends Activity {
 
         TextView title = text("Hafıza Dostum", simpleMode ? 34 : 30, C_NAVY, true);
         content.addView(title);
-        TextView sub = text("İkinci hafızan • yaptığını kanıtla, unuttuğunu yakala", simpleMode ? 18 : 15, Color.DKGRAY, false);
-        sub.setPadding(0, 0, 0, dp(14));
+        TextView sub = text("İkinci hafızan • profilin, rutinlerin ve 6 aylık geçmişin", simpleMode ? 18 : 15, Color.DKGRAY, false);
+        sub.setPadding(0, 0, 0, dp(12));
         content.addView(sub);
 
+        addProfileCard();
         addSmartCard();
         addProgress();
         addQuickActions();
-        addModeActions();
         addSection("BUGÜN");
         addTasks();
         Button add = primary("＋ Yeni rutin ekle");
         add.setOnClickListener(v -> openTaskEditor(null));
         content.addView(add, margin(dp(8)));
 
-        if (!simpleMode) {
-            addSection("SON KAYITLAR");
-            addHistory();
-            addSupportActions();
-        }
+        addSection("SON KAYITLAR");
+        addHistory();
+        if (!simpleMode) addSupportActions();
+    }
+
+    private void addProfileCard() {
+        LinearLayout box = card(Color.WHITE, Color.rgb(203, 221, 230));
+        box.addView(text("PROFİLİM", 13, C_TEAL, true));
+        TextView summary = text(ProfileEngine.summary(this), simpleMode ? 18 : 15, C_NAVY, true);
+        summary.setPadding(0, dp(7), 0, dp(9));
+        box.addView(summary);
+
+        LinearLayout row = row();
+        Button profile = secondary("👤 Profil ayarları");
+        Button archive = secondary("🗓 6 aylık arşiv");
+        row.addView(profile, weight()); row.addView(archive, weight());
+        box.addView(row);
+        profile.setOnClickListener(v -> {
+            Intent i = new Intent(this, ProfileActivity.class);
+            i.setAction(ProfileActivity.ACTION_EDIT);
+            startActivity(i);
+        });
+        archive.setOnClickListener(v -> startActivity(new Intent(this, ArchiveActivity.class)));
+
+        Button simple = secondary(simpleMode ? "↩ Normal görünüme dön" : "👓 Sade / büyük yazı görünümü");
+        simple.setOnClickListener(v -> {
+            simpleMode = !simpleMode;
+            uiPrefs().edit().putBoolean("simple", simpleMode).apply();
+            render();
+        });
+        box.addView(simple, margin(dp(5)));
+        content.addView(box, margin(dp(7)));
     }
 
     private void addSmartCard() {
         LinearLayout box = card(Color.WHITE, C_TEAL);
-        TextView label = text("ŞİMDİ NE ÖNEMLİ?", 13, C_TEAL, true);
-        box.addView(label);
+        box.addView(text("ŞİMDİ NE ÖNEMLİ?", 13, C_TEAL, true));
         TextView smart = text(MemoryStore.smartNow(this), simpleMode ? 25 : 21, C_NAVY, true);
         smart.setPadding(0, dp(8), 0, dp(10));
         box.addView(smart);
         Button b = primary("Bana sıradakini söyle");
-        b.setOnClickListener(v -> {
-            String a = MemoryStore.smartNow(this);
-            showAnswer("Şimdi ne yapmalıyım?", a);
-        });
+        b.setOnClickListener(v -> showAnswer("Şimdi ne yapmalıyım?", MemoryStore.smartNow(this)));
         box.addView(b);
-        content.addView(box, margin(dp(10)));
+        content.addView(box, margin(dp(8)));
     }
 
     private void addProgress() {
         int[] p = MemoryStore.progressToday(this);
-        LinearLayout row = card(Color.rgb(232, 247, 243), Color.rgb(194, 233, 223));
-        TextView t = text("Bugün  " + p[0] + " / " + p[1] + " tamamlandı", simpleMode ? 20 : 16, C_NAVY, true);
-        row.addView(t);
-        content.addView(row, margin(dp(6)));
+        LinearLayout box = card(Color.rgb(232, 247, 243), Color.rgb(194, 233, 223));
+        box.addView(text("Bugün  " + p[0] + " / " + p[1] + " tamamlandı", simpleMode ? 20 : 16, C_NAVY, true));
+        content.addView(box, margin(dp(5)));
     }
 
     private void addQuickActions() {
@@ -149,22 +179,6 @@ public class MainActivity extends Activity {
         exit.setOnClickListener(v -> exitChecklist());
         voice.setOnClickListener(v -> startVoice());
         content.addView(r2);
-    }
-
-    private void addModeActions() {
-        LinearLayout r = row();
-        Button mom = small("👩‍👧 Anne modu");
-        Button busy = small("⚡ Yoğun gün");
-        Button simple = small(simpleMode ? "↩ Normal görünüm" : "👓 Sade mod");
-        r.addView(mom, weight()); r.addView(busy, weight()); r.addView(simple, weight());
-        mom.setOnClickListener(v -> enableMomMode());
-        busy.setOnClickListener(v -> enableBusyMode());
-        simple.setOnClickListener(v -> {
-            simpleMode = !simpleMode;
-            uiPrefs().edit().putBoolean("simple", simpleMode).apply();
-            render();
-        });
-        content.addView(r);
     }
 
     private void addTasks() {
@@ -199,7 +213,7 @@ public class MainActivity extends Activity {
         last.setOnClickListener(v -> showLast(t));
         box.setOnLongClickListener(v -> { taskMenu(t); return true; });
         n.setOnClickListener(v -> openTaskEditor(t));
-        content.addView(box, margin(dp(7)));
+        content.addView(box, margin(dp(6)));
     }
 
     private void markTask(JSONObject t) {
@@ -218,12 +232,15 @@ public class MainActivity extends Activity {
     }
 
     private void doMark(JSONObject t) {
-        MemoryStore.markDone(this, t.optString("id"), "app");
-        JSONObject fresh = MemoryStore.findTaskById(this, t.optString("id"));
-        ReminderScheduler.scheduleTask(this, fresh);
-        String msg = t.optString("name") + " kaydedildi. Saat " + MemoryStore.formatTime(System.currentTimeMillis());
-        Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
-        speak(msg);
+        if (MemoryStore.markDone(this, t.optString("id"), "app")) {
+            JSONObject fresh = MemoryStore.findTaskById(this, t.optString("id"));
+            long ts = fresh == null ? System.currentTimeMillis() : fresh.optLong("lastDone", System.currentTimeMillis());
+            ArchiveStore.record(this, t.optString("id"), t.optString("name"), ts, "app");
+            ReminderScheduler.scheduleTask(this, fresh);
+            String msg = t.optString("name") + " kaydedildi. Saat " + MemoryStore.formatTime(ts);
+            Toast.makeText(this, msg, Toast.LENGTH_LONG).show();
+            speak(msg);
+        }
         render();
     }
 
@@ -231,21 +248,31 @@ public class MainActivity extends Activity {
         JSONObject fresh = MemoryStore.findTaskById(this, t.optString("id"));
         long ts = fresh == null ? 0L : fresh.optLong("lastDone", 0L);
         String m = ts <= 0 ? "Henüz kayıt yok." : "En son:\n" + MemoryStore.formatDateTime(ts) + "\n\n" + MemoryStore.answerDidI(this, t.optString("name"));
-        new AlertDialog.Builder(this).setTitle(t.optString("name")).setMessage(m)
+        AlertDialog dlg = new AlertDialog.Builder(this).setTitle(t.optString("name")).setMessage(m)
                 .setNegativeButton("Kapat", null)
-                .setNeutralButton(ts > 0 ? "Son kaydı geri al" : "", (d, w) -> {
-                    if (ts > 0) { MemoryStore.undoLatest(this, t.optString("id")); render(); }
-                }).show();
+                .setNeutralButton(ts > 0 ? "Son kaydı geri al" : "", null).create();
+        dlg.setOnShowListener(x -> dlg.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener(v -> {
+            if (ts > 0) {
+                MemoryStore.undoLatest(this, t.optString("id"));
+                ArchiveStore.undoLatest(this, t.optString("id"));
+                dlg.dismiss();
+                render();
+            }
+        }));
+        dlg.show();
     }
 
     private void taskMenu(JSONObject t) {
         String[] items = {"Düzenle", "Son kaydı geri al", "Rutini sil"};
         new AlertDialog.Builder(this).setTitle(t.optString("name")).setItems(items, (d, which) -> {
             if (which == 0) openTaskEditor(t);
-            else if (which == 1) { MemoryStore.undoLatest(this, t.optString("id")); render(); }
-            else new AlertDialog.Builder(this).setTitle("Rutini sil?").setMessage(t.optString("name"))
-                        .setNegativeButton("Vazgeç", null)
-                        .setPositiveButton("Sil", (x, y) -> { MemoryStore.removeTask(this, t.optString("id")); render(); }).show();
+            else if (which == 1) {
+                MemoryStore.undoLatest(this, t.optString("id"));
+                ArchiveStore.undoLatest(this, t.optString("id"));
+                render();
+            } else new AlertDialog.Builder(this).setTitle("Rutini sil?").setMessage(t.optString("name") + "\n\nGeçmiş arşiv kayıtları korunur.")
+                    .setNegativeButton("Vazgeç", null)
+                    .setPositiveButton("Sil", (x, y) -> { MemoryStore.removeTask(this, t.optString("id")); render(); }).show();
         }).show();
     }
 
@@ -367,8 +394,7 @@ public class MainActivity extends Activity {
         EditText item = input("Eşya • ör. gözlük");
         EditText where = input("Nereye koydum? • ör. komodinin üstü");
         f.addView(item); f.addView(where);
-        TextView hint = text("Konumu yazıp KAYDET'e bas. Sadece eşya adını yazıp ARA'ya basarsan son yerini söyler.", 13, Color.DKGRAY, false);
-        f.addView(hint);
+        f.addView(text("Yer yazıp KAYDET'e bas. Sadece eşya adını yazıp ARA'ya basarsan son yerini söyler.", 13, Color.DKGRAY, false));
         AlertDialog dlg = new AlertDialog.Builder(this).setTitle("Eşya hafızası").setView(f)
                 .setNegativeButton("Kapat", null).setNeutralButton("ARA", null).setPositiveButton("KAYDET", null).create();
         dlg.setOnShowListener(x -> {
@@ -402,31 +428,13 @@ public class MainActivity extends Activity {
                 .setPositiveButton("Kontrolü bitir", (d, w) -> {
                     StringBuilder miss = new StringBuilder();
                     for (int i = 0; i < checks.length; i++) if (!checks[i].isChecked()) miss.append("• ").append(labels[i]).append("\n");
-                    if (miss.length() == 0) showAnswer("Hazırsın ✓", "Tüm çıkış kontrolü tamamlandı. Şimdi kafanda tekrar tekrar kontrol etmene gerek yok.");
+                    if (miss.length() == 0) showAnswer("Hazırsın ✓", "Tüm çıkış kontrolü tamamlandı.");
                     else showAnswer("Henüz eksik", "Çıkmadan önce şunlara bak:\n" + miss);
                 }).show();
     }
 
-    private void enableMomMode() {
-        MemoryStore.addIfMissing(this, MemoryStore.task(MemoryStore.newId(), "🎒 Çocuğun çantasını kontrol ettim", 7, 25, false, "1234567", "anne"));
-        MemoryStore.addIfMissing(this, MemoryStore.task(MemoryStore.newId(), "🥤 Çocuğun suyunu hazırladım", 7, 30, false, "1234567", "anne"));
-        MemoryStore.addIfMissing(this, MemoryStore.task(MemoryStore.newId(), "🧥 Hava / giysi kontrolü yaptım", 7, 35, false, "1234567", "anne"));
-        ReminderScheduler.scheduleAll(this);
-        Toast.makeText(this, "Anne modu rutinleri eklendi. İsim ve saatlerini değiştirebilirsin.", Toast.LENGTH_LONG).show();
-        render();
-    }
-
-    private void enableBusyMode() {
-        MemoryStore.addIfMissing(this, MemoryStore.task(MemoryStore.newId(), "📝 Günün 3 önemli işini belirledim", 8, 15, false, "12345", "is"));
-        MemoryStore.addIfMissing(this, MemoryStore.task(MemoryStore.newId(), "🔋 Telefon / cihaz şarjını kontrol ettim", 18, 30, false, "1234567", "is"));
-        MemoryStore.addIfMissing(this, MemoryStore.task(MemoryStore.newId(), "🪪 Kimlik • kart • çanta hazır", 7, 55, false, "12345", "is"));
-        ReminderScheduler.scheduleAll(this);
-        Toast.makeText(this, "Yoğun gün rutinleri eklendi.", Toast.LENGTH_LONG).show();
-        render();
-    }
-
     private void addHistory() {
-        JSONArray e = MemoryStore.getEvents(this);
+        JSONArray e = ArchiveStore.getAll(this);
         if (e.length() == 0) {
             content.addView(text("Henüz yaptım kaydı yok.", 15, Color.GRAY, false)); return;
         }
@@ -439,6 +447,9 @@ public class MainActivity extends Activity {
             row.addView(text(MemoryStore.formatDateTime(x.optLong("ts")), 13, Color.DKGRAY, false));
             content.addView(row, margin(dp(4)));
         }
+        Button all = secondary("🗓 Takvimde tüm geçmişi aç");
+        all.setOnClickListener(v -> startActivity(new Intent(this, ArchiveActivity.class)));
+        content.addView(all, margin(dp(5)));
     }
 
     private void addSupportActions() {
@@ -449,7 +460,7 @@ public class MainActivity extends Activity {
         share.setOnClickListener(v -> shareDay());
         trusted.setOnClickListener(v -> trustedPerson());
         content.addView(r);
-        TextView privacy = text("🔒 Kayıtlar cihazda tutulur. Uygulama ilaç dozu kararı vermez; yalnızca senin yaptım kayıtlarını ve rutinlerini hatırlar.", 12, Color.GRAY, false);
+        TextView privacy = text("🔒 Profil, rutin, eşya hafızası ve arşiv kayıtları cihazda tutulur. Uygulama ilaç dozu kararı vermez.", 12, Color.GRAY, false);
         privacy.setPadding(dp(4), dp(16), dp(4), 0);
         content.addView(privacy);
     }
@@ -528,10 +539,6 @@ public class MainActivity extends Activity {
     private Button secondary(String s) {
         Button b = new Button(this); b.setText(s); b.setTextSize(simpleMode ? 17 : 14); b.setTextColor(C_NAVY); b.setAllCaps(false); b.setMinHeight(dp(50));
         GradientDrawable g = new GradientDrawable(); g.setColor(Color.WHITE); g.setCornerRadius(dp(14)); g.setStroke(dp(1), Color.rgb(209, 222, 228)); b.setBackground(g); return b;
-    }
-
-    private Button small(String s) {
-        Button b = secondary(s); b.setTextSize(simpleMode ? 15 : 12); b.setMinHeight(dp(46)); return b;
     }
 
     private LinearLayout.LayoutParams weight() {
