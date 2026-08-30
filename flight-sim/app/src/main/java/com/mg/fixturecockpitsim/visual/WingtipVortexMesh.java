@@ -4,8 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * AVM-13.8 lightweight wingtip-vortex visual mesh.
- * Generic aerodynamic visualization only: two translucent helical ribbons trail from the wing tips.
+ * AVM-14.1 aerodynamic-effects buffer.
+ * Keeps the translucent wingtip vortices and also appends the advanced airframe
+ * detail overlay so v72 remains the untouched reference mesh.
  */
 public final class WingtipVortexMesh {
     public static final float PART_WINGTIP_VORTEX=40f;
@@ -17,9 +18,16 @@ public final class WingtipVortexMesh {
         WingtipVortexMesh b=new WingtipVortexMesh();
         b.vortex(-1f);
         b.vortex(1f);
-        float[] data=new float[b.out.size()];
-        for(int i=0;i<data.length;i++)data[i]=b.out.get(i);
-        return data;
+        float[] vortex=new float[b.out.size()];
+        for(int i=0;i<vortex.length;i++)vortex[i]=b.out.get(i);
+        return concat(vortex,AdvancedAirframeOverlay.build());
+    }
+
+    private static float[] concat(float[] a,float[] b){
+        float[] out=new float[a.length+b.length];
+        System.arraycopy(a,0,out,0,a.length);
+        System.arraycopy(b,0,out,a.length,b.length);
+        return out;
     }
 
     private void vortex(float side){
