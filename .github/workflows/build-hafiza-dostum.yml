@@ -1,4 +1,4 @@
-name: Build Hafiza Dostum v4.2 APK
+name: Build Hafiza Dostum 5.0 Play Store
 
 on:
   push:
@@ -21,20 +21,24 @@ jobs:
           java-version: '17'
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
-      - name: Install Android platform
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Install Android 16 platform
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Build debug APK
-        run: gradle --no-daemon -p hafiza-dostum :app:assembleDebug --stacktrace
-      - name: Rename APK
-        run: cp hafiza-dostum/app/build/outputs/apk/debug/app-debug.apk HafizaDostum-v4.2-Profile-Archive.apk
-      - name: Upload APK
+      - name: Build debug and release packages
+        run: gradle --no-daemon -p hafiza-dostum :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
+      - name: Collect packages
+        run: |
+          mkdir -p out
+          cp hafiza-dostum/app/build/outputs/apk/debug/app-debug.apk out/HafizaDostum-5.0-debug.apk
+          cp hafiza-dostum/app/build/outputs/apk/release/app-release-unsigned.apk out/HafizaDostum-5.0-release-unsigned.apk
+          cp hafiza-dostum/app/build/outputs/bundle/release/app-release.aab out/HafizaDostum-5.0-release-unsigned.aab
+      - name: Upload Play Store build outputs
         uses: actions/upload-artifact@v4
         with:
-          name: HafizaDostum-v4.2-Profile-Archive
-          path: HafizaDostum-v4.2-Profile-Archive.apk
+          name: HafizaDostum-5.0-PlayStore
+          path: out/*
           if-no-files-found: error
           retention-days: 30
