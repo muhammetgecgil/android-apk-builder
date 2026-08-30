@@ -1,4 +1,4 @@
-name: Build Hafiza Dostum v4 APK
+name: Build Hafiza Dostum v4.1 APK
 
 on:
   push:
@@ -30,11 +30,11 @@ jobs:
       - name: Build debug APK
         run: gradle --no-daemon -p hafiza-dostum :app:assembleDebug --stacktrace
       - name: Rename APK
-        run: cp hafiza-dostum/app/build/outputs/apk/debug/app-debug.apk HafizaDostum-v4.0.apk
+        run: cp hafiza-dostum/app/build/outputs/apk/debug/app-debug.apk HafizaDostum-v4.1-AdaptiveProfiles.apk
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: HafizaDostum-v4.0
-          path: HafizaDostum-v4.0.apk
+          name: HafizaDostum-v4.1-AdaptiveProfiles
+          path: HafizaDostum-v4.1-AdaptiveProfiles.apk
           if-no-files-found: error
           retention-days: 30
