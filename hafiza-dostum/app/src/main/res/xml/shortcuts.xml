@@ -3,12 +3,23 @@
     <shortcut
         android:shortcutId="edit_profile"
         android:enabled="true"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@mipmap/ic_launcher"
         android:shortcutShortLabel="@string/profile_short"
         android:shortcutLongLabel="@string/profile_long">
         <intent
             android:action="com.mg.hafizadostum.v4.EDIT_PROFILE"
-            android:targetPackage="com.mg.hafizadostum.v42"
+            android:targetPackage="com.mg.hafizadostum.app"
             android:targetClass="com.mg.hafizadostum.v4.ProfileActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="app_settings"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/settings_short"
+        android:shortcutLongLabel="@string/settings_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.mg.hafizadostum.app"
+            android:targetClass="com.mg.hafizadostum.v4.SettingsActivity" />
     </shortcut>
 </shortcuts>
