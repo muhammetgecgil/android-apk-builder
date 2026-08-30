@@ -32,7 +32,10 @@ public class ReminderReceiver extends BroadcastReceiver {
                         Toast.LENGTH_LONG).show();
                 return;
             }
-            MemoryStore.markDone(context, id, "notification");
+            long now = System.currentTimeMillis();
+            if (MemoryStore.markDone(context, id, "notification")) {
+                ArchiveStore.record(context, id, task.optString("name"), now, "notification");
+            }
             cancel(context, id);
             JSONObject fresh = MemoryStore.findTaskById(context, id);
             ReminderScheduler.scheduleTask(context, fresh == null ? task : fresh);
