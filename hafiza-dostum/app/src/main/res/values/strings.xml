@@ -3,4 +3,6 @@
     <string name="app_name">Hafıza Dostum</string>
     <string name="profile_short">Profil / Meslek</string>
     <string name="profile_long">Meslek ve yaşam rollerini değiştir</string>
+    <string name="settings_short">Ayarlar</string>
+    <string name="settings_long">Yedekleme, gizlilik ve uygulama ayarları</string>
 </resources>
