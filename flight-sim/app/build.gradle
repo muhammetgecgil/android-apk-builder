@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 67
-        versionName '24.5-avm13.5-realistic-landing-gear'
+        versionCode 68
+        versionName '24.6-avm13.6-premium-aircraft-realism'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
