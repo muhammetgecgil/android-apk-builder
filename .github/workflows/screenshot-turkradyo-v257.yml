@@ -45,28 +45,34 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
-          target: google_apis
+          target: aosp_atd
           arch: x86_64
           profile: pixel_6
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -no-snapshot
           script: |
             adb install -r turkradyo/app/build/outputs/apk/debug/app-debug.apk
+            adb shell pm grant com.muhammetgecgil.turkradyo android.permission.POST_NOTIFICATIONS || true
+            adb shell settings put global window_animation_scale 0
+            adb shell settings put global transition_animation_scale 0
+            adb shell settings put global animator_duration_scale 0
             adb shell am force-stop com.muhammetgecgil.turkradyo
-            adb shell am start -n com.muhammetgecgil.turkradyo/.MainActivity
-            sleep 10
+            adb shell am start -W -n com.muhammetgecgil.turkradyo/.MainActivity
+            sleep 12
+            adb shell input keyevent 4 || true
+            sleep 2
             adb shell screencap -p /sdcard/turkradyo-top.png
             adb pull /sdcard/turkradyo-top.png turkradyo-top.png
-            adb shell input swipe 540 1800 540 500 900
-            sleep 3
-            adb shell input swipe 540 1800 540 700 700
+            adb shell input swipe 540 1900 540 650 900
+            sleep 2
+            adb shell input swipe 540 1900 540 650 900
             sleep 3
             adb shell screencap -p /sdcard/turkradyo-cards.png
             adb pull /sdcard/turkradyo-cards.png turkradyo-cards.png
       - name: Upload screenshots
         uses: actions/upload-artifact@v4
         with:
-          name: TurkRadyo-v2.5.7-Emulator-Screenshots
+          name: TurkRadyo-v2.5.7-Emulator-Screenshots-Clean
           path: |
             turkradyo-top.png
             turkradyo-cards.png
