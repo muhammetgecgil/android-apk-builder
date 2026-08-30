@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 64
-        versionName '24.2-avm13.2-takeoff-optical-flow'
+        versionCode 65
+        versionName '24.3-avm13.3-natural-water-reflections'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
