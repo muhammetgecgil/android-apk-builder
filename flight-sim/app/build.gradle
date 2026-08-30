@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 63
-        versionName '24.1-avm13.1-fast-auto-landing-scenic-worlds'
+        versionCode 64
+        versionName '24.2-avm13.2-takeoff-optical-flow'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
