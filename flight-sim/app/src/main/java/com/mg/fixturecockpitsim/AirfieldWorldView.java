@@ -9,7 +9,7 @@ import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.view.View;
 
-/** AVM-13.8 world: stronger speed-linked taxi/runway flow, natural scenery and approach perspective. */
+/** AVM-13.9 world: stronger speed-linked taxi/runway flow, flowing runway edge lines, natural scenery and approach perspective. */
 public final class AirfieldWorldView extends View {
     private static final float RUNWAY_VISIBLE_ALT_M=1000f;
     private static final float RUNWAY_VISIBLE_XTRACK_M=6500f;
@@ -137,7 +137,6 @@ public final class AirfieldWorldView extends View {
         stroke.setColor(0xffffd448);stroke.setStrokeWidth(Math.max(2f,w*.0032f));c.drawPath(path,stroke);
         stroke.setColor(0x88fff0a0);stroke.setStrokeWidth(Math.max(1f,w*.0011f));c.drawPath(path,stroke);
 
-        // Green inset centreline lights add a direct speed cue without breaking the real continuous yellow line.
         for(int i=0;i<24;i++){
             float q=(i/24f+groundFlow*1.26f)%1f,z=q*q,y=lerp(fy,ny,z),cx=lerp(farCx,nearCx,z),r=.8f+3.2f*z;
             p.setColor(z>.52f?0xff8dff9d:0xff58c879);c.drawCircle(cx,y,r,p);
@@ -156,11 +155,31 @@ public final class AirfieldWorldView extends View {
     private void drawRunway(Canvas c,int w,int h,float hz,boolean ground){
         if(!ground&&!runwayVisible())return;float headingErr=angleError(headingDeg,270f),lateralPixels=clamp(crossTrackM/44f,-2.5f,2.5f)*w*.235f,cx=w*.5f-lateralPixels+clamp(headingErr/32f,-1,1)*w*.095f;float farHalf,nearHalf,fy,ny;
         if(ground){farHalf=w*.032f;nearHalf=w*.44f;fy=hz+h*.015f;ny=h*.999f;}else{float a=approach01(),eased=(float)Math.pow(a,.82);nearHalf=w*lerp(.018f,.405f,eased);farHalf=w*lerp(.009f,.040f,a);fy=lerp(hz+h*.018f,hz+h*.050f,a);ny=lerp(hz+h*.10f,h*.985f,(float)Math.pow(a,.74));if(!isApproachScene()){nearHalf*=.58f;farHalf*=.72f;ny=lerp(hz+h*.09f,h*.55f,clamp(1-altitudeM/RUNWAY_VISIBLE_ALT_M,0,1));}}
-        quad(c,cx-farHalf*1.52f,fy,cx+farHalf*1.52f,fy,cx+nearHalf*1.20f,ny,cx-nearHalf*1.20f,ny,0xff858982);path.reset();path.moveTo(cx-farHalf,fy);path.lineTo(cx+farHalf,fy);path.lineTo(cx+nearHalf,ny);path.lineTo(cx-nearHalf,ny);path.close();p.setShader(new LinearGradient(cx,fy,cx,ny,new int[]{0xff484c4e,0xff35393b,0xff282d2f},null,Shader.TileMode.CLAMP));c.drawPath(path,p);p.setShader(null);drawRunwaySurfaceFlow(c,w,h,cx,fy,ny,farHalf,nearHalf,ground);stroke.setColor(0xfff5f4ed);stroke.setStrokeWidth(Math.max(2,w*.0026f));c.drawLine(cx-farHalf,fy,cx-nearHalf,ny,stroke);c.drawLine(cx+farHalf,fy,cx+nearHalf,ny,stroke);
+        quad(c,cx-farHalf*1.52f,fy,cx+farHalf*1.52f,fy,cx+nearHalf*1.20f,ny,cx-nearHalf*1.20f,ny,0xff858982);path.reset();path.moveTo(cx-farHalf,fy);path.lineTo(cx+farHalf,fy);path.lineTo(cx+nearHalf,ny);path.lineTo(cx-nearHalf,ny);path.close();p.setShader(new LinearGradient(cx,fy,cx,ny,new int[]{0xff484c4e,0xff35393b,0xff282d2f},null,Shader.TileMode.CLAMP));c.drawPath(path,p);p.setShader(null);drawRunwaySurfaceFlow(c,w,h,cx,fy,ny,farHalf,nearHalf,ground);stroke.setColor(0xfff5f4ed);stroke.setStrokeWidth(Math.max(2,w*.0026f));c.drawLine(cx-farHalf,fy,cx-nearHalf,ny,stroke);c.drawLine(cx+farHalf,fy,cx+nearHalf,ny,stroke);drawRunwayEdgeFlow(c,w,h,cx,fy,ny,farHalf,nearHalf,ground);
         float speed01=clamp(speedMps/88f,0f,1f);
         for(int i=0;i<26;i++){float q=(i/26f+runwayFlow*1.10f)%1f,z=q*q,y=lerp(fy,ny,z),dash=lerp(3f,64f,z)*(1f+1.05f*speed01),gap=lerp(1f,14f,z);stroke.setColor(0xfff6f5ef);stroke.setStrokeWidth(1.5f+11*z);c.drawLine(cx,y,cx,Math.min(ny,y+dash+gap),stroke);}
         for(int i=0;i<34;i++){float q=(i/34f+runwayFlow*1.03f)%1f,z=q*q,y=lerp(fy,ny,z),hh=lerp(farHalf,nearHalf,z),r=1+5.3f*z;p.setColor(i>30?0xffffd465:0xfff5f0d9);c.drawCircle(cx-hh,y,r,p);c.drawCircle(cx+hh,y,r,p);if(ground&&speed01>.20f&&z>.42f){stroke.setColor(0x6afff8d9);stroke.setStrokeWidth(Math.max(1f,r*.55f));float blur=h*.026f*z*(.35f+.85f*speed01);c.drawLine(cx-hh,y,cx-hh,y+blur,stroke);c.drawLine(cx+hh,y,cx+hh,y+blur,stroke);}}
         for(int set=0;set<4;set++){float z=.30f+set*.085f,y=lerp(fy,ny,z*z),hh=lerp(farHalf,nearHalf,z),bw=Math.max(2,hh*.075f),bh=4+19*z;p.setColor(0xfff6f5ef);c.drawRect(cx-hh*.54f-bw,y,cx-hh*.54f+bw,y+bh,p);c.drawRect(cx+hh*.54f-bw,y,cx+hh*.54f+bw,y+bh,p);}if(!ground&&isApproachScene())drawApproachGuidance(c,w,h,cx,fy,ny,farHalf,nearHalf,headingErr);if(ground&&alongTrackM<115f){float z=clamp(.48f+alongTrackM/260f,0,1),y=lerp(fy,ny,z*z);p.setColor(0xfffaf9f4);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(Math.max(30,w*(.038f+.02f*z)));c.drawText("27",cx,Math.min(ny-6,y+54),p);p.setTextAlign(Paint.Align.LEFT);}
+    }
+
+    private void drawRunwayEdgeFlow(Canvas c,int w,int h,float cx,float fy,float ny,float farHalf,float nearHalf,boolean ground){
+        float lowAlt=ground?1f:clamp(1f-altitudeM/180f,0f,1f),speed01=clamp(speedMps/90f,0f,1f)*lowAlt;
+        if(speed01<.025f)return;
+        for(int i=0;i<28;i++){
+            float q=(i/28f+runwayFlow*1.22f)%1f,z=q*q;
+            float segQ=Math.max(0f,q-(.018f+.070f*speed01*(.30f+.70f*q))),segZ=segQ*segQ;
+            float y0=lerp(fy,ny,segZ),y1=lerp(fy,ny,z),half0=lerp(farHalf,nearHalf,segZ),half1=lerp(farHalf,nearHalf,z);
+            float xL0=cx-half0,xL1=cx-half1,xR0=cx+half0,xR1=cx+half1;
+            int alpha=(int)clamp(70f+170f*z+45f*speed01,75f,255f);
+            stroke.setColor((alpha<<24)|0x00fffef7);stroke.setStrokeWidth(Math.max(1f,w*(.0007f+.0032f*z)*(.55f+.70f*speed01)));
+            c.drawLine(xL0,y0,xL1,y1,stroke);c.drawLine(xR0,y0,xR1,y1,stroke);
+            if(speed01>.28f&&z>.35f){
+                float trailQ=Math.max(0f,segQ-(.020f+.050f*speed01)),trailZ=trailQ*trailQ;
+                float yt=lerp(fy,ny,trailZ),ht=lerp(farHalf,nearHalf,trailZ);
+                int ta=(int)clamp(25f+70f*z*speed01,25f,105f);stroke.setColor((ta<<24)|0x00ffffff);stroke.setStrokeWidth(Math.max(1f,w*(.0010f+.0040f*z)));
+                c.drawLine(cx-ht,yt,xL0,y0,stroke);c.drawLine(cx+ht,yt,xR0,y0,stroke);
+            }
+        }
     }
 
     private void drawRunwaySurfaceFlow(Canvas c,int w,int h,float cx,float fy,float ny,float farHalf,float nearHalf,boolean ground){
