@@ -14,28 +14,44 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with: { distribution: temurin, java-version: '17' }
       - uses: android-actions/setup-android@v3
       - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.13' }
-      - name: Unit tests (non-blocking during AVM-10 visual migration)
+      - name: Unit tests (non-blocking during AVM-11 migration)
         continue-on-error: true
         working-directory: flight-sim
         run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
-      - working-directory: flight-sim
+      - name: Build debug APK
+        working-directory: flight-sim
         run: gradle --no-daemon :app:assembleDebug --stacktrace
-      - name: Verify package
+      - name: Build unsigned release APK and AAB
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:assembleRelease :app:bundleRelease --stacktrace
+      - name: Verify debug package and release outputs
         run: |
           set -euxo pipefail
-          APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
-          test -s "$APK"
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='46'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "application-label:'Aircraft Simulator 3D'"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.fixturecockpitsim.dev'"
-      - run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk "Aircraft Simulator 3D.apk"
+          DBG=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          REL=flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk
+          AAB=flight-sim/app/build/outputs/bundle/release/app-release.aab
+          test -s "$DBG"
+          test -s "$REL"
+          test -s "$AAB"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$DBG"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "versionCode='47'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "targetSdkVersion:'36'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "application-label:'Aircraft Simulator 3D'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "package: name='com.mg.fixturecockpitsim.dev'"
+      - name: Prepare artifacts
+        run: |
+          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk "Aircraft Simulator 3D - Test.apk"
+          cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk "Aircraft Simulator 3D - Release Unsigned.apk"
+          cp flight-sim/app/build/outputs/bundle/release/app-release.aab "Aircraft Simulator 3D - Play Unsigned.aab"
       - uses: actions/upload-artifact@v4
-        with: { name: Aircraft-Simulator-3D-APK, path: "Aircraft Simulator 3D.apk", if-no-files-found: error, retention-days: 30 }
+        with: { name: Aircraft-Simulator-3D-Test-APK, path: "Aircraft Simulator 3D - Test.apk", if-no-files-found: error, retention-days: 30 }
+      - uses: actions/upload-artifact@v4
+        with: { name: Aircraft-Simulator-3D-Release-Unsigned, path: "Aircraft Simulator 3D - Release Unsigned.apk", if-no-files-found: error, retention-days: 30 }
+      - uses: actions/upload-artifact@v4
+        with: { name: Aircraft-Simulator-3D-Play-AAB-Unsigned, path: "Aircraft Simulator 3D - Play Unsigned.aab", if-no-files-found: error, retention-days: 30 }
