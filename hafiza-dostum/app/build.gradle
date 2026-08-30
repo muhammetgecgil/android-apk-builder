@@ -1,0 +1,28 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.mg.hafizadostum.v4'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.mg.hafizadostum.v4'
+        minSdk 23
+        targetSdk 35
+        versionCode 40
+        versionName '4.0'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
