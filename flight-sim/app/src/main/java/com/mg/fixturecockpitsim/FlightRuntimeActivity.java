@@ -42,7 +42,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-/** AVM-12.4 runtime: post-hangar start, orientation-aware IMU manual flight, AUTO and optional BT takeover. */
+/** AVM-12.5 runtime: runway auto-capture, corrected orientation-aware IMU and dynamic weather layer. */
 public final class FlightRuntimeActivity extends Activity implements SensorEventListener {
     private static final UUID SIM_UUID=UUID.fromString("6d9b6c72-4d47-4d8e-9b58-b5e7465b4a22");
     private static final int REQ_BT=72;
@@ -73,14 +73,15 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
     private volatile int imuDisplayRotation=Surface.ROTATION_0;
 
     private long lastSimNs,lastTelemetryMs;
-    private boolean demoMode=true,localManual,crashed,freeNavSeeded,hangarDeparted=true;
+    private boolean demoMode=true,localManual,crashed,freeNavSeeded,hangarDeparted=true,autoRecovery;
     private String crashReason="";
-    private double runwayCrossTrackM,runwayAlongTrackM,crashRollTarget;
+    private double runwayCrossTrackM,runwayAlongTrackM,crashRollTarget,autoRecoveryStableSec;
     private double localThrottle=.10,localBrake,localYawHold;
     private boolean localGearDown=true;
     private int cameraMode=Jet3DView.CAMERA_CHASE;
 
     private AirfieldWorldView world;
+    private WeatherEffectsView weather;
     private Jet3DView jet;
     private TextView hud,crashBanner;
     private LinearLayout bottomPanel;
@@ -108,7 +109,10 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         mission.reset(state);controls.gearDown=true;hangarDeparted=true;
 
         FrameLayout root=new FrameLayout(this);root.setBackgroundColor(Color.rgb(3,9,13));
-        world=new AirfieldWorldView(this);jet=new Jet3DView(this);root.addView(world,new FrameLayout.LayoutParams(-1,-1));root.addView(jet,new FrameLayout.LayoutParams(-1,-1));
+        world=new AirfieldWorldView(this);weather=new WeatherEffectsView(this);jet=new Jet3DView(this);
+        root.addView(world,new FrameLayout.LayoutParams(-1,-1));
+        root.addView(weather,new FrameLayout.LayoutParams(-1,-1));
+        root.addView(jet,new FrameLayout.LayoutParams(-1,-1));
         hud=new TextView(this);hud.setTextColor(Color.WHITE);hud.setTextSize(13);hud.setPadding(dp(12),dp(8),dp(12),dp(8));hud.setBackgroundColor(0x72000000);FrameLayout.LayoutParams hp=new FrameLayout.LayoutParams(-2,-2,Gravity.TOP|Gravity.LEFT);hp.setMargins(dp(10),dp(10),0,0);root.addView(hud,hp);
         Button back=button("GERİ");FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(dp(78),dp(43),Gravity.TOP|Gravity.RIGHT);bp.setMargins(0,dp(8),dp(10),0);root.addView(back,bp);back.setOnClickListener(v->finish());
         resetButton=button("RESET");FrameLayout.LayoutParams rp=new FrameLayout.LayoutParams(dp(78),dp(43),Gravity.TOP|Gravity.RIGHT);rp.setMargins(0,dp(56),dp(10),0);root.addView(resetButton,rp);resetButton.setVisibility(View.GONE);resetButton.setOnClickListener(v->resetSimulation());
@@ -116,8 +120,8 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         buildBottomPanel(root);setContentView(root);
         jet.setCameraMode(cameraMode);jet.setSimulationState(1,0,0,1,true);jet.setFlightMotion(0,0,true);jet.setControlInputs(0,0,0,0);
         renderState();handler.post(simLoop);
-        String imuText=rotationSensor==null?"IMU sensörü bulunamadı — AUTO/BT kullanılabilir.":"MANUEL IMU'da o anki telefon tutuşu nötr alınır; yatay/dikey ekran yönü otomatik eşlenir.";
-        Toast.makeText(this,"Uçuş hangar sonrası taksiden başlar. "+imuText,Toast.LENGTH_LONG).show();
+        String imuText=rotationSensor==null?"IMU sensörü bulunamadı — AUTO/BT kullanılabilir.":"MANUEL IMU: kendine yatır = PITCH UP, ileri yatır = PITCH DOWN; sağ/sol yatış = aynı yön roll.";
+        Toast.makeText(this,"Hangar atlanır. MANUEL→AUTO geçişinde uçak pist merkezini yeniden yakalar. "+imuText,Toast.LENGTH_LONG).show();
     }
 
     private void buildBottomPanel(FrameLayout root){
@@ -141,17 +145,20 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         if(rotationSensor==null){Toast.makeText(this,"Bu cihazda uygun yönelim sensörü yok.",Toast.LENGTH_LONG).show();return;}
         localManual=!localManual;
         if(localManual){
-            seedFreeNavigation();localThrottle=Math.max(.08,state.throttle);localGearDown=state.gearPosition>.5;localBrake=0;localYawHold=0;
+            autoRecovery=false;autoRecoveryStableSec=0;seedFreeNavigation();localThrottle=Math.max(.08,state.throttle);localGearDown=state.gearPosition>.5;localBrake=0;localYawHold=0;
             requestImuCenter();
             Toast.makeText(this,"LOCAL IMU — bu tutuş nötr. Kendine yatır: PITCH UP • sağa yatır: ROLL RIGHT",Toast.LENGTH_LONG).show();
-        }else{localBrake=0;localYawHold=0;imuRoll=imuPitch=imuYaw=0;Toast.makeText(this,"DEMO AUTO yeniden devrede",Toast.LENGTH_SHORT).show();}
+        }else{
+            localBrake=0;localYawHold=0;imuRoll=imuPitch=imuYaw=0;seedFreeNavigation();autoRecovery=true;autoRecoveryStableSec=0;
+            Toast.makeText(this,"AUTO RUNWAY CAPTURE — merkez hat yakalanıyor",Toast.LENGTH_LONG).show();
+        }
         updateButtons();
     }
 
     private void toggleLink(){
-        if(linkArmed||connected){cancelLink();Toast.makeText(this,"LINK kapatıldı — AUTO kullanıma hazır",Toast.LENGTH_SHORT).show();return;}
+        if(linkArmed||connected){cancelLink();Toast.makeText(this,"LINK kapatıldı — AUTO runway capture",Toast.LENGTH_SHORT).show();return;}
         if(localManual){localManual=false;localBrake=0;localYawHold=0;}
-        seedFreeNavigation();linkArmed=true;remoteTakeover=false;updateButtons();requestBtThenStart();Toast.makeText(this,"LINK WAIT — uçak HOLD'da, ikinci telefon bekleniyor",Toast.LENGTH_LONG).show();
+        autoRecovery=false;autoRecoveryStableSec=0;seedFreeNavigation();linkArmed=true;remoteTakeover=false;updateButtons();requestBtThenStart();Toast.makeText(this,"LINK WAIT — uçak HOLD'da, ikinci telefon bekleniyor",Toast.LENGTH_LONG).show();
     }
 
     private void stepSimulation(double dt){
@@ -160,6 +167,7 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         if(remoteTakeover&&connected&&linkArmed){controls.roll=remoteRoll;controls.pitch=remotePitch;controls.yaw=remoteYaw;controls.throttle=remoteThrottle;controls.brake=remoteBrake;controls.gearDown=remoteGearDown;controls.clamp();}
         else if(linkArmed){controls.roll=controls.pitch=controls.yaw=0;controls.throttle=state.onGround?0:.48;controls.brake=state.onGround?1:0;controls.gearDown=state.onGround||state.gearPosition>.5;controls.clamp();}
         else if(localManual){controls.roll=imuRoll;controls.pitch=imuPitch;controls.yaw=localYawHold!=0?localYawHold:imuYaw;controls.throttle=localThrottle;controls.brake=localBrake;controls.gearDown=localGearDown;controls.clamp();}
+        else if(autoRecovery&&demoMode){applyAutoRunwayRecovery(dt);}
         else if(demoMode){mission.update(state,controls,dt);hangarDeparted=true;}
         else{controls.roll=controls.pitch=controls.yaw=0;controls.throttle=0;controls.brake=1;controls.gearDown=true;controls.clamp();}
         dynamics.step(state,controls,dt);
@@ -167,6 +175,48 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         hangarDeparted=true;
         if(freeNavSeeded)applyOffRunwayDrag(dt,remoteTakeover&&connected&&linkArmed);
         if(remoteTakeover&&connected&&linkArmed)evaluateRemoteLanding(wasGround);
+    }
+
+    private void applyAutoRunwayRecovery(double dt){
+        seedFreeNavigation();
+        double cross=runwayCrossTrackM;
+        double correction=clampd(cross*.46,-38,38);
+        double targetHeading=RUNWAY_HDG-correction;
+        double headingErr=wrap180(targetHeading-state.headingDeg);
+        AutonomousFlightMission.Phase ph=mission.getPhase();
+        boolean landing=ph==AutonomousFlightMission.Phase.APPROACH||ph==AutonomousFlightMission.Phase.FLARE||ph==AutonomousFlightMission.Phase.ROLLOUT||ph==AutonomousFlightMission.Phase.TAXI_IN;
+        boolean takeoff=ph==AutonomousFlightMission.Phase.TAXI_OUT||ph==AutonomousFlightMission.Phase.RUNWAY_HOLD||ph==AutonomousFlightMission.Phase.TAKEOFF_ROLL||ph==AutonomousFlightMission.Phase.ROTATE_CLIMB;
+
+        controls.brake=0;
+        if(state.onGround){
+            controls.roll=0;controls.pitch=0;controls.gearDown=true;
+            controls.yaw=clampd(headingErr/24.0,-.82,.82);
+            controls.throttle=state.trueAirspeedMps<7?.18:.10;
+            if(state.trueAirspeedMps>11)controls.brake=.18;
+        }else{
+            controls.roll=clampd(headingErr/42.0,-.42,.42);
+            controls.yaw=clampd(headingErr*.018,-.30,.30);
+            if(landing){
+                controls.gearDown=true;
+                controls.pitch=state.altitudeM<40?.045:-.025;
+                controls.throttle=state.altitudeM<55?.34:.42;
+            }else if(takeoff){
+                controls.gearDown=state.altitudeM<55;
+                controls.pitch=state.altitudeM<150?.18:.08;
+                controls.throttle=.84;
+            }else{
+                controls.gearDown=false;
+                controls.pitch=clampd((900-state.altitudeM)/1000.0,-.10,.16);
+                controls.throttle=.64;
+            }
+        }
+        controls.clamp();
+
+        boolean captured=state.onGround
+                ?Math.abs(cross)<2.5&&Math.abs(wrap180(state.headingDeg-RUNWAY_HDG))<4
+                :Math.abs(cross)<8&&Math.abs(wrap180(state.headingDeg-RUNWAY_HDG))<6&&Math.abs(state.rollDeg)<10;
+        if(captured)autoRecoveryStableSec+=dt;else autoRecoveryStableSec=0;
+        if(autoRecoveryStableSec>=1.0){autoRecovery=false;autoRecoveryStableSec=0;Toast.makeText(this,"RUNWAY CAPTURE — DEMO AUTO devam",Toast.LENGTH_SHORT).show();}
     }
 
     private void seedFreeNavigation(){if(freeNavSeeded)return;runwayAlongTrackM=Math.max(14,autoSceneAlong());runwayCrossTrackM=0;freeNavSeeded=true;hangarDeparted=true;}
@@ -180,10 +230,11 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
     }
 
     private void crash(String reason){if(crashed)return;crashed=true;crashReason=reason;crashRollTarget=state.rollDeg>=0?34:-34;remoteThrottle=0;remoteBrake=1;runOnUiThread(()->{crashBanner.setText("AIRCRAFT CRASH\n"+reason);crashBanner.setVisibility(View.VISIBLE);resetButton.setVisibility(View.VISIBLE);});}
-    private void resetSimulation(){crashed=false;crashReason="";runwayCrossTrackM=0;runwayAlongTrackM=14;freeNavSeeded=false;hangarDeparted=true;mission.reset(state);controls.gearDown=true;localManual=false;localThrottle=.10;localBrake=0;localYawHold=0;localGearDown=true;imuRoll=imuPitch=imuYaw=0;imuCenterPending=true;crashBanner.setVisibility(View.GONE);resetButton.setVisibility(View.GONE);if(connected&&linkArmed){seedFreeNavigation();remoteTakeover=true;remoteThrottle=.08f;remoteBrake=1;remoteGearDown=true;}updateButtons();}
+    private void resetSimulation(){crashed=false;crashReason="";runwayCrossTrackM=0;runwayAlongTrackM=14;freeNavSeeded=false;hangarDeparted=true;autoRecovery=false;autoRecoveryStableSec=0;mission.reset(state);controls.gearDown=true;localManual=false;localThrottle=.10;localBrake=0;localYawHold=0;localGearDown=true;imuRoll=imuPitch=imuYaw=0;imuCenterPending=true;crashBanner.setVisibility(View.GONE);resetButton.setVisibility(View.GONE);if(connected&&linkArmed){seedFreeNavigation();remoteTakeover=true;remoteThrottle=.08f;remoteBrake=1;remoteGearDown=true;}updateButtons();}
 
     private String scenePhase(){
         if(crashed)return"CRASH";
+        if(autoRecovery)return state.onGround?"RWY_CAPTURE_GROUND":"RWY_CAPTURE_AIR";
         if(!freeNavSeeded)return demoMode?mission.getPhase().name():"FREE_GROUND";
         if(state.onGround)return Math.abs(runwayCrossTrackM)>31?"REMOTE_OFFRUNWAY":"FREE_GROUND";
         if(state.altitudeM<360&&Math.abs(wrap180(state.headingDeg-RUNWAY_HDG))<75)return"APPROACH_REMOTE";
@@ -196,9 +247,10 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         String phase=scenePhase();double cross=freeNavSeeded?runwayCrossTrackM:0,along=sceneAlong();
         world.setState(state.altitudeM,state.trueAirspeedMps,state.onGround,phase,state.headingDeg,cross,along,crashed,crashReason);
         jet.setTelemetry((float)state.rollDeg,(float)state.pitchDeg,(float)state.headingDeg,(float)state.throttle,50,0,true);jet.setControlInputs((float)controls.pitch,(float)controls.roll,(float)controls.yaw,(float)controls.throttle);jet.setSimulationState((float)state.gearPosition,(float)state.mainStrutCompression01,(float)state.noseStrutCompression01,(float)state.brake01,state.onGround);jet.setFlightMotion((float)state.trueAirspeedMps,(float)state.verticalSpeedMps,state.onGround);jet.setWheelSpeed((float)(state.onGround?state.trueAirspeedMps:0));
-        String mode=crashed?"CRASHED":remoteTakeover&&connected&&linkArmed?"BT REMOTE MASTER":linkArmed?(connected?"LINKED / WAITING V3 DATA":"LINK WAIT / HOLD"):localManual?"LOCAL IMU MANUAL":"DEMO AUTO";
+        String mode=crashed?"CRASHED":remoteTakeover&&connected&&linkArmed?"BT REMOTE MASTER":linkArmed?(connected?"LINKED / WAITING V3 DATA":"LINK WAIT / HOLD"):localManual?"LOCAL IMU MANUAL":autoRecovery?"AUTO RWY CAPTURE":"DEMO AUTO";
         String imu=localManual?String.format(Locale.US,"   IMU R%+.0f%% P%+.0f%%",imuRoll*100,imuPitch*100):"";
-        hud.setText(String.format(Locale.US,"%s   %s%s\nALT %.0f m   VS %.1f m/s   SPD %.0f m/s   HDG %03.0f   ROLL %.0f°   PITCH %.0f°\nTHR %.0f%%   GEAR %.0f%%   BRK %.0f%%   X-TRK %.0f m   %s",mode,phase.replace('_',' '),imu,state.altitudeM,state.verticalSpeedMps,state.trueAirspeedMps,state.headingDeg,state.rollDeg,state.pitchDeg,state.throttle*100,state.gearPosition*100,state.brake01*100,cross,state.onGround?"GROUND":"AIR"));updateButtons();
+        String wx=weather==null?"":weather.getModeLabel();
+        hud.setText(String.format(Locale.US,"%s   %s   WX %s%s\nALT %.0f m   VS %.1f m/s   SPD %.0f m/s   HDG %03.0f   ROLL %.0f°   PITCH %.0f°\nTHR %.0f%%   GEAR %.0f%%   BRK %.0f%%   X-TRK %.0f m   %s",mode,phase.replace('_',' '),wx,imu,state.altitudeM,state.verticalSpeedMps,state.trueAirspeedMps,state.headingDeg,state.rollDeg,state.pitchDeg,state.throttle*100,state.gearPosition*100,state.brake01*100,cross,state.onGround?"GROUND":"AIR"));updateButtons();
     }
 
     private void updateButtons(){if(modeButton==null)return;modeButton.setText(localManual?"OTOMATİK":"MANUEL IMU");linkButton.setText(remoteTakeover&&connected&&linkArmed?"BT MASTER":linkArmed?(connected?"LINKED":"LINK WAIT"):"LINK");brakeButton.setText(localBrake>.5?"BRAKE ●":"BRAKE");gearButton.setText(localGearDown?"GEAR D":"GEAR U");}
@@ -230,7 +282,8 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         float dYaw=wrap180f(rawYawDeg-zeroYawDeg);
 
         float tr=axisCurve(dRoll,38f,2.0f);
-        float tp=axisCurve(dPitch,26f,1.6f);
+        // AVM-12.5: invert the prior pitch mapping. Pulling the top of the phone toward the pilot is nose-up.
+        float tp=-axisCurve(dPitch,26f,1.6f);
         float ty=axisCurve(dYaw,52f,3.0f);
 
         imuRoll=lerp(imuRoll,tr,.24f);
@@ -254,12 +307,12 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
         if(!linkArmed||serverLoopRunning||bt==null)return;
         if(!bt.isEnabled()){startActivity(new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE));Toast.makeText(this,"Bluetooth'u aç; LINK WAIT açık kalacak",Toast.LENGTH_LONG).show();return;}
         serverLoopRunning=true;
-        io.execute(()->{try{while(running&&linkArmed){try{server=bt.listenUsingRfcommWithServiceRecord("AircraftSimulator3D-v56",SIM_UUID);socket=server.accept();if(!running||!linkArmed)break;connected=true;remoteTakeover=false;writer=new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8));BufferedReader r=new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8));runOnUiThread(()->{updateButtons();Toast.makeText(this,"Bluetooth bağlı — kumanda verisi bekleniyor",Toast.LENGTH_SHORT).show();});String line;while(running&&linkArmed&&(line=r.readLine())!=null)parseRemote(line);}catch(Exception ignored){}finally{connected=false;remoteTakeover=false;closeSocketAndServer();runOnUiThread(this::updateButtons);}}}finally{serverLoopRunning=false;}});
+        io.execute(()->{try{while(running&&linkArmed){try{server=bt.listenUsingRfcommWithServiceRecord("AircraftSimulator3D-v57",SIM_UUID);socket=server.accept();if(!running||!linkArmed)break;connected=true;remoteTakeover=false;writer=new BufferedWriter(new OutputStreamWriter(socket.getOutputStream(),StandardCharsets.UTF_8));BufferedReader r=new BufferedReader(new InputStreamReader(socket.getInputStream(),StandardCharsets.UTF_8));runOnUiThread(()->{updateButtons();Toast.makeText(this,"Bluetooth bağlı — kumanda verisi bekleniyor",Toast.LENGTH_SHORT).show();});String line;while(running&&linkArmed&&(line=r.readLine())!=null)parseRemote(line);}catch(Exception ignored){}finally{connected=false;remoteTakeover=false;closeSocketAndServer();runOnUiThread(this::updateButtons);}}}finally{serverLoopRunning=false;}});
     }
 
-    private void parseRemote(String line){String[] a=line.split(",");if(a.length<10||!"V3".equals(a[0])||!linkArmed)return;try{lastRemoteSeq=Integer.parseInt(a[1]);remoteRoll=clamp(Float.parseFloat(a[3]),-1,1);remotePitch=clamp(Float.parseFloat(a[4]),-1,1);remoteYaw=clamp(Float.parseFloat(a[5]),-1,1);remoteThrottle=clamp(Float.parseFloat(a[6]),0,1);remoteBrake=clamp(Float.parseFloat(a[7]),0,1);remoteGearDown=Integer.parseInt(a[8])!=0;remoteTakeover=true;seedFreeNavigation();}catch(Exception ignored){}}
+    private void parseRemote(String line){String[] a=line.split(",");if(a.length<10||!"V3".equals(a[0])||!linkArmed)return;try{lastRemoteSeq=Integer.parseInt(a[1]);remoteRoll=clamp(Float.parseFloat(a[3]),-1,1);remotePitch=clamp(Float.parseFloat(a[4]),-1,1);remoteYaw=clamp(Float.parseFloat(a[5]),-1,1);remoteThrottle=clamp(Float.parseFloat(a[6]),0,1);remoteBrake=clamp(Float.parseFloat(a[7]),0,1);remoteGearDown=Integer.parseInt(a[8])!=0;remoteTakeover=true;autoRecovery=false;seedFreeNavigation();}catch(Exception ignored){}}
     private void sendTelemetry(){BufferedWriter w=writer;if(w==null)return;String msg=String.format(Locale.US,"T3,%d,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%d,%.2f,%d,%.2f\n",lastRemoteSeq,state.altitudeM,state.trueAirspeedMps,state.headingDeg,state.rollDeg,state.pitchDeg,state.verticalSpeedMps,state.onGround?1:0,runwayCrossTrackM,crashed?1:0,state.gearPosition);try{synchronized(writeLock){if(writer!=null){writer.write(msg);writer.flush();}}}catch(Exception ignored){}}
-    private void cancelLink(){linkArmed=false;remoteTakeover=false;connected=false;closeSocketAndServer();updateButtons();}
+    private void cancelLink(){linkArmed=false;remoteTakeover=false;connected=false;closeSocketAndServer();if(demoMode&&!localManual){seedFreeNavigation();autoRecovery=true;autoRecoveryStableSec=0;}updateButtons();}
     private void closeSocketAndServer(){try{if(socket!=null)socket.close();}catch(Exception ignored){}try{if(server!=null)server.close();}catch(Exception ignored){}socket=null;server=null;writer=null;}
 
     @Override protected void onResume(){super.onResume();imuCenterPending=true;imuCentered=false;if(rotationSensor!=null)sensors.registerListener(this,rotationSensor,SensorManager.SENSOR_DELAY_GAME);boolean allowed=Build.VERSION.SDK_INT<31||checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT)==PackageManager.PERMISSION_GRANTED;if(linkArmed&&allowed&&bt!=null&&bt.isEnabled()&&!serverLoopRunning&&!connected)startServer();}
@@ -270,6 +323,7 @@ public final class FlightRuntimeActivity extends Activity implements SensorEvent
     private Button bottomButton(String s){Button b=button(s);b.setTextColor(Color.WHITE);b.setBackgroundColor(0xff5d5d60);return b;}
     private int dp(int v){return Math.round(v*getResources().getDisplayMetrics().density);}
     private static float clamp(float v,float a,float b){return Math.max(a,Math.min(b,v));}
+    private static double clampd(double v,double a,double b){return Math.max(a,Math.min(b,v));}
     private static float lerp(float a,float b,float t){return a+(b-a)*t;}
     private static float wrap180f(float d){while(d>180)d-=360;while(d<-180)d+=360;return d;}
     private static double wrap180(double d){while(d>180)d-=360;while(d<-180)d+=360;return d;}
