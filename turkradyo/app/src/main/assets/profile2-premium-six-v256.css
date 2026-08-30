@@ -1,0 +1,41 @@
+/* v2.5.6 — Full premium 2x3 card family. Theme-adaptive. Functionality stays on original card IDs. */
+.profile2-active .p2Hub{margin-top:12px!important}
+.profile2-active .p2Hub .p2Grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:9px!important;align-items:stretch!important}
+.profile2-active .p2Hub .p2Tile.p256PremiumCard,
+.profile2-active .p2Hub .p2Tile.p2Wide.p256PremiumCard{
+  --p256a:var(--accent,var(--red,#ff3647));
+  position:relative!important;display:flex!important;flex-direction:column!important;align-items:center!important;
+  height:190px!important;min-height:190px!important;padding:14px 8px 11px!important;margin:0!important;
+  border-radius:23px!important;overflow:hidden!important;isolation:isolate!important;text-align:center!important;
+  border:1px solid color-mix(in srgb,var(--p256a) 78%,#fff 8%)!important;
+  background:
+    radial-gradient(circle at 50% 22%,color-mix(in srgb,var(--p256a) 22%,transparent),transparent 35%),
+    linear-gradient(165deg,color-mix(in srgb,var(--card2,#21131c) 94%,var(--p256a) 6%),color-mix(in srgb,var(--bg,#07070b) 97%,#000))!important;
+  box-shadow:inset 0 1px 0 #ffffff23,inset 0 -35px 55px #0007,0 10px 27px #0008,0 0 22px color-mix(in srgb,var(--p256a) 15%,transparent)!important;
+  color:#fff!important;transform:none!important;
+}
+.profile2-active .p2Hub .p256PremiumCard::before{content:""!important;display:block!important;position:absolute!important;inset:0!important;z-index:-2!important;pointer-events:none!important;opacity:.86!important;background:repeating-radial-gradient(circle at 50% 28%,transparent 0 15px,color-mix(in srgb,var(--p256a) 9%,transparent) 16px 17px,transparent 18px 30px)!important}
+.profile2-active .p2Hub #p2Tracks.p256PremiumCard::before{background:repeating-linear-gradient(90deg,transparent 0 10px,color-mix(in srgb,var(--p256a) 10%,transparent) 11px 13px,transparent 14px 21px)!important}
+.profile2-active .p2Hub #p2Alarm.p256PremiumCard::before{background:repeating-conic-gradient(from 0deg at 50% 28%,transparent 0 10deg,color-mix(in srgb,var(--p256a) 9%,transparent) 11deg 12deg,transparent 13deg 21deg)!important}
+.profile2-active .p2Hub #p2Sleep.p256PremiumCard::before{background:repeating-radial-gradient(circle at 50% 28%,transparent 0 13px,color-mix(in srgb,var(--p256a) 11%,transparent) 14px 15px,transparent 16px 25px)!important}
+.profile2-active .p2Hub #p2Zap.p256PremiumCard::before{background:repeating-linear-gradient(132deg,transparent 0 18px,color-mix(in srgb,var(--p256a) 11%,transparent) 19px 21px,transparent 22px 38px)!important}
+.profile2-active .p2Hub #p2Genres.p256PremiumCard::before{background:repeating-radial-gradient(circle at 50% 30%,transparent 0 9px,color-mix(in srgb,var(--p256a) 10%,transparent) 10px 11px,transparent 12px 20px)!important}
+.profile2-active .p2Hub .p256PremiumCard::after{content:""!important;display:block!important;position:absolute!important;inset:7px!important;z-index:-1!important;pointer-events:none!important;border-radius:17px!important;border:1px solid color-mix(in srgb,var(--p256a) 28%,transparent)!important;background:linear-gradient(90deg,color-mix(in srgb,var(--p256a) 55%,transparent),transparent 24%) top left/30px 1px no-repeat,linear-gradient(180deg,color-mix(in srgb,var(--p256a) 55%,transparent),transparent 24%) top left/1px 30px no-repeat,linear-gradient(270deg,color-mix(in srgb,var(--p256a) 42%,transparent),transparent 24%) bottom right/30px 1px no-repeat,linear-gradient(0deg,color-mix(in srgb,var(--p256a) 42%,transparent),transparent 24%) bottom right/1px 30px no-repeat!important}
+.profile2-active .p256Crown{position:absolute;right:9px;top:8px;z-index:4;width:27px;height:27px;border-radius:50%;display:grid;place-items:center;font-size:15px;line-height:1;color:color-mix(in srgb,var(--p256a) 72%,#fff 28%);border:1px solid color-mix(in srgb,var(--p256a) 60%,transparent);background:#08090dcf;box-shadow:0 0 14px color-mix(in srgb,var(--p256a) 25%,transparent)}
+.profile2-active .p256Icon{position:relative;z-index:3;width:65px;height:65px;min-height:65px;border-radius:50%;display:grid;place-items:center;margin-top:3px;color:#fff;border:1px solid color-mix(in srgb,var(--p256a) 88%,#fff 8%);background:radial-gradient(circle at 40% 28%,color-mix(in srgb,var(--p256a) 28%,#172033),#07090e 69%);box-shadow:inset 0 0 23px #000a,0 0 0 7px color-mix(in srgb,var(--p256a) 7%,transparent),0 0 24px color-mix(in srgb,var(--p256a) 38%,transparent)}
+.profile2-active .p256Icon svg{width:32px;height:32px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 6px color-mix(in srgb,var(--p256a) 56%,transparent))}
+.profile2-active .p256Badge{position:relative;z-index:3;margin-top:8px;display:inline-flex;align-items:center;justify-content:center;height:18px;padding:0 9px;border-radius:999px;font-size:6.8px;font-weight:950;letter-spacing:.6px;color:#fff;background:linear-gradient(180deg,color-mix(in srgb,var(--p256a) 82%,#fff 8%),color-mix(in srgb,var(--p256a) 58%,#000));border:1px solid color-mix(in srgb,var(--p256a) 75%,#fff 8%);box-shadow:0 0 13px color-mix(in srgb,var(--p256a) 28%,transparent)}
+.profile2-active .p256Title{position:relative;z-index:3;display:block;width:100%;margin-top:7px;font-size:10px;line-height:1.05;font-weight:950;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.profile2-active .p256Sub{position:relative;z-index:3;display:block;width:100%;height:24px;margin-top:4px;font-size:6.5px;line-height:1.22;font-weight:650;color:color-mix(in srgb,var(--muted,#a99da7) 82%,#fff);overflow:hidden}
+.profile2-active .p256Action{position:relative;z-index:3;width:calc(100% - 4px);height:26px;min-height:26px;margin-top:auto;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:7px;font-weight:950;letter-spacing:.2px;color:color-mix(in srgb,var(--p256a) 75%,#fff 25%);border:1px solid color-mix(in srgb,var(--p256a) 78%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--p256a) 10%,#090a0f),#06070a);box-shadow:inset 0 1px 0 #ffffff12,0 0 13px color-mix(in srgb,var(--p256a) 13%,transparent)}
+.profile2-active .p256Action i{font-style:normal;font-size:13px;line-height:1}
+.profile2-active .p256PremiumCard:active{transform:scale(.982)!important;filter:brightness(1.08)!important}
+.profile2-active .p256PremiumCard>.p2InstrumentIcon,.profile2-active .p256PremiumCard>.p2CardCopy,.profile2-active .p256PremiumCard>.p2CardTag,.profile2-active .p256PremiumCard>.p2Chevron,.profile2-active .p256PremiumCard>.p2Dots{display:none!important}
+@media(max-width:430px){
+ .profile2-active .p2Hub .p2Grid{gap:7px!important}
+ .profile2-active .p2Hub .p2Tile.p256PremiumCard,.profile2-active .p2Hub .p2Tile.p2Wide.p256PremiumCard{height:180px!important;min-height:180px!important;padding:12px 6px 9px!important;border-radius:20px!important}
+ .profile2-active .p256Icon{width:58px;height:58px;min-height:58px}.profile2-active .p256Icon svg{width:28px;height:28px}
+ .profile2-active .p256Crown{right:7px;top:7px;width:24px;height:24px;font-size:13px}
+ .profile2-active .p256Badge{height:17px;margin-top:7px;font-size:6.1px;padding:0 7px}
+ .profile2-active .p256Title{font-size:8.7px;margin-top:6px}.profile2-active .p256Sub{font-size:5.8px;height:22px;margin-top:4px}.profile2-active .p256Action{height:24px;min-height:24px;font-size:6.3px}
+}
