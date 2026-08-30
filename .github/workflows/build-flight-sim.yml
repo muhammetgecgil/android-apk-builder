@@ -1,7 +1,7 @@
-name: Build Aircraft Simulator v19
+name: Build Aircraft Simulator v20
 on:
   push:
-    branches: [ main, aircraft-sim-v19-foundation ]
+    branches: [ main, aircraft-sim-v19-foundation, aircraft-sim-v20-flight-envelope ]
     paths: [ 'flight-sim/**', '.github/workflows/build-flight-sim.yml' ]
   pull_request:
     branches: [ main ]
@@ -20,8 +20,7 @@ jobs:
       - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.13' }
-      - name: Unit tests (non-blocking during AVM-11 migration)
-        continue-on-error: true
+      - name: Unit tests
         working-directory: flight-sim
         run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
       - name: Build debug APK
@@ -40,18 +39,18 @@ jobs:
           test -s "$REL"
           test -s "$AAB"
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$DBG"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "versionCode='47'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "versionCode='48'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "targetSdkVersion:'36'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "application-label:'Aircraft Simulator 3D'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "package: name='com.mg.fixturecockpitsim.dev'"
       - name: Prepare artifacts
         run: |
-          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk "Aircraft Simulator 3D - Test.apk"
-          cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk "Aircraft Simulator 3D - Release Unsigned.apk"
-          cp flight-sim/app/build/outputs/bundle/release/app-release.aab "Aircraft Simulator 3D - Play Unsigned.aab"
+          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk "Aircraft Simulator 3D v20 - Test.apk"
+          cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk "Aircraft Simulator 3D v20 - Release Unsigned.apk"
+          cp flight-sim/app/build/outputs/bundle/release/app-release.aab "Aircraft Simulator 3D v20 - Play Unsigned.aab"
       - uses: actions/upload-artifact@v4
-        with: { name: Aircraft-Simulator-3D-Test-APK, path: "Aircraft Simulator 3D - Test.apk", if-no-files-found: error, retention-days: 30 }
+        with: { name: Aircraft-Simulator-3D-v20-Test-APK, path: "Aircraft Simulator 3D v20 - Test.apk", if-no-files-found: error, retention-days: 30 }
       - uses: actions/upload-artifact@v4
-        with: { name: Aircraft-Simulator-3D-Release-Unsigned, path: "Aircraft Simulator 3D - Release Unsigned.apk", if-no-files-found: error, retention-days: 30 }
+        with: { name: Aircraft-Simulator-3D-v20-Release-Unsigned, path: "Aircraft Simulator 3D v20 - Release Unsigned.apk", if-no-files-found: error, retention-days: 30 }
       - uses: actions/upload-artifact@v4
-        with: { name: Aircraft-Simulator-3D-Play-AAB-Unsigned, path: "Aircraft Simulator 3D - Play Unsigned.aab", if-no-files-found: error, retention-days: 30 }
+        with: { name: Aircraft-Simulator-3D-v20-Play-AAB-Unsigned, path: "Aircraft Simulator 3D v20 - Play Unsigned.aab", if-no-files-found: error, retention-days: 30 }
