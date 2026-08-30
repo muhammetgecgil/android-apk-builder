@@ -1,6 +1,6 @@
 package com.mg.fixturecockpitsim.sim;
 
-/** Deterministic mobile-friendly flight model with stabilized bank and manual approach energy control. */
+/** Deterministic mobile-friendly flight model with progressive takeoff acceleration and manual approach energy control. */
 public final class FlightDynamicsEngine {
     private static final double EARTH_RADIUS_M = 6371000.0;
     private static final double GEAR_RATE_PER_SEC = 0.55;
@@ -32,20 +32,33 @@ public final class FlightDynamicsEngine {
         s.pitchDeg += (targetPitch - s.pitchDeg) * Math.min(1.0, dtSec * 2.4);
         s.headingDeg = wrap360(s.headingDeg + Math.sin(Math.toRadians(s.rollDeg)) * 28.0 * dtSec + in.yaw * 18.0 * dtSec);
 
-        s.throttle += (in.throttle - s.throttle) * Math.min(1.0, dtSec * 2.0);
-        double targetSpeed;
+        // Engine spool is deliberately slower on the runway so takeoff has a visible acceleration build-up.
+        double throttleResponse=s.onGround?.82:1.75;
+        s.throttle += (in.throttle - s.throttle) * Math.min(1.0, dtSec * throttleResponse);
+
         if(s.onGround){
-            targetSpeed=s.throttle*125.0;
+            double targetSpeed=s.throttle*125.0;
+            double error=targetSpeed-s.trueAirspeedMps;
+            if(error>=0){
+                // About 10-14 s from low speed to rotation at high thrust instead of an instant launch.
+                double accel=1.15+6.0*s.throttle;
+                double aeroLoss=.00017*s.trueAirspeedMps*s.trueAirspeedMps;
+                double net=Math.max(.35,accel-aeroLoss);
+                s.trueAirspeedMps=Math.min(targetSpeed,s.trueAirspeedMps+net*dtSec);
+            }else{
+                double coast=1.0+2.0*s.brake01;
+                s.trueAirspeedMps=Math.max(targetSpeed,s.trueAirspeedMps-coast*dtSec);
+            }
         }else{
-            // AVM-12.8: landing gear and BRAKE add airborne drag. BRAKE therefore behaves as
-            // a speed-brake in flight and automatically becomes wheel brake after touchdown.
+            // Landing gear and BRAKE add airborne drag. BRAKE behaves as speed-brake in flight
+            // and automatically becomes wheel brake after touchdown.
             double gearDrag=18.0*s.gearPosition;
             double speedBrakeDrag=70.0*s.brake01;
-            targetSpeed=Math.max(42.0,55.0+s.throttle*250.0-gearDrag-speedBrakeDrag);
-        }
-        s.trueAirspeedMps += (targetSpeed - s.trueAirspeedMps) * Math.min(1.0, dtSec * (s.onGround?.55:.48));
-        if(!s.onGround&&s.brake01>.05){
-            s.trueAirspeedMps=Math.max(35.0,s.trueAirspeedMps-(1.2+5.2*s.brake01)*dtSec);
+            double targetSpeed=Math.max(42.0,55.0+s.throttle*250.0-gearDrag-speedBrakeDrag);
+            s.trueAirspeedMps += (targetSpeed - s.trueAirspeedMps) * Math.min(1.0, dtSec * .48);
+            if(s.brake01>.05){
+                s.trueAirspeedMps=Math.max(35.0,s.trueAirspeedMps-(1.2+5.2*s.brake01)*dtSec);
+            }
         }
 
         double bankLift=Math.max(0.28,Math.abs(Math.cos(Math.toRadians(s.rollDeg))));
