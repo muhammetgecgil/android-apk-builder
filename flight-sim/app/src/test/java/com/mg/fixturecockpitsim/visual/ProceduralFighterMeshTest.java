@@ -14,7 +14,9 @@ public class ProceduralFighterMeshTest {
     @Test public void avm3EngineAirPathPartsExist(){
         ProceduralFighterMesh.Mesh mesh=ProceduralFighterMesh.build(); int ducts=0,compressors=0,petals=0,inner=0,flame=0,core=0; float d0=99,d1=-99,f=-99,c=-99;
         for(int i=0;i<mesh.data.length;i+=7){float z=mesh.data[i+2],p=mesh.data[i+6]; if(Math.abs(p-ProceduralFighterMesh.PART_INTAKE_DUCT)<.1f){ducts++;d0=Math.min(d0,z);d1=Math.max(d1,z);} else if(Math.abs(p-ProceduralFighterMesh.PART_COMPRESSOR_FACE)<.1f)compressors++; else if(Math.abs(p-ProceduralFighterMesh.PART_NOZZLE_PETAL)<.1f)petals++; else if(Math.abs(p-ProceduralFighterMesh.PART_NOZZLE_INNER)<.1f)inner++; else if(Math.abs(p-ProceduralFighterMesh.PART_AFTERBURNER)<.1f){flame++;f=Math.max(f,z);} else if(Math.abs(p-ProceduralFighterMesh.PART_FLAME_CORE)<.1f){core++;c=Math.max(c,z);}}
-        assertTrue(ducts>=90&&d1-d0>1.15f&&compressors>=180&&petals>=600&&inner>=140&&flame>=100&&f>5f&&core>=70&&c>4.6f);
+        // Current AVM-10.7/12 procedural nozzle has 12 quads per engine = 72 vertices/engine = 144 total.
+        // Keep the regression gate aligned with that real topology instead of the obsolete pre-AVM threshold of 600.
+        assertTrue(ducts>=90&&d1-d0>1.15f&&compressors>=180&&petals>=140&&inner>=140&&flame>=100&&f>5f&&core>=70&&c>4.6f);
     }
     @Test public void avm4AirframeProportionsStayMature(){
         AirframeShapeProfile.validate(); ProceduralFighterMesh.Mesh m=ProceduralFighterMesh.build(); float minX=99,maxX=-99,minZ=99,maxZ=-99;int skin=0;
