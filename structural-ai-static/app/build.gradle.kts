@@ -10,8 +10,8 @@ android {
         applicationId = "com.mg.structuralai"
         minSdk = 26
         targetSdk = 35
-        versionCode = 88
-        versionName = "1.21.2-p1-zip-regression-hardening"
+        versionCode = 89
+        versionName = "1.22.0-real-engineering-load-core"
         ndk {
             abiFilters += listOf("arm64-v8a")
         }
