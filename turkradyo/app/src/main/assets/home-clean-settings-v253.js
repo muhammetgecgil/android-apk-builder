@@ -1,0 +1,24 @@
+(()=>{'use strict';
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+function addStyle(){if($('#trHomeClean253Css'))return;const s=document.createElement('style');s.id='trHomeClean253Css';s.textContent=`
+/* v2.5.3: keep premium discovery row, hide old duplicated mode row; lift app nav above Android system buttons. */
+.profile2-active #p2ModeRow{display:none!important}
+#trCatalogHealthBtn,#trReliabilityBtn,.tr-product-more{display:none!important}
+.modes.tr-product-collapsed .mode:nth-child(n+5){display:block!important}
+.bottom{bottom:calc(52px + env(safe-area-inset-bottom))!important}
+.app{padding-bottom:calc(168px + env(safe-area-inset-bottom))!important}
+.trSettingsTools253{display:grid;gap:8px;margin-top:8px}
+.trSettingsTool253{cursor:pointer;user-select:none}
+.trSettingsTool253 .num{font-size:18px;font-weight:900}
+.trSettingsTool253:active{transform:scale(.992)}
+@media(max-width:430px){.bottom{bottom:calc(50px + env(safe-area-inset-bottom))!important}.app{padding-bottom:calc(164px + env(safe-area-inset-bottom))!important}}
+`;document.head.appendChild(s)}
+function normalizeModes(){const modes=$('.modes');if(modes&&modes.classList.contains('tr-product-collapsed'))modes.classList.remove('tr-product-collapsed')}
+function tool(id,icon,title,sub,fn){const d=document.createElement('div');d.id=id;d.className='item trSettingsTool253';d.setAttribute('role','button');d.tabIndex=0;d.innerHTML=`<div class="num">${icon}</div><div><div class="itName">${title}</div><div class="itSub">${sub}</div></div><div style="font-size:22px;color:var(--red,#ff3647);padding-right:4px">›</div>`;const go=()=>{const f=window[fn];if(typeof f==='function')f();else window.toast?.('Bu araç henüz hazır değil')};d.onclick=go;d.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}};return d}
+function enhanceSettings(){const sh=$('#sheet'),tt=$('#sheetTitle'),li=$('#list');if(!sh||!tt||!li||!sh.classList.contains('show'))return;if((tt.textContent||'').trim().toLocaleLowerCase('tr')!=='ayarlar')return;if($('#trSettingsCatalog253',li)||$('#trSettingsReliability253',li))return;const wrap=document.createElement('div');wrap.className='trSettingsTools253';wrap.append(tool('trSettingsCatalog253','◫','Katalog Sağlık Durumu','Katalog tarama, doğrulama ve onarım raporu','openCatalogHealth'));wrap.append(tool('trSettingsReliability253','✓','Ürün Güvenilirlik Raporu','Telemetri, dayanıklılık ve kalite kapıları','openReliabilityGate'));li.appendChild(wrap)}
+function fallbackProfileChoices(){const pm=$('#profileModal'),list=pm?.querySelector('.profile-list');if(!pm||!list)return;if(list.querySelector('[data-prof="2"]'))return;const active=localStorage.p2Active==='1';list.innerHTML=`<div class="profile-item ${!active?'active':''}" data-prof="1"><div><strong>Profil 1 • Sade</strong><small>Olgun ana ekran + doğa temaları</small></div><b>${!active?'✓':''}</b></div><div class="profile-item ${active?'active':''}" data-prof="2"><div><strong>Profil 2 • Premium</strong><small>Premium kartlar • DNA • alarm • zamanlayıcı • zapping</small></div><b>${active?'✓':''}</b></div><div class="profile-item locked"><div><strong>Profil 3 • Gelişmiş</strong><small>Henüz eklenmedi</small></div><b>Yakında</b></div>`;list.querySelectorAll('[data-prof]').forEach(x=>x.onclick=()=>{localStorage.p2Active=x.dataset.prof==='2'?'1':'0';pm.classList.remove('show');location.reload()})}
+function ensureProfileAccess(){const pill=$('.nature-profile-pill');if(!pill)return false;if(pill.dataset.p253ProfileFix!=='1'){pill.dataset.p253ProfileFix='1';pill.addEventListener('click',()=>{const pm=$('#profileModal');if(pm)pm.classList.add('show');setTimeout(fallbackProfileChoices,0)},true)}return true}
+function watchModes(){const modes=$('.modes');if(!modes)return false;normalizeModes();if(modes.dataset.p253Watch==='1')return true;modes.dataset.p253Watch='1';new MutationObserver(()=>normalizeModes()).observe(modes,{attributes:true,attributeFilter:['class']});return true}
+function mount(){addStyle();normalizeModes();ensureProfileAccess();fallbackProfileChoices();document.addEventListener('click',e=>{if(e.target.closest('#settingsBtn,[data-nav="settings"]'))setTimeout(enhanceSettings,0);if(e.target.closest('.nature-profile-pill'))setTimeout(fallbackProfileChoices,0)},false);let n=0;const timer=setInterval(()=>{addStyle();normalizeModes();watchModes();ensureProfileAccess();fallbackProfileChoices();if(++n>30)clearInterval(timer)},180);[600,1200,1800,2600,3800].forEach(t=>setTimeout(()=>{normalizeModes();enhanceSettings();ensureProfileAccess();fallbackProfileChoices()},t))}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();
