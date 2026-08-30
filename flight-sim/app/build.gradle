@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 62
-        versionName '24.0-avm13.0-progressive-takeoff-2x-imu-bright-world'
+        versionCode 63
+        versionName '24.1-avm13.1-fast-auto-landing-scenic-worlds'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
