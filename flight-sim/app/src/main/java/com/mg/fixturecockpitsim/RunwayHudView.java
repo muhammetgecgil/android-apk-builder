@@ -5,14 +5,14 @@ import android.graphics.*;
 import android.view.View;
 import java.util.Locale;
 
-/** AVM-11.1 isolated airfield: realistic RWY27, one airfield building, zero civil settlement. */
+/** AVM-11.2 isolated airfield: realistic RWY27, dynamic control tower, zero civil settlement. */
 public final class RunwayHudView extends View {
     private final Paint fill=new Paint(3), stroke=new Paint(3);
     private final Path path=new Path();
     private volatile float altitudeM,speedMps,route,groundProgress,headingDeg;
     private volatile boolean onGround,demoMode;
     private volatile String phase="";
-    private float scroll,runwayMeters;
+    private float scroll,runwayMeters,airfieldMeters;
     private long lastNs;
 
     public RunwayHudView(Context c){super(c);fill.setStyle(Paint.Style.FILL);stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeCap(Paint.Cap.ROUND);}
@@ -22,11 +22,13 @@ public final class RunwayHudView extends View {
     public void setFlightState(double a,double s,boolean g,String ph){altitudeM=(float)Math.max(0,a);speedMps=(float)Math.max(0,s);onGround=g;phase=ph==null?"":ph;postInvalidateOnAnimation();}
 
     @Override protected void onDraw(Canvas c){
-        super.onDraw(c); long now=System.nanoTime(); float dt=lastNs==0?.016f:Math.min(.05f,(now-lastNs)/1e9f); lastNs=now;
+        super.onDraw(c);long now=System.nanoTime();float dt=lastNs==0?.016f:Math.min(.05f,(now-lastNs)/1e9f);lastNs=now;
         scroll=(scroll+speedMps*dt*.043f)%1f;
+        if(onGround&&speedMps>.5f&&!phase.contains("HANGAR_START"))airfieldMeters+=speedMps*dt;
+        if(phase.contains("HANGAR_START")&&speedMps<.8f)airfieldMeters=0;
         if(phase.contains("TAKEOFF")||phase.contains("ROLLOUT"))runwayMeters+=speedMps*dt;
         if(phase.contains("HANGAR_START")||phase.contains("RUNWAY_HOLD"))runwayMeters=0;
-        int w=getWidth(),h=getHeight(); float hz=h*(.455f+.075f*Math.min(1,altitudeM/1300f));
+        int w=getWidth(),h=getHeight();float hz=h*(.455f+.075f*Math.min(1,altitudeM/1300f));
         drawSky(c,w,h,hz);
         if(phase.contains("HANGAR"))drawHangar(c,w,h,hz);
         else if(phase.contains("TAXI"))drawTaxi(c,w,h,hz);
@@ -36,8 +38,8 @@ public final class RunwayHudView extends View {
     }
 
     private void drawSky(Canvas c,int w,int h,float hz){
-        fill.setShader(new LinearGradient(0,0,0,hz,new int[]{0xff07131f,0xff3c7fa3,0xffc7e2eb},null,Shader.TileMode.CLAMP)); c.drawRect(0,0,w,hz,fill); fill.setShader(null);
-        fill.setShader(new LinearGradient(0,hz*.70f,0,hz,0x00ffffff,0x45f3f0df,Shader.TileMode.CLAMP)); c.drawRect(0,hz*.70f,w,hz,fill); fill.setShader(null);
+        fill.setShader(new LinearGradient(0,0,0,hz,new int[]{0xff07131f,0xff3c7fa3,0xffc7e2eb},null,Shader.TileMode.CLAMP));c.drawRect(0,0,w,hz,fill);fill.setShader(null);
+        fill.setShader(new LinearGradient(0,hz*.70f,0,hz,0x00ffffff,0x45f3f0df,Shader.TileMode.CLAMP));c.drawRect(0,hz*.70f,w,hz,fill);fill.setShader(null);
         for(int i=0;i<6;i++){float x=(w*(.04f+i*.18f)+(route*1.3f)%w)%w,y=hz*(.10f+(i%3)*.06f),ww=w*(.10f+(i%2)*.04f);fill.setColor(0x20ffffff);c.drawOval(x,y,x+ww,y+hz*.024f,fill);c.drawOval(x+ww*.22f,y-hz*.015f,x+ww*.70f,y+hz*.018f,fill);}
     }
 
@@ -55,6 +57,7 @@ public final class RunwayHudView extends View {
     private void drawOutside(Canvas c,float x0,float y0,float x1,float y1,int w,int h){
         fill.setShader(new LinearGradient(0,y0,0,y1,new int[]{0xff9dd2e5,0xff759fac,0xff496548},null,Shader.TileMode.CLAMP));c.drawRect(x0,y0,x1,y1,fill);fill.setShader(null);
         float cx=(x0+x1)/2;quad(c,cx-(x1-x0)*.055f,y0+(y1-y0)*.10f,cx+(x1-x0)*.055f,y0+(y1-y0)*.10f,x1,y1,x0,y1,0xff4a5053);stroke.setColor(0xffe6c42d);stroke.setStrokeWidth(4);c.drawLine(cx,y0+(y1-y0)*.10f,cx,y1,stroke);
+        drawControlTower(c,w,h,y0+(y1-y0)*.48f,.78f,.60f);
     }
 
     private void drawTaxi(Canvas c,int w,int h,float hz){
@@ -63,7 +66,7 @@ public final class RunwayHudView extends View {
         quad(c,cx-far*.82f,hz+h*.014f,cx+far*.82f,hz+h*.014f,cx+near*.82f,h,cx-near*.82f,h,0xff383d40);
         stroke.setColor(0xfff1c821);stroke.setStrokeWidth(5);c.drawLine(cx,hz+h*.015f,cx,h,stroke);
         for(int i=0;i<26;i++){float q=(i/26f+scroll*.56f)%1f,z=q*q,y=lerp(hz+h*.025f,h,z),hh=lerp(far,near,z);fill.setColor(0xff4ca3ff);float r=1.2f+4.2f*z;c.drawCircle(cx-hh*.95f,y,r,fill);c.drawCircle(cx+hh*.95f,y,r,fill);}
-        drawAirfieldBuilding(c,w,h,hz,.79f,.88f);
+        drawMovingTower(c,w,h,hz);
         if(groundProgress>.55f){float y=h*.66f,hh=w*.145f;stroke.setColor(0xffffd43e);stroke.setStrokeWidth(5);c.drawLine(cx-hh,y,cx+hh,y,stroke);stroke.setStrokeWidth(2);for(int i=0;i<8;i++){float x=cx-hh+i*(2*hh/7f);c.drawLine(x,y+7,x+10,y+18,stroke);}fill.setColor(0xeeffffff);fill.setTextSize(Math.max(14,w*.015f));c.drawText("RWY 27 HOLD SHORT",w*.67f,h*.72f,fill);}
         fill.setColor(0xe8ffffff);fill.setTextSize(Math.max(14,w*.015f));c.drawText("HDG "+String.format(Locale.US,"%03.0f",norm(headingDeg))+"  •  TAXI A",w*.04f,h*.92f,fill);
     }
@@ -71,7 +74,7 @@ public final class RunwayHudView extends View {
     private void drawRunway(Canvas c,int w,int h,float hz){
         float near=1-Math.min(1,altitudeM/1050f),err=angleError(headingDeg,270f),cx=w*.5f+clamp(err/22f,-1,1)*w*.095f;
         float fh=w*(.018f+.012f*near),nh=w*(onGround?.45f:(.12f+.30f*near)),fy=hz+h*.014f,ny=h*(onGround?.999f:(.72f+.26f*near));
-        drawNaturalTerrain(c,w,h,hz,.24f);drawAirfieldBuilding(c,w,h,hz,.79f,.88f);
+        drawNaturalTerrain(c,w,h,hz,.24f);drawMovingTower(c,w,h,hz);
         quad(c,cx-fh*1.38f,fy,cx+fh*1.38f,fy,cx+nh*1.18f,ny,cx-nh*1.18f,ny,0xff777b73);
         quad(c,cx-fh*1.12f,fy,cx+fh*1.12f,fy,cx+nh*1.07f,ny,cx-nh*1.07f,ny,0xff53585a);
         path.reset();path.moveTo(cx-fh,fy);path.lineTo(cx+fh,fy);path.lineTo(cx+nh,ny);path.lineTo(cx-nh,ny);path.close();fill.setShader(new LinearGradient(cx,fy,cx,ny,new int[]{0xff303436,0xff292d2f,0xff222628},null,Shader.TileMode.CLAMP));c.drawPath(path,fill);fill.setShader(null);
@@ -90,12 +93,26 @@ public final class RunwayHudView extends View {
         for(int i=0;i<22;i++){float x=(i*97f+route*2.1f)%Math.max(1,w),y=hz+h*(.07f+.035f*((i*13)%8));fill.setColor(i%2==0?0x17314227:0x183c5631);c.drawOval(x,y,x+w*.075f,y+h*.012f,fill);}
     }
 
-    private void drawAirfieldBuilding(Canvas c,int w,int h,float hz,float xNorm,float baseNorm){
-        float baseY=Math.max(hz+h*.045f,h*baseNorm),bw=w*.115f,bh=h*.085f,x=w*xNorm-bw*.5f;
-        fill.setColor(0x30000000);c.drawRect(x+5,baseY-bh+5,x+bw+7,baseY+5,fill);fill.setColor(0xff69747a);c.drawRect(x,baseY-bh,x+bw,baseY,fill);
-        path.reset();path.moveTo(x-bw*.04f,baseY-bh);path.lineTo(x+bw*.50f,baseY-bh-h*.025f);path.lineTo(x+bw*1.04f,baseY-bh);path.close();fill.setColor(0xff41484c);c.drawPath(path,fill);
-        fill.setColor(0xff25455a);for(int i=0;i<4;i++){float wx=x+bw*(.10f+i*.22f);c.drawRect(wx,baseY-bh*.68f,wx+bw*.14f,baseY-bh*.43f,fill);}fill.setColor(0xffc8cdd0);c.drawRect(x+bw*.39f,baseY-bh*.35f,x+bw*.62f,baseY,fill);
-        stroke.setColor(0xff8c969c);stroke.setStrokeWidth(2);c.drawLine(x+bw*.76f,baseY-bh,x+bw*.76f,baseY-bh-h*.055f,stroke);fill.setColor(0xffd94b45);c.drawCircle(x+bw*.76f,baseY-bh-h*.055f,2.6f,fill);
+    private void drawMovingTower(Canvas c,int w,int h,float hz){
+        if(!onGround){
+            if(!(phase.contains("APPROACH")||phase.contains("FLARE")))return;
+            float q=clamp(1-altitudeM/450f,0,1);drawControlTower(c,w,h,h*(.73f+.13f*q),.82f+.05f*q,.34f+.48f*q);return;
+        }
+        float q=airfieldMeters/520f;if(q>=1f)return;
+        float x=.78f+.48f*q,base=.80f+.18f*q,scale=.58f+.82f*q;drawControlTower(c,w,h,h*base,x,scale);
+    }
+
+    private void drawControlTower(Canvas c,int w,int h,float baseY,float xNorm,float scale){
+        float cx=w*xNorm,shaftW=w*.027f*scale,shaftH=h*.145f*scale,cabW=w*.074f*scale,cabH=h*.054f*scale;
+        float shaftTop=baseY-shaftH,cabBottom=shaftTop,cabTop=cabBottom-cabH;
+        fill.setColor(0x28000000);c.drawRect(cx-shaftW*.55f+5,shaftTop+5,cx+shaftW*.55f+7,baseY+5,fill);
+        fill.setColor(0xff9aa1a2);c.drawRect(cx-shaftW*.50f,shaftTop,cx+shaftW*.50f,baseY,fill);
+        fill.setColor(0xff747d80);c.drawRect(cx-shaftW*.42f,shaftTop+h*.012f*scale,cx+shaftW*.42f,baseY-h*.008f*scale,fill);
+        fill.setColor(0xff172f3d);c.drawRect(cx-cabW*.50f,cabTop,cx+cabW*.50f,cabBottom,fill);
+        stroke.setColor(0xff91b8c8);stroke.setStrokeWidth(Math.max(1,2*scale));for(int i=-2;i<=2;i++){float x=cx+i*cabW*.19f;c.drawLine(x,cabTop+h*.005f*scale,x,cabBottom-h*.005f*scale,stroke);}c.drawLine(cx-cabW*.49f,cabTop+cabH*.55f,cx+cabW*.49f,cabTop+cabH*.55f,stroke);
+        fill.setColor(0xff4a5154);c.drawRect(cx-cabW*.58f,cabTop-h*.010f*scale,cx+cabW*.58f,cabTop,fill);
+        stroke.setColor(0xffaab0b2);stroke.setStrokeWidth(Math.max(1,1.8f*scale));float mastTop=cabTop-h*.055f*scale;c.drawLine(cx,cabTop-h*.010f*scale,cx,mastTop,stroke);c.drawLine(cx,mastTop+h*.014f*scale,cx+cabW*.20f,mastTop+h*.004f*scale,stroke);
+        fill.setColor(0xffff554d);c.drawCircle(cx,mastTop,Math.max(1.8f,2.5f*scale),fill);
     }
 
     private void drawScenery(Canvas c,int w,int h,float hz){
@@ -105,7 +122,7 @@ public final class RunwayHudView extends View {
         else if(t<185){fill.setColor(0xff344c39);c.drawRect(0,hz,w,h,fill);drawMountains(c,w,h,hz,.86f,true);label(c,w,h,"YERLESIMSIZ VADI");}
         else if(t<245){drawLake(c,w,h,hz);label(c,w,h,"DOGAL GOL GECISI");}
         else if(t<280){fill.setColor(0xff354c38);c.drawRect(0,hz,w,h,fill);drawMountains(c,w,h,hz,.72f,false);label(c,w,h,"YUKSEK ARAZI");}
-        else{drawNaturalTerrain(c,w,h,hz,.24f);drawAirfieldBuilding(c,w,h,hz,.79f,.88f);label(c,w,h,"RWY 27 HIZALANMA");}
+        else{drawNaturalTerrain(c,w,h,hz,.24f);label(c,w,h,"RWY 27 HIZALANMA");}
     }
 
     private void drawDepartureCoast(Canvas c,int w,int h,float hz,float t){float shore=hz+h*(.055f+.045f*t);drawMountains(c,w,h,hz,.20f+.13f*t,false);fill.setColor(0xff3d583c);path.reset();path.moveTo(0,shore);for(int i=0;i<=14;i++){float x=w*i/14f,y=shore+h*.020f*(float)Math.sin(i*.8+route*.03);path.lineTo(x,y);}path.lineTo(w,h);path.lineTo(0,h);path.close();c.drawPath(path,fill);drawWater(c,w,h,shore+h*.055f);}
