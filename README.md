@@ -1,14 +1,19 @@
-# Ses Görüntü Haritası V7 Probe Fusion
+# Android APK Builder
 
-S24 Ultra kamera + IMU referansı, telefon mikrofon referansı ve Fyvadio USB gezen prob mikrofonu ile renkli ses haritası üretir.
+Bu depo birden fazla Android projesini içerir.
 
-GitHub Actions her main güncellemesinde kurulabilir debug APK üretir.
+## Muhammet Haber — temel referans
+
+Muhammet Haber uygulaması için resmi temel/referans sürüm **Haber SAFE V5** olarak sabitlenmiştir.
+
+Referans dosyalar:
+- `muhammet-haber-safe-v5/MuhammetHaber_SAFE_V5.apk`
+- `muhammet-haber-safe-v5/BASELINE.md`
+
+SAFE V5 sonrasındaki eski deneysel haber sürümleri temel alınmamalıdır. Bundan sonraki Muhammet Haber geliştirmeleri SAFE V5 baseline üzerinden yapılacaktır.
 
 ## PCB Zekâ Pro Native
 
-`pcb-analyzer/` bağımsız Android projesidir. CameraX ile gerçek arka kamera önizlemesi,
-dokunarak AF/AE netleme, donanımsal pinch/slider zoom, flaş ve cihaz üzerinde ML Kit OCR içerir.
+`pcb-analyzer/` bağımsız Android projesidir. CameraX ile gerçek arka kamera önizlemesi, dokunarak AF/AE netleme, donanımsal pinch/slider zoom, flaş ve cihaz üzerinde ML Kit OCR içerir.
 
-GitHub Actions içindeki **Build PCB Analyzer APK** iş akışı şu kurulabilir dosyayı üretir:
-
-`PCB_Zeka_Pro_v1.0.0_Native_S24.apk`
+GitHub Actions içindeki **Build PCB Analyzer APK** iş akışı kurulabilir APK üretir.
