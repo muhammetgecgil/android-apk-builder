@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 70
-        versionName '24.8-avm13.8-speed-flow-wingtip-vortices'
+        versionCode 71
+        versionName '24.9-avm13.9-flowing-runway-edge-lines'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
