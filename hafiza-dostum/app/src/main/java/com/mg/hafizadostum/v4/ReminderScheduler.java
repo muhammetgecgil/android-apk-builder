@@ -26,6 +26,25 @@ public final class ReminderScheduler {
         }
     }
 
+    public static void cancelAll(Context c) {
+        JSONArray a = MemoryStore.getTasks(c);
+        for (int i = 0; i < a.length(); i++) {
+            JSONObject t = a.optJSONObject(i);
+            if (t != null) cancelTask(c, t.optString("id"));
+        }
+    }
+
+    public static void cancelTask(Context c, String taskId) {
+        Intent i = new Intent(c, ReminderReceiver.class).setAction(ACTION_REMIND);
+        PendingIntent pi = PendingIntent.getBroadcast(c, requestCode(taskId), i,
+                PendingIntent.FLAG_NO_CREATE | PendingIntent.FLAG_IMMUTABLE);
+        AlarmManager am = (AlarmManager) c.getSystemService(Context.ALARM_SERVICE);
+        if (am != null && pi != null) {
+            am.cancel(pi);
+            pi.cancel();
+        }
+    }
+
     public static void scheduleTask(Context c, JSONObject t) {
         if (t == null || !t.optBoolean("active", true)) return;
         long when = nextTime(t);
