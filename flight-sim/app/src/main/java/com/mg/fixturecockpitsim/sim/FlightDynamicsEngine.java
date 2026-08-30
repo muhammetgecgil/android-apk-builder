@@ -1,6 +1,6 @@
 package com.mg.fixturecockpitsim.sim;
 
-/** Deterministic mobile-friendly flight model with aerobatic manual roll authority. */
+/** Deterministic mobile-friendly flight model with stabilized normal bank and deliberate aerobatic authority. */
 public final class FlightDynamicsEngine {
     private static final double EARTH_RADIUS_M = 6371000.0;
     private static final double GEAR_RATE_PER_SEC = 0.55;
@@ -15,19 +15,22 @@ public final class FlightDynamicsEngine {
         s.gearPosition = approach(s.gearPosition, gearTarget, GEAR_RATE_PER_SEC * dtSec);
         s.brake01 += (in.brake - s.brake01) * Math.min(1.0, dtSec * 7.0);
 
-        // Normal autopilot values remain in the conventional ±75° bank envelope.
-        // A deliberate near-full manual stick command crosses into the aerobatic region,
-        // allowing a complete roll and sustained inverted flight instead of stopping at 75°.
+        // AVM-12.6: almost the entire stick/IMU range is a stable normal-flight bank envelope.
+        // A roll/flip is only entered with an intentionally near-full command. This prevents
+        // small phone tilts or small controller offsets from immediately sending the aircraft inverted.
         double rollInput=Math.max(-1.0,Math.min(1.0,in.roll));
         double absRoll=Math.abs(rollInput);
+        if(absRoll<0.025) rollInput=0.0;
+        absRoll=Math.abs(rollInput);
         double targetRoll;
-        if(absRoll<=0.78) targetRoll=rollInput*96.15; // 0.78 -> about 75 degrees
-        else {
-            double t=(absRoll-0.78)/0.22;
-            targetRoll=Math.copySign(75.0+t*110.0,rollInput); // full stick -> ±185 degrees
+        if(absRoll<=0.96) {
+            targetRoll=rollInput*(65.0/0.96); // normal usable range: about +/-65 degrees max bank
+        } else {
+            double t=(absRoll-0.96)/0.04;
+            targetRoll=Math.copySign(65.0+t*115.0,rollInput); // only final 4% can command a deliberate full roll
         }
         double targetPitch = in.pitch * 30.0;
-        double rollRate = absRoll>0.78 ? 4.2 : 3.2;
+        double rollRate = absRoll>0.96 ? 3.25 : 2.30;
         s.rollDeg += (targetRoll - s.rollDeg) * Math.min(1.0, dtSec * rollRate);
         s.pitchDeg += (targetPitch - s.pitchDeg) * Math.min(1.0, dtSec * 2.4);
         s.headingDeg = wrap360(s.headingDeg + Math.sin(Math.toRadians(s.rollDeg)) * 28.0 * dtSec + in.yaw * 18.0 * dtSec);
@@ -36,8 +39,8 @@ public final class FlightDynamicsEngine {
         double targetSpeed = s.onGround ? s.throttle * 125.0 : 55.0 + s.throttle * 250.0;
         s.trueAirspeedMps += (targetSpeed - s.trueAirspeedMps) * Math.min(1.0, dtSec * 0.55);
 
-        // Inverted flight remains flyable: pitch command contributes lift direction while the
-        // simplified model avoids instantly forcing the aircraft into the ground at >90° bank.
+        // Inverted flight remains possible only when deliberately commanded. The simplified lift
+        // model keeps aerobatics recoverable without making normal bank control unstable.
         double bankLift=Math.max(0.28,Math.abs(Math.cos(Math.toRadians(s.rollDeg))));
         double airborneVs = s.trueAirspeedMps * Math.sin(Math.toRadians(s.pitchDeg)) * bankLift;
         double proposedAltitude = s.altitudeM + airborneVs * dtSec;
