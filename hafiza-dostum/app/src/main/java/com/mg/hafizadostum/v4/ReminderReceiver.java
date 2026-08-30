@@ -23,9 +23,19 @@ public class ReminderReceiver extends BroadcastReceiver {
         if (task == null) return;
 
         if (ReminderScheduler.ACTION_DONE.equals(action)) {
+            long last = task.optLong("lastDone", 0L);
+            if (task.optBoolean("critical") && last > 0L && System.currentTimeMillis() - last < 30L * 60L * 1000L) {
+                cancel(context, id);
+                ReminderScheduler.scheduleTask(context, task);
+                Toast.makeText(context,
+                        "Bu kritik rutin az önce kaydedilmiş. İkinci kez işaretlenmedi.",
+                        Toast.LENGTH_LONG).show();
+                return;
+            }
             MemoryStore.markDone(context, id, "notification");
             cancel(context, id);
-            ReminderScheduler.scheduleTask(context, task);
+            JSONObject fresh = MemoryStore.findTaskById(context, id);
+            ReminderScheduler.scheduleTask(context, fresh == null ? task : fresh);
             Toast.makeText(context, "Kaydedildi: " + task.optString("name"), Toast.LENGTH_SHORT).show();
             return;
         }
