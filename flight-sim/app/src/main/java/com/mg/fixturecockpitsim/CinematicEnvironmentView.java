@@ -9,9 +9,9 @@ import android.graphics.Shader;
 import android.view.View;
 
 /**
- * AVM-14.5 game-linked cinematic environment.
- * Cloud/ocean scenery follows the live aircraft heading and pitch, including manual flight.
- * Above cloud top -> dense cloud deck; inside layer -> cloud fog; below cloud base -> world below.
+ * AVM-14.6 game-linked environment.
+ * Aircraft right turn makes the outside world flow left, and vice versa.
+ * Cloud layer is weather-dependent instead of being permanently forced by altitude.
  */
 public class CinematicEnvironmentView extends View {
     private static final float CLOUD_BASE_M=880f;
@@ -34,7 +34,6 @@ public class CinematicEnvironmentView extends View {
         stroke.setStrokeCap(Paint.Cap.ROUND);
     }
 
-    /** Mission setter retained for AVM-14.3+ compatibility. */
     public static void setFlightScene(String phase,double altitude,double speed,double pitch,double heading,double phaseTime){
         sharedPhase=phase==null?"":phase;
         sharedAltitudeM=(float)Math.max(0,altitude);
@@ -44,7 +43,6 @@ public class CinematicEnvironmentView extends View {
         sharedPhaseTime=(float)Math.max(0,phaseTime);
     }
 
-    /** Updated every physics step so manual/BT flight moves the scenery too. */
     public static void setLiveFlightState(double altitude,double speed,double pitch,double roll,double heading,boolean onGround){
         sharedAltitudeM=(float)Math.max(0,altitude);
         sharedSpeedMps=(float)Math.max(0,speed);
@@ -61,7 +59,7 @@ public class CinematicEnvironmentView extends View {
     private static boolean shouldDraw(){
         if(sharedOnGround)return false;
         if(seaPhase(sharedPhase))return true;
-        return sharedAltitudeM>=CLOUD_BASE_M-70f;
+        return WeatherEffectsView.hasSharedCloudLayer()&&sharedAltitudeM>=CLOUD_BASE_M-70f;
     }
 
     @Override protected void onDraw(Canvas c){
@@ -77,12 +75,14 @@ public class CinematicEnvironmentView extends View {
 
         float hz=h*(.33f+clamp(sharedPitchDeg/38f,-.125f,.125f));
         boolean sea=seaPhase(sharedPhase);
+        float coverage=WeatherEffectsView.getSharedCloudLayerCoverage();
+        boolean cloudLayer=coverage>=.36f;
 
-        if(sharedAltitudeM>=CLOUD_TOP_M){
-            drawCloudOcean(c,w,h,hz,1f);
-        }else if(sharedAltitudeM>CLOUD_BASE_M){
+        if(cloudLayer&&sharedAltitudeM>=CLOUD_TOP_M){
+            drawCloudOcean(c,w,h,hz,clamp(.58f+.48f*coverage,.62f,1f));
+        }else if(cloudLayer&&sharedAltitudeM>CLOUD_BASE_M){
             float inside=clamp((sharedAltitudeM-CLOUD_BASE_M)/(CLOUD_TOP_M-CLOUD_BASE_M),0f,1f);
-            drawCloudInterior(c,w,h,hz,inside);
+            drawCloudInterior(c,w,h,hz,inside,coverage);
         }else if(sea){
             drawOpenOcean(c,w,h,hz);
         }else{
@@ -94,10 +94,11 @@ public class CinematicEnvironmentView extends View {
     private void updateHeadingPan(float dt,int w){
         if(!headingInit){lastHeadingDeg=sharedHeadingDeg;headingInit=true;return;}
         float d=angleDelta(sharedHeadingDeg,lastHeadingDeg);lastHeadingDeg=sharedHeadingDeg;
-        headingTravelDeg+=d;
+        // Pilot-view parallax: aircraft turns right -> outside world travels left.
+        headingTravelDeg-=d;
         if(Math.abs(headingTravelDeg)>100000f)headingTravelDeg%=360f;
         float rate=d/Math.max(.004f,dt);
-        float target=clamp(rate/34f,-1f,1f)*w*.095f;
+        float target=-clamp(rate/34f,-1f,1f)*w*.095f;
         turnPanPx+=(target-turnPanPx)*Math.min(1f,dt*5.5f);
     }
 
@@ -149,23 +150,24 @@ public class CinematicEnvironmentView extends View {
         }
     }
 
-    private void drawCloudInterior(Canvas c,int w,int h,float hz,float position01){
+    private void drawCloudInterior(Canvas c,int w,int h,float hz,float position01,float coverage){
         float bright=.72f+.20f*position01;
         int top=rgb((int)(205+30*bright),(int)(215+27*bright),(int)(219+28*bright));
         int bot=rgb((int)(226+20*bright),(int)(231+19*bright),(int)(232+20*bright));
         p.setShader(new LinearGradient(0,0,0,h,new int[]{top,0xffeef2f2,bot},null,Shader.TileMode.CLAMP));c.drawRect(0,0,w,h,p);p.setShader(null);
 
         float pan=headingPan(w,.8f);
-        for(int i=0;i<22;i++){
-            float q=(i+.5f)/22f;
+        int blobs=12+(int)(12*coverage);
+        for(int i=0;i<blobs;i++){
+            float q=(i+.5f)/Math.max(1f,blobs);
             float x=wrap(i*91f+pan+clock*(5f+(i%3)*3f),w+w*.25f)-w*.12f;
             float y=h*(.06f+((i*37)%83)/100f);
             float r=w*(.035f+.075f*q);
-            int aa=(int)(42+72*(1f-Math.abs(position01-.5f)));
+            int aa=(int)((35+75*(1f-Math.abs(position01-.5f)))*coverage);
             p.setColor(argb(aa,i%2==0?0xffffff:0xaab7bb));
             c.drawOval(x-r,y-r*.38f,x+r,y+r*.38f,p);
         }
-        p.setColor(0x42ffffff);c.drawRect(0,hz-h*.05f,w,hz+h*.08f,p);
+        p.setColor(argb((int)(66*coverage),0xffffff));c.drawRect(0,hz-h*.05f,w,hz+h*.08f,p);
     }
 
     private void drawOpenOcean(Canvas c,int w,int h,float hz){
@@ -217,13 +219,16 @@ public class CinematicEnvironmentView extends View {
     }
 
     private void drawDistantOceanClouds(Canvas c,int w,int h,float hz){
+        float coverage=WeatherEffectsView.getSharedCloudLayerCoverage();
+        if(coverage<.10f)return;
         float pan=headingPan(w,.18f);
-        for(int i=0;i<8;i++){
+        int count=2+(int)(7*coverage);
+        for(int i=0;i<count;i++){
             float period=w+w*.22f;
             float x=wrap(i*w*.19f+pan*.28f,period)-w*.11f;
             float y=hz-h*(.018f+.008f*(i%3));
             float ww=w*(.055f+.018f*(i%2));
-            p.setColor(0x75e8f0f2);c.drawOval(x,y,x+ww,y+h*.014f,p);
+            p.setColor(argb((int)(55+70*coverage),0xe8f0f2));c.drawOval(x,y,x+ww,y+h*.014f,p);
             c.drawOval(x+ww*.22f,y-h*.010f,x+ww*.65f,y+h*.012f,p);
         }
     }
