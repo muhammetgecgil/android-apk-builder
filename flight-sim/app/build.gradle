@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 77
-        versionName '25.5-avm14.5-game-world-yaw-cloud-transition'
+        versionCode 78
+        versionName '25.6-avm14.6-correct-parallax-balanced-clouds'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
