@@ -9,12 +9,19 @@ import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.view.View;
 
-/** AVM-15.0 world: strict takeoff/final runway windows plus a shared live scene snapshot. */
+/**
+ * AVM-15.1 airport world.
+ * The runway exists only inside a true takeoff window or a geometrically valid final approach.
+ * Mid-flight runway capture/recovery never exposes runway scenery.
+ * A perspective 3-D control tower is visible beside the departure runway and fades after pass-by.
+ */
 public final class AirfieldWorldView extends View {
-    private static final float RUNWAY_VISIBLE_ALT_M=780f;
-    private static final float TAKEOFF_RUNWAY_FADE_ALT_M=260f;
-    private static final float FINAL_XTRACK_M=900f;
-    private static final float FINAL_HEADING_ERR_DEG=38f;
+    private static final float TAKEOFF_FADE_ALT_M=210f;
+    private static final float FINAL_ALT_M=650f;
+    private static final float FINAL_XTRACK_M=550f;
+    private static final float FINAL_HDG_ERR_DEG=30f;
+    private static final float RUNWAY_HDG=270f;
+    private static final float TOWER_ALONG_M=270f;
 
     private static volatile float sharedAltitudeM,sharedSpeedMps,sharedHeadingDeg,sharedPitchDeg,sharedCrossTrackM,sharedAlongTrackM;
     private static volatile boolean sharedOnGround=true,sharedCrashed;
@@ -37,10 +44,11 @@ public final class AirfieldWorldView extends View {
     private volatile boolean onGround,crashed;
     private volatile String phase="",crashReason="";
     private long lastNs;
-    private float runwayFlow,groundFlow,scenicClock;
+    private float runwayFlow,groundFlow;
 
     public AirfieldWorldView(Context c){
-        super(c);p.setTypeface(Typeface.create("sans",Typeface.NORMAL));
+        super(c);
+        p.setTypeface(Typeface.create("sans",Typeface.NORMAL));
         stroke.setStyle(Paint.Style.STROKE);stroke.setStrokeCap(Paint.Cap.ROUND);
     }
 
@@ -48,144 +56,185 @@ public final class AirfieldWorldView extends View {
         altitudeM=(float)Math.max(0,altitude);speedMps=(float)Math.max(0,speed);onGround=ground;
         phase=scenePhase==null?"":scenePhase;headingDeg=(float)heading;pitchDeg=(float)pitch;
         crossTrackM=(float)crossTrack;alongTrackM=(float)alongTrack;crashed=crash;crashReason=reason==null?"":reason;
-
-        sharedAltitudeM=altitudeM;sharedSpeedMps=speedMps;sharedOnGround=onGround;
-        sharedPhase=phase;sharedHeadingDeg=headingDeg;sharedPitchDeg=pitchDeg;
-        sharedCrossTrackM=crossTrackM;sharedAlongTrackM=alongTrackM;
+        sharedAltitudeM=altitudeM;sharedSpeedMps=speedMps;sharedOnGround=onGround;sharedPhase=phase;
+        sharedHeadingDeg=headingDeg;sharedPitchDeg=pitchDeg;sharedCrossTrackM=crossTrackM;sharedAlongTrackM=alongTrackM;
         sharedCrashed=crashed;sharedCrashReason=crashReason;
         postInvalidateOnAnimation();
     }
 
     @Override protected void onDraw(Canvas c){
         super.onDraw(c);
-        long now=System.nanoTime();float dt=lastNs==0?.016f:Math.min(.05f,(now-lastNs)/1e9f);lastNs=now;
-        float groundInfluence=onGround?1f:clamp(1f-altitudeM/150f,0f,1f);
-        float speedRamp=.85f+.65f*clamp(speedMps/90f,0f,1f);
-        float visualGain=onGround?(phase.contains("TAXI")?2.40f:phase.contains("TAKEOFF_ROLL")?2.10f:1.45f):1f;
-        float opticalSpeed=speedMps*groundInfluence*visualGain*speedRamp;
-        runwayFlow=(runwayFlow+opticalSpeed*dt/70f)%1f;groundFlow=(groundFlow+opticalSpeed*dt/88f)%1f;
-        if(phase.contains("ORBIT"))scenicClock+=dt;else if(onGround)scenicClock=0;
-        int w=getWidth(),h=getHeight();boolean approach=isApproachScene();
-        float alt01=onGround?0:clamp(altitudeM/2200f,0,1),horizon=h*(onGround?.455f:lerp(.455f,.205f,alt01));
-        if(!onGround)horizon+=h*clamp(pitchDeg/32f,-.095f,.095f);
-        if(approach){float a=approach01();horizon=lerp(h*.225f,h*.405f,a)+h*clamp(pitchDeg/35f,-.065f,.065f);}
-        drawSky(c,w,h,horizon);
-        if(phase.contains("ORBIT")&&altitudeM>420f&&!approach)drawScenicTerrain(c,w,h,horizon);else drawRunwayWorld(c,w,h,horizon);
-        if(crashed)drawCrash(c,w,h);if(speedMps>.3f||crashed)postInvalidateOnAnimation();
+        long now=System.nanoTime();
+        float dt=lastNs==0?.016f:Math.min(.05f,Math.max(.001f,(now-lastNs)/1e9f));lastNs=now;
+        float groundInfluence=onGround?1f:clamp(1f-altitudeM/165f,0f,1f);
+        float optical=speedMps*groundInfluence*(onGround?1.7f:1f);
+        runwayFlow=(runwayFlow+optical*dt/72f)%1f;groundFlow=(groundFlow+optical*dt/92f)%1f;
+
+        int w=getWidth(),h=getHeight();if(w<=0||h<=0)return;
+        boolean approach=isFinalApproach();
+        float alt01=onGround?0f:clamp(altitudeM/2200f,0f,1f);
+        float hz=h*(onGround?.455f:lerp(.455f,.205f,alt01));
+        if(!onGround)hz+=h*clamp(pitchDeg/32f,-.095f,.095f);
+        if(approach){float a=approach01();hz=lerp(h*.225f,h*.405f,a)+h*clamp(pitchDeg/35f,-.060f,.060f);}
+
+        drawSky(c,w,h,hz);
+        drawBaseTerrain(c,w,h,hz);
+        if(onGround&&speedMps>.6f)drawGroundOpticalFlow(c,w,h,hz);
+
+        if(taxiPhase())drawTaxiway(c,w,h,hz);
+        if(runwayVisible())drawRunway(c,w,h,hz,onGround);
+        if(towerVisible())drawTakeoffTower(c,w,h,hz);
+
+        if(crashed&&!CinematicEnvironmentView.isWaterCrashActive())drawCrash(c,w,h);
+        if(speedMps>.25f||crashed||towerVisible())postInvalidateOnAnimation();
     }
 
-    private boolean takeoffRunwayPhase(){
+    private boolean taxiPhase(){return onGround&&(phase.contains("TAXI_OUT")||phase.contains("TAXI_IN"));}
+    private boolean takeoffPhase(){
         return phase.contains("RUNWAY_HOLD")||phase.contains("TAKEOFF_ROLL")||
-                (phase.contains("ROTATE_CLIMB")&&altitudeM<TAKEOFF_RUNWAY_FADE_ALT_M);
+                (phase.contains("ROTATE_CLIMB")&&altitudeM<TAKEOFF_FADE_ALT_M);
     }
-    private boolean landingRunwayPhase(){
-        return phase.contains("APPROACH")||phase.contains("FLARE")||phase.contains("ROLLOUT");
+    private boolean landingPhase(){
+        if(phase.contains("RWY_CAPTURE")||phase.contains("NAV_RECOVERY"))return false;
+        return phase.equals("APPROACH")||phase.contains("APPROACH_MANUAL")||phase.contains("APPROACH_REMOTE")||
+                phase.contains("FLARE")||phase.contains("ROLLOUT");
     }
     private boolean runwayVisible(){
-        boolean takeoff=takeoffRunwayPhase(),landing=landingRunwayPhase();
-        if(!takeoff&&!landing)return false;
-        if(onGround)return takeoff||phase.contains("ROLLOUT");
-        if(takeoff){
-            if(altitudeM>TAKEOFF_RUNWAY_FADE_ALT_M)return false;
-            if(Math.abs(crossTrackM)>180f)return false;
-            return Math.abs(angleError(headingDeg,270f))<105f;
+        if(takeoffPhase()){
+            if(onGround)return true;
+            return altitudeM<TAKEOFF_FADE_ALT_M&&Math.abs(crossTrackM)<240f&&Math.abs(angleError(headingDeg,RUNWAY_HDG))<95f;
         }
-        if(altitudeM>RUNWAY_VISIBLE_ALT_M)return false;
-        if(Math.abs(crossTrackM)>FINAL_XTRACK_M)return false;
-        return Math.abs(angleError(headingDeg,270f))<FINAL_HEADING_ERR_DEG;
+        if(!landingPhase())return false;
+        if(onGround)return phase.contains("ROLLOUT");
+        return altitudeM<FINAL_ALT_M&&Math.abs(crossTrackM)<FINAL_XTRACK_M&&Math.abs(angleError(headingDeg,RUNWAY_HDG))<FINAL_HDG_ERR_DEG;
     }
-    private boolean isApproachScene(){if(onGround||!landingRunwayPhase()||!runwayVisible())return false;float e=Math.abs(angleError(headingDeg,270f));return e<FINAL_HEADING_ERR_DEG;}
-    private float approach01(){return 1f-clamp((altitudeM-8f)/(RUNWAY_VISIBLE_ALT_M-8f),0f,1f);}
+    private boolean isFinalApproach(){return !onGround&&landingPhase()&&runwayVisible();}
+    private float approach01(){return 1f-clamp((altitudeM-7f)/(FINAL_ALT_M-7f),0f,1f);}
+
+    private boolean towerVisible(){
+        if(!(phase.contains("RUNWAY_HOLD")||phase.contains("TAKEOFF_ROLL")||phase.contains("ROTATE_CLIMB")))return false;
+        if(altitudeM>150f)return false;
+        float rel=TOWER_ALONG_M-alongTrackM;
+        return rel>-250f&&rel<620f;
+    }
 
     private void drawSky(Canvas c,int w,int h,float hz){
-        p.setShader(new LinearGradient(0,0,0,hz,new int[]{0xff176a9c,0xff43acd0,0xffc8e9ef},null,Shader.TileMode.CLAMP));c.drawRect(0,0,w,hz,p);p.setShader(null);
-        for(int i=0;i<6;i++){float x=(w*(.10f+i*.19f)+alongTrackM*.17f)%Math.max(1,w),y=hz*(.10f+(i%3)*.07f),ww=w*(.09f+(i%2)*.035f);p.setColor(0x32ffffff);c.drawOval(x,y,x+ww,y+hz*.022f,p);c.drawOval(x+ww*.20f,y-hz*.012f,x+ww*.70f,y+hz*.017f,p);}
+        p.setShader(new LinearGradient(0,0,0,hz,new int[]{0xff176b9e,0xff4caed0,0xffc8e9ef},null,Shader.TileMode.CLAMP));
+        c.drawRect(0,0,w,hz,p);p.setShader(null);
+        for(int i=0;i<5;i++){float x=(w*(.08f+i*.21f)+alongTrackM*.06f)%Math.max(1,w),y=hz*(.13f+(i%2)*.08f),ww=w*(.075f+(i%2)*.025f);p.setColor(0x24ffffff);c.drawOval(x,y,x+ww,y+hz*.018f,p);}
     }
 
-    private int scenicSector(){return ((int)(scenicClock/32f))%5;}
-    private void drawScenicTerrain(Canvas c,int w,int h,float hz){
-        switch(scenicSector()){case 0:drawMountainValley(c,w,h,hz);break;case 1:drawLakeCountry(c,w,h,hz);break;case 2:drawDesert(c,w,h,hz);break;case 3:drawIslands(c,w,h,hz);break;default:drawCoastalTerrain(c,w,h,hz);break;}
-        if(runwayVisible())drawRunway(c,w,h,hz,false);
+    private void drawBaseTerrain(Canvas c,int w,int h,float hz){
+        p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff78906a,0xff587553,0xff3d5d44},null,Shader.TileMode.CLAMP));
+        c.drawRect(0,hz,w,h,p);p.setShader(null);
+        drawMountains(c,w,h,hz,.15f);
+        float gh=h-hz;
+        for(int i=0;i<26;i++){float q=.10f+((i*29)%80)/100f,y=hz+gh*q*q,x=(i*123f-alongTrackM*.035f)%Math.max(1,w);if(x<0)x+=w;p.setColor(i%2==0?0x295a744d:0x21496843);c.drawOval(x,y,x+w*(.008f+.025f*q),y+h*(.003f+.006f*q),p);}
     }
-    private void drawMountainValley(Canvas c,int w,int h,float hz){
-        p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff7c9c67,0xff5e8059,0xff416349},null,Shader.TileMode.CLAMP));c.drawRect(0,hz,w,h,p);p.setShader(null);drawMountains(c,w,h,hz,.23f*(1-clamp(altitudeM/2500f,0,.55f)));
-        float gh=h-hz;for(int i=0;i<34;i++){float d=.08f+((i*23)%33)/36f,y=hz+gh*d*d,x=(i*117f+scenicClock*11f)%Math.max(1,w),ww=w*(.012f+.043f*d);p.setColor(i%2==0?0x36577f43:0x2f3f6c3a);c.drawOval(x,y,x+ww,y+h*.006f+gh*.008f*d,p);}
-    }
-    private void drawLakeCountry(Canvas c,int w,int h,float hz){
-        p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff819c69,0xff63835a,0xff45694d},null,Shader.TileMode.CLAMP));c.drawRect(0,hz,w,h,p);p.setShader(null);drawMountains(c,w,h,hz,.15f);
-        drawIrregularLake(c,w,h,w*.33f,hz+(h-hz)*.38f,w*.28f,(h-hz)*.24f,11);drawIrregularLake(c,w,h,w*.72f,hz+(h-hz)*.64f,w*.25f,(h-hz)*.22f,27);drawIrregularLake(c,w,h,w*.48f,hz+(h-hz)*.86f,w*.16f,(h-hz)*.12f,41);
-    }
-    private void drawIrregularLake(Canvas c,int w,int h,float cx,float cy,float rx,float ry,int seed){
-        Path lake=irregularPath(cx,cy,rx,ry,seed,34);p.setShader(new LinearGradient(0,cy-ry,0,cy+ry,new int[]{0xff4fc5d8,0xff258bb5,0xff145f91},null,Shader.TileMode.CLAMP));c.drawPath(lake,p);p.setShader(null);stroke.setColor(0xa8c4c890);stroke.setStrokeWidth(Math.max(2f,w*.0022f));c.drawPath(lake,stroke);int save=c.save();c.clipPath(lake);drawWaterTexture(c,w,cx,cy,rx,ry,false);drawCelestialReflection(c,w,h,cx,cy,rx,ry);c.restoreToCount(save);
-    }
-    private void drawIslands(Canvas c,int w,int h,float hz){
-        p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff56c6da,0xff238eb9,0xff125f91},null,Shader.TileMode.CLAMP));c.drawRect(0,hz,w,h,p);p.setShader(null);drawWaterTexture(c,w,w*.5f,hz+(h-hz)*.55f,w*.58f,(h-hz)*.55f,true);drawCelestialReflection(c,w,h,w*.5f,hz+(h-hz)*.58f,w*.54f,(h-hz)*.50f);
-        float[][] a={{.17f,.30f,.095f,.060f},{.42f,.24f,.13f,.075f},{.73f,.31f,.11f,.070f},{.86f,.62f,.085f,.055f},{.55f,.70f,.12f,.070f},{.24f,.76f,.10f,.060f}};
-        for(int i=0;i<a.length;i++){float cx=w*a[i][0],cy=hz+(h-hz)*a[i][1],rx=w*a[i][2],ry=(h-hz)*a[i][3];Path sand=irregularPath(cx,cy,rx,ry,70+i*13,28),land=irregularPath(cx,cy,rx*.82f,ry*.78f,94+i*17,28);p.setColor(0xffdccb96);c.drawPath(sand,p);p.setShader(new LinearGradient(0,cy-ry,0,cy+ry,new int[]{0xff699b5c,0xff426f49},null,Shader.TileMode.CLAMP));c.drawPath(land,p);p.setShader(null);}
-    }
-    private void drawDesert(Canvas c,int w,int h,float hz){
-        p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xffd7b672,0xffc99655,0xffa86f3f},null,Shader.TileMode.CLAMP));c.drawRect(0,hz,w,h,p);p.setShader(null);
-        for(int b=0;b<7;b++){path.reset();float yy=hz+(h-hz)*(.15f+b*.12f);path.moveTo(0,yy);for(int i=0;i<=10;i++){float x=w*i/10f,y=yy+(float)Math.sin(i*.92+b+scenicClock*.05f)*h*(.018f+.004f*b);path.lineTo(x,y);}path.lineTo(w,h);path.lineTo(0,h);path.close();p.setColor(b%2==0?0x34f2cf8b:0x28a96539);c.drawPath(path,p);}
-    }
-    private void drawCoastalTerrain(Canvas c,int w,int h,float hz){
-        p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff58c6dc,0xff258fb8,0xff155f90},null,Shader.TileMode.CLAMP));c.drawRect(0,hz,w,h,p);p.setShader(null);drawWaterTexture(c,w,w*.70f,hz+(h-hz)*.55f,w*.42f,(h-hz)*.50f,true);drawCelestialReflection(c,w,h,w*.70f,hz+(h-hz)*.58f,w*.38f,(h-hz)*.48f);
-        path.reset();path.moveTo(0,hz);path.lineTo(w*.36f,hz+h*.05f);path.lineTo(w*.48f,hz+h*.12f);path.lineTo(w*.39f,hz+h*.20f);path.lineTo(w*.52f,hz+h*.29f);path.lineTo(w*.34f,hz+h*.39f);path.lineTo(w*.46f,hz+h*.51f);path.lineTo(w*.31f,h);path.lineTo(0,h);path.close();p.setColor(0xff6b8d59);c.drawPath(path,p);drawMountains(c,w,h,hz,.11f);
-    }
-    private Path irregularPath(float cx,float cy,float rx,float ry,int seed,int pts){Path q=new Path();for(int i=0;i<pts;i++){double a=Math.PI*2*i/pts;float wob=(float)(1+.14*Math.sin(i*1.71+seed*.37)+.07*Math.sin(i*3.19+seed*.11));float x=cx+(float)Math.cos(a)*rx*wob,y=cy+(float)Math.sin(a)*ry*(1+.11f*(float)Math.sin(i*1.39+seed));if(i==0)q.moveTo(x,y);else q.lineTo(x,y);}q.close();return q;}
-    private void drawWaterTexture(Canvas c,int w,float cx,float cy,float rx,float ry,boolean broad){float t=scenicClock*.23f;int n=broad?42:24;for(int i=0;i<n;i++){float yy=cy-ry+((i*.137f+t*.012f)%1f)*ry*2f,x=cx-rx*.75f+((i*83.3f+t*17f)%(rx*1.50f)),len=Math.max(w*.008f,rx*(.02f+.03f*((i%7)/7f)));stroke.setColor(i%5==0?0x36d8f6ff:0x1fa8dbe8);stroke.setStrokeWidth(Math.max(1f,w*.0007f));c.drawLine(x,yy,Math.min(cx+rx*.88f,x+len),yy,stroke);}}
-    private void drawCelestialReflection(Canvas c,int w,int h,float cx,float cy,float rx,float ry){int mode=WeatherEffectsView.getSharedCelestialMode();float strength=WeatherEffectsView.getSharedCelestialStrength();if(mode==0||strength<.08f)return;float x=clamp(w*WeatherEffectsView.getSharedCelestialX01(),cx-rx*.75f,cx+rx*.75f);int base=mode==1?0x00ffe3a0:0x00e6f2ff;for(int i=0;i<30;i++){float q=i/29f,y=cy-ry*.72f+q*ry*1.55f,spread=rx*(.035f+.16f*q)*strength,wander=(float)Math.sin(i*2.37+scenicClock*.35f)*spread*.36f,len=spread*(.55f+.50f*(float)Math.sin(i*.91+1.2));int alpha=(int)((22+95*q)*strength);stroke.setColor((Math.max(0,Math.min(150,alpha))<<24)|base);stroke.setStrokeWidth(Math.max(1f,w*(.0007f+.0012f*q)));c.drawLine(x-len*.5f+wander,y,x+len*.5f+wander,y,stroke);}}
 
-    private void drawRunwayWorld(Canvas c,int w,int h,float hz){
-        p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff6f8d5f,0xff587650,0xff416246},null,Shader.TileMode.CLAMP));c.drawRect(0,hz,w,h,p);p.setShader(null);drawMountains(c,w,h,hz,.18f);
-        if(onGround&&speedMps>.6f)drawGroundOpticalFlow(c,w,h,hz);
-        boolean taxi=onGround&&(phase.contains("TAXI_OUT")||phase.contains("TAXI_IN"));
-        if(taxi)drawTaxiway(c,w,h,hz);else if(runwayVisible())drawRunway(c,w,h,hz,onGround);
+    private void drawGroundOpticalFlow(Canvas c,int w,int h,float hz){
+        float s=clamp(speedMps/48f,0,1);
+        for(int i=0;i<40;i++){float q=(i/40f+groundFlow)%1f,z=q*q,y=lerp(hz+h*.02f,h*.999f,z),len=w*(.008f+.055f*z)*(.35f+s),lx=w*(.025f+((i*37)%25)/100f),rx=w-lx;stroke.setColor(z>.5f?0x587d9c6c:0x3289a577);stroke.setStrokeWidth(Math.max(1f,w*(.0007f+.0026f*z)));c.drawLine(lx,y,lx-len,y+len*.24f,stroke);c.drawLine(rx,y,rx+len,y+len*.24f,stroke);}
     }
-    private void drawGroundOpticalFlow(Canvas c,int w,int h,float hz){float s=clamp(speedMps/42f,0,1);for(int i=0;i<40;i++){float q=(i/40f+groundFlow*1.06f)%1f,z=q*q,y=lerp(hz+h*.022f,h*.999f,z),len=w*(.009f+.060f*z)*(.34f+1.05f*s),lx=w*(.020f+((i*37)%27)/100f),rx=w-lx;stroke.setColor(z>.52f?0x667ca06a:0x388fb27a);stroke.setStrokeWidth(Math.max(1f,w*(.0008f+.0030f*z)));c.drawLine(lx,y,lx-len,y+len*.24f,stroke);c.drawLine(rx,y,rx+len,y+len*.24f,stroke);}}
+
     private void drawTaxiway(Canvas c,int w,int h,float hz){
-        float fy=hz+h*.016f,ny=h*.999f,far=w*.018f,near=w*.255f,bend=(float)Math.sin(alongTrackM*.030f)*w*.020f,fc=w*.5f-bend*.20f,nc=w*.5f+bend;
-        quad(c,fc-far*1.45f,fy,fc+far*1.45f,fy,nc+near*1.12f,ny,nc-near*1.12f,ny,0xff8a8d83);path.reset();path.moveTo(fc-far,fy);path.lineTo(fc+far,fy);path.lineTo(nc+near,ny);path.lineTo(nc-near,ny);path.close();p.setShader(new LinearGradient(0,fy,0,ny,new int[]{0xff505457,0xff3b4042,0xff292e30},null,Shader.TileMode.CLAMP));c.drawPath(path,p);p.setShader(null);
-        for(int i=0;i<34;i++){float q=(i/34f+groundFlow*1.14f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z),cx=lerp(fc,nc,z);stroke.setColor(0x44111517);stroke.setStrokeWidth(Math.max(1f,w*(.0005f+.0021f*z)));c.drawLine(cx-half*.96f,y,cx+half*.96f,y,stroke);}
-        path.reset();path.moveTo(fc,fy);path.quadTo(w*.5f-bend*.35f,lerp(fy,ny,.48f),nc,ny);stroke.setColor(0xffffd448);stroke.setStrokeWidth(Math.max(2f,w*.0032f));c.drawPath(path,stroke);
-        for(int i=0;i<36;i++){float q=(i/36f+runwayFlow*1.02f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z),cx=lerp(fc,nc,z),r=1+5*z;p.setColor(0xff74bfff);c.drawCircle(cx-half,y,r,p);c.drawCircle(cx+half,y,r,p);}
+        float fy=hz+h*.016f,ny=h*.999f,far=w*.018f,near=w*.255f,bend=(float)Math.sin(alongTrackM*.025f)*w*.018f,fc=w*.5f-bend*.2f,nc=w*.5f+bend;
+        quad(c,fc-far*1.45f,fy,fc+far*1.45f,fy,nc+near*1.12f,ny,nc-near*1.12f,ny,0xff8b8f87);
+        path.reset();path.moveTo(fc-far,fy);path.lineTo(fc+far,fy);path.lineTo(nc+near,ny);path.lineTo(nc-near,ny);path.close();
+        p.setShader(new LinearGradient(0,fy,0,ny,new int[]{0xff505457,0xff393e40,0xff292e30},null,Shader.TileMode.CLAMP));c.drawPath(path,p);p.setShader(null);
+        path.reset();path.moveTo(fc,fy);path.quadTo(w*.5f-bend*.35f,lerp(fy,ny,.48f),nc,ny);stroke.setColor(0xffffd448);stroke.setStrokeWidth(Math.max(2f,w*.0030f));c.drawPath(path,stroke);
+        for(int i=0;i<26;i++){float q=(i/26f+runwayFlow)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z),cx=lerp(fc,nc,z),r=1+4.5f*z;p.setColor(0xff70b9ff);c.drawCircle(cx-half,y,r,p);c.drawCircle(cx+half,y,r,p);}
     }
 
     private void drawRunway(Canvas c,int w,int h,float hz,boolean ground){
         if(!runwayVisible())return;
-        float err=angleError(headingDeg,270f),lat=clamp(crossTrackM/44f,-2.5f,2.5f)*w*.235f,cx=w*.5f-lat+clamp(err/32f,-1,1)*w*.095f,far,near,fy,ny;
-        if(ground){far=w*.032f;near=w*.44f;fy=hz+h*.015f;ny=h*.999f;}else{float a=approach01(),e=(float)Math.pow(a,.82);near=w*lerp(.018f,.405f,e);far=w*lerp(.009f,.040f,a);fy=lerp(hz+h*.018f,hz+h*.050f,a);ny=lerp(hz+h*.10f,h*.985f,(float)Math.pow(a,.74));if(!isApproachScene()){near*=.58f;far*=.72f;ny=lerp(hz+h*.09f,h*.55f,clamp(1-altitudeM/RUNWAY_VISIBLE_ALT_M,0,1));}}
-        quad(c,cx-far*1.52f,fy,cx+far*1.52f,fy,cx+near*1.20f,ny,cx-near*1.20f,ny,0xff858982);path.reset();path.moveTo(cx-far,fy);path.lineTo(cx+far,fy);path.lineTo(cx+near,ny);path.lineTo(cx-near,ny);path.close();p.setShader(new LinearGradient(cx,fy,cx,ny,new int[]{0xff484c4e,0xff35393b,0xff282d2f},null,Shader.TileMode.CLAMP));c.drawPath(path,p);p.setShader(null);
-        drawRunwaySurfaceFlow(c,w,h,cx,fy,ny,far,near,ground);stroke.setColor(0xfff5f4ed);stroke.setStrokeWidth(Math.max(2,w*.0026f));c.drawLine(cx-far,fy,cx-near,ny,stroke);c.drawLine(cx+far,fy,cx+near,ny,stroke);drawRunwayEdgeFlow(c,w,h,cx,fy,ny,far,near,ground);
-        float speed01=clamp(speedMps/88f,0f,1f);
-        for(int i=0;i<26;i++){float q=(i/26f+runwayFlow*1.10f)%1f,z=q*q,y=lerp(fy,ny,z),dash=lerp(3f,64f,z)*(1f+1.05f*speed01);stroke.setColor(0xfff6f5ef);stroke.setStrokeWidth(1.5f+11*z);c.drawLine(cx,y,cx,Math.min(ny,y+dash),stroke);}
-        for(int i=0;i<34;i++){float q=(i/34f+runwayFlow*1.03f)%1f,z=q*q,y=lerp(fy,ny,z),hh=lerp(far,near,z),r=1+5.3f*z;p.setColor(0xfff5f0d9);c.drawCircle(cx-hh,y,r,p);c.drawCircle(cx+hh,y,r,p);}
-        drawMovingRunwaySideBars(c,w,h,cx,fy,ny,far,near,ground);
-        if(!ground&&isApproachScene())drawApproachGuidance(c,w,h,cx,fy,ny,far,near,err);
-        if(ground&&alongTrackM<115f){float z=clamp(.48f+alongTrackM/260f,0,1),y=lerp(fy,ny,z*z);p.setColor(0xfffaf9f4);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(Math.max(30,w*(.038f+.02f*z)));c.drawText("27",cx,Math.min(ny-6,y+54),p);p.setTextAlign(Paint.Align.LEFT);}
+        float err=angleError(headingDeg,RUNWAY_HDG),lat=clamp(crossTrackM/42f,-2.2f,2.2f)*w*.22f,cx=w*.5f-lat+clamp(err/30f,-1,1)*w*.085f;
+        float far,near,fy,ny;
+        if(ground){far=w*.032f;near=w*.44f;fy=hz+h*.014f;ny=h*.999f;}
+        else{float a=approach01(),e=(float)Math.pow(a,.82);near=w*lerp(.020f,.405f,e);far=w*lerp(.009f,.040f,a);fy=lerp(hz+h*.016f,hz+h*.050f,a);ny=lerp(hz+h*.10f,h*.985f,(float)Math.pow(a,.74));}
+
+        quad(c,cx-far*1.55f,fy,cx+far*1.55f,fy,cx+near*1.22f,ny,cx-near*1.22f,ny,0xff8b8e88);
+        path.reset();path.moveTo(cx-far,fy);path.lineTo(cx+far,fy);path.lineTo(cx+near,ny);path.lineTo(cx-near,ny);path.close();
+        p.setShader(new LinearGradient(cx,fy,cx,ny,new int[]{0xff515457,0xff393d40,0xff252a2d},null,Shader.TileMode.CLAMP));c.drawPath(path,p);p.setShader(null);
+
+        drawRubberAndSurface(c,w,h,cx,fy,ny,far,near,ground);
+        stroke.setColor(0xfff5f4ee);stroke.setStrokeWidth(Math.max(2f,w*.0025f));c.drawLine(cx-far,fy,cx-near,ny,stroke);c.drawLine(cx+far,fy,cx+near,ny,stroke);
+
+        for(int i=0;i<23;i++){float q=(i/23f+runwayFlow*1.04f)%1f,z=q*q,y=lerp(fy,ny,z),dash=lerp(3f,62f,z);stroke.setColor(0xfff7f6f0);stroke.setStrokeWidth(1.5f+10*z);c.drawLine(cx,y,cx,Math.min(ny,y+dash),stroke);}
+        for(int i=0;i<32;i++){float q=(i/32f+runwayFlow)%1f,z=q*q,y=lerp(fy,ny,z),hh=lerp(far,near,z),r=1f+5f*z;p.setColor(0xfff6f1dc);c.drawCircle(cx-hh,y,r,p);c.drawCircle(cx+hh,y,r,p);}
+
+        drawThresholdAndTouchdown(c,w,h,cx,fy,ny,far,near,ground);
+        drawMovingSideBars(c,w,h,cx,fy,ny,far,near,ground);
+        if(!ground&&isFinalApproach())drawPapi(c,w,h,cx,fy,ny,far,near,err);
     }
 
-    private void drawMovingRunwaySideBars(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,boolean ground){
-        float influence=ground?1f:clamp(1f-altitudeM/220f,0f,1f),speed01=clamp(speedMps/92f,0f,1f)*influence;
-        float phaseGain=ground?(phase.contains("TAKEOFF_ROLL")?1.34f:phase.contains("TAXI")?1.20f:1.0f):.72f;
-        for(int i=0;i<10;i++){
-            float q=(i/10f+runwayFlow*1.18f*phaseGain)%1f;
-            float z=.14f+.82f*q*q,y=lerp(fy,ny,z),hh=lerp(far,near,z);
-            float bw=Math.max(2.2f,hh*(.050f+.035f*z)),bh=h*(.006f+.044f*z)*(1f+.45f*speed01);
-            float lx=cx-hh*.55f,rx=cx+hh*.55f;
-            int alpha=(int)clamp(145f+110f*z,150f,255f);p.setColor((alpha<<24)|0x00fffefa);
-            c.drawRect(lx-bw,y,lx+bw,y+bh,p);c.drawRect(rx-bw,y,rx+bw,y+bh,p);
-            if(speed01>.20f&&z>.35f){
-                float trail=h*(.006f+.042f*z)*speed01;int ta=(int)clamp(30f+95f*z*speed01,25f,120f);p.setColor((ta<<24)|0x00ffffff);
-                c.drawRect(lx-bw*.72f,y-trail,lx+bw*.72f,y,p);c.drawRect(rx-bw*.72f,y-trail,rx+bw*.72f,y,p);
-            }
-        }
+    private void drawThresholdAndTouchdown(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,boolean ground){
+        float q0=ground?.11f:.08f,z0=q0*q0,y0=lerp(fy,ny,z0),hh0=lerp(far,near,z0),barW=Math.max(2f,hh0*.10f),barH=Math.max(3f,h*(.006f+.012f*z0));
+        p.setColor(0xfffbfaf5);
+        for(int i=0;i<6;i++){float off=(i-2.5f)*hh0*.29f;c.drawRect(cx+off-barW*.5f,y0,cx+off+barW*.5f,y0+barH,p);}
+        float[] qs={.28f,.38f,.49f};
+        for(int k=0;k<qs.length;k++){float q=qs[k],z=q*q,y=lerp(fy,ny,z),hh=lerp(far,near,z),bw=hh*(.13f-.018f*k),bh=h*(.006f+.018f*z);c.drawRect(cx-hh*.55f-bw*.5f,y,cx-hh*.55f+bw*.5f,y+bh,p);c.drawRect(cx+hh*.55f-bw*.5f,y,cx+hh*.55f+bw*.5f,y+bh,p);}
+        if(ground&&alongTrackM<150f){p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.create("sans",Typeface.BOLD));p.setTextSize(Math.max(28f,w*.046f));c.drawText("27",cx,Math.min(ny-20f,lerp(fy,ny,.62f)),p);p.setTypeface(Typeface.create("sans",Typeface.NORMAL));p.setTextAlign(Paint.Align.LEFT);}
     }
 
-    private void drawRunwayEdgeFlow(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,boolean ground){float s=clamp(speedMps/90f,0,1)*(ground?1f:clamp(1-altitudeM/180f,0f,1f));if(s<.025f)return;for(int i=0;i<28;i++){float q=(i/28f+runwayFlow*1.22f)%1f,z=q*q,q0=Math.max(0,q-(.018f+.07f*s)),z0=q0*q0,y0=lerp(fy,ny,z0),y1=lerp(fy,ny,z),h0=lerp(far,near,z0),h1=lerp(far,near,z);stroke.setColor(0xdffffef7);stroke.setStrokeWidth(Math.max(1f,w*(.0007f+.0032f*z)));c.drawLine(cx-h0,y0,cx-h1,y1,stroke);c.drawLine(cx+h0,y0,cx+h1,y1,stroke);}}
-    private void drawRunwaySurfaceFlow(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,boolean ground){float s=clamp(speedMps/92f,0f,1)*(ground?1f:clamp(1-altitudeM/150f,0f,1f));if(s<=.012f)return;for(int i=0;i<34;i++){float q=(i/34f+runwayFlow*1.24f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z)*.92f;stroke.setColor(0x45101517);stroke.setStrokeWidth(Math.max(1f,w*(.00045f+.0019f*z)));c.drawLine(cx-half,y,cx+half,y,stroke);}if(ground&&s>.08f)for(int i=0;i<24;i++){float q=(i/24f+runwayFlow*.98f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z),x=cx+((i&1)==0?-1:1)*half*(.20f+.60f*((i*17)%10)/10f),len=h*(.008f+.068f*z)*(.25f+1.05f*s);stroke.setColor(0x509da3a6);stroke.setStrokeWidth(Math.max(1f,w*(.0005f+.0019f*z)));c.drawLine(x,y,x,y+len,stroke);}}
-    private void drawApproachGuidance(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,float err){float py=lerp(fy,ny,.46f),ph=lerp(far,near,.46f),r=Math.max(2,w*.003f);for(int i=0;i<4;i++){p.setColor(i<2?0xfff5f4e8:0xffff3b31);c.drawCircle(cx-ph*1.42f+i*r*3.1f,py,r,p);}p.setTextAlign(Paint.Align.CENTER);p.setColor(Math.abs(err)<8&&Math.abs(crossTrackM)<18?0xff8dff9c:0xffffd45a);p.setTextSize(Math.max(13,w*.012f));c.drawText(String.format(java.util.Locale.US,"RWY27  ΔHDG %+.0f°  X-TRK %+.0f m",-err,crossTrackM),w*.5f,h*.70f,p);p.setTextAlign(Paint.Align.LEFT);}
-    private void drawMountains(Canvas c,int w,int h,float hz,float scale){path.reset();path.moveTo(0,hz);for(int i=0;i<=12;i++){float x=w*i/12f,n=(float)(.45+.55*Math.abs(Math.sin(i*1.73+alongTrackM*.0008)));path.lineTo(x,hz-h*scale*n);}path.lineTo(w,hz);path.close();p.setColor(0xff456f55);c.drawPath(path,p);}
-    private void drawCrash(Canvas c,int w,int h){p.setColor(0x54ff2000);c.drawRect(0,0,w,h,p);p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.create("sans",Typeface.BOLD));p.setColor(0xfffff3e8);p.setTextSize(Math.max(30,w*.035f));c.drawText("AIRCRAFT IMPACT",w*.5f,h*.22f,p);p.setTextSize(Math.max(16,w*.017f));c.drawText(crashReason.isEmpty()?"UNSAFE LANDING":crashReason,w*.5f,h*.27f,p);p.setTypeface(Typeface.create("sans",Typeface.NORMAL));p.setTextAlign(Paint.Align.LEFT);}
+    private void drawRubberAndSurface(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,boolean ground){
+        float s=clamp(speedMps/95f,0,1)*(ground?1f:clamp(1-altitudeM/170f,0f,1f));
+        for(int i=0;i<30;i++){float q=(i/30f+runwayFlow*1.20f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z)*.90f;stroke.setColor(0x36101214);stroke.setStrokeWidth(Math.max(1f,w*(.0004f+.0017f*z)));c.drawLine(cx-half,y,cx+half,y,stroke);}
+        for(int i=0;i<18;i++){float q=.18f+(i%9)*.065f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z),x=cx+((i&1)==0?-1:1)*half*(.08f+.15f*((i*7)%6)/6f);stroke.setColor(0x55141618);stroke.setStrokeWidth(Math.max(1f,w*(.0007f+.0022f*z)));c.drawLine(x,y,x+(i%3-1)*w*.003f,y+h*(.008f+.030f*z),stroke);}
+        if(ground&&s>.1f)for(int i=0;i<18;i++){float q=(i/18f+runwayFlow)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z),x=cx+((i&1)==0?-1:1)*half*.35f,len=h*(.008f+.055f*z)*s;stroke.setColor(0x449aa0a3);stroke.setStrokeWidth(Math.max(1f,w*(.0005f+.0015f*z)));c.drawLine(x,y,x,y+len,stroke);}
+    }
+
+    private void drawMovingSideBars(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,boolean ground){
+        float influence=ground?1f:clamp(1f-altitudeM/210f,0f,1f),speed01=clamp(speedMps/95f,0f,1f)*influence;
+        for(int i=0;i<10;i++){float q=(i/10f+runwayFlow*1.16f)%1f,z=.13f+.83f*q*q,y=lerp(fy,ny,z),hh=lerp(far,near,z),bw=Math.max(2f,hh*(.045f+.030f*z)),bh=h*(.006f+.037f*z)*(1f+.35f*speed01),lx=cx-hh*.56f,rx=cx+hh*.56f;p.setColor(0xeafffffa);c.drawRect(lx-bw,y,lx+bw,y+bh,p);c.drawRect(rx-bw,y,rx+bw,y+bh,p);}
+    }
+
+    private void drawPapi(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,float err){
+        float py=lerp(fy,ny,.43f),ph=lerp(far,near,.43f),r=Math.max(2f,w*.003f),start=cx-ph*1.48f;
+        for(int i=0;i<4;i++){p.setColor(i<2?0xfff8f5e9:0xffff3b31);c.drawCircle(start+i*r*3.1f,py,r,p);}
+        p.setTextAlign(Paint.Align.CENTER);p.setColor(Math.abs(err)<7f&&Math.abs(crossTrackM)<16f?0xff91ff9d:0xffffd45a);p.setTextSize(Math.max(13f,w*.012f));c.drawText(String.format(java.util.Locale.US,"RWY27  ΔHDG %+.0f°  X-TRK %+.0f m",-err,crossTrackM),w*.5f,h*.70f,p);p.setTextAlign(Paint.Align.LEFT);
+    }
+
+    /** Perspective 3-D airport control tower. It grows as the aircraft reaches it, then slides aft and fades. */
+    private void drawTakeoffTower(Canvas c,int w,int h,float hz){
+        float rel=TOWER_ALONG_M-alongTrackM;
+        float near=clamp(1f-Math.max(0f,rel)/560f,.18f,1f);
+        float passed=Math.max(0f,-rel),fade=1f-clamp(passed/230f,0f,1f);
+        int a=(int)(255f*fade);if(a<=3)return;
+        float x=w*(.80f+.08f*(1f-near))-passed*w/720f;
+        float groundY=hz+(h-hz)*(.32f+.63f*near);
+        float towerH=h*(.13f+.39f*near),shaftW=w*(.018f+.040f*near),depth=shaftW*.34f;
+        float topY=groundY-towerH,shaftTop=topY+towerH*.28f;
+
+        p.setColor(withAlpha(0x55000000,fade));c.drawOval(x-shaftW*1.8f,groundY-shaftW*.18f,x+shaftW*1.9f,groundY+shaftW*.30f,p);
+
+        path.reset();path.moveTo(x-shaftW*.52f,shaftTop);path.lineTo(x+shaftW*.52f,shaftTop);path.lineTo(x+shaftW*.62f,groundY);path.lineTo(x-shaftW*.62f,groundY);path.close();p.setColor(withAlpha(0xffc5c8c5,fade));c.drawPath(path,p);
+        path.reset();path.moveTo(x+shaftW*.52f,shaftTop);path.lineTo(x+shaftW*.52f+depth,shaftTop-depth*.55f);path.lineTo(x+shaftW*.62f+depth,groundY-depth*.20f);path.lineTo(x+shaftW*.62f,groundY);path.close();p.setColor(withAlpha(0xff8e9697,fade));c.drawPath(path,p);
+
+        float cabW=shaftW*2.45f,cabH=towerH*.19f,cabY=topY+towerH*.08f;
+        path.reset();path.moveTo(x-cabW*.52f,cabY);path.lineTo(x+cabW*.52f,cabY);path.lineTo(x+cabW*.44f,cabY+cabH);path.lineTo(x-cabW*.44f,cabY+cabH);path.close();p.setColor(withAlpha(0xff2a3d47,fade));c.drawPath(path,p);
+        path.reset();path.moveTo(x+cabW*.52f,cabY);path.lineTo(x+cabW*.52f+depth,cabY-depth*.45f);path.lineTo(x+cabW*.44f+depth,cabY+cabH-depth*.20f);path.lineTo(x+cabW*.44f,cabY+cabH);path.close();p.setColor(withAlpha(0xff182a34,fade));c.drawPath(path,p);
+
+        float winTop=cabY+cabH*.18f,winBot=cabY+cabH*.76f;
+        for(int i=0;i<4;i++){float lx=lerp(x-cabW*.42f,x+cabW*.22f,i/3f),rw=lx+cabW*.16f;p.setShader(new LinearGradient(0,winTop,0,winBot,new int[]{withAlpha(0xff83c9de,fade),withAlpha(0xff183846,fade)},null,Shader.TileMode.CLAMP));c.drawRect(lx,winTop,rw,winBot,p);p.setShader(null);}
+
+        float roofY=cabY-cabH*.07f;p.setColor(withAlpha(0xffd4d7d2,fade));c.drawOval(x-cabW*.60f,roofY-cabH*.08f,x+cabW*.65f,roofY+cabH*.12f,p);
+        stroke.setColor(withAlpha(0xffd9d9d5,fade));stroke.setStrokeWidth(Math.max(2f,w*.0014f));c.drawLine(x+depth*.2f,roofY,x+depth*.2f,roofY-towerH*.17f,stroke);
+        p.setColor(withAlpha(0xffff3b30,fade*(.65f+.35f*(float)Math.sin(System.nanoTime()/1e8))));c.drawCircle(x+depth*.2f,roofY-towerH*.17f,Math.max(2f,w*.0022f),p);
+    }
+
+    private void drawMountains(Canvas c,int w,int h,float hz,float scale){
+        path.reset();path.moveTo(0,hz);for(int i=0;i<=12;i++){float x=w*i/12f,n=(float)(.45+.55*Math.abs(Math.sin(i*1.73+alongTrackM*.0007)));path.lineTo(x,hz-h*scale*n);}path.lineTo(w,hz);path.close();p.setColor(0xff486f57);c.drawPath(path,p);
+        path.reset();path.moveTo(0,hz);for(int i=0;i<=10;i++){float x=w*i/10f,n=(float)(.30+.36*Math.abs(Math.sin(i*1.25+1.4+alongTrackM*.00035)));path.lineTo(x,hz-h*scale*.58f*n);}path.lineTo(w,hz);path.close();p.setColor(0x884f775e);c.drawPath(path,p);
+    }
+
+    private void drawCrash(Canvas c,int w,int h){
+        p.setColor(0x54ff2000);c.drawRect(0,0,w,h,p);p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.create("sans",Typeface.BOLD));p.setColor(0xfffff3e8);p.setTextSize(Math.max(30f,w*.035f));c.drawText("AIRCRAFT IMPACT",w*.5f,h*.22f,p);p.setTextSize(Math.max(16f,w*.017f));c.drawText(crashReason.isEmpty()?"UNSAFE LANDING":crashReason,w*.5f,h*.27f,p);p.setTypeface(Typeface.create("sans",Typeface.NORMAL));p.setTextAlign(Paint.Align.LEFT);
+    }
+
     private void quad(Canvas c,float x1,float y1,float x2,float y2,float x3,float y3,float x4,float y4,int color){path.reset();path.moveTo(x1,y1);path.lineTo(x2,y2);path.lineTo(x3,y3);path.lineTo(x4,y4);path.close();p.setColor(color);c.drawPath(path,p);}
-    private static float lerp(float a,float b,float t){return a+(b-a)*t;}private static float clamp(float v,float a,float b){return Math.max(a,Math.min(b,v));}private static float angleError(float current,float target){float d=target-current;while(d>180)d-=360;while(d<-180)d+=360;return d;}
+    private static int withAlpha(int color,float a){int aa=(int)(((color>>>24)&255)*clamp(a,0f,1f));return (aa<<24)|(color&0x00ffffff);}
+    private static float lerp(float a,float b,float t){return a+(b-a)*t;}
+    private static float clamp(float v,float a,float b){return Math.max(a,Math.min(b,v));}
+    private static float angleError(float current,float target){float d=target-current;while(d>180)d-=360;while(d<-180)d+=360;return d;}
 }
