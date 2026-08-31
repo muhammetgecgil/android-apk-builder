@@ -37,7 +37,7 @@ public final class ArchiveStore {
 
     public static void record(Context c, String taskId, String name, long ts, String source) {
         if (ts <= 0L) ts = System.currentTimeMillis();
-        if (ts < cutoff()) return;
+        if (ts < cutoff() || ts > System.currentTimeMillis() + 60_000L) return;
         String id = UUID.randomUUID().toString();
         String safeTask = taskId == null ? "" : taskId;
         ContentValues v = new ContentValues();
@@ -49,6 +49,11 @@ public final class ArchiveStore {
         v.put("sig", safeTask + "|" + ts);
         rw(c).insertWithOnConflict("archive_events", null, v, SQLiteDatabase.CONFLICT_IGNORE);
         prune(c);
+    }
+
+    public static void recordManual(Context c, String name, long ts) {
+        String manualId = "manual_" + UUID.randomUUID().toString();
+        record(c, manualId, name, ts, "manual");
     }
 
     public static void importLegacy(Context c, JSONArray legacy) {
@@ -115,10 +120,21 @@ public final class ArchiveStore {
         return id != null && db.delete("archive_events", "id=?", new String[]{id}) > 0;
     }
 
+    public static boolean deleteById(Context c, String id) {
+        if (id == null || id.trim().isEmpty()) return false;
+        return rw(c).delete("archive_events", "id=?", new String[]{id}) > 0;
+    }
+
+    public static int deleteDay(Context c, long dayMillis) {
+        Calendar start = dayStart(dayMillis);
+        Calendar end = (Calendar) start.clone();
+        end.add(Calendar.DAY_OF_YEAR, 1);
+        return rw(c).delete("archive_events", "ts>=? AND ts<?",
+                new String[]{String.valueOf(start.getTimeInMillis()), String.valueOf(end.getTimeInMillis())});
+    }
+
     public static JSONArray forDay(Context c, long dayMillis) {
-        Calendar start = Calendar.getInstance();
-        start.setTimeInMillis(dayMillis);
-        start.set(Calendar.HOUR_OF_DAY, 0); start.set(Calendar.MINUTE, 0); start.set(Calendar.SECOND, 0); start.set(Calendar.MILLISECOND, 0);
+        Calendar start = dayStart(dayMillis);
         Calendar end = (Calendar) start.clone(); end.add(Calendar.DAY_OF_YEAR, 1);
         return query(c, "ts>=? AND ts<?", new String[]{String.valueOf(start.getTimeInMillis()), String.valueOf(end.getTimeInMillis())}, "ts ASC");
     }
@@ -136,6 +152,13 @@ public final class ArchiveStore {
 
     public static void clear(Context c) { rw(c).delete("archive_events", null, null); }
     public static long minDate() { return cutoff(); }
+
+    private static Calendar dayStart(long dayMillis) {
+        Calendar start = Calendar.getInstance();
+        start.setTimeInMillis(dayMillis);
+        start.set(Calendar.HOUR_OF_DAY, 0); start.set(Calendar.MINUTE, 0); start.set(Calendar.SECOND, 0); start.set(Calendar.MILLISECOND, 0);
+        return start;
+    }
 
     private static JSONArray query(Context c, String selection, String[] args, String order) {
         JSONArray out = new JSONArray();
