@@ -1,4 +1,4 @@
-name: Build Publish Haber SAFE V5 Direct APK v2
+name: Build Publish Haber SAFE V5.1 APK
 
 on:
   workflow_dispatch:
@@ -43,7 +43,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Haber-SAFE-V5-Direct-APK-v2
+          name: Haber-SAFE-V5.1-APK
           path: haber-safe-v5-direct/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
@@ -52,12 +52,12 @@ jobs:
         run: |
           set -e
           mkdir -p /tmp/haber-safe-build
-          cp haber-safe-v5-direct/app/build/outputs/apk/debug/app-debug.apk /tmp/haber-safe-build/Haber_SAFE_V5_Direct_5.0.1.apk
+          cp haber-safe-v5-direct/app/build/outputs/apk/debug/app-debug.apk /tmp/haber-safe-build/Haber_SAFE_V5.1_5.1.0.apk
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           git reset --hard origin/main
-          cp /tmp/haber-safe-build/Haber_SAFE_V5_Direct_5.0.1.apk muhammet-haber-safe-v5/Haber_SAFE_V5_Direct_5.0.1.apk
-          git add muhammet-haber-safe-v5/Haber_SAFE_V5_Direct_5.0.1.apk
-          git commit -m "Publish Haber SAFE V5 Direct 5.0.1 APK" || exit 0
+          cp /tmp/haber-safe-build/Haber_SAFE_V5.1_5.1.0.apk muhammet-haber-safe-v5/Haber_SAFE_V5.1_5.1.0.apk
+          git add muhammet-haber-safe-v5/Haber_SAFE_V5.1_5.1.0.apk
+          git commit -m "Publish Haber SAFE V5.1 5.1.0 APK" || exit 0
           git push origin HEAD:main
