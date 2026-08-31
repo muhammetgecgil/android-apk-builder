@@ -13,11 +13,18 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public final class NewsRepository {
     private NewsRepository() {}
@@ -62,15 +69,64 @@ public final class NewsRepository {
         return out.toString();
     }
 
+    public static String selectionCacheKey(Set<String> selectedNames) {
+        ArrayList<String> sorted = new ArrayList<>(selectedNames);
+        Collections.sort(sorted);
+        return "my-news:" + android.text.TextUtils.join("|", sorted);
+    }
+
+    public static List<NewsItem> fetchSelectedCategories(Set<String> selectedNames, int perCategory, int maxTotal) throws Exception {
+        LinkedHashMap<String, String> map = categories();
+        ArrayList<String> queries = new ArrayList<>();
+        for (String name : map.keySet()) {
+            if (selectedNames.contains(name)) queries.add(map.get(name));
+        }
+        if (queries.isEmpty()) return new ArrayList<>();
+
+        int threads = Math.min(4, queries.size());
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        ArrayList<Future<List<NewsItem>>> futures = new ArrayList<>();
+        for (String q : queries) {
+            futures.add(pool.submit(new Callable<List<NewsItem>>() {
+                @Override public List<NewsItem> call() {
+                    try {
+                        return fetchGoogleNews(q, perCategory);
+                    } catch (Exception ignored) {
+                        return new ArrayList<>();
+                    }
+                }
+            }));
+        }
+
+        ArrayList<NewsItem> merged = new ArrayList<>();
+        for (Future<List<NewsItem>> f : futures) {
+            try { merged.addAll(f.get()); } catch (Exception ignored) {}
+        }
+        pool.shutdownNow();
+
+        if (merged.isEmpty()) throw new Exception("Seçili alanlardan haber alınamadı");
+
+        merged.sort((a, b) -> Long.compare(b.publishedAt, a.publishedAt));
+        ArrayList<NewsItem> deduped = new ArrayList<>();
+        HashSet<String> seen = new HashSet<>();
+        for (NewsItem item : merged) {
+            String key = (item.title + "|" + item.source).toLowerCase(Locale.ROOT);
+            if (seen.add(key)) deduped.add(item);
+            if (deduped.size() >= maxTotal) break;
+        }
+        return deduped;
+    }
+
     public static List<NewsItem> fetchGoogleNews(String query, int limit) throws Exception {
         String q = query + " when:7d";
         String encoded = URLEncoder.encode(q, StandardCharsets.UTF_8.name());
         String urlText = "https://news.google.com/rss/search?q=" + encoded + "&hl=tr&gl=TR&ceid=TR:tr";
 
         HttpURLConnection conn = (HttpURLConnection) new URL(urlText).openConnection();
-        conn.setConnectTimeout(12000);
-        conn.setReadTimeout(16000);
-        conn.setRequestProperty("User-Agent", "HaberSAFEV5/5.1.0 Android");
+        conn.setConnectTimeout(10000);
+        conn.setReadTimeout(14000);
+        conn.setRequestProperty("User-Agent", "HaberSAFE/6.0.0 Android");
+        conn.setRequestProperty("Accept", "application/rss+xml, application/xml, text/xml");
         conn.setInstanceFollowRedirects(true);
 
         int code = conn.getResponseCode();
@@ -80,6 +136,7 @@ public final class NewsRepository {
         }
 
         ArrayList<NewsItem> out = new ArrayList<>();
+        HashSet<String> dedupe = new HashSet<>();
         try (InputStream in = new BufferedInputStream(conn.getInputStream())) {
             XmlPullParserFactory factory = XmlPullParserFactory.newInstance();
             factory.setNamespaceAware(false);
@@ -112,8 +169,13 @@ public final class NewsRepository {
                     insideItem = false;
                     String directTitle = clean(itemTitle);
                     String directSource = clean(source);
-                    if (!directTitle.isEmpty() && link != null && link.startsWith("http")) {
-                        out.add(new NewsItem(directTitle, link.trim(), directSource, formatDate(pubDate)));
+                    String directLink = link == null ? "" : link.trim();
+                    if (!directTitle.isEmpty() && directLink.startsWith("http")) {
+                        String key = (directTitle + "|" + directSource).toLowerCase(Locale.ROOT);
+                        if (dedupe.add(key)) {
+                            ParsedDate parsed = parseDate(pubDate);
+                            out.add(new NewsItem(directTitle, directLink, directSource, parsed.text, parsed.epoch));
+                        }
                     }
                 }
                 event = parser.next();
@@ -135,11 +197,11 @@ public final class NewsRepository {
     private static String clean(String value) {
         if (value == null) return "";
         String decoded = Html.fromHtml(value, Html.FROM_HTML_MODE_LEGACY).toString();
-        return decoded.replace('\u00A0', ' ').trim();
+        return decoded.replace('\u00A0', ' ').replaceAll("\\s+", " ").trim();
     }
 
-    private static String formatDate(String rssDate) {
-        if (rssDate == null || rssDate.trim().isEmpty()) return "";
+    private static ParsedDate parseDate(String rssDate) {
+        if (rssDate == null || rssDate.trim().isEmpty()) return new ParsedDate("", 0L);
         String[] patterns = {"EEE, dd MMM yyyy HH:mm:ss z", "EEE, dd MMM yyyy HH:mm:ss Z"};
         for (String pattern : patterns) {
             try {
@@ -147,11 +209,17 @@ public final class NewsRepository {
                 Date date = in.parse(rssDate.trim());
                 if (date != null) {
                     SimpleDateFormat out = new SimpleDateFormat("dd MMM yyyy • HH:mm", new Locale("tr", "TR"));
-                    return out.format(date);
+                    return new ParsedDate(out.format(date), date.getTime());
                 }
             } catch (Exception ignored) {}
         }
-        return rssDate.trim();
+        return new ParsedDate(rssDate.trim(), 0L);
+    }
+
+    private static final class ParsedDate {
+        final String text;
+        final long epoch;
+        ParsedDate(String text, long epoch) { this.text = text; this.epoch = epoch; }
     }
 
     public static final class NewsItem {
@@ -159,12 +227,18 @@ public final class NewsRepository {
         public final String link;
         public final String source;
         public final String date;
+        public final long publishedAt;
 
         public NewsItem(String title, String link, String source, String date) {
-            this.title = title;
-            this.link = link;
-            this.source = source;
-            this.date = date;
+            this(title, link, source, date, 0L);
+        }
+
+        public NewsItem(String title, String link, String source, String date, long publishedAt) {
+            this.title = title == null ? "" : title;
+            this.link = link == null ? "" : link;
+            this.source = source == null ? "" : source;
+            this.date = date == null ? "" : date;
+            this.publishedAt = publishedAt;
         }
 
         @Override public String toString() { return title; }
