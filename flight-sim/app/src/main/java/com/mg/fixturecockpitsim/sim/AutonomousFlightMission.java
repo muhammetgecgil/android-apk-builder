@@ -9,7 +9,10 @@ public final class AutonomousFlightMission {
  public void reset(FlightState s){phase=Phase.TAXI_OUT;phaseTime=orbitTime=0;s.timeSec=0;s.altitudeM=0;s.trueAirspeedMps=0;s.verticalSpeedMps=0;s.headingDeg=RUNWAY_HEADING_DEG;s.pitchDeg=s.rollDeg=0;s.throttle=0;s.gearPosition=1;s.brake01=1;s.onGround=true;}
  public Phase getPhase(){return phase;}public double getOrbitTimeSec(){return orbitTime;}public double getPhaseTimeSec(){return phaseTime;}
  public double getPhaseProgress01(){double d;switch(phase){case HANGAR_START:d=5;break;case TAXI_OUT:d=18;break;case RUNWAY_HOLD:d=3;break;case TAKEOFF_ROLL:d=22;break;case ROTATE_CLIMB:d=17;break;case ORBIT:d=260;break;case APPROACH:d=22;break;case FLARE:d=7;break;case ROLLOUT:d=12;break;case TAXI_IN:d=12;break;case HANGAR_PARK:d=4;break;default:d=1;}return clamp(phaseTime/d,0,1);}
- public void update(FlightState s,FlightControls c,double dt){phaseTime+=dt;c.pitch=c.roll=c.yaw=c.brake=0;switch(phase){
+ public void update(FlightState s,FlightControls c,double dt){
+  // DEMO invariant: no forward speed means the autonomous aircraft is landed, never suspended in the air.
+  if(s.trueAirspeedMps<=.05){s.trueAirspeedMps=0;s.altitudeM=0;s.verticalSpeedMps=0;s.onGround=true;}
+  phaseTime+=dt;c.pitch=c.roll=c.yaw=c.brake=0;switch(phase){
   case HANGAR_START:next(Phase.TAXI_OUT);break;
   case TAXI_OUT:c.throttle=.13;c.gearDown=true;groundLock(c,s,.20);if(s.trueAirspeedMps>9)c.brake=.24;if(phaseTime>=18)next(Phase.RUNWAY_HOLD);break;
   case RUNWAY_HOLD:c.throttle=.09;c.brake=1;c.gearDown=true;groundLock(c,s,.24);if(phaseTime>=3)next(Phase.TAKEOFF_ROLL);break;
@@ -17,7 +20,6 @@ public final class AutonomousFlightMission {
   case ROTATE_CLIMB:c.throttle=.94;c.pitch=altitudePitch(s.altitudeM,CRUISE_ALTITUDE_M,.36);c.roll=headingRoll(s.headingDeg,RUNWAY_HEADING_DEG)*.28;c.yaw=headingError(s.headingDeg,RUNWAY_HEADING_DEG)*.015;c.gearDown=s.altitudeM<55;if(s.altitudeM>=CRUISE_ALTITUDE_M-35)next(Phase.ORBIT);break;
   case ORBIT:{
    orbitTime+=dt;c.gearDown=false;double t=orbitTime,ta=760,th=300,b=.08,tr=.70;
-   // Scenic cruise stays scenic: altitude changes are modest and no long pre-landing descent is hidden here.
    if(t<38){ta=760;th=305;b=.08;tr=.72;}
    else if(t<76){ta=900;th=340;b=.14;tr=.72;}
    else if(t<114){ta=690;th=25;b=-.10;tr=.66;}
