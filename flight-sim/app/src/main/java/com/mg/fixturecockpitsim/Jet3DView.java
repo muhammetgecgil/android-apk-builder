@@ -21,7 +21,7 @@ import java.nio.FloatBuffer;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.opengles.GL10;
 
-/** AVM-14.4 premium aircraft renderer: integrated detail overlay, refined materials, canopy and metallic/heat response. */
+/** AVM-14.8 premium renderer: throttle-driven nozzle breathing and staged afterburner plume. */
 public final class Jet3DView extends GLSurfaceView {
     public static final int CAMERA_CHASE=0, CAMERA_REAR=1, CAMERA_RIGHT_QUARTER=2, CAMERA_LEFT_QUARTER=3;
     private final R r;
@@ -174,6 +174,8 @@ public final class Jet3DView extends GLSurfaceView {
                 "else if(aPart>6.5&&aPart<7.5){float a=uRudderR*d;vec2 piv=vec2(.94,2.38);p.xz=rr(a)*(p.xz-piv)+piv;n.xz=rr(a)*n.xz;}"+
                 "else if(aPart>8.5&&aPart<9.5){float a=uFlapL*d;vec2 piv=vec2(.22,.70);p.yz=rr(a)*(p.yz-piv)+piv;n.yz=rr(a)*n.yz;}"+
                 "else if(aPart>9.5&&aPart<10.5){float a=uFlapR*d;vec2 piv=vec2(.22,.70);p.yz=rr(a)*(p.yz-piv)+piv;n.yz=rr(a)*n.yz;}"+
+                "if(aPart>27.5&&aPart<28.5){float op=mix(.93,1.08,smoothstep(.18,1.,uThrottle));float cx=p.x<0.?-.72:.72;p.x=cx+(p.x-cx)*op;p.y=-.10+(p.y+.10)*op;}"+
+                "if(aPart>21.5&&aPart<22.5){float ab=smoothstep(.73,.88,uThrottle);float cx=p.x<0.?-.72:.72;float q=clamp((p.z-3.42)/3.25,0.,1.);float flutter=1.+.045*sin(uTime*31.+p.z*12.);float rad=mix(.03,1.,ab)*flutter;p.x=cx+(p.x-cx)*rad;p.y=-.10+(p.y+.10)*rad;p.z=3.42+(p.z-3.42)*mix(.015,.92+ab*.15,ab);}"+
                 "if((aPart>1.5&&aPart<2.5)||(aPart>7.5&&aPart<8.5)||(aPart>11.5&&aPart<12.5)||(aPart>20.5&&aPart<22.5)||(aPart>27.5&&aPart<28.5)){float a=uVector*d;vec2 piv=vec2(-.10,3.18);p.yz=rr(a)*(p.yz-piv)+piv;n.yz=rr(a)*n.yz;}"+
                 "if((aPart>12.5&&aPart<15.5)||(aPart>23.5&&aPart<24.5)){float nose=step(p.z,-2.),r=1.-uGear,fold=smoothstep(.08,.82,r);vR=r;"+
                 "if(aPart>13.5&&aPart<14.5&&uGear>.70){vec2 ctr=nose>.5?vec2(-1.62,-3.78):vec2(-1.67,1.18);p.yz=rr(uWheelSpin)*(p.yz-ctr)+ctr;}"+
@@ -203,7 +205,7 @@ public final class Jet3DView extends GLSurfaceView {
                 "else if(vP>15.5&&vP<18.5){base=vec3(.022,.026,.030);rough=.70;metal=.16;}"+
                 "else if(vP>18.5&&vP<20.5){base=vec3(.042,.048,.053);rough=.76;metal=.16;ao=.80;}"+
                 "else if(vP>20.5&&vP<21.5){base=vec3(.105,.110,.115);rough=.27;metal=.92;}"+
-                "else if(vP>21.5&&vP<22.5){float flick=.72+.28*sin(uTime*26.+vPos.z*18.);base=vec3(.08,.018,.008);emitc=mix(vec3(.08,.20,.95),vec3(1.0,.16,.010),uThrottle)*uThrottle*(1.8+.9*flick);rough=.16;metal=.20;alpha=.65+.28*uThrottle;}"+
+                "else if(vP>21.5&&vP<22.5){float ab=smoothstep(.73,.88,uThrottle);float flick=.72+.28*sin(uTime*27.+vPos.z*19.);float diamond=.78+.22*sin(vPos.z*10.5-uTime*5.);base=vec3(.025,.018,.012);vec3 core=mix(vec3(.08,.28,1.45),vec3(1.35,.30,.025),smoothstep(3.7,6.3,vPos.z));emitc=core*ab*(2.0+1.25*flick)*diamond;rough=.10;metal=.08;alpha=ab*(.16+.58*flick);}"+
                 "else if(vP>22.5&&vP<23.5){base=vec3(.285,.300,.315);rough=.44;metal=.42;}"+
                 "else if(vP>24.5&&vP<25.5){emitc=vec3(1.,.018,.010)*1.35;base=vec3(.12,0.,0.);rough=.18;}"+
                 "else if(vP>25.5&&vP<26.5){emitc=vec3(.015,1.,.13)*1.25;base=vec3(0.,.10,.015);rough=.18;}"+
