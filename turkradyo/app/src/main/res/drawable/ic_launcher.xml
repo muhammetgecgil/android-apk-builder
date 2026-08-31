@@ -1,6 +1,65 @@
-<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#18151E" android:pathData="M0,0h108v108H0z"/>
-    <path android:fillColor="#F2B45B" android:pathData="M54,18a36,36 0,1 0,0 72a36,36 0,1 0,0 -72M54,28a26,26 0,1 1,0 52a26,26 0,1 1,0 -52"/>
-    <path android:fillColor="#FFF7EA" android:pathData="M45,43L70,54L45,65Z"/>
-    <path android:fillColor="#E75C4B" android:pathData="M81,27a8,8 0,1 0,0 16a8,8 0,1 0,0 -16"/>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Premium dark launcher surface -->
+    <path
+        android:fillColor="#0A0710"
+        android:pathData="M0,0h108v108H0z" />
+
+    <!-- Soft inner plate -->
+    <path
+        android:fillColor="#17101A"
+        android:pathData="M54,12a42,42 0,1 0,0 84a42,42 0,1 0,0 -84" />
+
+    <!-- Theme-red outer halo -->
+    <path
+        android:fillColor="#FF3650"
+        android:fillType="evenOdd"
+        android:pathData="M54,15a39,39 0,1 0,0 78a39,39 0,1 0,0 -78M54,20a34,34 0,1 1,0 68a34,34 0,1 1,0 -68" />
+
+    <!-- Central broadcast disc -->
+    <path
+        android:fillColor="#110D15"
+        android:pathData="M54,32a22,22 0,1 0,0 44a22,22 0,1 0,0 -44" />
+    <path
+        android:fillColor="#FF3650"
+        android:fillType="evenOdd"
+        android:pathData="M54,31a23,23 0,1 0,0 46a23,23 0,1 0,0 -46M54,34a20,20 0,1 1,0 40a20,20 0,1 1,0 -40" />
+
+    <!-- Radio waves -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF6A7C"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M41,43c-6,6 -6,16 0,22" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FF6A7C"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:pathData="M67,43c6,6 6,16 0,22" />
+
+    <!-- Radio mast / note hybrid -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M54,43v20M49,63h10" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,47a6,6 0,1 0,0 12a6,6 0,1 0,0 -12" />
+    <path
+        android:fillColor="#FF3650"
+        android:pathData="M54,50a3,3 0,1 0,0 6a3,3 0,1 0,0 -6" />
+
+    <!-- Small live indicator -->
+    <path
+        android:fillColor="#FF3650"
+        android:pathData="M78,25a5,5 0,1 0,0 10a5,5 0,1 0,0 -10" />
 </vector>
