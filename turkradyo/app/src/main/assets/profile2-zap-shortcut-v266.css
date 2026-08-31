@@ -1,0 +1,5 @@
+/* v2.6.6 — Smart Zapping shortcut moves to the upper favorites card in Profile 2. */
+.profile2-active .modes .mode[data-p2-zap-shortcut="1"] .p266ZapIcon{display:grid!important;place-items:center!important;width:34px!important;height:34px!important;margin:0 auto 7px!important;color:var(--accent,var(--red,var(--natureC,#ff3647)))!important;filter:drop-shadow(0 0 9px color-mix(in srgb,var(--accent,var(--red,var(--natureC,#ff3647))) 45%,transparent))!important}
+.profile2-active .modes .mode[data-p2-zap-shortcut="1"] .p266ZapIcon svg{width:31px!important;height:31px!important;fill:none!important;stroke:currentColor!important;stroke-width:1.9!important;stroke-linecap:round!important;stroke-linejoin:round!important}
+.profile2-active .modes .mode[data-p2-zap-shortcut="1"] .p266ZapText{display:block!important;font-size:10px!important;font-weight:900!important;line-height:1.05!important;color:var(--text,#fff)!important;text-align:center!important}
+.profile2-active #p2UnifiedPremiumGrid263>#p2Zap{display:none!important}
