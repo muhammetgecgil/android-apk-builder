@@ -41,7 +41,9 @@ jobs:
         run: gradle -p haber-safe-v5-direct clean assembleDebug --stacktrace
 
       - name: Verify APK signature
-        run: "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose haber-safe-v5-direct/app/build/outputs/apk/debug/app-debug.apk
+        shell: bash
+        run: |
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose haber-safe-v5-direct/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Create checksum
         run: sha256sum haber-safe-v5-direct/app/build/outputs/apk/debug/app-debug.apk > /tmp/Haber_SAFE_V6_6.0.0.sha256
