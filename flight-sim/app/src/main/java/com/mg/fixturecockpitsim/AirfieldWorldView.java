@@ -9,7 +9,7 @@ import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.view.View;
 
-/** AVM-14.0 world: speed-linked runway/taxi flow plus moving side runway bars. */
+/** AVM-14.8 world: landing-only runway visibility plus speed-linked optical flow. */
 public final class AirfieldWorldView extends View {
     private static final float RUNWAY_VISIBLE_ALT_M=1000f;
     private static final float RUNWAY_VISIBLE_XTRACK_M=6500f;
@@ -51,7 +51,17 @@ public final class AirfieldWorldView extends View {
         if(crashed)drawCrash(c,w,h);if(speedMps>.3f||crashed)postInvalidateOnAnimation();
     }
 
-    private boolean runwayVisible(){if(onGround)return true;if(altitudeM>RUNWAY_VISIBLE_ALT_M)return false;if(Math.abs(crossTrackM)>RUNWAY_VISIBLE_XTRACK_M)return false;return Math.abs(angleError(headingDeg,270f))<92f;}
+    private boolean landingRunwayPhase(){
+        return phase.contains("APPROACH")||phase.contains("FLARE")||phase.contains("ROLLOUT")||
+                phase.contains("TAXI_IN")||phase.contains("RWY_CAPTURE")||phase.contains("HANGAR_PARK")||phase.contains("COMPLETE");
+    }
+    private boolean runwayVisible(){
+        if(!landingRunwayPhase())return false;
+        if(onGround)return true;
+        if(altitudeM>RUNWAY_VISIBLE_ALT_M)return false;
+        if(Math.abs(crossTrackM)>RUNWAY_VISIBLE_XTRACK_M)return false;
+        return Math.abs(angleError(headingDeg,270f))<92f;
+    }
     private boolean isApproachScene(){if(onGround||!runwayVisible())return false;float e=Math.abs(angleError(headingDeg,270f));if(phase.contains("APPROACH")||phase.contains("RWY_CAPTURE_AIR"))return e<82f;return altitudeM<820f&&e<78f;}
     private float approach01(){return 1f-clamp((altitudeM-8f)/(RUNWAY_VISIBLE_ALT_M-8f),0f,1f);}
 
@@ -96,7 +106,9 @@ public final class AirfieldWorldView extends View {
     private void drawRunwayWorld(Canvas c,int w,int h,float hz){
         p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff6f8d5f,0xff587650,0xff416246},null,Shader.TileMode.CLAMP));c.drawRect(0,hz,w,h,p);p.setShader(null);drawMountains(c,w,h,hz,.18f);
         if(onGround&&speedMps>.6f)drawGroundOpticalFlow(c,w,h,hz);
-        boolean taxi=onGround&&(phase.contains("TAXI_OUT")||phase.contains("TAXI_IN"));if(taxi)drawTaxiway(c,w,h,hz);else if(runwayVisible())drawRunway(c,w,h,hz,onGround);
+        // Departure uses a neutral paved/taxi lane; actual runway markings exist only for arrival.
+        boolean departureLane=onGround&&(phase.contains("TAXI_OUT")||phase.contains("RUNWAY_HOLD")||phase.contains("TAKEOFF_ROLL"));
+        if(departureLane)drawTaxiway(c,w,h,hz);else if(runwayVisible())drawRunway(c,w,h,hz,onGround);
     }
     private void drawGroundOpticalFlow(Canvas c,int w,int h,float hz){float s=clamp(speedMps/42f,0,1);for(int i=0;i<40;i++){float q=(i/40f+groundFlow*1.06f)%1f,z=q*q,y=lerp(hz+h*.022f,h*.999f,z),len=w*(.009f+.060f*z)*(.34f+1.05f*s),lx=w*(.020f+((i*37)%27)/100f),rx=w-lx;stroke.setColor(z>.52f?0x667ca06a:0x388fb27a);stroke.setStrokeWidth(Math.max(1f,w*(.0008f+.0030f*z)));c.drawLine(lx,y,lx-len,y+len*.24f,stroke);c.drawLine(rx,y,rx+len,y+len*.24f,stroke);}}
     private void drawTaxiway(Canvas c,int w,int h,float hz){
@@ -108,7 +120,7 @@ public final class AirfieldWorldView extends View {
     }
 
     private void drawRunway(Canvas c,int w,int h,float hz,boolean ground){
-        if(!ground&&!runwayVisible())return;
+        if(!runwayVisible())return;
         float err=angleError(headingDeg,270f),lat=clamp(crossTrackM/44f,-2.5f,2.5f)*w*.235f,cx=w*.5f-lat+clamp(err/32f,-1,1)*w*.095f,far,near,fy,ny;
         if(ground){far=w*.032f;near=w*.44f;fy=hz+h*.015f;ny=h*.999f;}else{float a=approach01(),e=(float)Math.pow(a,.82);near=w*lerp(.018f,.405f,e);far=w*lerp(.009f,.040f,a);fy=lerp(hz+h*.018f,hz+h*.050f,a);ny=lerp(hz+h*.10f,h*.985f,(float)Math.pow(a,.74));if(!isApproachScene()){near*=.58f;far*=.72f;ny=lerp(hz+h*.09f,h*.55f,clamp(1-altitudeM/RUNWAY_VISIBLE_ALT_M,0,1));}}
         quad(c,cx-far*1.52f,fy,cx+far*1.52f,fy,cx+near*1.20f,ny,cx-near*1.20f,ny,0xff858982);path.reset();path.moveTo(cx-far,fy);path.lineTo(cx+far,fy);path.lineTo(cx+near,ny);path.lineTo(cx-near,ny);path.close();p.setShader(new LinearGradient(cx,fy,cx,ny,new int[]{0xff484c4e,0xff35393b,0xff282d2f},null,Shader.TileMode.CLAMP));c.drawPath(path,p);p.setShader(null);
@@ -121,7 +133,6 @@ public final class AirfieldWorldView extends View {
         if(ground&&alongTrackM<115f){float z=clamp(.48f+alongTrackM/260f,0,1),y=lerp(fy,ny,z*z);p.setColor(0xfffaf9f4);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(Math.max(30,w*(.038f+.02f*z)));c.drawText("27",cx,Math.min(ny-6,y+54),p);p.setTextAlign(Paint.Align.LEFT);}
     }
 
-    /** The exact paired white bars highlighted by the user: now move from horizon toward aircraft. */
     private void drawMovingRunwaySideBars(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,boolean ground){
         float influence=ground?1f:clamp(1f-altitudeM/220f,0f,1f),speed01=clamp(speedMps/92f,0f,1f)*influence;
         float phaseGain=ground?(phase.contains("TAKEOFF_ROLL")?1.34f:phase.contains("TAXI")?1.20f:1.0f):.72f;
