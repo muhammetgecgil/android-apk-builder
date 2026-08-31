@@ -4,9 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * AVM-14.1 aerodynamic-effects buffer.
- * Keeps the translucent wingtip vortices and also appends the advanced airframe
- * detail overlay so v72 remains the untouched reference mesh.
+ * AVM-14.8 aerodynamic-effects buffer.
+ * Keeps translucent wingtip vortices, advanced airframe detail and the
+ * throttle-linked twin-engine afterburner plume in one effects pass.
  */
 public final class WingtipVortexMesh {
     public static final float PART_WINGTIP_VORTEX=40f;
@@ -20,7 +20,7 @@ public final class WingtipVortexMesh {
         b.vortex(1f);
         float[] vortex=new float[b.out.size()];
         for(int i=0;i<vortex.length;i++)vortex[i]=b.out.get(i);
-        return concat(vortex,AdvancedAirframeOverlay.build());
+        return concat(concat(vortex,AdvancedAirframeOverlay.build()),AfterburnerVisualMesh.build());
     }
 
     private static float[] concat(float[] a,float[] b){
@@ -37,14 +37,12 @@ public final class WingtipVortexMesh {
             P a=center(side,q0),b=center(side,q1);
             float w0=.035f+.080f*q0,w1=.035f+.080f*q1;
 
-            // Vertical ribbon face.
             quad(
                     new float[]{a.x,a.y-w0,a.z},
                     new float[]{b.x,b.y-w1,b.z},
                     new float[]{b.x,b.y+w1,b.z},
                     new float[]{a.x,a.y+w0,a.z});
 
-            // Crossed ribbon face keeps the vortex readable from side/chase cameras.
             float wx0=w0*.72f,wx1=w1*.72f;
             quad(
                     new float[]{a.x-wx0,a.y,a.z},
