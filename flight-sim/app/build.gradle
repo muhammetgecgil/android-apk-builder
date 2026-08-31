@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 74
-        versionName '25.2-avm14.2-gravity-wind-flight-physics'
+        versionCode 75
+        versionName '25.3-avm14.3-cloud-deck-sea-skimming'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }

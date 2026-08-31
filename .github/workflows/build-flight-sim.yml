@@ -39,7 +39,7 @@ jobs:
           test -s "$REL"
           test -s "$AAB"
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify "$DBG"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "versionCode='74'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "versionCode='75'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "targetSdkVersion:'36'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "application-label:'Aircraft Simulator 3D'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "package: name='com.mg.fixturecockpitsim.dev'"
