@@ -1,8 +1,9 @@
 package com.mg.fixturecockpitsim.sim;
 
+import com.mg.fixturecockpitsim.CinematicEnvironmentView;
 import com.mg.fixturecockpitsim.WeatherEffectsView;
 
-/** Deterministic mobile flight model with progressive takeoff, gravity/lift balance, wind gusts and stable deep-bank control. */
+/** AVM-14.5 flight model: gravity/lift, wind gusts, game-linked pitch/yaw and stable deep-bank control. */
 public final class FlightDynamicsEngine {
     private static final double EARTH_RADIUS_M = 6371000.0;
     private static final double GEAR_RATE_PER_SEC = 0.55;
@@ -32,8 +33,6 @@ public final class FlightDynamicsEngine {
         s.gearPosition = approach(s.gearPosition, gearTarget, GEAR_RATE_PER_SEC * dtSec);
         s.brake01 += (in.brake - s.brake01) * Math.min(1.0, dtSec * 7.0);
 
-        // Normal travel remains calm. A deliberate near-full roll command opens the
-        // slower deep-bank envelope up to 160 degrees. Wind rides on top as a small gust bias.
         double rollInput = Math.max(-1.0, Math.min(1.0, in.roll));
         double absRoll = Math.abs(rollInput);
         if (absRoll < 0.025) rollInput = 0.0;
@@ -48,11 +47,16 @@ public final class FlightDynamicsEngine {
             rollRate = .56;
         }
         targetRoll = Math.max(-DEEP_BANK_DEG, Math.min(DEEP_BANK_DEG, targetRoll + gustRollDeg));
-        double targetPitch = in.pitch * 30.0;
+
+        // Slightly stronger game-like pitch response while retaining the same stable smoothing.
+        double targetPitch = in.pitch * 32.0;
         s.rollDeg += (targetRoll - s.rollDeg) * Math.min(1.0, dtSec * rollRate);
-        s.rollDeg = Math.max(-DEEP_BANK_DEG, Math.min(DEEP_BANK_DEG, s.rollDeg));
-        s.pitchDeg += (targetPitch - s.pitchDeg) * Math.min(1.0, dtSec * 2.4);
-        s.headingDeg = wrap360(s.headingDeg + Math.sin(Math.toRadians(s.rollDeg)) * 28.0 * dtSec + in.yaw * 18.0 * dtSec + gustYawRate * dtSec);
+        s.rollDeg = Math.max(-DEEP_BANK_DEG,Math.min(DEEP_BANK_DEG,s.rollDeg));
+        s.pitchDeg += (targetPitch - s.pitchDeg) * Math.min(1.0, dtSec * 2.55);
+
+        // Rudder/yaw now has enough direct authority for a visible world turn. Bank still adds coordinated turn.
+        double rudderAuthority = s.onGround ? 12.0 : 24.0;
+        s.headingDeg = wrap360(s.headingDeg + Math.sin(Math.toRadians(s.rollDeg)) * 28.0 * dtSec + in.yaw * rudderAuthority * dtSec + gustYawRate * dtSec);
 
         double throttleResponse = s.onGround ? .82 : 1.75;
         s.throttle += (in.throttle - s.throttle) * Math.min(1.0, dtSec * throttleResponse);
@@ -77,9 +81,6 @@ public final class FlightDynamicsEngine {
             if (s.brake01 > .05) s.trueAirspeedMps = Math.max(0.0, s.trueAirspeedMps - (1.2 + 5.2 * s.brake01) * dtSec);
         }
 
-        // Lift/gravity balance: below flying speed the aircraft can no longer hold itself up.
-        // At extreme bank angles the vertical lift component also collapses, so a stable 160°
-        // attitude is possible but altitude is no longer magically maintained.
         double uprightLift = Math.max(0.0, Math.cos(Math.toRadians(s.rollDeg)));
         double speedLift = (s.trueAirspeedMps / LIFT_REFERENCE_SPEED_MPS);
         speedLift *= speedLift;
@@ -90,14 +91,13 @@ public final class FlightDynamicsEngine {
         if (s.onGround) {
             airborneVs = Math.max(0.0, pitchKinematicVs);
         } else {
-            double follow = Math.min(1.0, dtSec * 1.55);
+            double follow = Math.min(1.0, dtSec * 1.65);
             s.verticalSpeedMps += (pitchKinematicVs - s.verticalSpeedMps) * follow;
             double gravityDeficit = 1.0 - liftSupport;
             s.verticalSpeedMps -= GRAVITY_MPS2 * gravityDeficit * dtSec;
             s.verticalSpeedMps += gustVerticalMps * dtSec * 2.2;
-            s.verticalSpeedMps = Math.max(-78.0, Math.min(75.0, s.verticalSpeedMps));
+            s.verticalSpeedMps = Math.max(-82.0, Math.min(78.0, s.verticalSpeedMps));
 
-            // Low-energy stall tendency: nose gently seeks down as energy disappears.
             double stall = clamp01((68.0 - s.trueAirspeedMps) / 68.0) * clamp01(s.altitudeM / 20.0);
             if (stall > 0.0) s.pitchDeg += (-8.0 - s.pitchDeg) * Math.min(1.0, dtSec * (.16 + .42 * stall));
             airborneVs = s.verticalSpeedMps;
@@ -152,6 +152,9 @@ public final class FlightDynamicsEngine {
         double cosLat = Math.max(0.15, Math.cos(Math.toRadians(s.latitudeDeg)));
         s.longitudeDeg += Math.toDegrees(east / (EARTH_RADIUS_M * cosLat));
         s.timeSec += dtSec;
+
+        // Live bridge: scenery receives current manual/BT/AUTO state after every physics step.
+        CinematicEnvironmentView.setLiveFlightState(s.altitudeM,s.trueAirspeedMps,s.pitchDeg,s.rollDeg,s.headingDeg,s.onGround);
     }
 
     private static double approach(double value,double target,double maxDelta){if(value<target)return Math.min(target,value+maxDelta);return Math.max(target,value-maxDelta);}
