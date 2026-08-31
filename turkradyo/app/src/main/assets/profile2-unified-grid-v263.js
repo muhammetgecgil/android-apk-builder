@@ -1,6 +1,6 @@
 (()=>{'use strict';
 const CARDS=[
-{id:'v12Similar',label:'MÜZİK TÜRÜ',icon:'waves'},{id:'v12Genres',label:'TÜRLER',icon:'target'},{id:'v12Smart',label:'SLOW MOD',icon:'moon'},{id:'p2DNA',label:'İSTASYON DNA',icon:'dna'},{id:'p2Tracks',label:'SON 50',icon:'wave'},{id:'p2Alarm',label:'RADYO İLE UYAN',icon:'alarm'},{id:'p2Sleep',label:'ZAMANLAYICI',icon:'hourglass'},{id:'p2Zap',label:'AKILLI ZAPPING',icon:'zap'},{id:'p2Genres',label:'TÜRKİYE GRUPLARI',icon:'globe'}];
+{id:'v12Similar',label:'MÜZİK TÜRÜ',icon:'waves'},{id:'v12Genres',label:'TÜRLER',icon:'target'},{id:'v12Smart',label:'SLOW MOD',icon:'moon'},{id:'p2DNA',label:'İSTASYON DNA',icon:'dna'},{id:'p2Tracks',label:'SON 50',icon:'wave'},{id:'p2Alarm',label:'RADYO İLE UYAN',icon:'alarm'},{id:'p2Sleep',label:'ZAMANLAYICI',icon:'hourglass'},{id:'p2Genres',label:'TÜRKİYE GRUPLARI',icon:'globe'}];
 const SVG={
 waves:'<svg viewBox="0 0 24 24"><path d="M3 8c2.1 1.7 4.3 1.7 6.4 0 2.1-1.7 4.2-1.7 6.3 0 2.1 1.7 4.3 1.7 5.3 0"/><path d="M3 12c2.1 1.7 4.3 1.7 6.4 0 2.1-1.7 4.2-1.7 6.3 0 2.1 1.7 4.3 1.7 5.3 0"/><path d="M3 16c2.1 1.7 4.3 1.7 6.4 0 2.1-1.7 4.2-1.7 6.3 0 2.1 1.7 4.3 1.7 5.3 0"/></svg>',
 target:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
@@ -9,7 +9,6 @@ dna:'<svg viewBox="0 0 24 24"><path d="M8 3c0 4.5 8 4.5 8 9s-8 4.5-8 9M16 3c0 4.
 wave:'<svg viewBox="0 0 24 24"><path d="M4 13h2l2-5 3 10 3-13 3 8h3"/></svg>',
 alarm:'<svg viewBox="0 0 24 24"><path d="M6 16h12l-1.5-2v-3.5a4.5 4.5 0 0 0-9 0V14z"/><path d="M10 19h4M7 5 5 7M17 5l2 2"/></svg>',
 hourglass:'<svg viewBox="0 0 24 24"><path d="M7 3h10M7 21h10M8.5 4.5c0 3.3 3.5 4.6 3.5 7.5s-3.5 4.2-3.5 7.5M15.5 4.5c0 3.3-3.5 4.6-3.5 7.5s3.5 4.2 3.5 7.5"/></svg>',
-zap:'<svg viewBox="0 0 24 24"><path d="M13 2 6 13h5l-1 9 8-12h-5z"/></svg>',
 globe:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M5 12h14M12 5c2 2.2 3 4.5 3 7s-1 4.8-3 7c-2-2.2-3-4.5-3-7s1-4.8 3-7"/></svg>'};
 function isP2(){try{return localStorage.getItem('p2Active')==='1'}catch(e){return document.body?.classList.contains('profile2-active')}}
 function sameCard(el,c){return el?.dataset?.p265==='1'&&el.className==='p263UnifiedCard'&&el.children.length===2&&el.children[0]?.classList.contains('p263Icon')&&el.children[1]?.classList.contains('p263Label')&&el.children[1]?.textContent===c.label}
