@@ -1,4 +1,4 @@
-name: Build Hafiza Dostum 5.0 Play Store
+name: Build Hafiza Dostum 5.1 Play Store
 
 on:
   push:
@@ -32,13 +32,13 @@ jobs:
       - name: Collect packages
         run: |
           mkdir -p out
-          cp hafiza-dostum/app/build/outputs/apk/debug/app-debug.apk out/HafizaDostum-5.0-debug.apk
-          cp hafiza-dostum/app/build/outputs/apk/release/app-release-unsigned.apk out/HafizaDostum-5.0-release-unsigned.apk
-          cp hafiza-dostum/app/build/outputs/bundle/release/app-release.aab out/HafizaDostum-5.0-release-unsigned.aab
+          cp hafiza-dostum/app/build/outputs/apk/debug/app-debug.apk out/HafizaDostum-5.1-debug.apk
+          cp hafiza-dostum/app/build/outputs/apk/release/app-release-unsigned.apk out/HafizaDostum-5.1-release-unsigned.apk
+          cp hafiza-dostum/app/build/outputs/bundle/release/app-release.aab out/HafizaDostum-5.1-release-unsigned.aab
       - name: Upload Play Store build outputs
         uses: actions/upload-artifact@v4
         with:
-          name: HafizaDostum-5.0-PlayStore
+          name: HafizaDostum-5.1-PlayStore
           path: out/*
           if-no-files-found: error
           retention-days: 30
