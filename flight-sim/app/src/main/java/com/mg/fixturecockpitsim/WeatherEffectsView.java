@@ -8,9 +8,10 @@ import android.graphics.Paint;
 import android.graphics.Shader;
 import android.view.View;
 
+import java.util.Locale;
 import java.util.Random;
 
-/** AVM-13.3: continuous day/night cycle, independent weather, and shared celestial state for water reflections. */
+/** AVM-14.2: day/night, weather visuals, celestial reflection state and shared physical wind state. */
 public final class WeatherEffectsView extends View {
     private static final int DAWN=0,MORNING=1,NOON=2,SUNSET=3,EVENING=4,NIGHT=5;
     private static final String[] DAY_LABELS={"DAWN","MORNING","NOON","SUNSET","EVENING","NIGHT"};
@@ -18,12 +19,19 @@ public final class WeatherEffectsView extends View {
     private static final String[] WEATHER_LABELS={"CLEAR","CLOUDY","RAIN","SNOW"};
     private static final long DAY_CYCLE_MS=360000L;
 
-    // Shared with AirfieldWorldView so water highlights match the actual sun/moon being drawn.
-    private static volatile int sharedCelestialMode; // 0 none, 1 sun, 2 moon
+    private static volatile int sharedCelestialMode;
     private static volatile float sharedCelestialX01=.5f,sharedCelestialStrength;
+    private static volatile boolean sharedWindy;
+    private static volatile float sharedWindStrength=.20f;
+    private static volatile int sharedWindSign=1;
+
     public static int getSharedCelestialMode(){return sharedCelestialMode;}
     public static float getSharedCelestialX01(){return sharedCelestialX01;}
     public static float getSharedCelestialStrength(){return sharedCelestialStrength;}
+    public static boolean isSharedWindy(){return sharedWindy;}
+    public static float getSharedWindStrength(){return sharedWindStrength;}
+    public static int getSharedWindSign(){return sharedWindSign;}
+    public static float getSharedCrosswindMps(){return sharedWindy?sharedWindSign*(5f+15f*sharedWindStrength):0f;}
 
     private final Paint p=new Paint(3),stroke=new Paint(3);
     private final Random random=new Random(System.nanoTime());
@@ -43,7 +51,7 @@ public final class WeatherEffectsView extends View {
     public String getModeLabel(){
         String d=DAY_LABELS[Math.max(0,Math.min(DAY_LABELS.length-1,dayPhase))];
         String w=WEATHER_LABELS[Math.max(0,Math.min(WEATHER_LABELS.length-1,weather))];
-        return d+" / "+w+(windy?" + WIND":"");
+        return d+" / "+w+(windy?String.format(Locale.US," + WIND %.0f m/s",Math.abs(getSharedCrosswindMps())):"");
     }
 
     @Override protected void onDraw(Canvas c){
@@ -75,6 +83,7 @@ public final class WeatherEffectsView extends View {
         if(r<38){weather=CLEAR;cloudCount=random.nextInt(2);}else if(r<65){weather=CLOUDY;cloudCount=4+random.nextInt(5);}else if(r<84){weather=RAIN;cloudCount=8+random.nextInt(3);}else{weather=SNOW;cloudCount=7+random.nextInt(3);}
         windy=random.nextInt(100)<42;if(weather==RAIN&&random.nextBoolean())windy=true;
         windStrength=windy?.45f+random.nextFloat()*.55f:.12f+random.nextFloat()*.16f;windSign=random.nextBoolean()?1:-1;
+        sharedWindy=windy;sharedWindStrength=windStrength;sharedWindSign=windSign;
         weatherEpochMs=now;long min=first?52000L:45000L;nextWeatherChangeMs=now+min+random.nextInt(46000);
     }
 
