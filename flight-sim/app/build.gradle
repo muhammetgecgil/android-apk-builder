@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 82
-        versionName '26.0-avm15.0-continuous-world-water-impact-bird'
+        versionCode 83
+        versionName '26.1-avm15.1-world-continuity-control-tower'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
