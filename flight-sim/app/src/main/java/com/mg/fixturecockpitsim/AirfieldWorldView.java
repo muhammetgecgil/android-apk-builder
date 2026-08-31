@@ -9,9 +9,10 @@ import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.view.View;
 
-/** AVM-14.8 world: landing-only runway visibility plus speed-linked optical flow. */
+/** AVM-14.9 world: runway exists only for takeoff/landing windows; cruise remains runway-free. */
 public final class AirfieldWorldView extends View {
     private static final float RUNWAY_VISIBLE_ALT_M=1000f;
+    private static final float TAKEOFF_RUNWAY_FADE_ALT_M=260f;
     private static final float RUNWAY_VISIBLE_XTRACK_M=6500f;
     private final Paint p=new Paint(3),stroke=new Paint(3);
     private final Path path=new Path();
@@ -51,18 +52,27 @@ public final class AirfieldWorldView extends View {
         if(crashed)drawCrash(c,w,h);if(speedMps>.3f||crashed)postInvalidateOnAnimation();
     }
 
+    private boolean takeoffRunwayPhase(){
+        return phase.contains("RUNWAY_HOLD")||phase.contains("TAKEOFF_ROLL")||
+                (phase.contains("ROTATE_CLIMB")&&altitudeM<TAKEOFF_RUNWAY_FADE_ALT_M);
+    }
     private boolean landingRunwayPhase(){
-        return phase.contains("APPROACH")||phase.contains("FLARE")||phase.contains("ROLLOUT")||
-                phase.contains("TAXI_IN")||phase.contains("RWY_CAPTURE")||phase.contains("HANGAR_PARK")||phase.contains("COMPLETE");
+        return phase.contains("APPROACH")||phase.contains("FLARE")||phase.contains("ROLLOUT")||phase.contains("RWY_CAPTURE_AIR");
     }
     private boolean runwayVisible(){
-        if(!landingRunwayPhase())return false;
+        boolean takeoff=takeoffRunwayPhase(),landing=landingRunwayPhase();
+        if(!takeoff&&!landing)return false;
         if(onGround)return true;
+        if(takeoff){
+            if(altitudeM>TAKEOFF_RUNWAY_FADE_ALT_M)return false;
+            if(Math.abs(crossTrackM)>180f)return false;
+            return Math.abs(angleError(headingDeg,270f))<105f;
+        }
         if(altitudeM>RUNWAY_VISIBLE_ALT_M)return false;
         if(Math.abs(crossTrackM)>RUNWAY_VISIBLE_XTRACK_M)return false;
         return Math.abs(angleError(headingDeg,270f))<92f;
     }
-    private boolean isApproachScene(){if(onGround||!runwayVisible())return false;float e=Math.abs(angleError(headingDeg,270f));if(phase.contains("APPROACH")||phase.contains("RWY_CAPTURE_AIR"))return e<82f;return altitudeM<820f&&e<78f;}
+    private boolean isApproachScene(){if(onGround||!landingRunwayPhase()||!runwayVisible())return false;float e=Math.abs(angleError(headingDeg,270f));if(phase.contains("APPROACH")||phase.contains("RWY_CAPTURE_AIR"))return e<82f;return altitudeM<820f&&e<78f;}
     private float approach01(){return 1f-clamp((altitudeM-8f)/(RUNWAY_VISIBLE_ALT_M-8f),0f,1f);}
 
     private void drawSky(Canvas c,int w,int h,float hz){
@@ -106,9 +116,8 @@ public final class AirfieldWorldView extends View {
     private void drawRunwayWorld(Canvas c,int w,int h,float hz){
         p.setShader(new LinearGradient(0,hz,0,h,new int[]{0xff6f8d5f,0xff587650,0xff416246},null,Shader.TileMode.CLAMP));c.drawRect(0,hz,w,h,p);p.setShader(null);drawMountains(c,w,h,hz,.18f);
         if(onGround&&speedMps>.6f)drawGroundOpticalFlow(c,w,h,hz);
-        // Departure uses a neutral paved/taxi lane; actual runway markings exist only for arrival.
-        boolean departureLane=onGround&&(phase.contains("TAXI_OUT")||phase.contains("RUNWAY_HOLD")||phase.contains("TAKEOFF_ROLL"));
-        if(departureLane)drawTaxiway(c,w,h,hz);else if(runwayVisible())drawRunway(c,w,h,hz,onGround);
+        boolean taxi=onGround&&(phase.contains("TAXI_OUT")||phase.contains("TAXI_IN"));
+        if(taxi)drawTaxiway(c,w,h,hz);else if(runwayVisible())drawRunway(c,w,h,hz,onGround);
     }
     private void drawGroundOpticalFlow(Canvas c,int w,int h,float hz){float s=clamp(speedMps/42f,0,1);for(int i=0;i<40;i++){float q=(i/40f+groundFlow*1.06f)%1f,z=q*q,y=lerp(hz+h*.022f,h*.999f,z),len=w*(.009f+.060f*z)*(.34f+1.05f*s),lx=w*(.020f+((i*37)%27)/100f),rx=w-lx;stroke.setColor(z>.52f?0x667ca06a:0x388fb27a);stroke.setStrokeWidth(Math.max(1f,w*(.0008f+.0030f*z)));c.drawLine(lx,y,lx-len,y+len*.24f,stroke);c.drawLine(rx,y,rx+len,y+len*.24f,stroke);}}
     private void drawTaxiway(Canvas c,int w,int h,float hz){
@@ -150,8 +159,8 @@ public final class AirfieldWorldView extends View {
         }
     }
 
-    private void drawRunwayEdgeFlow(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,boolean ground){float s=clamp(speedMps/90f,0,1)*(ground?1f:clamp(1-altitudeM/180f,0,1));if(s<.025f)return;for(int i=0;i<28;i++){float q=(i/28f+runwayFlow*1.22f)%1f,z=q*q,q0=Math.max(0,q-(.018f+.07f*s)),z0=q0*q0,y0=lerp(fy,ny,z0),y1=lerp(fy,ny,z),h0=lerp(far,near,z0),h1=lerp(far,near,z);stroke.setColor(0xdffffef7);stroke.setStrokeWidth(Math.max(1f,w*(.0007f+.0032f*z)));c.drawLine(cx-h0,y0,cx-h1,y1,stroke);c.drawLine(cx+h0,y0,cx+h1,y1,stroke);}}
-    private void drawRunwaySurfaceFlow(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,boolean ground){float s=clamp(speedMps/92f,0,1)*(ground?1f:clamp(1-altitudeM/150f,0,1));if(s<=.012f)return;for(int i=0;i<34;i++){float q=(i/34f+runwayFlow*1.24f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z)*.92f;stroke.setColor(0x45101517);stroke.setStrokeWidth(Math.max(1f,w*(.00045f+.0019f*z)));c.drawLine(cx-half,y,cx+half,y,stroke);}if(ground&&s>.08f)for(int i=0;i<24;i++){float q=(i/24f+runwayFlow*.98f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z),x=cx+((i&1)==0?-1:1)*half*(.20f+.60f*((i*17)%10)/10f),len=h*(.008f+.068f*z)*(.25f+1.05f*s);stroke.setColor(0x509da3a6);stroke.setStrokeWidth(Math.max(1f,w*(.0005f+.0019f*z)));c.drawLine(x,y,x,y+len,stroke);}}
+    private void drawRunwayEdgeFlow(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,boolean ground){float s=clamp(speedMps/90f,0,1)*(ground?1f:clamp(1-altitudeM/180f,0f,1f));if(s<.025f)return;for(int i=0;i<28;i++){float q=(i/28f+runwayFlow*1.22f)%1f,z=q*q,q0=Math.max(0,q-(.018f+.07f*s)),z0=q0*q0,y0=lerp(fy,ny,z0),y1=lerp(fy,ny,z),h0=lerp(far,near,z0),h1=lerp(far,near,z);stroke.setColor(0xdffffef7);stroke.setStrokeWidth(Math.max(1f,w*(.0007f+.0032f*z)));c.drawLine(cx-h0,y0,cx-h1,y1,stroke);c.drawLine(cx+h0,y0,cx+h1,y1,stroke);}}
+    private void drawRunwaySurfaceFlow(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,boolean ground){float s=clamp(speedMps/92f,0f,1)*(ground?1f:clamp(1-altitudeM/150f,0f,1f));if(s<=.012f)return;for(int i=0;i<34;i++){float q=(i/34f+runwayFlow*1.24f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z)*.92f;stroke.setColor(0x45101517);stroke.setStrokeWidth(Math.max(1f,w*(.00045f+.0019f*z)));c.drawLine(cx-half,y,cx+half,y,stroke);}if(ground&&s>.08f)for(int i=0;i<24;i++){float q=(i/24f+runwayFlow*.98f)%1f,z=q*q,y=lerp(fy,ny,z),half=lerp(far,near,z),x=cx+((i&1)==0?-1:1)*half*(.20f+.60f*((i*17)%10)/10f),len=h*(.008f+.068f*z)*(.25f+1.05f*s);stroke.setColor(0x509da3a6);stroke.setStrokeWidth(Math.max(1f,w*(.0005f+.0019f*z)));c.drawLine(x,y,x,y+len,stroke);}}
     private void drawApproachGuidance(Canvas c,int w,int h,float cx,float fy,float ny,float far,float near,float err){float py=lerp(fy,ny,.46f),ph=lerp(far,near,.46f),r=Math.max(2,w*.003f);for(int i=0;i<4;i++){p.setColor(i<2?0xfff5f4e8:0xffff3b31);c.drawCircle(cx-ph*1.42f+i*r*3.1f,py,r,p);}p.setTextAlign(Paint.Align.CENTER);p.setColor(Math.abs(err)<8&&Math.abs(crossTrackM)<18?0xff8dff9c:0xffffd45a);p.setTextSize(Math.max(13,w*.012f));c.drawText(String.format(java.util.Locale.US,"RWY27  ΔHDG %+.0f°  X-TRK %+.0f m",-err,crossTrackM),w*.5f,h*.70f,p);p.setTextAlign(Paint.Align.LEFT);}
     private void drawMountains(Canvas c,int w,int h,float hz,float scale){path.reset();path.moveTo(0,hz);for(int i=0;i<=12;i++){float x=w*i/12f,n=(float)(.45+.55*Math.abs(Math.sin(i*1.73+alongTrackM*.0008)));path.lineTo(x,hz-h*scale*n);}path.lineTo(w,hz);path.close();p.setColor(0xff456f55);c.drawPath(path,p);}
     private void drawCrash(Canvas c,int w,int h){p.setColor(0x54ff2000);c.drawRect(0,0,w,h,p);p.setTextAlign(Paint.Align.CENTER);p.setTypeface(Typeface.create("sans",Typeface.BOLD));p.setColor(0xfffff3e8);p.setTextSize(Math.max(30,w*.035f));c.drawText("AIRCRAFT IMPACT",w*.5f,h*.22f,p);p.setTextSize(Math.max(16,w*.017f));c.drawText(crashReason.isEmpty()?"UNSAFE LANDING":crashReason,w*.5f,h*.27f,p);p.setTypeface(Typeface.create("sans",Typeface.NORMAL));p.setTextAlign(Paint.Align.LEFT);}
