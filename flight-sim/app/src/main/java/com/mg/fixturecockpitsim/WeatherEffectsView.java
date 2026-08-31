@@ -9,7 +9,7 @@ import android.graphics.Shader;
 import java.util.Locale;
 import java.util.Random;
 
-/** AVM-14.3 weather + day/night overlay on top of the cinematic cloud/ocean base layer. */
+/** AVM-14.6 balanced weather: clear sky can be cloud-free, overcast layers follow weather state. */
 public final class WeatherEffectsView extends CinematicEnvironmentView {
     private static final int DAWN=0,MORNING=1,NOON=2,SUNSET=3,EVENING=4,NIGHT=5;
     private static final String[] DAY_LABELS={"DAWN","MORNING","NOON","SUNSET","EVENING","NIGHT"};
@@ -22,6 +22,7 @@ public final class WeatherEffectsView extends CinematicEnvironmentView {
     private static volatile boolean sharedWindy;
     private static volatile float sharedWindStrength=.20f;
     private static volatile int sharedWindSign=1;
+    private static volatile float sharedCloudLayerCoverage;
 
     public static int getSharedCelestialMode(){return sharedCelestialMode;}
     public static float getSharedCelestialX01(){return sharedCelestialX01;}
@@ -30,6 +31,8 @@ public final class WeatherEffectsView extends CinematicEnvironmentView {
     public static float getSharedWindStrength(){return sharedWindStrength;}
     public static int getSharedWindSign(){return sharedWindSign;}
     public static float getSharedCrosswindMps(){return sharedWindy?sharedWindSign*(5f+15f*sharedWindStrength):0f;}
+    public static float getSharedCloudLayerCoverage(){return sharedCloudLayerCoverage;}
+    public static boolean hasSharedCloudLayer(){return sharedCloudLayerCoverage>=.36f;}
 
     private final Paint p=new Paint(3),stroke=new Paint(3);
     private final Random random=new Random(System.nanoTime());
@@ -49,13 +52,11 @@ public final class WeatherEffectsView extends CinematicEnvironmentView {
     public String getModeLabel(){
         String d=DAY_LABELS[Math.max(0,Math.min(DAY_LABELS.length-1,dayPhase))];
         String w=WEATHER_LABELS[Math.max(0,Math.min(WEATHER_LABELS.length-1,weather))];
-        return d+" / "+w+(windy?String.format(Locale.US," + WIND %.0f m/s",Math.abs(getSharedCrosswindMps())):"");
+        String layer=hasSharedCloudLayer()?" / LAYER":"";
+        return d+" / "+w+layer+(windy?String.format(Locale.US," + WIND %.0f m/s",Math.abs(getSharedCrosswindMps())):"");
     }
 
     @Override protected void onDraw(Canvas c){
-        // When the demo is in a cinematic phase, the base class first paints the full
-        // cloud-deck or sea-skimming world. Otherwise it remains transparent and the
-        // normal AirfieldWorldView below is visible.
         super.onDraw(c);
         long now=System.currentTimeMillis();
         dayPhase=computeDayPhase(now);if(now>=nextWeatherChangeMs)chooseWeather(now,false);
@@ -72,16 +73,31 @@ public final class WeatherEffectsView extends CinematicEnvironmentView {
 
     private void updateSharedCelestial(float day01){
         boolean daylight=dayPhase==DAWN||dayPhase==MORNING||dayPhase==NOON||dayPhase==SUNSET;
-        boolean sunVisible=daylight&&weather!=RAIN&&weather!=SNOW&&!(weather==CLOUDY&&cloudCount>=7);
-        if(sunVisible){float travel=clamp(day01/.72f,0,1);sharedCelestialMode=1;sharedCelestialX01=.12f+.76f*travel;sharedCelestialStrength=weather==CLOUDY?.55f:1f;return;}
-        boolean moonVisible=dayPhase==NIGHT&&weather!=RAIN&&weather!=SNOW&&cloudCount<8;
+        boolean sunVisible=daylight&&weather!=RAIN&&weather!=SNOW&&!(weather==CLOUDY&&sharedCloudLayerCoverage>.78f);
+        if(sunVisible){float travel=clamp(day01/.72f,0,1);sharedCelestialMode=1;sharedCelestialX01=.12f+.76f*travel;sharedCelestialStrength=weather==CLOUDY?clamp(1f-sharedCloudLayerCoverage*.55f,.35f,.82f):1f;return;}
+        boolean moonVisible=dayPhase==NIGHT&&weather!=RAIN&&weather!=SNOW&&sharedCloudLayerCoverage<.78f;
         if(moonVisible){sharedCelestialMode=2;sharedCelestialX01=.74f;sharedCelestialStrength=weather==CLOUDY?.55f:1f;return;}
         sharedCelestialMode=0;sharedCelestialStrength=0;
     }
 
     private void chooseWeather(long now,boolean first){
         int r=random.nextInt(100);
-        if(r<38){weather=CLEAR;cloudCount=random.nextInt(2);}else if(r<65){weather=CLOUDY;cloudCount=4+random.nextInt(5);}else if(r<84){weather=RAIN;cloudCount=8+random.nextInt(3);}else{weather=SNOW;cloudCount=7+random.nextInt(3);}
+        if(r<40){
+            weather=CLEAR;
+            cloudCount=random.nextInt(3);
+            sharedCloudLayerCoverage=0f; // clear sky never forces a solid cloud deck
+        }else if(r<68){
+            weather=CLOUDY;
+            cloudCount=3+random.nextInt(6);
+            // Broken-cloud days remain possible; only denser cases form a full layer.
+            sharedCloudLayerCoverage=random.nextInt(100)<32?.20f+random.nextFloat()*.12f:.48f+random.nextFloat()*.40f;
+        }else if(r<86){
+            weather=RAIN;cloudCount=8+random.nextInt(3);
+            sharedCloudLayerCoverage=.82f+random.nextFloat()*.18f;
+        }else{
+            weather=SNOW;cloudCount=7+random.nextInt(3);
+            sharedCloudLayerCoverage=.72f+random.nextFloat()*.24f;
+        }
         windy=random.nextInt(100)<42;if(weather==RAIN&&random.nextBoolean())windy=true;
         windStrength=windy?.45f+random.nextFloat()*.55f:.12f+random.nextFloat()*.16f;windSign=random.nextBoolean()?1:-1;
         sharedWindy=windy;sharedWindStrength=windStrength;sharedWindSign=windSign;
@@ -98,12 +114,12 @@ public final class WeatherEffectsView extends CinematicEnvironmentView {
             default:tint(c,w,h,0xb4080d1c,0xa30b1427);drawNightSky(c,w,h,now);break;
         }
         boolean daylight=dayPhase==DAWN||dayPhase==MORNING||dayPhase==NOON||dayPhase==SUNSET;
-        boolean sunVisible=daylight&&weather!=RAIN&&weather!=SNOW&&!(weather==CLOUDY&&cloudCount>=7);
+        boolean sunVisible=daylight&&weather!=RAIN&&weather!=SNOW&&!(weather==CLOUDY&&sharedCloudLayerCoverage>.78f);
         if(sunVisible){float travel=clamp(day01/.72f,0,1),sx=w*(.12f+.76f*travel),sy=h*(.39f-.30f*(float)Math.sin(Math.PI*travel));int col=dayPhase==SUNSET?0xffff9650:dayPhase==DAWN?0xffffc36d:0xffffe9a6;drawSun(c,sx,sy,w*.030f,col,weather==CLOUDY?.58f:1f);}
     }
 
     private void drawNightSky(Canvas c,int w,int h,long now){
-        if(weather==RAIN||weather==SNOW||cloudCount>=8){drawStars(c,w,h,now,18,.18f);return;}
+        if(weather==RAIN||weather==SNOW||sharedCloudLayerCoverage>.80f){drawStars(c,w,h,now,18,.18f);return;}
         drawStars(c,w,h,now,weather==CLOUDY?38:starX.length,weather==CLOUDY?.45f:1f);drawMoon(c,w*.74f,h*.15f,w*.030f,weather==CLOUDY?.60f:1f);
     }
 
