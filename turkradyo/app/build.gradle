@@ -2,6 +2,12 @@ plugins {
     id 'com.android.application'
 }
 
+def releaseKeystorePath = System.getenv('TURKRADYO_KEYSTORE_FILE')
+def releaseStorePassword = System.getenv('TURKRADYO_STORE_PASSWORD')
+def releaseKeyAlias = System.getenv('TURKRADYO_KEY_ALIAS')
+def releaseKeyPassword = System.getenv('TURKRADYO_KEY_PASSWORD')
+def hasStableSigning = releaseKeystorePath && releaseStorePassword && releaseKeyAlias && releaseKeyPassword && file(releaseKeystorePath).exists()
+
 android {
     namespace 'com.muhammetgecgil.turkradyo'
     compileSdk 36
@@ -10,8 +16,19 @@ android {
         applicationId 'com.muhammetgecgil.turkradyo'
         minSdk 26
         targetSdk 36
-        versionCode 258
-        versionName '2.5.8'
+        versionCode 259
+        versionName '2.5.9'
+    }
+
+    signingConfigs {
+        stableRelease {
+            if (hasStableSigning) {
+                storeFile file(releaseKeystorePath)
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+            }
+        }
     }
 
     lint {
@@ -20,6 +37,9 @@ android {
 
     buildTypes {
         release {
+            if (hasStableSigning) {
+                signingConfig signingConfigs.stableRelease
+            }
             minifyEnabled false
             shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
