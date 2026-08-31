@@ -1,0 +1,20 @@
+(()=>{'use strict';
+const CARDS=[
+{id:'v12Similar',label:'MÜZİK TÜRÜ',icon:'waves'},{id:'v12Genres',label:'TÜRLER',icon:'target'},{id:'v12Smart',label:'SLOW MOD',icon:'moon'},{id:'p2DNA',label:'İSTASYON DNA',icon:'dna'},{id:'p2Tracks',label:'SON 50',icon:'wave'},{id:'p2Alarm',label:'RADYO İLE UYAN',icon:'alarm'},{id:'p2Sleep',label:'ZAMANLAYICI',icon:'hourglass'},{id:'p2Zap',label:'AKILLI ZAPPING',icon:'zap'},{id:'p2Genres',label:'TÜRKİYE GRUPLARI',icon:'globe'}];
+const SVG={
+waves:'<svg viewBox="0 0 24 24"><path d="M3 8c2.1 1.7 4.3 1.7 6.4 0 2.1-1.7 4.2-1.7 6.3 0 2.1 1.7 4.3 1.7 5.3 0"/><path d="M3 12c2.1 1.7 4.3 1.7 6.4 0 2.1-1.7 4.2-1.7 6.3 0 2.1 1.7 4.3 1.7 5.3 0"/><path d="M3 16c2.1 1.7 4.3 1.7 6.4 0 2.1-1.7 4.2-1.7 6.3 0 2.1 1.7 4.3 1.7 5.3 0"/></svg>',
+target:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
+moon:'<svg viewBox="0 0 24 24"><path class="moonFill" d="M15.4 3.2c-1.2.2-2.7 1.4-3.6 2.8-2.2 3.3-1.5 7.8 1.6 10.2 2.3 1.8 5.3 2.2 7.8 1.2-1 1.8-2.8 3.2-5 3.8-4.9 1.2-10-1.8-11.2-6.8C4 9.7 7 4.7 11.9 3.5c1.2-.3 2.4-.4 3.5-.3Z"/></svg>',
+dna:'<svg viewBox="0 0 24 24"><path d="M8 3c0 4.5 8 4.5 8 9s-8 4.5-8 9M16 3c0 4.5-8 4.5-8 9s8 4.5 8 9"/><path d="M9 6h6M8.4 10h7.2M8.4 14h7.2M9 18h6"/></svg>',
+wave:'<svg viewBox="0 0 24 24"><path d="M4 13h2l2-5 3 10 3-13 3 8h3"/></svg>',
+alarm:'<svg viewBox="0 0 24 24"><path d="M6 16h12l-1.5-2v-3.5a4.5 4.5 0 0 0-9 0V14z"/><path d="M10 19h4M7 5 5 7M17 5l2 2"/></svg>',
+hourglass:'<svg viewBox="0 0 24 24"><path d="M7 3h10M7 21h10M8.5 4.5c0 3.3 3.5 4.6 3.5 7.5s-3.5 4.2-3.5 7.5M15.5 4.5c0 3.3-3.5 4.6-3.5 7.5s3.5 4.2 3.5 7.5"/></svg>',
+zap:'<svg viewBox="0 0 24 24"><path d="M13 2 6 13h5l-1 9 8-12h-5z"/></svg>',
+globe:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><path d="M5 12h14M12 5c2 2.2 3 4.5 3 7s-1 4.8-3 7c-2-2.2-3-4.5-3-7s1-4.8 3-7"/></svg>'};
+function active(){try{return localStorage.getItem('p2Active')==='1'}catch(e){return document.body?.classList.contains('profile2-active')}}
+function inactive(){document.body?.classList.remove('profile2-active','p262-ready');const g=document.getElementById('p2UnifiedPremiumGrid263');if(g)g.style.display='none'}
+function card(el,c){el.classList.remove('p2Wide','p256PremiumCard','p262UnifiedCard');el.classList.add('p263UnifiedCard');el.removeAttribute('style');const i=document.createElement('span');i.className='p263Icon';i.innerHTML=SVG[c.icon];const t=document.createElement('span');t.className='p263Label';t.textContent=c.label;el.replaceChildren(i,t)}
+function mount(){if(!active()){inactive();return false}document.body?.classList.add('profile2-active');const old=document.getElementById('p2DiscoveryMenu'),hub=document.querySelector('.p2Hub'),nodes=CARDS.map(c=>document.getElementById(c.id));if(!old||!hub||nodes.some(x=>!x))return false;let g=document.getElementById('p2UnifiedPremiumGrid263');if(!g){g=document.createElement('div');g.id='p2UnifiedPremiumGrid263';old.parentNode?.insertBefore(g,old)}g.style.display='grid';CARDS.forEach(c=>{const el=document.getElementById(c.id);card(el,c);if(el.parentNode!==g)g.appendChild(el)});old.classList.add('p263Legacy');hub.classList.add('p263Legacy');document.body?.classList.add('p263-ready');document.documentElement.classList.remove('p263-boot');return true}
+function boot(){let n=0;const run=()=>{mount();if(++n>60)clearInterval(t)};const t=setInterval(run,250);run();new MutationObserver(run).observe(document.body,{attributes:true,attributeFilter:['class'],childList:true,subtree:true});window.addEventListener('pageshow',run);document.addEventListener('visibilitychange',()=>{if(!document.hidden)run()})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+})();
