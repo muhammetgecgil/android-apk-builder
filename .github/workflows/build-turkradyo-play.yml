@@ -12,39 +12,76 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      TURKRADYO_KEYSTORE_B64: ${{ secrets.TURKRADYO_KEYSTORE_B64 }}
+      TURKRADYO_STORE_PASSWORD: ${{ secrets.TURKRADYO_STORE_PASSWORD }}
+      TURKRADYO_KEY_ALIAS: ${{ secrets.TURKRADYO_KEY_ALIAS }}
+      TURKRADYO_KEY_PASSWORD: ${{ secrets.TURKRADYO_KEY_PASSWORD }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Set up Gradle 8.13
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+
       - name: Install API 36 SDK
         run: yes | sdkmanager --licenses >/dev/null || true; sdkmanager 'platforms;android-36' 'build-tools;35.0.0' 'platform-tools'
+
+      - name: Prepare stable update signing key
+        if: env.TURKRADYO_KEYSTORE_B64 != ''
+        run: |
+          echo "$TURKRADYO_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/turkradyo-release.jks"
+          echo "TURKRADYO_KEYSTORE_FILE=$RUNNER_TEMP/turkradyo-release.jks" >> "$GITHUB_ENV"
+
       - name: Build APK and Play bundle
         working-directory: turkradyo
-        run: gradle --no-daemon clean lintRelease assembleDebug bundleRelease
-      - name: Upload installable APK
+        run: gradle --no-daemon clean lintRelease assembleRelease assembleDebug bundleRelease
+
+      - name: Upload stable signed update APK
+        if: env.TURKRADYO_KEYSTORE_B64 != ''
         uses: actions/upload-artifact@v4
         with:
-          name: TurkRadyo-v2.0.2-APK
+          name: TurkRadyo-Stable-Update-APK
+          path: turkradyo/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload unsigned release APK for offline signing
+        if: env.TURKRADYO_KEYSTORE_B64 == ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: TurkRadyo-Release-Unsigned-APK
+          path: turkradyo/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload debug test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: TurkRadyo-Debug-Test-APK-NOT-FOR-UPDATES
           path: turkradyo/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
-      - name: Upload unsigned Play bundle
+
+      - name: Upload Play bundle
         uses: actions/upload-artifact@v4
         with:
-          name: TurkRadyo-Play-Unsigned
+          name: TurkRadyo-Play-Bundle
           path: turkradyo/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 30
+
       - name: Upload lint report
         if: always()
         uses: actions/upload-artifact@v4
