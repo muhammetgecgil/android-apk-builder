@@ -9,11 +9,28 @@ import android.graphics.Shader;
 import android.graphics.Typeface;
 import android.view.View;
 
-/** AVM-14.9 world: runway exists only for takeoff/landing windows; cruise remains runway-free. */
+/** AVM-15.0 world: strict takeoff/final runway windows plus a shared live scene snapshot. */
 public final class AirfieldWorldView extends View {
-    private static final float RUNWAY_VISIBLE_ALT_M=1000f;
+    private static final float RUNWAY_VISIBLE_ALT_M=780f;
     private static final float TAKEOFF_RUNWAY_FADE_ALT_M=260f;
-    private static final float RUNWAY_VISIBLE_XTRACK_M=6500f;
+    private static final float FINAL_XTRACK_M=900f;
+    private static final float FINAL_HEADING_ERR_DEG=38f;
+
+    private static volatile float sharedAltitudeM,sharedSpeedMps,sharedHeadingDeg,sharedPitchDeg,sharedCrossTrackM,sharedAlongTrackM;
+    private static volatile boolean sharedOnGround=true,sharedCrashed;
+    private static volatile String sharedPhase="",sharedCrashReason="";
+
+    public static float getSharedAltitudeM(){return sharedAltitudeM;}
+    public static float getSharedSpeedMps(){return sharedSpeedMps;}
+    public static float getSharedHeadingDeg(){return sharedHeadingDeg;}
+    public static float getSharedPitchDeg(){return sharedPitchDeg;}
+    public static float getSharedCrossTrackM(){return sharedCrossTrackM;}
+    public static float getSharedAlongTrackM(){return sharedAlongTrackM;}
+    public static boolean isSharedOnGround(){return sharedOnGround;}
+    public static boolean isSharedCrashed(){return sharedCrashed;}
+    public static String getSharedPhase(){return sharedPhase;}
+    public static String getSharedCrashReason(){return sharedCrashReason;}
+
     private final Paint p=new Paint(3),stroke=new Paint(3);
     private final Path path=new Path();
     private volatile float altitudeM,speedMps,headingDeg,pitchDeg,crossTrackM,alongTrackM;
@@ -31,6 +48,11 @@ public final class AirfieldWorldView extends View {
         altitudeM=(float)Math.max(0,altitude);speedMps=(float)Math.max(0,speed);onGround=ground;
         phase=scenePhase==null?"":scenePhase;headingDeg=(float)heading;pitchDeg=(float)pitch;
         crossTrackM=(float)crossTrack;alongTrackM=(float)alongTrack;crashed=crash;crashReason=reason==null?"":reason;
+
+        sharedAltitudeM=altitudeM;sharedSpeedMps=speedMps;sharedOnGround=onGround;
+        sharedPhase=phase;sharedHeadingDeg=headingDeg;sharedPitchDeg=pitchDeg;
+        sharedCrossTrackM=crossTrackM;sharedAlongTrackM=alongTrackM;
+        sharedCrashed=crashed;sharedCrashReason=crashReason;
         postInvalidateOnAnimation();
     }
 
@@ -57,22 +79,22 @@ public final class AirfieldWorldView extends View {
                 (phase.contains("ROTATE_CLIMB")&&altitudeM<TAKEOFF_RUNWAY_FADE_ALT_M);
     }
     private boolean landingRunwayPhase(){
-        return phase.contains("APPROACH")||phase.contains("FLARE")||phase.contains("ROLLOUT")||phase.contains("RWY_CAPTURE_AIR");
+        return phase.contains("APPROACH")||phase.contains("FLARE")||phase.contains("ROLLOUT");
     }
     private boolean runwayVisible(){
         boolean takeoff=takeoffRunwayPhase(),landing=landingRunwayPhase();
         if(!takeoff&&!landing)return false;
-        if(onGround)return true;
+        if(onGround)return takeoff||phase.contains("ROLLOUT");
         if(takeoff){
             if(altitudeM>TAKEOFF_RUNWAY_FADE_ALT_M)return false;
             if(Math.abs(crossTrackM)>180f)return false;
             return Math.abs(angleError(headingDeg,270f))<105f;
         }
         if(altitudeM>RUNWAY_VISIBLE_ALT_M)return false;
-        if(Math.abs(crossTrackM)>RUNWAY_VISIBLE_XTRACK_M)return false;
-        return Math.abs(angleError(headingDeg,270f))<92f;
+        if(Math.abs(crossTrackM)>FINAL_XTRACK_M)return false;
+        return Math.abs(angleError(headingDeg,270f))<FINAL_HEADING_ERR_DEG;
     }
-    private boolean isApproachScene(){if(onGround||!landingRunwayPhase()||!runwayVisible())return false;float e=Math.abs(angleError(headingDeg,270f));if(phase.contains("APPROACH")||phase.contains("RWY_CAPTURE_AIR"))return e<82f;return altitudeM<820f&&e<78f;}
+    private boolean isApproachScene(){if(onGround||!landingRunwayPhase()||!runwayVisible())return false;float e=Math.abs(angleError(headingDeg,270f));return e<FINAL_HEADING_ERR_DEG;}
     private float approach01(){return 1f-clamp((altitudeM-8f)/(RUNWAY_VISIBLE_ALT_M-8f),0f,1f);}
 
     private void drawSky(Canvas c,int w,int h,float hz){
