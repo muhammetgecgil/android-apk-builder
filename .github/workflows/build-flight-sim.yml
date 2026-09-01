@@ -1,4 +1,5 @@
 name: Build Aircraft Simulator
+# v87 stable pilot/cockpit build
 on:
   push:
     branches: [ main, aircraft-sim-v19-foundation, aircraft-sim-v84-engine-detail, aircraft-sim-v85-engine-dynamics, aircraft-sim-v86-flight-controls-gear-runway, aircraft-sim-v87-pilot-cockpit ]
