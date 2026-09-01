@@ -4,14 +4,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * AVM-14.1 advanced exterior-detail overlay.
+ * AVM-16.0 advanced exterior-detail overlay.
  * Generic modern twin-engine fighter geometry for visual simulation only.
- * Adds canopy hardware, sensors, intake/wing-root details, hinge fairings,
- * nozzle actuators and landing-gear/bay/brake details on top of the v72 airframe.
+ * Preserves the v83 detail set and adds a higher-fidelity engine package:
+ * intake/compressor depth, nacelle service bands, exhaust liner/flame-holder
+ * hardware and layered vectoring-nozzle actuators.
  */
 public final class AdvancedAirframeOverlay {
-    private static final float CANOPY_FRAME=11f, GEAR_STRUT=13f, GEAR_WHEEL=14f,
-            GEAR_DOOR=15f, HEAT_SHIELD=28f, DETAIL=29f;
+    private static final float CANOPY_FRAME=11f, NOZZLE_INNER=12f, GEAR_STRUT=13f,
+            GEAR_WHEEL=14f, GEAR_DOOR=15f, COMPRESSOR_FACE=20f,
+            NOZZLE_PETAL=21f, HEAT_SHIELD=28f, DETAIL=29f;
 
     private final List<Float> out=new ArrayList<>();
     private float part=DETAIL;
@@ -23,6 +25,7 @@ public final class AdvancedAirframeOverlay {
         b.canopyHardware();
         b.noseSensors();
         b.intakeAndWingRoot();
+        b.engineBayAndCoreDetails();
         b.controlSurfaceHardware();
         b.nozzleActuators();
         b.gearBayAndBrakeDetails();
@@ -69,6 +72,14 @@ public final class AdvancedAirframeOverlay {
             // Intake internal lip rails / boundary-layer edge.
             ribbon(new float[][]{{1.04f*s,.37f,-3.10f},{1.37f*s,.31f,-2.85f},{1.63f*s,.17f,-2.50f},{1.56f*s,-.10f,-2.34f}},.030f,.030f);
             ribbon(new float[][]{{1.01f*s,-.02f,-3.00f},{1.21f*s,-.17f,-2.70f},{1.53f*s,-.18f,-2.42f}},.020f,.024f);
+
+            // Intake roof splitter and side-wall stiffeners add depth when viewed from ahead.
+            prism(new float[][]{{1.17f*s,.105f,-2.82f},{1.47f*s,.080f,-2.58f},{1.39f*s,.070f,-2.34f},{1.12f*s,.095f,-2.54f}},.026f);
+            for(int i=0;i<3;i++){
+                float z=-2.63f+i*.22f;
+                cylinderBetween(1.18f*s,-.03f,z,1.48f*s,-.10f,z+.04f,.010f,7);
+            }
+
             // Wing-root blend ribs and actuator fairings.
             ribbon(new float[][]{{.86f*s,.645f,-2.46f},{1.30f*s,.565f,-2.10f},{1.76f*s,.485f,-1.55f},{2.12f*s,.405f,-.92f}},.018f,.020f);
             ribbon(new float[][]{{1.05f*s,.305f,.22f},{1.96f*s,.260f,.42f},{2.94f*s,.210f,.56f},{3.78f*s,.165f,.62f}},.014f,.018f);
@@ -82,6 +93,50 @@ public final class AdvancedAirframeOverlay {
             float z=.72f+i*.15f;
             box(.62f*s,.775f,z,.018f,.020f,.095f);
         }
+    }
+
+    /**
+     * V84 engine visual package.
+     * Keeps all geometry procedural and inexpensive enough for the mobile renderer.
+     */
+    private void engineBayAndCoreDetails(){
+        // Deep compressor presentation: casing ring, spinner and eight front-frame struts.
+        for(float side:new float[]{-1f,1f}){
+            float cx=.94f*side,cy=-.09f;
+            part=COMPRESSOR_FACE;
+            ellipticRing(cx,cy,-1.145f,.267f,.74f,.028f,32);
+            ellipsoid(cx,cy,-1.175f,.070f,.052f,.115f,18,10);
+            for(int i=0;i<8;i++){
+                double a=2*Math.PI*i/8.0;
+                float ca=(float)Math.cos(a),sa=(float)Math.sin(a);
+                cylinderBetween(cx+.078f*ca,cy+.078f*.74f*sa,-1.150f,
+                        cx+.225f*ca,cy+.225f*.74f*sa,-1.135f,.0085f,7);
+            }
+        }
+
+        for(float cx:new float[]{-.72f,.72f}){
+            // Nacelle circumferential service bands break the long "single tube" silhouette.
+            part=DETAIL;
+            ellipticRing(cx,-.10f,.22f,.505f,.58f,.016f,30);
+            ellipticRing(cx,-.10f,.92f,.595f,.59f,.014f,32);
+            ellipticRing(cx,-.10f,1.70f,.655f,.59f,.014f,32);
+            ellipticRing(cx,-.10f,2.42f,.640f,.59f,.014f,32);
+            ellipticRing(cx,-.10f,2.92f,.575f,.59f,.016f,30);
+
+            // Upper/lower longitudinal casing rails.
+            float s=cx<0f?-1f:1f;
+            ribbon(new float[][]{{1.07f*s,.255f,.05f},{1.21f*s,.285f,.86f},{1.28f*s,.285f,1.70f},{1.21f*s,.240f,2.48f},{1.08f*s,.175f,2.93f}},.015f,.016f);
+            ribbon(new float[][]{{.43f*s,-.305f,.18f},{.36f*s,-.335f,.96f},{.34f*s,-.340f,1.78f},{.39f*s,-.315f,2.46f},{.47f*s,-.265f,2.91f}},.013f,.014f);
+
+            // Access/service blisters around the hot-section casing.
+            ellipsoid((.72f+.54f)*s,.035f,2.16f,.055f,.038f,.105f,12,7);
+            ellipsoid((.72f+.50f)*s,-.235f,2.58f,.048f,.034f,.095f,12,7);
+        }
+
+        // Twin-engine center-bay bridge and plumbing hints.
+        part=DETAIL;
+        cylinderBetween(-.38f,.24f,2.42f,.38f,.24f,2.42f,.018f,9);
+        cylinderBetween(-.34f,.18f,2.67f,.34f,.18f,2.67f,.015f,8);
     }
 
     private void controlSurfaceHardware(){
@@ -99,8 +154,13 @@ public final class AdvancedAirframeOverlay {
     private void nozzleActuators(){
         for(float cx:new float[]{-.72f,.72f}){
             part=HEAT_SHIELD;
-            ring(cx,-.10f,3.18f,.525f,.035f,32);
-            ring(cx,-.10f,3.40f,.455f,.025f,30);
+            // Elliptical bands follow the actual nacelle/nozzle section rather than a round ring.
+            ellipticRing(cx,-.10f,3.18f,.525f,.61f,.035f,36);
+            ellipticRing(cx,-.10f,3.40f,.455f,.61f,.025f,34);
+
+            part=NOZZLE_PETAL;
+            ellipticRing(cx,-.10f,3.56f,.397f,.61f,.016f,32);
+
             part=DETAIL;
             // Two concentric actuator families create visible mechanical depth.
             for(int i=0;i<16;i++){
@@ -108,6 +168,8 @@ public final class AdvancedAirframeOverlay {
                 float ca=(float)Math.cos(a),sa=(float)Math.sin(a);
                 cylinderBetween(cx+.515f*ca,-.10f+.515f*.61f*sa,3.19f,
                         cx+.355f*ca,-.10f+.355f*.61f*sa,3.68f,.012f,8);
+                // Pivot boss at each primary actuator.
+                ellipsoid(cx+.475f*ca,-.10f+.475f*.61f*sa,3.29f,.022f,.018f,.030f,8,5);
             }
             for(int i=0;i<8;i++){
                 double a=2*Math.PI*(i+.5)/8.0;
@@ -115,7 +177,20 @@ public final class AdvancedAirframeOverlay {
                 cylinderBetween(cx+.435f*ca,-.10f+.435f*.61f*sa,3.34f,
                         cx+.305f*ca,-.10f+.305f*.61f*sa,3.76f,.010f,7);
             }
+
+            // Inner exhaust liner and flame-holder spider remain attached to thrust-vector motion.
+            part=NOZZLE_INNER;
+            ellipticRing(cx,-.10f,3.78f,.285f,.60f,.020f,30);
+            ellipticRing(cx,-.10f,3.91f,.225f,.58f,.016f,28);
+            ellipsoid(cx,-.10f,3.86f,.050f,.034f,.085f,14,8);
+            for(int i=0;i<8;i++){
+                double a=2*Math.PI*i/8.0;
+                float ca=(float)Math.cos(a),sa=(float)Math.sin(a);
+                cylinderBetween(cx+.055f*ca,-.10f+.055f*.58f*sa,3.86f,
+                        cx+.215f*ca,-.10f+.215f*.58f*sa,3.86f,.008f,7);
+            }
         }
+        part=DETAIL;
     }
 
     private void gearBayAndBrakeDetails(){
@@ -170,6 +245,21 @@ public final class AdvancedAirframeOverlay {
 
     private void ring(float x,float y,float z,float r,float width,int sides){
         cylinderBand(x,y,z-width*.5f,z+width*.5f,r,r,sides);
+    }
+
+    private void ellipticRing(float x,float y,float z,float r,float yScale,float width,int sides){
+        ellipticBand(x,y,z-width*.5f,z+width*.5f,r,r,yScale,sides);
+    }
+
+    private void ellipticBand(float x,float y,float z0,float z1,float r0,float r1,float yScale,int sides){
+        for(int i=0;i<sides;i++){
+            double a0=2*Math.PI*i/sides,a1=2*Math.PI*(i+1)/sides;
+            float[] a={x+r0*(float)Math.cos(a0),y+r0*yScale*(float)Math.sin(a0),z0};
+            float[] b={x+r1*(float)Math.cos(a0),y+r1*yScale*(float)Math.sin(a0),z1};
+            float[] c={x+r1*(float)Math.cos(a1),y+r1*yScale*(float)Math.sin(a1),z1};
+            float[] d={x+r0*(float)Math.cos(a1),y+r0*yScale*(float)Math.sin(a1),z0};
+            quad(a,b,c,d);
+        }
     }
 
     private void cylinderBand(float x,float y,float z0,float z1,float r0,float r1,int sides){
