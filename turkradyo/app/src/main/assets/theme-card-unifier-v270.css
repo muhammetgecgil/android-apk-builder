@@ -1,0 +1,162 @@
+/* v2.7.0 — One theme-driven card language for every home/profile card family.
+   Visual only: IDs, data-mode values and click handlers are untouched. */
+:root{
+  --tcA:var(--natureA,var(--accent,var(--red,#ff3647)));
+  --tcB:var(--natureB,var(--red2,#bb1f34));
+  --tcC:var(--natureC,#fff);
+  --tcGlow:var(--natureGlow,color-mix(in srgb,var(--tcA) 52%,transparent));
+  --tcGlass1:color-mix(in srgb,#0a0d14 78%,var(--tcB));
+  --tcGlass2:color-mix(in srgb,#05070d 89%,var(--tcA));
+  --tcEdge:color-mix(in srgb,var(--tcA) 42%,#ffffff16);
+  --tcEdgeHot:color-mix(in srgb,var(--tcA) 72%,#ffffff24);
+  --tcMuted:color-mix(in srgb,#a99da7 88%,var(--tcC));
+}
+
+/* The original .mode family: all eight cards use the same geometry, not only the first row. */
+html[data-nature-theme] .modes>.mode{
+  position:relative!important;
+  overflow:hidden!important;
+  min-height:98px!important;
+  height:auto!important;
+  padding:14px 7px 12px!important;
+  border-radius:24px!important;
+  border:1px solid var(--tcEdge)!important;
+  background:
+    radial-gradient(circle at 24% 10%,color-mix(in srgb,var(--tcC) 9%,transparent),transparent 31%),
+    radial-gradient(circle at 78% 35%,color-mix(in srgb,var(--tcA) 15%,transparent),transparent 43%),
+    linear-gradient(155deg,var(--tcGlass1),var(--tcGlass2))!important;
+  box-shadow:inset 0 1px 0 #ffffff18,inset 0 0 26px #0005,0 8px 24px #0007,0 0 14px color-mix(in srgb,var(--tcGlow) 46%,transparent)!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  gap:7px!important;
+  color:#fff!important;
+}
+html[data-nature-theme] .modes>.mode::before{
+  content:""!important;
+  display:block!important;
+  position:absolute!important;
+  inset:0!important;
+  pointer-events:none!important;
+  border-radius:inherit!important;
+  background:linear-gradient(115deg,transparent 0 22%,#ffffff0a 38%,transparent 56%)!important;
+  opacity:.75!important;
+}
+html[data-nature-theme] .modes>.mode::after{content:none!important;display:none!important}
+
+/* Remove old circular-dial decoration from the second .mode row. */
+html[data-nature-theme] .modes>.mode>b{
+  position:relative!important;
+  inset:auto!important;
+  transform:none!important;
+  display:grid!important;
+  place-items:center!important;
+  width:auto!important;
+  height:auto!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:none!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:color-mix(in srgb,var(--tcC) 82%,#fff)!important;
+  font-size:30px!important;
+  line-height:1!important;
+  text-shadow:0 0 15px var(--tcGlow)!important;
+  z-index:2!important;
+}
+html[data-nature-theme] .modes>.mode>b svg{
+  width:31px!important;height:31px!important;max-width:31px!important;max-height:31px!important;
+  fill:none!important;stroke:currentColor!important;stroke-width:2!important;
+  filter:drop-shadow(0 0 6px var(--tcGlow))!important;
+}
+html[data-nature-theme] .modes>.mode>small{
+  position:relative!important;z-index:2!important;
+  color:var(--tcMuted)!important;
+  font-size:8.7px!important;
+  line-height:1.1!important;
+}
+
+/* Profile 2 cards inherit exactly the selected theme surface/edge/glow. */
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard{
+  height:104px!important;
+  min-height:104px!important;
+  padding:11px 5px 9px!important;
+  border-radius:24px!important;
+  border:1px solid var(--tcEdge)!important;
+  background:
+    radial-gradient(circle at 24% 10%,color-mix(in srgb,var(--tcC) 9%,transparent),transparent 31%),
+    radial-gradient(circle at 78% 35%,color-mix(in srgb,var(--tcA) 15%,transparent),transparent 43%),
+    linear-gradient(155deg,var(--tcGlass1),var(--tcGlass2))!important;
+  box-shadow:inset 0 1px 0 #ffffff18,inset 0 0 26px #0005,0 8px 24px #0007,0 0 14px color-mix(in srgb,var(--tcGlow) 46%,transparent)!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard::before{
+  inset:0!important;
+  border-radius:inherit!important;
+  background:linear-gradient(115deg,transparent 0 22%,#ffffff0a 38%,transparent 56%)!important;
+  opacity:.75!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Icon{
+  width:47px!important;height:47px!important;min-width:47px!important;min-height:47px!important;max-width:47px!important;max-height:47px!important;
+  margin:0 0 8px!important;
+  border:1px solid var(--tcEdgeHot)!important;
+  background:radial-gradient(circle at 36% 28%,color-mix(in srgb,var(--tcC) 12%,#222631),color-mix(in srgb,var(--tcA) 11%,#0b0d14) 46%,#05070c 78%)!important;
+  color:color-mix(in srgb,var(--tcC) 84%,#fff)!important;
+  box-shadow:inset 0 0 17px #0009,inset 0 1px 0 #ffffff12,0 0 0 2px color-mix(in srgb,var(--tcA) 8%,transparent),0 0 16px color-mix(in srgb,var(--tcGlow) 52%,transparent)!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Icon svg{
+  width:25px!important;height:25px!important;max-width:25px!important;max-height:25px!important;
+  color:inherit!important;
+  filter:drop-shadow(0 0 5px color-mix(in srgb,var(--tcGlow) 70%,transparent))!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Label{
+  color:#fff!important;
+  font-size:9.1px!important;
+  text-shadow:0 1px 5px #000!important;
+}
+
+/* Slow Mod: same themed card as its neighbours; only its inner dial remains a night sky. */
+.profile2-active #p2UnifiedPremiumGrid263>#v12Smart{
+  background:
+    radial-gradient(circle at 24% 10%,color-mix(in srgb,var(--tcC) 9%,transparent),transparent 31%),
+    radial-gradient(circle at 78% 35%,color-mix(in srgb,var(--tcA) 15%,transparent),transparent 43%),
+    linear-gradient(155deg,var(--tcGlass1),var(--tcGlass2))!important;
+  border-color:var(--tcEdge)!important;
+  box-shadow:inset 0 1px 0 #ffffff18,inset 0 0 26px #0005,0 8px 24px #0007,0 0 14px color-mix(in srgb,var(--tcGlow) 46%,transparent)!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p263Icon{
+  width:47px!important;height:47px!important;min-width:47px!important;min-height:47px!important;max-width:47px!important;max-height:47px!important;
+  border-color:var(--tcEdgeHot)!important;
+  background:
+    radial-gradient(circle at 22% 23%,#fff 0 .75px,transparent 1.15px),
+    radial-gradient(circle at 74% 22%,#ffffffcf 0 .65px,transparent 1px),
+    radial-gradient(circle at 78% 70%,#ffffffb8 0 .6px,transparent .95px),
+    radial-gradient(circle at 26% 72%,#ffffffa8 0 .6px,transparent .95px),
+    radial-gradient(circle at 50% 48%,#17233c 0%,#0b1427 50%,#05080f 80%,#030408 100%)!important;
+  box-shadow:inset 0 0 17px #0008,inset 0 1px 0 #ffffff10,0 0 0 2px color-mix(in srgb,var(--tcA) 8%,transparent),0 0 16px color-mix(in srgb,var(--tcGlow) 50%,transparent)!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p263Icon svg.p270MoonScene{
+  display:block!important;
+  width:31px!important;height:31px!important;max-width:31px!important;max-height:31px!important;
+  overflow:visible!important;
+  transform:none!important;
+  filter:drop-shadow(0 0 4px #ffffff35)!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p270MoonDisc{fill:#fffdf7!important;stroke:none!important}
+.profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p270Star{fill:#fff!important;stroke:none!important;opacity:.88!important}
+
+@media(max-width:430px){
+  html[data-nature-theme] .modes>.mode{min-height:92px!important;border-radius:21px!important;padding:12px 5px 10px!important}
+  html[data-nature-theme] .modes>.mode>b{font-size:28px!important}
+  .profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard{height:96px!important;min-height:96px!important;border-radius:21px!important;padding:9px 3px 8px!important}
+  .profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Icon,
+  .profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p263Icon{width:43px!important;height:43px!important;min-width:43px!important;min-height:43px!important;max-width:43px!important;max-height:43px!important;margin-bottom:7px!important}
+  .profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Icon svg{width:23px!important;height:23px!important;max-width:23px!important;max-height:23px!important}
+  .profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p263Icon svg.p270MoonScene{width:29px!important;height:29px!important;max-width:29px!important;max-height:29px!important}
+  .profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Label{font-size:8.5px!important}
+}
