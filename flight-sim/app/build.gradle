@@ -15,8 +15,8 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
-        versionCode 87
-        versionName '26.5-avm17.1-pilot-cockpit-stable'
+        versionCode 88
+        versionName '26.6-avm18.0-mechanical-dynamics'
     }
     buildTypes {
         debug { applicationIdSuffix '.dev'; versionNameSuffix '-debug'; signingConfig signingConfigs.stableDev }
