@@ -1,0 +1,29 @@
+name: Export Android apksigner
+
+on:
+  push:
+    branches: [ "tooling-apksigner-export" ]
+    paths:
+      - '.github/workflows/export-apksigner.yml'
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: android-actions/setup-android@v3
+      - name: Install Android build tools
+        run: sdkmanager "build-tools;36.0.0"
+      - name: Prepare apksigner package
+        run: |
+          mkdir -p out
+          cp "$ANDROID_HOME/build-tools/36.0.0/apksigner" out/
+          cp "$ANDROID_HOME/build-tools/36.0.0/lib/apksigner.jar" out/
+          cp "$ANDROID_HOME/build-tools/36.0.0/zipalign" out/
+          chmod +x out/apksigner out/zipalign
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apksigner-36
+          path: out/
+          if-no-files-found: error
