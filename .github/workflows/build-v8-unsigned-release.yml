@@ -1,0 +1,40 @@
+name: Build Whiffletree v8 unsigned release
+
+on:
+  push:
+    branches: [ "tooling-apksigner-export" ]
+    paths:
+      - '.github/workflows/build-v8-unsigned-release.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build unsigned sideload release
+        working-directory: whiffletree-aero
+        run: gradle --no-daemon clean assembleSideloadRelease --stacktrace
+      - name: Locate and align APK
+        run: |
+          set -e
+          APK=$(find whiffletree-aero/app/build/outputs/apk/sideload/release -name '*.apk' | head -1)
+          test -n "$APK"
+          mkdir -p out
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -f -p 4 "$APK" out/Whiffletree-Aero-v8.0.0-UNSIGNED-ALIGNED.apk
+          "$ANDROID_HOME/build-tools/36.0.0/zipalign" -c -v 4 out/Whiffletree-Aero-v8.0.0-UNSIGNED-ALIGNED.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: whiffletree-v8-unsigned-aligned
+          path: out/Whiffletree-Aero-v8.0.0-UNSIGNED-ALIGNED.apk
+          if-no-files-found: error
