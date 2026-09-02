@@ -1,0 +1,104 @@
+name: Build Aircraft Simulator v93 Variable Nozzle
+
+on:
+  push:
+    branches: [ aircraft-sim-v93-variable-nozzle ]
+    paths:
+      - 'flight-sim/**'
+      - '.github/workflows/build-flight-sim-v93-variable-nozzle.yml'
+  workflow_dispatch:
+
+permissions: { contents: read }
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.13' }
+
+      - name: Apply v87 safe flight fixes
+        run: python3 flight-sim/tools/apply_v87_safe_fixes.py
+      - name: Apply v88 mechanical dynamics
+        run: python3 flight-sim/tools/apply_v88_mechanical_upgrade.py
+      - name: Apply v88 wing and control-surface geometry
+        run: python3 flight-sim/tools/apply_v88_wing_geometry.py
+      - name: Apply v88 true control-surface airfoils
+        run: python3 flight-sim/tools/apply_v88_control_surface_airfoils.py
+      - name: Apply v89 fighter control surfaces
+        run: python3 flight-sim/tools/apply_v89_fighter_control_surfaces.py
+      - name: Apply v90 fighter lighting
+        run: python3 flight-sim/tools/apply_v90_fighter_lighting.py
+      - name: Apply v91 attached wingtip lighting
+        run: python3 flight-sim/tools/apply_v91_wingtip_lighting.py
+      - name: Apply v92 fighter audio
+        run: python3 flight-sim/tools/apply_v92_fighter_audio.py
+      - name: Apply v93 variable nozzle
+        run: python3 flight-sim/tools/apply_v93_variable_nozzle.py
+
+      - name: Verify v93 nozzle source integration
+        run: |
+          grep -q 'final int petals=18' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/RealisticFighterMesh.java
+          grep -q 'final int links=18' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/AdvancedAirframeOverlay.java
+          grep -q 'shellSegment' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/EngineDynamicsOverlay.java
+          grep -q 'mix(1.08,.86,dry)' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
+          grep -q 'mix(op,1.14,ab)' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
+          grep -q 'versionCode 93' flight-sim/app/build.gradle
+
+      - name: Fighter FCS unit tests (blocking)
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterFlightControlSystemTest' --stacktrace
+
+      - name: Fighter lighting unit tests (blocking)
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterLightingSystemTest' --stacktrace
+
+      - name: Fighter audio model tests (blocking)
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterSoundModelTest' --stacktrace
+
+      - name: Legacy unit tests (non-blocking during AVM migration)
+        continue-on-error: true
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
+
+      - name: Build v93 debug APK and Play outputs
+        working-directory: flight-sim
+        run: gradle --no-daemon clean :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
+
+      - name: Verify package, v93, signature and approved icon
+        run: |
+          APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          REL=flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk
+          AAB=flight-sim/app/build/outputs/bundle/release/app-release.aab
+          test -s "$APK" && test -s "$REL" && test -s "$AAB"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.fixturecockpitsim.dev'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='93'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionName='26.11-avm22.0-variable-nozzle-debug'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
+          unzip -l "$APK" | grep 'ic_aircraft_simulator_final'
+
+      - name: Prepare v93 artifacts
+        run: |
+          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Aircraft_Simulator_3D_v93_Variable_Nozzle_Test.apk
+          cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk Aircraft_Simulator_3D_v93_Release_Unsigned.apk
+          cp flight-sim/app/build/outputs/bundle/release/app-release.aab Aircraft_Simulator_3D_v93_Play_Unsigned.aab
+          sha256sum Aircraft_Simulator_3D_v93_Variable_Nozzle_Test.apk > Aircraft_Simulator_3D_v93_Variable_Nozzle_Test.sha256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aircraft-Simulator-3D-v93-Variable-Nozzle
+          path: |
+            Aircraft_Simulator_3D_v93_Variable_Nozzle_Test.apk
+            Aircraft_Simulator_3D_v93_Variable_Nozzle_Test.sha256.txt
+            Aircraft_Simulator_3D_v93_Release_Unsigned.apk
+            Aircraft_Simulator_3D_v93_Play_Unsigned.aab
+          if-no-files-found: error
+          retention-days: 30
