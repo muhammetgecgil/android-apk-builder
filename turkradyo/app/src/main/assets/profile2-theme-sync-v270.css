@@ -1,0 +1,147 @@
+/* v2.7.0 — Theme-synchronised Profile 2 card family.
+   Visual-only: existing button IDs and click handlers are preserved. */
+:root{
+  --p270accent:var(--pm-accent,var(--p2line,var(--accent,var(--red,var(--natureC,#1688ff)))));
+  --p270surface:var(--pm-surface,color-mix(in srgb,var(--card,#15121a) 96%,var(--bg,#07070b)));
+  --p270surface2:var(--pm-surface2,color-mix(in srgb,var(--card2,#21131c) 95%,var(--p270accent) 3%));
+  --p270text:var(--text,#fff);
+  --p270muted:var(--muted,#a99da7);
+}
+
+/* The existing NOTA AI / TEMALAR / ESITLEYICI / TUM RADYOLAR family and
+   all Profile 2 premium cards now share the same theme-driven shell. */
+.profile2-active .modes .mode:nth-child(n+5):nth-child(-n+8),
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard{
+  position:relative!important;
+  overflow:hidden!important;
+  border:1px solid color-mix(in srgb,var(--p270accent) 58%,transparent)!important;
+  border-radius:22px!important;
+  background:
+    radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--p270accent) 18%,transparent),transparent 46%),
+    linear-gradient(160deg,color-mix(in srgb,var(--p270surface2) 94%,var(--p270accent) 6%),color-mix(in srgb,var(--p270surface) 98%,#000))!important;
+  box-shadow:inset 0 1px 0 #ffffff18,inset 0 -20px 36px #0002,0 8px 22px #0005,0 0 14px color-mix(in srgb,var(--p270accent) 10%,transparent)!important;
+  color:var(--p270text)!important;
+}
+
+.profile2-active #p2UnifiedPremiumGrid263{
+  gap:8px!important;
+  margin-top:14px!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard{
+  height:116px!important;
+  min-height:116px!important;
+  padding:12px 7px 10px!important;
+  justify-content:flex-start!important;
+  isolation:isolate!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard::before{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  z-index:0!important;
+  display:block!important;
+  border-radius:inherit!important;
+  pointer-events:none!important;
+  background:linear-gradient(120deg,#ffffff12,transparent 28%,transparent 72%,color-mix(in srgb,var(--p270accent) 12%,transparent))!important;
+  opacity:.72!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard::after{content:none!important;display:none!important}
+
+/* Same instrument dial used by the theme-derived row above. */
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Icon{
+  position:relative!important;
+  z-index:1!important;
+  display:grid!important;
+  place-items:center!important;
+  width:48px!important;
+  height:48px!important;
+  min-width:48px!important;
+  min-height:48px!important;
+  max-width:48px!important;
+  max-height:48px!important;
+  margin:0 0 9px!important;
+  padding:0!important;
+  border-radius:50%!important;
+  border:1px solid color-mix(in srgb,var(--p270accent) 72%,#fff 8%)!important;
+  background:radial-gradient(circle at 45% 35%,color-mix(in srgb,var(--p270accent) 16%,#10213a),color-mix(in srgb,var(--p270surface) 96%,#02060b) 72%)!important;
+  color:#f7fbff!important;
+  box-shadow:inset 0 0 18px #0006,0 0 14px color-mix(in srgb,var(--p270accent) 22%,transparent)!important;
+  text-shadow:0 0 10px color-mix(in srgb,var(--p270accent) 45%,transparent)!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Icon svg{
+  display:block!important;
+  width:25px!important;
+  height:25px!important;
+  max-width:25px!important;
+  max-height:25px!important;
+  fill:none!important;
+  stroke:currentColor!important;
+  stroke-width:1.8!important;
+  stroke-linecap:round!important;
+  stroke-linejoin:round!important;
+  filter:drop-shadow(0 0 4px color-mix(in srgb,var(--p270accent) 32%,transparent))!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Label{
+  position:relative!important;
+  z-index:1!important;
+  width:100%!important;
+  margin:0!important;
+  padding:0 2px!important;
+  color:var(--p270text)!important;
+  font-size:10.5px!important;
+  font-weight:900!important;
+  line-height:1.08!important;
+  letter-spacing:.05px!important;
+  text-align:center!important;
+}
+
+/* Slow Mod: no hard-coded red card surface.  The sky stays inside the dial,
+   while the ring follows whichever theme is active. */
+.profile2-active #p2UnifiedPremiumGrid263>#v12Smart{
+  background:
+    radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--p270accent) 18%,transparent),transparent 46%),
+    linear-gradient(160deg,color-mix(in srgb,var(--p270surface2) 94%,var(--p270accent) 6%),color-mix(in srgb,var(--p270surface) 98%,#000))!important;
+  box-shadow:inset 0 1px 0 #ffffff18,inset 0 -20px 36px #0002,0 8px 22px #0005,0 0 14px color-mix(in srgb,var(--p270accent) 10%,transparent)!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p263Icon{
+  width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;max-width:48px!important;max-height:48px!important;
+  border-color:color-mix(in srgb,var(--p270accent) 72%,#fff 8%)!important;
+  background:
+    radial-gradient(circle at 27% 27%,rgba(255,255,255,.72) 0 .7px,transparent 1.1px),
+    radial-gradient(circle at 74% 25%,rgba(255,255,255,.58) 0 .65px,transparent 1px),
+    radial-gradient(circle at 78% 69%,rgba(255,255,255,.48) 0 .6px,transparent .95px),
+    radial-gradient(circle at 24% 72%,rgba(255,255,255,.46) 0 .55px,transparent .9px),
+    radial-gradient(circle at 50% 45%,#26384d 0%,#172437 48%,#0b121d 78%,#06090f 100%)!important;
+  box-shadow:inset 0 0 16px #0008,0 0 14px color-mix(in srgb,var(--p270accent) 22%,transparent)!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p263Icon svg.p270MoonScene{
+  width:36px!important;height:36px!important;max-width:36px!important;max-height:36px!important;
+  fill:none!important;stroke:none!important;filter:none!important;
+  transform:none!important;
+}
+.profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p270MoonBase{fill:#fffdf7!important;stroke:none!important;filter:drop-shadow(0 0 3px rgba(255,255,255,.35))!important}
+.profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p270MoonCut{fill:#172437!important;stroke:none!important}
+.profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p270Star{fill:#fff!important;stroke:none!important;opacity:.78!important}
+
+.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard:active{
+  transform:scale(.975)!important;
+  border-color:var(--p270accent)!important;
+}
+
+@media(max-width:430px){
+  .profile2-active #p2UnifiedPremiumGrid263{gap:6px!important;margin-top:11px!important}
+  .profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard{
+    height:106px!important;min-height:106px!important;padding:10px 4px 8px!important;border-radius:19px!important;
+  }
+  .profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Icon,
+  .profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p263Icon{
+    width:43px!important;height:43px!important;min-width:43px!important;min-height:43px!important;max-width:43px!important;max-height:43px!important;margin-bottom:8px!important;
+  }
+  .profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Icon svg{width:23px!important;height:23px!important;max-width:23px!important;max-height:23px!important}
+  .profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p263Icon svg.p270MoonScene{width:33px!important;height:33px!important;max-width:33px!important;max-height:33px!important}
+  .profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Label{font-size:9.1px!important;line-height:1.04!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard{transition:none!important}
+}
