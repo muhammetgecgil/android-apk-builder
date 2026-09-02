@@ -1,0 +1,94 @@
+name: Build Aircraft Simulator v90 Fighter Lighting
+
+on:
+  push:
+    branches: [ aircraft-sim-v90-fighter-lighting ]
+    paths:
+      - 'flight-sim/**'
+      - '.github/workflows/build-flight-sim-v90-fighter-lighting.yml'
+  workflow_dispatch:
+
+permissions: { contents: read }
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.13' }
+
+      - name: Apply v87 safe flight fixes
+        run: python3 flight-sim/tools/apply_v87_safe_fixes.py
+      - name: Apply v88 mechanical dynamics
+        run: python3 flight-sim/tools/apply_v88_mechanical_upgrade.py
+      - name: Apply v88 wing and control-surface geometry
+        run: python3 flight-sim/tools/apply_v88_wing_geometry.py
+      - name: Apply v88 true control-surface airfoils
+        run: python3 flight-sim/tools/apply_v88_control_surface_airfoils.py
+      - name: Apply v89 fighter control surfaces
+        run: python3 flight-sim/tools/apply_v89_fighter_control_surfaces.py
+      - name: Apply v90 fighter lighting
+        run: python3 flight-sim/tools/apply_v90_fighter_lighting.py
+
+      - name: Verify fighter lighting source integration
+        run: |
+          grep -q 'class FighterLightingSystem' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/sim/FighterLightingSystem.java
+          grep -q 'class FighterLightingOverlayView' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FighterLightingOverlayView.java
+          grep -q 'buildLightingPanel' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FlightRuntimeActivity.java
+          grep -q 'FLOOD' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FlightRuntimeActivity.java
+          grep -q 'HUD %.0f%%' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FlightRuntimeActivity.java
+          grep -q 'setFighterSurfaceState' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FlightRuntimeActivity.java
+
+      - name: Fighter FCS unit tests (blocking)
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterFlightControlSystemTest' --stacktrace
+
+      - name: Fighter lighting unit tests (blocking)
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterLightingSystemTest' --stacktrace
+
+      - name: Legacy unit tests (non-blocking during AVM migration)
+        continue-on-error: true
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
+
+      - name: Build v90 debug APK and Play outputs
+        working-directory: flight-sim
+        run: gradle --no-daemon clean :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
+
+      - name: Verify package, v90, signature and approved icon
+        run: |
+          APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          REL=flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk
+          AAB=flight-sim/app/build/outputs/bundle/release/app-release.aab
+          test -s "$APK" && test -s "$REL" && test -s "$AAB"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.fixturecockpitsim.dev'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='90'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionName='26.8-avm20.0-fighter-lighting-debug'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
+          unzip -l "$APK" | grep 'ic_aircraft_simulator_final'
+
+      - name: Prepare v90 artifacts
+        run: |
+          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Aircraft_Simulator_3D_v90_Fighter_Lighting_Test.apk
+          cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk Aircraft_Simulator_3D_v90_Release_Unsigned.apk
+          cp flight-sim/app/build/outputs/bundle/release/app-release.aab Aircraft_Simulator_3D_v90_Play_Unsigned.aab
+          sha256sum Aircraft_Simulator_3D_v90_Fighter_Lighting_Test.apk > Aircraft_Simulator_3D_v90_Fighter_Lighting_Test.sha256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aircraft-Simulator-3D-v90-Fighter-Lighting
+          path: |
+            Aircraft_Simulator_3D_v90_Fighter_Lighting_Test.apk
+            Aircraft_Simulator_3D_v90_Fighter_Lighting_Test.sha256.txt
+            Aircraft_Simulator_3D_v90_Release_Unsigned.apk
+            Aircraft_Simulator_3D_v90_Play_Unsigned.aab
+          if-no-files-found: error
+          retention-days: 30
