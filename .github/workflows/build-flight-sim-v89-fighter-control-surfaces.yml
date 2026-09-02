@@ -45,8 +45,12 @@ jobs:
           grep -q 'leftLeadingEdgeFlapDeg' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/sim/FlightState.java
           grep -q 'speedBrake' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/sim/FlightControls.java
 
-      - name: Unit tests
-        continue-on-error: false
+      - name: Fighter FCS unit tests (blocking)
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterFlightControlSystemTest' --stacktrace
+
+      - name: Legacy unit tests (non-blocking during AVM migration)
+        continue-on-error: true
         working-directory: flight-sim
         run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
 
