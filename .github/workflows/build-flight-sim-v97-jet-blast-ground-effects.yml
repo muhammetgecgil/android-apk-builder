@@ -1,0 +1,85 @@
+name: Build Aircraft Simulator v97 Jet Blast Ground Effects
+on:
+  push:
+    branches: [ aircraft-sim-v97-jet-blast-ground-effects ]
+    paths:
+      - 'flight-sim/tools/apply_v97_jet_blast_ground_effects.py'
+      - '.github/workflows/build-flight-sim-v97-jet-blast-ground-effects.yml'
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.13' }
+      - run: python3 flight-sim/tools/apply_v87_safe_fixes.py
+      - run: python3 flight-sim/tools/apply_v88_mechanical_upgrade.py
+      - run: python3 flight-sim/tools/apply_v88_wing_geometry.py
+      - run: python3 flight-sim/tools/apply_v88_control_surface_airfoils.py
+      - run: python3 flight-sim/tools/apply_v89_fighter_control_surfaces.py
+      - run: python3 flight-sim/tools/apply_v90_fighter_lighting.py
+      - run: python3 flight-sim/tools/apply_v91_wingtip_lighting.py
+      - run: python3 flight-sim/tools/apply_v92_fighter_audio.py
+      - run: python3 flight-sim/tools/apply_v93_variable_nozzle.py
+      - run: python3 flight-sim/tools/apply_v93_nozzle_compile_fix.py
+      - run: python3 flight-sim/tools/apply_v94_runtime_anchor_compat.py
+      - run: python3 flight-sim/tools/apply_v94_supersonic_flight.py
+      - run: python3 flight-sim/tools/apply_v95_airfield_environment.py
+      - run: python3 flight-sim/tools/apply_v96_surface_material_realism_v3.py
+      - name: Apply v97 jet blast and ground effects
+        run: python3 flight-sim/tools/apply_v97_jet_blast_ground_effects.py
+      - name: Verify source integration
+        run: |
+          grep -q 'JetBlastEffectsView' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FlightRuntimeActivity.java
+          grep -q 'getSharedThrottle01' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
+          grep -q 'drawWaterSpray' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/JetBlastEffectsView.java
+          grep -q 'drawLooseDebris' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/JetBlastEffectsView.java
+          grep -q 'versionCode 97' flight-sim/app/build.gradle
+      - name: Jet blast tests
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.JetBlastDynamicsModelTest' --stacktrace
+      - name: Regression tests
+        working-directory: flight-sim
+        run: |
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.SurfaceMaterialProfileTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.EnvironmentRealismModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.SupersonicFlightModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterSoundModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterFlightControlSystemTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterLightingSystemTest' --stacktrace
+      - name: Build v97 outputs
+        working-directory: flight-sim
+        run: gradle --no-daemon clean :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
+      - name: Verify APK
+        run: |
+          APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.fixturecockpitsim.dev'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='97'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionName='26.15-avm26.0-jet-blast-ground-effects-debug'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
+          unzip -l "$APK" | grep 'ic_aircraft_simulator_final'
+      - name: Prepare artifacts
+        run: |
+          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Aircraft_Simulator_3D_v97_Jet_Blast_Ground_Effects_Test.apk
+          cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk Aircraft_Simulator_3D_v97_Release_Unsigned.apk
+          cp flight-sim/app/build/outputs/bundle/release/app-release.aab Aircraft_Simulator_3D_v97_Play_Unsigned.aab
+          sha256sum Aircraft_Simulator_3D_v97_Jet_Blast_Ground_Effects_Test.apk > Aircraft_Simulator_3D_v97_Jet_Blast_Ground_Effects_Test.sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aircraft-Simulator-3D-v97-Jet-Blast-Ground-Effects
+          path: |
+            Aircraft_Simulator_3D_v97_Jet_Blast_Ground_Effects_Test.apk
+            Aircraft_Simulator_3D_v97_Jet_Blast_Ground_Effects_Test.sha256.txt
+            Aircraft_Simulator_3D_v97_Release_Unsigned.apk
+            Aircraft_Simulator_3D_v97_Play_Unsigned.aab
+          if-no-files-found: error
+          retention-days: 30
