@@ -15,6 +15,7 @@ android {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 36
+        // REFERENCE BASELINE — do not increment unless explicitly requested.
         versionCode 88
         versionName '26.6-avm18.0-mechanical-dynamics'
     }
