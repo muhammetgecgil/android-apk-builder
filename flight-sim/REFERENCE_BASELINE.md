@@ -1,8 +1,6 @@
 # Aircraft Simulator Reference Baseline
 
-This project is intentionally isolated from all other ChatGPT and GitHub projects.
-
-Authoritative reference version:
+Authoritative reference version only:
 - versionCode: 88
 - versionName: 26.6-avm18.0-mechanical-dynamics
 - branch: aircraft-sim-v88-mechanical-upgrade
@@ -11,4 +9,4 @@ Authoritative reference version:
 
 CI reference state: debug APK, release APK, AAB, signature, package name, target SDK and versionCode checks passed.
 
-Do not treat any Aircraft Simulator version above v88 as authoritative unless the user explicitly establishes a new reference baseline.
+This Aircraft Simulator project is isolated from all other projects. Any version above v88 must not be used as a reference unless the user explicitly replaces this baseline.
