@@ -1,0 +1,92 @@
+name: Build Aircraft Simulator v100 Cockpit Hardpoint Realism
+on:
+  push:
+    branches: [ aircraft-sim-v100-cockpit-hardpoint-realism ]
+    paths:
+      - 'flight-sim/tools/apply_v100_cockpit_hardpoint_realism.py'
+      - '.github/workflows/build-flight-sim-v100-cockpit-hardpoint-realism.yml'
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.13' }
+      - run: python3 flight-sim/tools/apply_v87_safe_fixes.py
+      - run: python3 flight-sim/tools/apply_v88_mechanical_upgrade.py
+      - run: python3 flight-sim/tools/apply_v88_wing_geometry.py
+      - run: python3 flight-sim/tools/apply_v88_control_surface_airfoils.py
+      - run: python3 flight-sim/tools/apply_v89_fighter_control_surfaces.py
+      - run: python3 flight-sim/tools/apply_v90_fighter_lighting.py
+      - run: python3 flight-sim/tools/apply_v91_wingtip_lighting.py
+      - run: python3 flight-sim/tools/apply_v92_fighter_audio.py
+      - run: python3 flight-sim/tools/apply_v93_variable_nozzle.py
+      - run: python3 flight-sim/tools/apply_v93_nozzle_compile_fix.py
+      - run: python3 flight-sim/tools/apply_v94_runtime_anchor_compat.py
+      - run: python3 flight-sim/tools/apply_v94_supersonic_flight.py
+      - run: python3 flight-sim/tools/apply_v95_airfield_environment.py
+      - run: python3 flight-sim/tools/apply_v96_surface_material_realism_v3.py
+      - run: python3 flight-sim/tools/apply_v97_jet_blast_ground_effects.py
+      - run: python3 flight-sim/tools/apply_v98_advanced_flight_physics.py
+      - name: Apply v100 cockpit and hardpoint realism
+        run: python3 flight-sim/tools/apply_v100_cockpit_hardpoint_realism.py
+      - name: Verify source integration
+        run: |
+          grep -q 'FighterCockpitView' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FlightRuntimeActivity.java
+          grep -q 'MASTER WARNING' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FighterCockpitView.java
+          grep -q 'PART_ADAPTER=38f' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/VisualOrdnanceMesh.java
+          grep -q 'PART_SWAY_BRACE=39f' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/VisualOrdnanceMesh.java
+          grep -q 'hardpointAdapterRack' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/VisualOrdnanceMesh.java
+          grep -q 'versionCode 100' flight-sim/app/build.gradle
+      - name: v100 cockpit hardpoint tests
+        working-directory: flight-sim
+        run: |
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterCockpitSystemsModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.visual.VisualHardpointRealismTest' --stacktrace
+      - name: Regression tests
+        working-directory: flight-sim
+        run: |
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.AdvancedFlightPhysicsModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.JetBlastDynamicsModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.SurfaceMaterialProfileTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.EnvironmentRealismModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.SupersonicFlightModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterSoundModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterFlightControlSystemTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterLightingSystemTest' --stacktrace
+      - name: Build v100 outputs
+        working-directory: flight-sim
+        run: gradle --no-daemon clean :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
+      - name: Verify APK
+        run: |
+          APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.fixturecockpitsim.dev'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='100'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionName='26.18-avm28.0-cockpit-hardpoint-realism-debug'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
+          unzip -l "$APK" | grep 'ic_aircraft_simulator_final'
+      - name: Prepare artifacts
+        run: |
+          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Aircraft_Simulator_3D_v100_Cockpit_Hardpoint_Realism_Test.apk
+          cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk Aircraft_Simulator_3D_v100_Release_Unsigned.apk
+          cp flight-sim/app/build/outputs/bundle/release/app-release.aab Aircraft_Simulator_3D_v100_Play_Unsigned.aab
+          sha256sum Aircraft_Simulator_3D_v100_Cockpit_Hardpoint_Realism_Test.apk > Aircraft_Simulator_3D_v100_Cockpit_Hardpoint_Realism_Test.sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aircraft-Simulator-3D-v100-Cockpit-Hardpoint-Realism
+          path: |
+            Aircraft_Simulator_3D_v100_Cockpit_Hardpoint_Realism_Test.apk
+            Aircraft_Simulator_3D_v100_Cockpit_Hardpoint_Realism_Test.sha256.txt
+            Aircraft_Simulator_3D_v100_Release_Unsigned.apk
+            Aircraft_Simulator_3D_v100_Play_Unsigned.aab
+          if-no-files-found: error
+          retention-days: 30
