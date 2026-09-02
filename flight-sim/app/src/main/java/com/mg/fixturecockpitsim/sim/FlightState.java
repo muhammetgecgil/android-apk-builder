@@ -15,6 +15,21 @@ public final class FlightState {
     public double angleOfAttackDeg;
     public double loadFactor = 1.0;
 
+    // AVM-19 fighter flight-control actuator state.
+    public double leftStabilatorDeg;
+    public double rightStabilatorDeg;
+    public double leftFlaperonDeg;
+    public double rightFlaperonDeg;
+    public double leftRudderDeg;
+    public double rightRudderDeg;
+    public double leftLeadingEdgeFlapDeg;
+    public double rightLeadingEdgeFlapDeg;
+    public double speedBrake01;
+    public double speedBrakeDeg;
+    public double autoTrim;
+    public double yawDamper;
+    public double controlAuthority01 = 1.0;
+
     // Ground / landing system state.
     public double gearPosition = 1.0; // 0=retracted, 1=extended
     public boolean onGround;
@@ -29,6 +44,12 @@ public final class FlightState {
         c.altitudeM=altitudeM; c.trueAirspeedMps=trueAirspeedMps; c.verticalSpeedMps=verticalSpeedMps;
         c.headingDeg=headingDeg; c.pitchDeg=pitchDeg; c.rollDeg=rollDeg; c.throttle=throttle;
         c.angleOfAttackDeg=angleOfAttackDeg; c.loadFactor=loadFactor;
+        c.leftStabilatorDeg=leftStabilatorDeg; c.rightStabilatorDeg=rightStabilatorDeg;
+        c.leftFlaperonDeg=leftFlaperonDeg; c.rightFlaperonDeg=rightFlaperonDeg;
+        c.leftRudderDeg=leftRudderDeg; c.rightRudderDeg=rightRudderDeg;
+        c.leftLeadingEdgeFlapDeg=leftLeadingEdgeFlapDeg; c.rightLeadingEdgeFlapDeg=rightLeadingEdgeFlapDeg;
+        c.speedBrake01=speedBrake01; c.speedBrakeDeg=speedBrakeDeg; c.autoTrim=autoTrim;
+        c.yawDamper=yawDamper; c.controlAuthority01=controlAuthority01;
         c.gearPosition=gearPosition; c.onGround=onGround; c.mainStrutCompression01=mainStrutCompression01;
         c.noseStrutCompression01=noseStrutCompression01; c.brake01=brake01; c.touchdownSinkMps=touchdownSinkMps;
         return c;
