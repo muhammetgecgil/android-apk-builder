@@ -29,6 +29,19 @@ This airframe is treated as a generic modern twin-engine, twin-tail fighter with
 - package/debug applicationId: `com.mg.fixturecockpitsim.dev`
 - targetSdk: 36
 
+## Verified build
+
+- GitHub Actions run: `33661739848`
+- Successful source head: `4e8142d263616d3d9528039801ec281392b70157`
+- Artifact ID: `9859026359`
+- Debug APK: `Aircraft_Simulator_3D_v89_Fighter_Control_Surfaces_Test.apk`
+- APK SHA-256: `f4f259016e06e2b847fe9cd84d443b9e7a2f538a0151fcf96c62e824be75443a`
+- APK Signature Scheme v2: verified
+- Developer certificate SHA-256: `7b7e5d01e3dc954d95c67aa00add5909e04fb4d4b9dbdf4925718c82e2a45d96`
+- Approved `ic_aircraft_simulator_final` launcher icon verified inside APK.
+- Dedicated `FighterFlightControlSystemTest` suite is blocking and passed.
+- Existing AVM migration tests remain non-blocking; they are tracked separately from fighter FCS acceptance.
+
 ## Development rule
 
 v88 remains immutable as the final rollback/reference baseline. v89 work lives on `aircraft-sim-v89-fighter-control-surfaces` and may only advance from that branch after a successful CI APK build.
