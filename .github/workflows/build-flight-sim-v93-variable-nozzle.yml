@@ -41,11 +41,14 @@ jobs:
         run: python3 flight-sim/tools/apply_v92_fighter_audio.py
       - name: Apply v93 variable nozzle
         run: python3 flight-sim/tools/apply_v93_variable_nozzle.py
+      - name: Normalize v93 nozzle mesh primitives
+        run: python3 flight-sim/tools/apply_v93_nozzle_compile_fix.py
 
       - name: Verify v93 nozzle source integration
         run: |
           grep -q 'final int petals=18' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/RealisticFighterMesh.java
           grep -q 'final int links=18' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/AdvancedAirframeOverlay.java
+          grep -q 'Short coaxial liner bands' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/RealisticFighterMesh.java
           grep -q 'shellSegment' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/EngineDynamicsOverlay.java
           grep -q 'mix(1.08,.86,dry)' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
           grep -q 'mix(op,1.14,ab)' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
