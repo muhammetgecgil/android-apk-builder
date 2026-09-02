@@ -7,6 +7,7 @@ on:
       - '.github/workflows/build-flight-sim-v97-jet-blast-ground-effects.yml'
   workflow_dispatch:
 permissions: { contents: read }
+# v97 integration retry: renderer state publisher is compatible with v92+.
 jobs:
   build:
     runs-on: ubuntu-latest
