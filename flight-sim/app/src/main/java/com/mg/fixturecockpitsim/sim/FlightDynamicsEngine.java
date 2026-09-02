@@ -3,7 +3,7 @@ package com.mg.fixturecockpitsim.sim;
 import com.mg.fixturecockpitsim.CinematicEnvironmentView;
 import com.mg.fixturecockpitsim.WeatherEffectsView;
 
-/** AVM-14.5 flight model: gravity/lift, wind gusts, game-linked pitch/yaw and stable deep-bank control. */
+/** AVM-19.0 fighter flight model with scheduled flight-control surfaces and protection laws. */
 public final class FlightDynamicsEngine {
     private static final double EARTH_RADIUS_M = 6371000.0;
     private static final double GEAR_RATE_PER_SEC = 0.55;
@@ -13,6 +13,8 @@ public final class FlightDynamicsEngine {
     private static final double DEEP_BANK_GATE = 0.90;
     private static final double GRAVITY_MPS2 = 9.80665;
     private static final double LIFT_REFERENCE_SPEED_MPS = 82.0;
+
+    private final FighterFlightControlSystem fighterFcs = new FighterFlightControlSystem();
 
     public void step(FlightState s, FlightControls in, double dtSec) {
         if (dtSec <= 0) return;
@@ -33,7 +35,11 @@ public final class FlightDynamicsEngine {
         s.gearPosition = approach(s.gearPosition, gearTarget, GEAR_RATE_PER_SEC * dtSec);
         s.brake01 += (in.brake - s.brake01) * Math.min(1.0, dtSec * 7.0);
 
-        double rollInput = Math.max(-1.0, Math.min(1.0, in.roll));
+        // The FCS is the single source of truth for both aerodynamic authority and
+        // the actuator positions published in FlightState for the renderer.
+        FighterFlightControlSystem.Output fcs = fighterFcs.update(s, in, dtSec);
+
+        double rollInput = Math.max(-1.0, Math.min(1.0, fcs.effectiveRoll));
         double absRoll = Math.abs(rollInput);
         if (absRoll < 0.025) rollInput = 0.0;
         absRoll = Math.abs(rollInput);
@@ -48,18 +54,21 @@ public final class FlightDynamicsEngine {
         }
         targetRoll = Math.max(-DEEP_BANK_DEG, Math.min(DEEP_BANK_DEG, targetRoll + gustRollDeg));
 
-        // Slightly stronger game-like pitch response while retaining the same stable smoothing.
-        double targetPitch = in.pitch * 32.0;
+        double targetPitch = fcs.effectivePitch * 32.0;
         s.rollDeg += (targetRoll - s.rollDeg) * Math.min(1.0, dtSec * rollRate);
         s.rollDeg = Math.max(-DEEP_BANK_DEG,Math.min(DEEP_BANK_DEG,s.rollDeg));
         s.pitchDeg += (targetPitch - s.pitchDeg) * Math.min(1.0, dtSec * 2.55);
 
-        // Rudder/yaw now has enough direct authority for a visible world turn. Bank still adds coordinated turn.
+        // Twin-rudder command includes yaw damping and coordinated-turn assistance.
         double rudderAuthority = s.onGround ? 12.0 : 24.0;
-        s.headingDeg = wrap360(s.headingDeg + Math.sin(Math.toRadians(s.rollDeg)) * 28.0 * dtSec + in.yaw * rudderAuthority * dtSec + gustYawRate * dtSec);
+        s.headingDeg = wrap360(s.headingDeg + Math.sin(Math.toRadians(s.rollDeg)) * 28.0 * dtSec + fcs.effectiveYaw * rudderAuthority * dtSec + gustYawRate * dtSec);
 
         double throttleResponse = s.onGround ? .82 : 1.75;
         s.throttle += (in.throttle - s.throttle) * Math.min(1.0, dtSec * throttleResponse);
+
+        final double leDeg = (s.leftLeadingEdgeFlapDeg + s.rightLeadingEdgeFlapDeg) * 0.5;
+        final double le01 = clamp01(leDeg / FighterFlightControlSystem.MAX_LE_FLAP_DEG);
+        final double speedBrake01 = clamp01(s.speedBrake01);
 
         if (s.onGround) {
             double targetSpeed = s.throttle * 125.0;
@@ -75,16 +84,19 @@ public final class FlightDynamicsEngine {
             }
         } else {
             double gearDrag = 18.0 * s.gearPosition;
-            double speedBrakeDrag = 70.0 * s.brake01;
-            double targetSpeed = Math.max(0.0, 55.0 + s.throttle * 250.0 - gearDrag - speedBrakeDrag);
+            double speedBrakeDrag = 78.0 * speedBrake01;
+            double highLiftDrag = 8.5 * le01;
+            double targetSpeed = Math.max(0.0, 55.0 + s.throttle * 250.0 - gearDrag - speedBrakeDrag - highLiftDrag);
             s.trueAirspeedMps += (targetSpeed - s.trueAirspeedMps) * Math.min(1.0, dtSec * .48);
-            if (s.brake01 > .05) s.trueAirspeedMps = Math.max(0.0, s.trueAirspeedMps - (1.2 + 5.2 * s.brake01) * dtSec);
+            if (speedBrake01 > .05) s.trueAirspeedMps = Math.max(0.0, s.trueAirspeedMps - (1.0 + 5.8 * speedBrake01) * dtSec);
         }
 
         double uprightLift = Math.max(0.0, Math.cos(Math.toRadians(s.rollDeg)));
-        double speedLift = (s.trueAirspeedMps / LIFT_REFERENCE_SPEED_MPS);
+        // Automatic LE flaps lower the effective lift-reference speed at low speed/high AoA.
+        double effectiveLiftRef = LIFT_REFERENCE_SPEED_MPS * (1.0 - 0.105 * le01);
+        double speedLift = (s.trueAirspeedMps / effectiveLiftRef);
         speedLift *= speedLift;
-        double liftSupport = clamp01(speedLift * uprightLift);
+        double liftSupport = clamp01(speedLift * uprightLift * (1.0 - 0.055 * speedBrake01));
         double pitchKinematicVs = s.trueAirspeedMps * Math.sin(Math.toRadians(s.pitchDeg)) * Math.max(.20, uprightLift);
 
         double airborneVs;
@@ -98,7 +110,8 @@ public final class FlightDynamicsEngine {
             s.verticalSpeedMps += gustVerticalMps * dtSec * 2.2;
             s.verticalSpeedMps = Math.max(-82.0, Math.min(78.0, s.verticalSpeedMps));
 
-            double stall = clamp01((68.0 - s.trueAirspeedMps) / 68.0) * clamp01(s.altitudeM / 20.0);
+            double stallSpeed = 68.0 - 8.0 * le01;
+            double stall = clamp01((stallSpeed - s.trueAirspeedMps) / Math.max(1.0, stallSpeed)) * clamp01(s.altitudeM / 20.0);
             if (stall > 0.0) s.pitchDeg += (-8.0 - s.pitchDeg) * Math.min(1.0, dtSec * (.16 + .42 * stall));
             airborneVs = s.verticalSpeedMps;
         }
@@ -133,8 +146,10 @@ public final class FlightDynamicsEngine {
             if (s.altitudeM > 1.0) s.touchdownSinkMps = 0.0;
         }
 
-        s.angleOfAttackDeg = in.pitch * 10.0 - s.pitchDeg * 0.08;
-        s.loadFactor = Math.max(0.1, liftSupport / Math.max(0.18, Math.abs(Math.cos(Math.toRadians(s.rollDeg)))));
+        // Feed the next FCS frame with an AoA/load estimate derived from the actual
+        // scheduled pitch command rather than the raw stick input.
+        s.angleOfAttackDeg = fcs.effectivePitch * 11.5 - s.pitchDeg * 0.08 + le01 * 1.2;
+        s.loadFactor = Math.min(9.2, Math.max(0.1, liftSupport / Math.max(0.18, Math.abs(Math.cos(Math.toRadians(s.rollDeg))))));
         double groundSpeed = s.trueAirspeedMps * Math.cos(Math.toRadians(s.pitchDeg));
         double distance = groundSpeed * dtSec;
         double hdg = Math.toRadians(s.headingDeg);
@@ -153,7 +168,6 @@ public final class FlightDynamicsEngine {
         s.longitudeDeg += Math.toDegrees(east / (EARTH_RADIUS_M * cosLat));
         s.timeSec += dtSec;
 
-        // Live bridge: scenery receives current manual/BT/AUTO state after every physics step.
         CinematicEnvironmentView.setLiveFlightState(s.altitudeM,s.trueAirspeedMps,s.pitchDeg,s.rollDeg,s.headingDeg,s.onGround);
     }
 
