@@ -23,5 +23,15 @@ This branch is the authoritative development baseline for Aircraft Simulator 3D 
 - Icon SHA-256: `eeca9548ffbceab42c02b2a2f887ae9a1ca5706222e2803897de4080a6caf976`
 - Manifest launcher icon and round icon point to `@drawable/ic_aircraft_simulator_final`.
 
+## Verified icon-integrated build
+- Branch: `aircraft-sim-v88-final-reference`
+- Build workflow: `Build Aircraft Simulator v88 Final Reference`
+- GitHub Actions run: `33658818142`
+- Artifact ID: `9857873741`
+- APK: `Aircraft_Simulator_3D_v88_FinalReference_NewIcon.apk`
+- APK SHA-256: `146e4db5049cc11e36a0531ccad5e0cb4fac2d05c30920ba962148b9dac67bbb`
+- CI verification passed for package, versionCode 88, versionName, targetSdk 36, APK signature and embedded launcher icon.
+- Comparison against the canonical user APK: `classes.dex`, `classes3.dex`, `classes4.dex`, and `classes5.dex` are byte-identical. `classes2.dex` differs only because Android's generated `R$drawable` class now contains `ic_aircraft_simulator_final`.
+
 ## Development rule
 All future Aircraft Simulator work must branch or advance from `aircraft-sim-v88-final-reference` unless the user explicitly selects another baseline. Older Aircraft Simulator branches and unrelated ChatGPT/GitHub projects must not be treated as the active baseline.
