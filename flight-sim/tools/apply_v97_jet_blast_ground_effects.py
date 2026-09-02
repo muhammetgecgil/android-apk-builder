@@ -89,16 +89,22 @@ public class JetBlastDynamicsModelTest {
 
 # ---------------------------------------------------------------------------
 # Publish engine state so the world-space effects layer can react to the jet.
+# v92 deliberately removed Jet3DView's duplicate sound cache, so attach this
+# state to the stable renderer field and publish from both telemetry/control paths.
 # ---------------------------------------------------------------------------
 j=JET.read_text()
 j=rep(j,
-'    private float st=.6f,sg=1f,sb;\n',
-'    private float st=.6f,sg=1f,sb;\n    private static volatile float sharedThrottle01=.6f;\n    private static volatile boolean sharedAfterburner;\n',
+'    private final R r;\n',
+'    private final R r;\n    private static volatile float sharedThrottle01=.6f;\n    private static volatile boolean sharedAfterburner;\n',
 'jet shared engine fields')
-j=rep(j,
-'    public void setTelemetry(float roll,float pitch,float yaw,float throttle,float linkHz,int drops,boolean live){r.tele(roll,pitch,yaw,throttle,live);st=cl(throttle,0,1);sound.update(st,st*230,sg,sb,ground);}\n',
-'    public void setTelemetry(float roll,float pitch,float yaw,float throttle,float linkHz,int drops,boolean live){r.tele(roll,pitch,yaw,throttle,live);st=cl(throttle,0,1);sharedThrottle01=st;sharedAfterburner=st>=.78f;sound.update(st,st*230,sg,sb,ground);}\n',
-'telemetry publishes throttle')
+if 'sharedThrottle01=cl(throttle,0,1);' not in j:
+    anchor='r.tele(roll,pitch,yaw,throttle,live);'
+    if anchor not in j: raise SystemExit('v97 jet-blast patch anchor missing: telemetry throttle hook')
+    j=j.replace(anchor,anchor+'sharedThrottle01=cl(throttle,0,1);sharedAfterburner=sharedThrottle01>=.78f;',1)
+if 'sharedThrottle01=cl(throttle,0,1);r.controls' not in j:
+    old='public void setControlInputs(float pitch,float roll,float yaw,float throttle){r.controls(pitch,roll,yaw,throttle);}'
+    new='public void setControlInputs(float pitch,float roll,float yaw,float throttle){sharedThrottle01=cl(throttle,0,1);sharedAfterburner=sharedThrottle01>=.78f;r.controls(pitch,roll,yaw,throttle);}'
+    if old in j:j=j.replace(old,new,1)
 j=rep(j,
 '    public int getCameraMode(){return r.cam;}\n',
 '    public int getCameraMode(){return r.cam;}\n    public static float getSharedThrottle01(){return sharedThrottle01;}\n    public static boolean isSharedAfterburner(){return sharedAfterburner;}\n',
