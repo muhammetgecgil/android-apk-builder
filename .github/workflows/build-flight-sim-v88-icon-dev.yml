@@ -1,0 +1,106 @@
+name: Build Aircraft Simulator v88 Icon Dev
+
+on:
+  push:
+    branches: [ flight-sim-v88-icon-dev ]
+    paths:
+      - 'flight-sim/**'
+      - '.github/workflows/build-flight-sim-v88-icon-dev.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+
+      - name: Apply v87 safe flight fixes
+        run: python3 flight-sim/tools/apply_v87_safe_fixes.py
+
+      - name: Apply v88 mechanical dynamics
+        run: python3 flight-sim/tools/apply_v88_mechanical_upgrade.py
+
+      - name: Apply v88 wing and control-surface geometry
+        run: python3 flight-sim/tools/apply_v88_wing_geometry.py
+
+      - name: Apply v88 true control-surface airfoils
+        run: python3 flight-sim/tools/apply_v88_control_surface_airfoils.py
+
+      - name: Unit tests
+        continue-on-error: true
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
+
+      - name: Build debug APK
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+
+      - name: Build unsigned release APK and AAB
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:assembleRelease :app:bundleRelease --stacktrace
+
+      - name: Verify v88 package and outputs
+        run: |
+          DBG=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          REL=flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk
+          AAB=flight-sim/app/build/outputs/bundle/release/app-release.aab
+          test -s "$DBG"
+          test -s "$REL"
+          test -s "$AAB"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify "$DBG"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "versionCode='88'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "targetSdkVersion:'36'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "application-label:'Aircraft Simulator 3D'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "package: name='com.mg.fixturecockpitsim.dev'"
+
+      - name: Prepare icon-development artifacts
+        run: |
+          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk "Aircraft Simulator 3D v88 - Icon Dev Test.apk"
+          cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk "Aircraft Simulator 3D v88 - Icon Dev Release Unsigned.apk"
+          cp flight-sim/app/build/outputs/bundle/release/app-release.aab "Aircraft Simulator 3D v88 - Icon Dev Play Unsigned.aab"
+
+      - name: Upload installable debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aircraft-Simulator-3D-v88-Icon-Dev-Test-APK
+          path: "Aircraft Simulator 3D v88 - Icon Dev Test.apk"
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload unsigned release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aircraft-Simulator-3D-v88-Icon-Dev-Release-Unsigned
+          path: "Aircraft Simulator 3D v88 - Icon Dev Release Unsigned.apk"
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload unsigned Play AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: Aircraft-Simulator-3D-v88-Icon-Dev-Play-AAB-Unsigned
+          path: "Aircraft Simulator 3D v88 - Icon Dev Play Unsigned.aab"
+          if-no-files-found: error
+          retention-days: 30
