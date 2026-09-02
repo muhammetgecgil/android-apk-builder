@@ -25,7 +25,7 @@ jobs:
         run: |
           mkdir -p turkradyo/app/src/main/res/drawable-nodpi
           cat turkradyo/icon/chunk1.b64 turkradyo/icon/chunk2.b64 turkradyo/icon/chunk3.b64 turkradyo/icon/chunk4.b64 | base64 -d > turkradyo/app/src/main/res/drawable-nodpi/ic_launcher_selected.webp
-          echo "0bc17c870a17ff5270b9cea846e99d14debd2396ed5a8aef7399f65c7474f178  turkradyo/app/src/main/res/drawable-nodpi/ic_launcher_selected.webp" | sha256sum -c -
+          echo "bfd7e5e1fcbdb5e7912757b1070c0f3894fd374738b84c302309d01938226796  turkradyo/app/src/main/res/drawable-nodpi/ic_launcher_selected.webp" | sha256sum -c -
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
