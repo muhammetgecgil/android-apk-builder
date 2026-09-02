@@ -26,12 +26,6 @@
             android:name="com.google.android.gms.car.application"
             android:resource="@xml/automotive_app_desc" />
 
-        <provider
-            android:name=".TrackMetadataProvider"
-            android:authorities="${applicationId}.trackmetadata"
-            android:exported="false"
-            android:initOrder="100" />
-
         <activity
             android:name=".MainActivity"
             android:exported="true">
