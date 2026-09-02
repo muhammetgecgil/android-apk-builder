@@ -1,0 +1,63 @@
+name: Build Aircraft Simulator v88 Final Reference
+
+on:
+  push:
+    branches: [ aircraft-sim-v88-final-reference ]
+    paths:
+      - 'flight-sim/**'
+      - '.github/workflows/build-flight-sim-v88-final-reference.yml'
+  workflow_dispatch:
+
+permissions: { contents: read }
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.13' }
+
+      # Reproduce the exact transformation chain used by canonical run 33634955402.
+      - name: Apply v87 safe flight fixes
+        run: python3 flight-sim/tools/apply_v87_safe_fixes.py
+      - name: Apply v88 mechanical dynamics
+        run: python3 flight-sim/tools/apply_v88_mechanical_upgrade.py
+      - name: Apply v88 wing and control-surface geometry
+        run: python3 flight-sim/tools/apply_v88_wing_geometry.py
+      - name: Apply v88 true control-surface airfoils
+        run: python3 flight-sim/tools/apply_v88_control_surface_airfoils.py
+
+      - name: Build canonical v88 debug APK
+        working-directory: flight-sim
+        run: gradle --no-daemon clean :app:assembleDebug --stacktrace
+
+      - name: Verify package, version, signature and embedded icon
+        run: |
+          APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.fixturecockpitsim.dev'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='88'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionName='26.6-avm18.0-mechanical-dynamics-debug'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
+          unzip -l "$APK" | grep 'res/drawable-xxxhdpi.*/ic_aircraft_simulator_final.webp\|res/.*ic_aircraft_simulator_final'
+
+      - name: Prepare artifact
+        run: |
+          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Aircraft_Simulator_3D_v88_FinalReference_NewIcon.apk
+          sha256sum Aircraft_Simulator_3D_v88_FinalReference_NewIcon.apk > Aircraft_Simulator_3D_v88_FinalReference_NewIcon.sha256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aircraft-Simulator-3D-v88-FinalReference-NewIcon
+          path: |
+            Aircraft_Simulator_3D_v88_FinalReference_NewIcon.apk
+            Aircraft_Simulator_3D_v88_FinalReference_NewIcon.sha256.txt
+          if-no-files-found: error
+          retention-days: 30
