@@ -9,8 +9,8 @@
     <application
         android:theme="@style/AppTheme"
         android:label="Aircraft Simulator 3D"
-        android:icon="@drawable/ic_aircraft_simulator"
-        android:roundIcon="@drawable/ic_aircraft_simulator"
+        android:icon="@drawable/ic_aircraft_simulator_photo"
+        android:roundIcon="@drawable/ic_aircraft_simulator_photo"
         android:allowBackup="true"
         android:supportsRtl="true">
         <activity android:name=".LauncherActivity" android:screenOrientation="landscape" android:exported="true">
