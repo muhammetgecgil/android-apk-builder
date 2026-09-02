@@ -28,6 +28,9 @@ jobs:
       - name: Apply v88 mechanical dynamics
         if: github.ref == 'refs/heads/aircraft-sim-v88-mechanical-upgrade'
         run: python3 flight-sim/tools/apply_v88_mechanical_upgrade.py
+      - name: Apply v88 wing and control-surface geometry
+        if: github.ref == 'refs/heads/aircraft-sim-v88-mechanical-upgrade'
+        run: python3 flight-sim/tools/apply_v88_wing_geometry.py
       - name: Unit tests (non-blocking during AVM migration)
         continue-on-error: true
         working-directory: flight-sim
