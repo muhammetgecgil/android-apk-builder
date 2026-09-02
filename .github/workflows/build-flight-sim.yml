@@ -1,8 +1,8 @@
 name: Build Aircraft Simulator
-# v89 geometry/nozzle/tower correction build
+# v88 mechanical dynamics build
 on:
   push:
-    branches: [ main, aircraft-sim-v19-foundation, aircraft-sim-v84-engine-detail, aircraft-sim-v85-engine-dynamics, aircraft-sim-v86-flight-controls-gear-runway, aircraft-sim-v87-pilot-cockpit, aircraft-sim-v88-mechanical-upgrade, aircraft-sim-v89-geometry-nozzle-tower-fix ]
+    branches: [ main, aircraft-sim-v19-foundation, aircraft-sim-v84-engine-detail, aircraft-sim-v85-engine-dynamics, aircraft-sim-v86-flight-controls-gear-runway, aircraft-sim-v87-pilot-cockpit, aircraft-sim-v88-mechanical-upgrade ]
     paths: [ 'flight-sim/**', '.github/workflows/build-flight-sim.yml' ]
   pull_request:
     branches: [ main ]
@@ -22,14 +22,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.13' }
       - name: Apply v87 safe flight fixes
-        if: github.ref == 'refs/heads/aircraft-sim-v87-pilot-cockpit' || github.ref == 'refs/heads/aircraft-sim-v88-mechanical-upgrade' || github.ref == 'refs/heads/aircraft-sim-v89-geometry-nozzle-tower-fix'
+        if: github.ref == 'refs/heads/aircraft-sim-v87-pilot-cockpit' || github.ref == 'refs/heads/aircraft-sim-v88-mechanical-upgrade'
         run: python3 flight-sim/tools/apply_v87_safe_fixes.py
       - name: Apply v88 mechanical dynamics
-        if: github.ref == 'refs/heads/aircraft-sim-v88-mechanical-upgrade' || github.ref == 'refs/heads/aircraft-sim-v89-geometry-nozzle-tower-fix'
+        if: github.ref == 'refs/heads/aircraft-sim-v88-mechanical-upgrade'
         run: python3 flight-sim/tools/apply_v88_mechanical_upgrade.py
-      - name: Apply v89 visual corrections
-        if: github.ref == 'refs/heads/aircraft-sim-v89-geometry-nozzle-tower-fix'
-        run: python3 flight-sim/tools/apply_v89_visual_fixes.py
       - name: Unit tests (non-blocking during AVM migration)
         continue-on-error: true
         working-directory: flight-sim
@@ -49,18 +46,14 @@ jobs:
           test -s "$REL"
           test -s "$AAB"
           $ANDROID_HOME/build-tools/35.0.0/apksigner verify "$DBG"
-          if [ "$GITHUB_REF_NAME" = "aircraft-sim-v89-geometry-nozzle-tower-fix" ]; then EXPECTED=89; elif [ "$GITHUB_REF_NAME" = "aircraft-sim-v88-mechanical-upgrade" ]; then EXPECTED=88; else EXPECTED=87; fi
+          if [ "$GITHUB_REF_NAME" = "aircraft-sim-v88-mechanical-upgrade" ]; then EXPECTED=88; else EXPECTED=87; fi
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "versionCode='$EXPECTED'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "targetSdkVersion:'36'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "application-label:'Aircraft Simulator 3D'"
           $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$DBG" | grep "package: name='com.mg.fixturecockpitsim.dev'"
       - name: Prepare artifacts
         run: |
-          if [ "$GITHUB_REF_NAME" = "aircraft-sim-v89-geometry-nozzle-tower-fix" ]; then
-            cp flight-sim/app/build/outputs/apk/debug/app-debug.apk "Aircraft Simulator 3D v89 - Geometry Nozzle Tower Fix Test.apk"
-            cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk "Aircraft Simulator 3D v89 - Release Unsigned.apk"
-            cp flight-sim/app/build/outputs/bundle/release/app-release.aab "Aircraft Simulator 3D v89 - Play Unsigned.aab"
-          elif [ "$GITHUB_REF_NAME" = "aircraft-sim-v88-mechanical-upgrade" ]; then
+          if [ "$GITHUB_REF_NAME" = "aircraft-sim-v88-mechanical-upgrade" ]; then
             cp flight-sim/app/build/outputs/apk/debug/app-debug.apk "Aircraft Simulator 3D v88 - Mechanical Dynamics Test.apk"
             cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk "Aircraft Simulator 3D v88 - Release Unsigned.apk"
             cp flight-sim/app/build/outputs/bundle/release/app-release.aab "Aircraft Simulator 3D v88 - Play Unsigned.aab"
@@ -70,15 +63,6 @@ jobs:
             cp flight-sim/app/build/outputs/bundle/release/app-release.aab "Aircraft Simulator 3D v87 - Play Unsigned.aab"
           fi
       - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/aircraft-sim-v89-geometry-nozzle-tower-fix'
-        with: { name: Aircraft-Simulator-3D-v89-Geometry-Nozzle-Tower-Test-APK, path: "Aircraft Simulator 3D v89 - Geometry Nozzle Tower Fix Test.apk", if-no-files-found: error, retention-days: 30 }
-      - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/aircraft-sim-v89-geometry-nozzle-tower-fix'
-        with: { name: Aircraft-Simulator-3D-v89-Release-Unsigned, path: "Aircraft Simulator 3D v89 - Release Unsigned.apk", if-no-files-found: error, retention-days: 30 }
-      - uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/aircraft-sim-v89-geometry-nozzle-tower-fix'
-        with: { name: Aircraft-Simulator-3D-v89-Play-AAB-Unsigned, path: "Aircraft Simulator 3D v89 - Play Unsigned.aab", if-no-files-found: error, retention-days: 30 }
-      - uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/aircraft-sim-v88-mechanical-upgrade'
         with: { name: Aircraft-Simulator-3D-v88-Mechanical-Dynamics-Test-APK, path: "Aircraft Simulator 3D v88 - Mechanical Dynamics Test.apk", if-no-files-found: error, retention-days: 30 }
       - uses: actions/upload-artifact@v4
@@ -87,3 +71,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: github.ref == 'refs/heads/aircraft-sim-v88-mechanical-upgrade'
         with: { name: Aircraft-Simulator-3D-v88-Play-AAB-Unsigned, path: "Aircraft Simulator 3D v88 - Play Unsigned.aab", if-no-files-found: error, retention-days: 30 }
+      - uses: actions/upload-artifact@v4
+        if: github.ref != 'refs/heads/aircraft-sim-v88-mechanical-upgrade'
+        with: { name: Aircraft-Simulator-3D-v87-Pilot-Cockpit-Test-APK, path: "Aircraft Simulator 3D v87 - Pilot Cockpit Test.apk", if-no-files-found: error, retention-days: 30 }
+      - uses: actions/upload-artifact@v4
+        if: github.ref != 'refs/heads/aircraft-sim-v88-mechanical-upgrade'
+        with: { name: Aircraft-Simulator-3D-v87-Release-Unsigned, path: "Aircraft Simulator 3D v87 - Release Unsigned.apk", if-no-files-found: error, retention-days: 30 }
+      - uses: actions/upload-artifact@v4
+        if: github.ref != 'refs/heads/aircraft-sim-v88-mechanical-upgrade'
+        with: { name: Aircraft-Simulator-3D-v87-Play-AAB-Unsigned, path: "Aircraft Simulator 3D v87 - Play Unsigned.aab", if-no-files-found: error, retention-days: 30 }
