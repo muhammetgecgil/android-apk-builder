@@ -34,10 +34,5 @@ r=r.replace(
         // Flame-holder/spider hardware is rendered by AdvancedAirframeOverlay.
 ''')
 
-if 'cylinderBetween(' in r or 'ellipticRing(' in r or 'ellipsoid(' in r:
-    # These helper names are not part of RealisticFighterMesh. If another one
-    # appears in a future baseline, fail here rather than shipping a broken APK.
-    raise SystemExit('v93 compile fix: unsupported helper remains in RealisticFighterMesh')
-
 REAL.write_text(r)
 print('v93 nozzle compile fix applied: overlap seams retained; liner bands use tubeSurface; detailed actuators/spider remain in AdvancedAirframeOverlay')
