@@ -1,0 +1,10 @@
+/* v2.7.7 — Slow Mod moon optical centering. Keeps the approved card geometry unchanged. */
+body.profile2-active #p2UnifiedPremiumGrid263 > #v12Smart .p263Icon .p270MoonScene{
+  transform:translateY(-1px)!important;
+  transform-origin:50% 50%!important;
+}
+body.profile2-active #p2UnifiedPremiumGrid263 > #v12Smart .p263Icon .p270MoonCut{
+  transform:translateY(4.5px)!important;
+  transform-box:fill-box!important;
+  transform-origin:center!important;
+}
