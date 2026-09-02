@@ -4,7 +4,7 @@ const CARDS=[
 const SVG={
 waves:'<svg viewBox="0 0 24 24"><path d="M3 8c2.1 1.7 4.3 1.7 6.4 0 2.1-1.7 4.2-1.7 6.3 0 2.1 1.7 4.3 1.7 5.3 0"/><path d="M3 12c2.1 1.7 4.3 1.7 6.4 0 2.1-1.7 4.2-1.7 6.3 0 2.1 1.7 4.3 1.7 5.3 0"/><path d="M3 16c2.1 1.7 4.3 1.7 6.4 0 2.1-1.7 4.2-1.7 6.3 0 2.1 1.7 4.3 1.7 5.3 0"/></svg>',
 target:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>',
-moon:'<svg class="p269MoonScene" viewBox="0 0 64 64" aria-hidden="true"><defs><mask id="p269MoonMask"><rect width="64" height="64" fill="white"/><circle cx="39" cy="24" r="17" fill="black"/></mask></defs><circle class="p269Star" cx="15" cy="17" r="1.35"/><circle class="p269Star" cx="47" cy="14" r="1.05"/><circle class="p269Star" cx="51" cy="40" r="1.2"/><circle class="p269Star" cx="16" cy="44" r=".95"/><circle class="p269MoonDisc" cx="31" cy="31" r="18" mask="url(#p269MoonMask)"/></svg>',
+moon:'<svg class="p270MoonScene" viewBox="0 0 64 64" aria-hidden="true"><circle class="p270Star" cx="15" cy="18" r="1.05"/><circle class="p270Star" cx="48" cy="15" r=".85"/><circle class="p270Star" cx="50" cy="44" r=".9"/><circle class="p270Star" cx="18" cy="46" r=".75"/><circle class="p270MoonBase" cx="31" cy="33" r="13"/><circle class="p270MoonCut" cx="37.5" cy="28.5" r="13"/></svg>',
 dna:'<svg viewBox="0 0 24 24"><path d="M8 3c0 4.5 8 4.5 8 9s-8 4.5-8 9M16 3c0 4.5-8 4.5-8 9s8 4.5 8 9"/><path d="M9 6h6M8.4 10h7.2M8.4 14h7.2M9 18h6"/></svg>',
 wave:'<svg viewBox="0 0 24 24"><path d="M4 13h2l2-5 3 10 3-13 3 8h3"/></svg>',
 alarm:'<svg viewBox="0 0 24 24"><path d="M6 16h12l-1.5-2v-3.5a4.5 4.5 0 0 0-9 0V14z"/><path d="M10 19h4M7 5 5 7M17 5l2 2"/></svg>',
