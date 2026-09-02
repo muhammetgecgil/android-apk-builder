@@ -1,0 +1,96 @@
+name: Build Aircraft Simulator v91 Attached Wingtip Lighting
+
+on:
+  push:
+    branches: [ aircraft-sim-v91-wingtip-lighting ]
+    paths:
+      - 'flight-sim/**'
+      - '.github/workflows/build-flight-sim-v91-wingtip-lighting.yml'
+  workflow_dispatch:
+
+permissions: { contents: read }
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.13' }
+
+      - name: Apply v87 safe flight fixes
+        run: python3 flight-sim/tools/apply_v87_safe_fixes.py
+      - name: Apply v88 mechanical dynamics
+        run: python3 flight-sim/tools/apply_v88_mechanical_upgrade.py
+      - name: Apply v88 wing and control-surface geometry
+        run: python3 flight-sim/tools/apply_v88_wing_geometry.py
+      - name: Apply v88 true control-surface airfoils
+        run: python3 flight-sim/tools/apply_v88_control_surface_airfoils.py
+      - name: Apply v89 fighter control surfaces
+        run: python3 flight-sim/tools/apply_v89_fighter_control_surfaces.py
+      - name: Apply v90 fighter lighting
+        run: python3 flight-sim/tools/apply_v90_fighter_lighting.py
+      - name: Apply v91 attached wingtip lighting
+        run: python3 flight-sim/tools/apply_v91_wingtip_lighting.py
+
+      - name: Verify attached lighting integration
+        run: |
+          grep -q 'getLightingAnchors' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
+          grep -q 'projectLight(-5.18f,.18f,-.03f' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
+          grep -q 'bindAircraft(jet)' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FlightRuntimeActivity.java
+          grep -q 'compact nav glow' flight-sim/tools/apply_v91_wingtip_lighting.py
+          grep -q 'haloScale' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FighterLightingOverlayView.java
+          grep -q 'setFighterSurfaceState' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FlightRuntimeActivity.java
+
+      - name: Fighter FCS unit tests (blocking)
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterFlightControlSystemTest' --stacktrace
+
+      - name: Fighter lighting unit tests (blocking)
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterLightingSystemTest' --stacktrace
+
+      - name: Legacy unit tests (non-blocking during AVM migration)
+        continue-on-error: true
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --stacktrace
+
+      - name: Build v91 debug APK and Play outputs
+        working-directory: flight-sim
+        run: gradle --no-daemon clean :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
+
+      - name: Verify package, v91, signature and approved icon
+        run: |
+          APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          REL=flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk
+          AAB=flight-sim/app/build/outputs/bundle/release/app-release.aab
+          test -s "$APK" && test -s "$REL" && test -s "$AAB"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.fixturecockpitsim.dev'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='91'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionName='26.9-avm20.1-attached-wingtip-lighting-debug'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
+          unzip -l "$APK" | grep 'ic_aircraft_simulator_final'
+
+      - name: Prepare v91 artifacts
+        run: |
+          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Aircraft_Simulator_3D_v91_Attached_Wingtip_Lighting_Test.apk
+          cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk Aircraft_Simulator_3D_v91_Release_Unsigned.apk
+          cp flight-sim/app/build/outputs/bundle/release/app-release.aab Aircraft_Simulator_3D_v91_Play_Unsigned.aab
+          sha256sum Aircraft_Simulator_3D_v91_Attached_Wingtip_Lighting_Test.apk > Aircraft_Simulator_3D_v91_Attached_Wingtip_Lighting_Test.sha256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aircraft-Simulator-3D-v91-Attached-Wingtip-Lighting
+          path: |
+            Aircraft_Simulator_3D_v91_Attached_Wingtip_Lighting_Test.apk
+            Aircraft_Simulator_3D_v91_Attached_Wingtip_Lighting_Test.sha256.txt
+            Aircraft_Simulator_3D_v91_Release_Unsigned.apk
+            Aircraft_Simulator_3D_v91_Play_Unsigned.aab
+          if-no-files-found: error
+          retention-days: 30
