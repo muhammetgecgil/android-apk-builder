@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Flight-dynamics / attitude arcs -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#43D5E8"
+        android:strokeAlpha="0.92"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:pathData="M20,54 C20,42 24,33 31,27" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#43D5E8"
+        android:strokeAlpha="0.92"
+        android:strokeWidth="2.4"
+        android:strokeLineCap="round"
+        android:pathData="M88,54 C88,42 84,33 77,27" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#43D5E8"
+        android:strokeAlpha="0.66"
+        android:strokeWidth="2.0"
+        android:strokeLineCap="round"
+        android:pathData="M25,68 C29,77 36,83 44,87 M83,68 C79,77 72,83 64,87" />
+
+    <!-- Aircraft silhouette: readable inside adaptive-icon safe zone -->
+    <path
+        android:fillColor="#F4F7F9"
+        android:pathData="M54,16 C58,23 60,31 60,38 L80,47 L84,52 L82,56 L61,52 L62,68 L72,77 L70,82 L54,76 L38,82 L36,77 L46,68 L47,52 L26,56 L24,52 L28,47 L48,38 C48,31 50,23 54,16 Z" />
+
+    <!-- Canopy -->
+    <path
+        android:fillColor="#43D5E8"
+        android:pathData="M50,30 C52,25 56,25 58,30 L59,39 C56,42 52,42 49,39 Z" />
+    <path
+        android:fillColor="#0A2438"
+        android:fillAlpha="0.72"
+        android:pathData="M52,31 C53,28 55,28 56,31 L57,37 C55,39 53,39 51,37 Z" />
+
+    <!-- Mechanical centerline -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#15364A"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:pathData="M54,42 L54,70" />
+
+    <!-- Control-surface accents -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFB23F"
+        android:strokeWidth="2.6"
+        android:strokeLineCap="round"
+        android:pathData="M35,48 L28,44 M73,48 L80,44 M43,76 L39,84 M65,76 L69,84" />
+
+    <!-- Downward dynamics / force vector -->
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="#FFB23F"
+        android:strokeWidth="3.0"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M54,79 L54,94 M54,94 L48,87 M54,94 L60,87" />
+</vector>
