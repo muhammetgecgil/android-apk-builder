@@ -1,5 +1,6 @@
 name: Build Aircraft Simulator
-# v88 mechanical dynamics build
+# REFERENCE BASELINE: v88 / 26.6-avm18.0-mechanical-dynamics
+# Do not advance Aircraft Simulator beyond v88 unless explicitly requested by the user.
 on:
   push:
     branches: [ main, aircraft-sim-v19-foundation, aircraft-sim-v84-engine-detail, aircraft-sim-v85-engine-dynamics, aircraft-sim-v86-flight-controls-gear-runway, aircraft-sim-v87-pilot-cockpit, aircraft-sim-v88-mechanical-upgrade ]
