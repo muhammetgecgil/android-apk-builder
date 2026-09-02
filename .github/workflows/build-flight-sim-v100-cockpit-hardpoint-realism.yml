@@ -4,6 +4,8 @@ on:
     branches: [ aircraft-sim-v100-cockpit-hardpoint-realism ]
     paths:
       - 'flight-sim/tools/apply_v100_cockpit_hardpoint_realism.py'
+      - 'flight-sim/tools/apply_v100_post98_compat.py'
+      - 'flight-sim/app/src/main/java/com/mg/fixturecockpitsim/LauncherActivity.java'
       - '.github/workflows/build-flight-sim-v100-cockpit-hardpoint-realism.yml'
   workflow_dispatch:
 permissions: { contents: read }
@@ -35,6 +37,8 @@ jobs:
       - run: python3 flight-sim/tools/apply_v96_surface_material_realism_v3.py
       - run: python3 flight-sim/tools/apply_v97_jet_blast_ground_effects.py
       - run: python3 flight-sim/tools/apply_v98_advanced_flight_physics.py
+      - name: Enable post-v98 compatibility
+        run: python3 flight-sim/tools/apply_v100_post98_compat.py
       - name: Apply v100 cockpit and hardpoint realism
         run: python3 flight-sim/tools/apply_v100_cockpit_hardpoint_realism.py
       - name: Verify source integration
@@ -44,6 +48,8 @@ jobs:
           grep -q 'PART_ADAPTER=38f' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/VisualOrdnanceMesh.java
           grep -q 'PART_SWAY_BRACE=39f' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/VisualOrdnanceMesh.java
           grep -q 'hardpointAdapterRack' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/VisualOrdnanceMesh.java
+          grep -q 'GÖREV / SCENARIO SELECT' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/LauncherActivity.java
+          grep -q 'EXTRA_SCENARIO_ID' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/LauncherActivity.java
           grep -q 'versionCode 100' flight-sim/app/build.gradle
       - name: v100 cockpit hardpoint tests
         working-directory: flight-sim
