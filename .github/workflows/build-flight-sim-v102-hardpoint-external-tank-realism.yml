@@ -1,7 +1,7 @@
 name: Build Aircraft Simulator v102 Hardpoint External Tank Realism
 on:
   push:
-    branches: [ aircraft-sim-v101-fuel-management-system ]
+    branches: [ aircraft-sim-v102-hardpoint-external-tank-realism ]
     paths:
       - 'flight-sim/tools/apply_v102_hardpoint_external_tank_realism.py'
       - '.github/workflows/build-flight-sim-v102-hardpoint-external-tank-realism.yml'
