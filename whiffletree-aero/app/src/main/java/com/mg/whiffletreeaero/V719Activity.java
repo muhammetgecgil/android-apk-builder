@@ -7,7 +7,7 @@ import android.view.View;
 import android.widget.*;
 import java.util.*;
 
-/** v7.19.4 — crash-safe simple AUTO WHIFFLETREE wizard with a dedicated result state. */
+/** v7.19.5 — crash-safe simple AUTO WHIFFLETREE wizard with reusable Android views detached before re-parenting. */
 public class V719Activity extends V717Activity {
   LinearLayout wizard,body,resultBox,navRow;
   TextView title,status;
@@ -34,8 +34,30 @@ public class V719Activity extends V717Activity {
   }
 
   EditText fresh(String value){EditText e=new EditText(this);e.setText(value);e.setTextColor(Color.WHITE);e.setTextSize(17);e.setSingleLine(true);e.setSelectAllOnFocus(true);e.setInputType(InputType.TYPE_CLASS_NUMBER|InputType.TYPE_NUMBER_FLAG_DECIMAL|InputType.TYPE_NUMBER_FLAG_SIGNED);e.setBackground(bg(Color.rgb(24,52,70),9));e.setPadding(dp(10),0,dp(10),0);return e;}
-  LinearLayout field(String label,EditText e,String hint){LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(dp(10),dp(8),dp(10),dp(8));c.setBackground(bg(Color.rgb(12,40,54),12));c.addView(tx(label,12,true,Color.rgb(247,207,77)),lp());c.addView(e,new LinearLayout.LayoutParams(-1,dp(48)));if(hint!=null&&!hint.isEmpty())c.addView(tx(hint,9,false,Color.rgb(178,205,220)),lp());return c;}
-  LinearLayout selector(String label,Spinner s){LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(dp(10),dp(8),dp(10),dp(8));c.setBackground(bg(Color.rgb(12,40,54),12));c.addView(tx(label,12,true,Color.rgb(247,207,77)),lp());c.addView(s,new LinearLayout.LayoutParams(-1,dp(48)));return c;}
+
+  /**
+   * Android keeps a child view attached to its immediate parent even after an ancestor is
+   * removed from the screen. Reusing the same EditText/Spinner inside a newly-created
+   * field container without detaching it first throws:
+   * "The specified child already has a parent".
+   *
+   * All wizard generations go through field()/selector(), so centralizing the detach here
+   * makes back/forward, result->new design, and Test Engineer transitions re-entrant.
+   */
+  void detachFromParent(View v){
+    if(v!=null && v.getParent() instanceof android.view.ViewGroup){
+      ((android.view.ViewGroup)v.getParent()).removeView(v);
+    }
+  }
+
+  LinearLayout field(String label,EditText e,String hint){
+    detachFromParent(e);
+    LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(dp(10),dp(8),dp(10),dp(8));c.setBackground(bg(Color.rgb(12,40,54),12));c.addView(tx(label,12,true,Color.rgb(247,207,77)),lp());c.addView(e,new LinearLayout.LayoutParams(-1,dp(48)));if(hint!=null&&!hint.isEmpty())c.addView(tx(hint,9,false,Color.rgb(178,205,220)),lp());return c;
+  }
+  LinearLayout selector(String label,Spinner s){
+    detachFromParent(s);
+    LinearLayout c=new LinearLayout(this);c.setOrientation(LinearLayout.VERTICAL);c.setPadding(dp(10),dp(8),dp(10),dp(8));c.setBackground(bg(Color.rgb(12,40,54),12));c.addView(tx(label,12,true,Color.rgb(247,207,77)),lp());c.addView(s,new LinearLayout.LayoutParams(-1,dp(48)));return c;
+  }
 
   void initWizardValues(){
     wLen=fresh(hLen.getText().toString());wDia=fresh(hDia.getText().toString());wSections=fresh(hSections.getText().toString());
