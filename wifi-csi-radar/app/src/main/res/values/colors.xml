@@ -1,0 +1,7 @@
+<resources>
+    <color name="radar_bg">#06101A</color>
+    <color name="radar_panel">#0D2130</color>
+    <color name="radar_green">#25E6A7</color>
+    <color name="radar_cyan">#4CC9F0</color>
+    <color name="radar_yellow">#FFD166</color>
+</resources>
