@@ -2,9 +2,8 @@ plugins { id 'com.android.application' }
 
 def stableKeystorePath = System.getenv('WHIFFLETREE_KEYSTORE_PATH')
 def stableStorePassword = System.getenv('WHIFFLETREE_STORE_PASSWORD')
-def stableKeyPassword = System.getenv('WHIFFLETREE_KEY_PASSWORD')
 def stableKeyAlias = System.getenv('WHIFFLETREE_KEY_ALIAS')
-def hasStableSigning = stableKeystorePath && stableStorePassword && stableKeyPassword && stableKeyAlias && file(stableKeystorePath).exists()
+def hasStableSigning = stableKeystorePath && stableStorePassword && stableKeyAlias && file(stableKeystorePath).exists()
 
 android {
     namespace 'com.mg.whiffletreeaero'
@@ -26,7 +25,8 @@ android {
                 storeFile file(stableKeystorePath)
                 storePassword stableStorePassword
                 keyAlias stableKeyAlias
-                keyPassword stableKeyPassword
+                // This release keystore is PKCS12. Its private key uses the store password.
+                keyPassword stableStorePassword
                 enableV1Signing true
                 enableV2Signing true
                 enableV3Signing true
