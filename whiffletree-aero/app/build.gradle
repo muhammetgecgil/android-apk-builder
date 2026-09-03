@@ -11,12 +11,11 @@ android {
     compileSdk 36
 
     defaultConfig {
-        // Keep this ID forever. Android treats a different applicationId as a different app.
         applicationId 'com.mg.whiffletreeaero'
         minSdk 26
         targetSdk 36
-        versionCode 88
-        versionName '8.0.0'
+        versionCode 89
+        versionName '8.1.0'
     }
 
     buildFeatures { buildConfig true }
