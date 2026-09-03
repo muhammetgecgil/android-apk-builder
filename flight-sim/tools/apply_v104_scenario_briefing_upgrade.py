@@ -43,7 +43,7 @@ s=rep(s,
 LAUNCHER.write_text(s)
 
 g=GRADLE.read_text()
-g=re.sub(r'versionCode\s+\d+','versionCode 104',g,count=1)
-g=re.sub(r'versionName\s+"[^"]+"','versionName "26.22-avm31.1-scenario-briefing-upgrade-debug"',g,count=1)
+g=re.sub(r'versionCode\s*(?:=)?\s*\d+','versionCode 104',g,count=1)
+g=re.sub(r'''versionName\s*(?:=)?\s*['\"][^'\"]+['\"]''',"versionName '26.22-avm31.1-scenario-briefing-upgrade'",g,count=1)
 GRADLE.write_text(g)
 print('v104 scenario briefing upgrade applied')
