@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application
+        android:allowBackup="true"
+        android:label="Machine Elements Pro"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:theme="@style/AppTheme">
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.fileprovider" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+        </provider>
+        <activity android:name=".VisualWorkbenchActivity" android:screenOrientation="unspecified" android:exported="true">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
+        </activity>
+        <activity android:name=".BearingFamilyActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".VisualHomeActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".MachineElementStudioActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".MachineElementVisualLabActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".EngineeringReportActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".DesignReviewActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".ProjectManagerActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".ProductCatalogActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".GearboxDesignerActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".SystemDesignerActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".DesignOptimizerActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".SelectionCatalogActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".LibraryActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".CustomGeometryActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".AssemblyActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".DrivetrainActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".AdvancedActivity" android:screenOrientation="unspecified" android:exported="false" />
+        <activity android:name=".MainActivity" android:screenOrientation="unspecified" android:exported="false" />
+    </application>
+</manifest>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <!-- gear body -->
+    <path android:fillColor="#D7DEE7" android:fillType="evenOdd"
+        android:pathData="M54,20 A34,34 0,1 1,53.9 20 Z M54,31 A23,23 0,1 0,54.1 31 Z"/>
+    <!-- gear teeth -->
+    <path android:fillColor="#D7DEE7" android:pathData="M49,11h10v13h-10z M49,84h10v13h-10z M11,49h13v10h-13z M84,49h13v10h-13z M21,21l8,-8 9,9 -8,8z M70,78l8,-8 9,9 -8,8z M78,30l9,-9 8,8 -9,9z M13,79l8,-9 9,8 -8,9z"/>
+    <!-- bearing outer/inner rings -->
+    <path android:fillColor="#263646" android:fillType="evenOdd"
+        android:pathData="M54,34 A20,20 0,1 1,53.9 34 Z M54,43 A11,11 0,1 0,54.1 43 Z"/>
+    <path android:fillColor="#F7A21B" android:fillType="evenOdd"
+        android:pathData="M54,40 A14,14 0,1 1,53.9 40 Z M54,47 A7,7 0,1 0,54.1 47 Z"/>
+    <!-- bolt -->
+    <path android:fillColor="#F1F5F9" android:pathData="M66,67l7,-7 22,22 -7,7z"/>
+    <path android:fillColor="#F7A21B" android:pathData="M61,62l10,-10 9,9 -10,10z"/>
+    <path android:fillColor="#B6C1CD" android:pathData="M82,80l10,-10 5,5 -10,10z"/>
+</vector>
