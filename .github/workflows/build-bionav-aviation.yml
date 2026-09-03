@@ -1,0 +1,62 @@
+name: Build BioNav Aviation APK
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'bionav-aviation/**'
+      - '.github/workflows/build-bionav-aviation.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'bionav-aviation/**'
+      - '.github/workflows/build-bionav-aviation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android API 35
+        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Restore stable BioNav test signing key
+        run: |
+          base64 -d bionav-aviation/signing/bionav-test.p12.b64 > bionav-aviation/signing/bionav-test.p12
+          keytool -list -keystore bionav-aviation/signing/bionav-test.p12 -storetype PKCS12 -storepass 'BioNavTest2026!' -alias bionav_test >/dev/null
+      - name: Build APK
+        working-directory: bionav-aviation
+        run: gradle --no-daemon :app:assembleDebug --stacktrace
+      - name: Verify APK
+        run: |
+          test -s bionav-aviation/app/build/outputs/apk/debug/app-debug.apk
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs bionav-aviation/app/build/outputs/apk/debug/app-debug.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging bionav-aviation/app/build/outputs/apk/debug/app-debug.apk | grep "package: name='com.mg.bionavaviation'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging bionav-aviation/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='3'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging bionav-aviation/app/build/outputs/apk/debug/app-debug.apk | grep "application-icon"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump permissions bionav-aviation/app/build/outputs/apk/debug/app-debug.apk | grep -qv "ACCESS_FINE_LOCATION"
+      - name: Rename APK
+        run: cp bionav-aviation/app/build/outputs/apk/debug/app-debug.apk BioNav_Aviation_v2.1.0.apk
+      - name: Upload installable APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BioNav-Aviation-v2.1.0-APK
+          path: BioNav_Aviation_v2.1.0.apk
+          if-no-files-found: error
+          retention-days: 30
