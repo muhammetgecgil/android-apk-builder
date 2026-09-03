@@ -1,0 +1,60 @@
+name: Mors Kod Cevirici Play Build
+
+on:
+  push:
+    branches: ["morse-playstore-v5"]
+    paths:
+      - "mors-playstore-v5/**"
+      - ".github/workflows/mors-playstore-v5.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle 8.13
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.13"
+
+      - name: Unit tests
+        working-directory: mors-playstore-v5
+        run: gradle --no-daemon :app:testDebugUnitTest
+
+      - name: Android lint
+        working-directory: mors-playstore-v5
+        run: gradle --no-daemon :app:lintDebug
+
+      - name: Build installable debug APK
+        working-directory: mors-playstore-v5
+        run: gradle --no-daemon :app:assembleDebug
+
+      - name: Build release App Bundle
+        working-directory: mors-playstore-v5
+        run: gradle --no-daemon :app:bundleRelease
+
+      - name: Collect artifacts
+        run: |
+          mkdir -p out
+          cp mors-playstore-v5/app/build/outputs/apk/debug/app-debug.apk out/MorsKodCevirici-v5-PlayTest.apk
+          cp mors-playstore-v5/app/build/outputs/bundle/release/app-release.aab out/MorsKodCevirici-v5-release-unsigned.aab
+          cp mors-playstore-v5/app/build/reports/lint-results-debug.html out/lint-results.html || true
+
+      - name: Upload APK and AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: MorsKodCevirici-v5
+          path: out/*
+          if-no-files-found: error
+          retention-days: 30

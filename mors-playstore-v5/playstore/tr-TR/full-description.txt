@@ -1,0 +1,15 @@
+Mors Kod Çevirici; metinleri Mors koduna, Mors kodlarını da tekrar metne dönüştüren hızlı ve çevrimdışı bir yardımcı uygulamadır.
+
+ÖNE ÇIKAN ÖZELLİKLER
+• Metin → Mors ve Mors → Metin
+• Türkçe genişletilmiş karakter desteği
+• WPM tabanlı doğru nokta/çizgi zamanlaması
+• Ayarlanabilir ses frekansı
+• Titreşim ile Mors oynatma
+• Kamera flaşı ile Mors sinyali gönderme
+• Kopyalama ve Android paylaşım menüsü
+• Cihazda tutulan dönüşüm geçmişi
+• İnternet bağlantısı gerektirmez
+
+GİZLİLİK
+Uygulama internet izni istemez. Dönüşüm metinleri sunucuya gönderilmez. Kamera izni yalnızca Flaş özelliği kullanıldığında cihazın el fenerini kontrol etmek için istenir; fotoğraf veya video çekilmez.
