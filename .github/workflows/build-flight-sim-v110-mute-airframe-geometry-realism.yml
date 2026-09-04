@@ -68,9 +68,11 @@ jobs:
         run: |
           R=flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FlightRuntimeActivity.java
           S=flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FlightSoundEngine.java
+          M=flight-sim/app/src/main/java/com/mg/fixturecockpitsim/sim/SoundMuteState.java
           G=flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/RealisticFighterMesh.java
           grep -q 'sound.setMuted' "$R"
-          grep -q 'SES KAPALI' "$R"
+          grep -q 'soundMute.buttonLabel' "$R"
+          grep -q 'SES KAPALI' "$M"
           grep -q 'public void setMuted(boolean value)' "$S"
           grep -q 'smoothLoft(z,rx,ry,cy,72' "$G"
           grep -q 'smoothTube(x,-.10f,z,rx,ry,56)' "$G"
