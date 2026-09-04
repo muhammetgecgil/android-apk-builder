@@ -38,16 +38,12 @@ public final class AutonomousAttitudeGuard {
             return;
         }
 
-        // Presentation envelope: broad fighter turns are retained, but axial
-        // drill-roll / snap-roll motion is prohibited in autonomous flight.
         final double bankSoft=31.0;
         final double bankHard=40.0;
         final double maxRollRate=30.0;
         final double maxPitchRate=26.0;
         final double maxYawRate=24.0;
 
-        // Start unloading before the hard bank limit. Outward roll rate is
-        // actively reduced; inward/recovery rate is preserved.
         double a=Math.abs(s.rollDeg),sign=Math.signum(s.rollDeg==0?1:s.rollDeg);
         if(a>bankSoft){
             double excess=clamp((a-bankSoft)/(bankHard-bankSoft),0,1);
@@ -60,16 +56,12 @@ public final class AutonomousAttitudeGuard {
         s.pitchRateDegSec=clamp(s.pitchRateDegSec,-maxPitchRate,maxPitchRate);
         s.yawRateDegSec=clamp(s.yawRateDegSec,-maxYawRate,maxYawRate);
 
-        // Hard limits are only a last-resort containment. Because this method
-        // runs every simulation frame, normal operation reaches them smoothly.
         if(s.rollDeg>bankHard){s.rollDeg=bankHard;if(s.rollRateDegSec>0)s.rollRateDegSec=-8.0;}
         else if(s.rollDeg<-bankHard){s.rollDeg=-bankHard;if(s.rollRateDegSec<0)s.rollRateDegSec=8.0;}
 
         if(s.pitchDeg>24.0){s.pitchDeg=24.0;if(s.pitchRateDegSec>0)s.pitchRateDegSec=-5.0;}
         else if(s.pitchDeg<-21.0){s.pitchDeg=-21.0;if(s.pitchRateDegSec<0)s.pitchRateDegSec=5.0;}
 
-        // A spin warning can still exist aerodynamically, but the autonomous
-        // showcase will recover rather than visually corkscrew around the nose.
         if(s.spin01>.08){
             double k=clamp((s.spin01-.08)/.42,0,1);
             s.rollRateDegSec=approach(s.rollRateDegSec,0,(55.0+75.0*k)*dt);
@@ -126,9 +118,10 @@ r=rep(r,
 RUNTIME.write_text(r)
 
 # ---------------------------------------------------------------------------
-# Renderer: eliminate the visual 180/-180 wrap path and make the external
-# canopy a fully depth-writing, opaque reflective shell. The GLSurface itself
-# stays translucent because the 3D aircraft is composited over the world view.
+# Renderer: use shortest angular travel with an explicit visual rate limit. This
+# also removes the apparent 358-degree spin when simulation roll wraps across
+# +180/-180. Make external canopy fully opaque and depth-writing so internal
+# mesh/detail cannot show through the aircraft from external cameras.
 # ---------------------------------------------------------------------------
 j=JET.read_text()
 j=rep(j,
@@ -136,14 +129,27 @@ j=rep(j,
 'float k=1-(float)Math.exp(-dt*8),kg=1-(float)Math.exp(-dt*2.2),ks=1-(float)Math.exp(-dt*11);float rd=shortest(tr-roll);roll+=cl(rd,-65f*dt,65f*dt);pitch+=cl(tp-pitch,-42f*dt,42f*dt);yaw+=cl(shortest(ty-yaw),-46f*dt,46f*dt);',
 'visual angular rate limiter')
 
-j=rep(j,
-'            bindAndDraw(vbOpaque,opaqueCount);bindAndDraw(detailBuffer,detailCount);bindAndDraw(engineSolidBuffer,engineSolidCount);bindAndDraw(obOpaque,ordnanceCount);if(birdAge>=0f&&birdAge<5.8f)bindAndDraw(birdBuffer,birdCount);\n            GLES20.glDepthMask(false);GLES20.glDisable(GLES20.GL_CULL_FACE);bindAndDraw(engineTransparentBuffer,engineTransparentCount);bindAndDraw(vortexBuffer,vortexCount);bindAndDraw(obGlass,glassCount);bindAndDraw(vbCanopy,canopyCount);GLES20.glEnable(GLES20.GL_CULL_FACE);GLES20.glDepthMask(true);',
-'            GLES20.glDisable(GLES20.GL_BLEND);bindAndDraw(vbOpaque,opaqueCount);bindAndDraw(detailBuffer,detailCount);bindAndDraw(engineSolidBuffer,engineSolidCount);bindAndDraw(obOpaque,ordnanceCount);bindAndDraw(vbCanopy,canopyCount);if(birdAge>=0f&&birdAge<5.8f)bindAndDraw(birdBuffer,birdCount);\n            GLES20.glEnable(GLES20.GL_BLEND);GLES20.glDepthMask(false);GLES20.glDisable(GLES20.GL_CULL_FACE);bindAndDraw(engineTransparentBuffer,engineTransparentCount);bindAndDraw(vortexBuffer,vortexCount);bindAndDraw(obGlass,glassCount);GLES20.glEnable(GLES20.GL_CULL_FACE);GLES20.glDepthMask(true);',
-'opaque external canopy pass')
+# Previous renderer patches can insert extra solid/effect draws, so avoid a
+# brittle full-line match. Remove the existing transparent canopy draw, then
+# insert it immediately before the first transparent depth-mask pass.
+canopy_call='bindAndDraw(vbCanopy,canopyCount);'
+if canopy_call not in j:
+    raise SystemExit('v107 anchor missing: canopy draw')
+j=j.replace(canopy_call,'',1)
+j=rep(j,'bindAndDraw(vbOpaque,opaqueCount);','GLES20.glDisable(GLES20.GL_BLEND);bindAndDraw(vbOpaque,opaqueCount);','opaque pass blend off')
+j=rep(j,'GLES20.glDepthMask(false);',canopy_call+'GLES20.glEnable(GLES20.GL_BLEND);GLES20.glDepthMask(false);','opaque canopy before transparent pass')
 
-old='else if(vP>.5&&vP<1.5){vec3 R=reflect(-V,N);float fr=.08+.92*pow(1.-ndv,4.2);vec3 glass=mix(vec3(.010,.027,.038),envc(R),.34+.52*fr);float sun=pow(ndh,120.);glass+=vec3(.80,.88,.90)*sun*.72;glass+=vec3(.11,.075,.035)*pow(1.-ndv,2.2)*.20;gl_FragColor=vec4(glass,.20+.34*fr);return;}'
-new='else if(vP>.5&&vP<1.5){vec3 R=reflect(-V,N);float fr=.08+.92*pow(1.-ndv,4.2);vec3 glass=mix(vec3(.012,.024,.031),envc(R),.46+.42*fr);float sun=pow(ndh,120.);glass+=vec3(.80,.88,.90)*sun*.72;glass+=vec3(.10,.070,.032)*pow(1.-ndv,2.2)*.16;gl_FragColor=vec4(glass,1.0);return;}'
-j=rep(j,old,new,'opaque canopy shader')
+# Replace canopy fragment branch by boundaries rather than exact old material,
+# because v96 material-realism can legitimately alter the glass parameters.
+start=j.find('else if(vP>.5&&vP<1.5){')
+if start<0:
+    raise SystemExit('v107 anchor missing: canopy shader start')
+end=j.find('return;}',start)
+if end<0:
+    raise SystemExit('v107 anchor missing: canopy shader end')
+end+=len('return;}')
+opaque_canopy='else if(vP>.5&&vP<1.5){vec3 R=reflect(-V,N);float fr=.08+.92*pow(1.-ndv,4.2);vec3 glass=mix(vec3(.012,.024,.031),envc(R),.46+.42*fr);float sun=pow(ndh,120.);glass+=vec3(.80,.88,.90)*sun*.72;glass+=vec3(.10,.070,.032)*pow(1.-ndv,2.2)*.16;gl_FragColor=vec4(glass,1.0);return;}'
+j=j[:start]+opaque_canopy+j[end:]
 JET.write_text(j)
 
 # Version.
@@ -151,4 +157,4 @@ g=GRADLE.read_text()
 g=re.sub(r'versionCode\s+\d+','versionCode 107',g,count=1)
 g=re.sub(r"versionName\s+['\"][^'\"]+['\"]","versionName '26.25-avm34.0-attitude-opaque-airframe'",g,count=1)
 GRADLE.write_text(g)
-print('v107 applied: autonomous anti-drill-roll guard + rate-limited renderer + opaque external canopy')
+print('v107 applied: autonomous anti-drill-roll guard + shortest-path renderer + opaque depth-writing canopy')
