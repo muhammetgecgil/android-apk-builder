@@ -4,6 +4,7 @@ on:
     branches: [ aircraft-sim-v110-mute-airframe-geometry-realism ]
     paths:
       - 'flight-sim/tools/apply_v110_mute_airframe_geometry_realism.py'
+      - 'flight-sim/tools/apply_v110_nozzle_compat.py'
       - '.github/workflows/build-flight-sim-v110-mute-airframe-geometry-realism.yml'
   workflow_dispatch:
 permissions: { contents: read }
@@ -59,6 +60,8 @@ jobs:
         run: python3 flight-sim/tools/apply_v108_cinematic_turkiye_3d_world.py
       - name: Apply v109 terrain and airframe rendering correction
         run: python3 flight-sim/tools/apply_v109_terrain_airframe_rendering.py
+      - name: Enable v110 variable-nozzle compatibility
+        run: python3 flight-sim/tools/apply_v110_nozzle_compat.py
       - name: Apply v110 mute and airframe geometry realism
         run: python3 flight-sim/tools/apply_v110_mute_airframe_geometry_realism.py
       - name: Verify source integration
@@ -71,7 +74,8 @@ jobs:
           grep -q 'public void setMuted(boolean value)' "$S"
           grep -q 'smoothLoft(z,rx,ry,cy,72' "$G"
           grep -q 'smoothTube(x,-.10f,z,rx,ry,56)' "$G"
-          grep -q 'int petals=24' "$G"
+          grep -q 'final int petals=18' "$G"
+          grep -q 'int arcs=42' "$G"
           ! grep -q 'b.bellyBlend();' "$G"
           grep -q 'versionCode 110' flight-sim/app/build.gradle
       - name: Regression tests
