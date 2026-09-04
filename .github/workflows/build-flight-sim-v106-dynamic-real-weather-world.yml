@@ -6,6 +6,7 @@ on:
       - 'flight-sim/app/src/main/java/com/mg/fixturecockpitsim/sim/RealWeatherProfile.java'
       - 'flight-sim/app/src/main/java/com/mg/fixturecockpitsim/sim/RealWeatherCoordinator.java'
       - 'flight-sim/app/src/test/java/com/mg/fixturecockpitsim/sim/RealWeatherProfileTest.java'
+      - 'flight-sim/tools/apply_v106_weather_compat.py'
       - 'flight-sim/tools/apply_v106_dynamic_real_weather_world.py'
       - '.github/workflows/build-flight-sim-v106-dynamic-real-weather-world.yml'
   workflow_dispatch:
@@ -52,6 +53,8 @@ jobs:
         run: python3 flight-sim/tools/apply_v104_scenario_briefing_upgrade.py
       - name: Apply v105 runway start and autoflight envelope
         run: python3 flight-sim/tools/apply_v105_runway_start_autoflight_envelope.py
+      - name: Enable v106 weather compatibility
+        run: python3 flight-sim/tools/apply_v106_weather_compat.py
       - name: Apply v106 dynamic real weather world
         run: python3 flight-sim/tools/apply_v106_dynamic_real_weather_world.py
       - name: Verify source integration
