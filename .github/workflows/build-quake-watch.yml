@@ -1,0 +1,77 @@
+name: Build Quake Watch APK
+
+on:
+  push:
+    branches: ["quake-watch-v1"]
+    paths:
+      - "quake-watch/**"
+      - ".github/workflows/build-quake-watch.yml"
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "quake-watch/**"
+      - ".github/workflows/build-quake-watch.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
+      - name: Restore stable signing key
+        working-directory: quake-watch
+        shell: bash
+        run: |
+          base64 -d keystore/quakewatch-release.jks.b64 > keystore/quakewatch-release.jks
+          keytool -list -keystore keystore/quakewatch-release.jks -storepass quakewatch123 -alias quakewatch >/dev/null
+      - name: Build installable APK
+        working-directory: quake-watch
+        shell: bash
+        run: |
+          set +e
+          gradle --no-daemon clean :app:assembleDebug --stacktrace 2>&1 | tee build.log
+          rc=${PIPESTATUS[0]}
+          echo '### Quake Watch build tail' >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          tail -n 160 build.log >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+      - name: Persist failure diagnostics
+        if: failure() && github.event_name == 'push'
+        shell: bash
+        run: |
+          mkdir -p build-status
+          {
+            echo "Quake Watch v3.1.0 Stage 9 global live diagnostics"
+            echo "Commit: $GITHUB_SHA"
+            echo "UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            tail -n 220 quake-watch/build.log 2>/dev/null || true
+          } > build-status/quake-watch-latest.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add build-status/quake-watch-latest.txt
+          git commit -m "Record Quake Watch build diagnostics [skip ci]" || exit 0
+          git push origin HEAD:quake-watch-v1
+      - name: Stage APK
+        if: success()
+        run: |
+          mkdir -p out
+          cp quake-watch/app/build/outputs/apk/debug/app-debug.apk out/Quake-Watch-v3.1.0-Stage9-Global-Live.apk
+          sha256sum out/Quake-Watch-v3.1.0-Stage9-Global-Live.apk > out/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: Quake-Watch-v3.1.0-Stage9-Global-Live
+          path: out/*
+          if-no-files-found: error

@@ -1,0 +1,29 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'com.mg.quakewatch'
+    compileSdk 35
+
+    signingConfigs {
+        stableUpdate {
+            storeFile file('../keystore/quakewatch-release.jks')
+            storePassword 'quakewatch123'
+            keyAlias 'quakewatch'
+            keyPassword 'quakewatch123'
+        }
+    }
+
+    defaultConfig {
+        applicationId 'com.mg.quakewatch'
+        minSdk 26
+        targetSdk 35
+        versionCode 25
+        versionName '3.1.0'
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.stableUpdate
+        }
+    }
+}

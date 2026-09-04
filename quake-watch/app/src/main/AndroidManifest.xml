@@ -1,0 +1,23 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <application android:allowBackup="true" android:label="Quake Watch" android:icon="@drawable/ic_quakewatch" android:roundIcon="@drawable/ic_quakewatch" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+        <activity android:name=".Stage9Activity" android:exported="true" android:label="Quake Watch • Global"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+        <activity android:name=".PremiumResearchActivity" android:exported="false" android:label="Quake Watch"/>
+        <activity android:name=".Stage8Activity" android:exported="false" android:label="Quake Watch Aşama 8"/>
+        <activity android:name=".Stage7Activity" android:exported="false" android:label="Quake Watch Aşama 7"/>
+        <activity android:name=".Stage6Activity" android:exported="false" android:label="Quake Watch Aşama 6"/>
+        <activity android:name=".Stage5Activity" android:exported="false" android:label="Quake Watch Aşama 5"/>
+        <activity android:name=".Stage4Activity" android:exported="false" android:label="Quake Watch Aşama 4"/>
+        <activity android:name=".Stage3Activity" android:exported="false" android:label="Quake Watch Aşama 3"/>
+        <activity android:name=".Stage2Activity" android:exported="false" android:label="Quake Watch Aşama 2"/>
+        <activity android:name=".Stage1Activity" android:exported="false" android:label="Quake Watch Aşama 1"/>
+        <activity android:name=".ResearchConsoleActivity" android:exported="false"/>
+        <activity android:name=".MainActivity" android:exported="false"/>
+        <activity android:name=".TurkeyLabActivity" android:exported="false" android:label="Türkiye Jeoloji Lab"/>
+        <activity android:name=".ForecastReportActivity" android:exported="false" android:label="Tahmin Denetim Raporu"/>
+        <service android:name=".QuakeMonitorService" android:exported="false" android:foregroundServiceType="dataSync"/>
+    </application>
+</manifest>
