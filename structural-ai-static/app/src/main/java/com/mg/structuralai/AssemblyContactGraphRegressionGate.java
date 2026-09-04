@@ -1,0 +1,70 @@
+package com.mg.structuralai;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+
+/** Regression-locks assembly connectivity, evidence flags, near-gap blocking and interference behavior. */
+public final class AssemblyContactGraphRegressionGate {
+    public static final class Result { public final boolean pass; public final String summary; Result(boolean p,String s){pass=p;summary=s;} }
+    private AssemblyContactGraphRegressionGate(){}
+
+    public static Result run(){
+        try{
+            Case touching3=touchingGraphFixture(3);
+            Case near3=nearChainFixture(3,20,0.005);
+            Case finiteGap=finiteGapFixture();
+            Case interference=interferenceFixture();
+            boolean pass=touching3.pass&&near3.pass&&finiteGap.pass&&interference.pass;
+            return new Result(pass,"ASSEMBLY CONTACT GRAPH REGRESSION "+(pass?"PASS":"FAIL")+
+                    " | touching3="+touching3.summary+" | near3="+near3.summary+
+                    " | finiteGap="+finiteGap.summary+" | interference="+interference.summary);
+        }catch(Throwable t){return new Result(false,"ASSEMBLY CONTACT GRAPH REGRESSION ERROR: "+t.getMessage());}
+    }
+
+    /** Uses separated STL-like bodies but injects explicit TOUCHING evidence to test graph policy independently of decomposition. */
+    private static Case touchingGraphFixture(int count){
+        MeshModel m=new MeshModel();for(int i=0;i<count;i++)addBox(m,i*25,i*25+20,0,20,0,20);
+        AssemblyBodyDecomposer.Result d=AssemblyBodyDecomposer.decompose(m);
+        List<ContactCandidateEngine.Pair> pairs=new ArrayList<>();
+        for(int i=0;i<count-1;i++)pairs.add(new ContactCandidateEngine.Pair(i,i+1,ContactCandidateEngine.State.TOUCHING_OR_COINCIDENT,0,0,0,1.0,0.95,1));
+        ContactCandidateEngine.Result c=new ContactCandidateEngine.Result(pairs,count);
+        AssemblyContactGraph.Result g=AssemblyContactGraph.evaluate(d,c);
+        boolean evidenceOk=true;for(AssemblyContactGraph.EdgeEvidence e:g.edges)evidenceOk&=e.loadTransfer&&!e.blocksReadiness;
+        return c(g.bodies==count&&g.transferEdges==count-1&&g.connectedComponents==1&&g.isolatedBodies==0&&g.assemblyReady&&
+                "CONNECTED_TRANSFER_GRAPH".equals(g.readinessReason)&&evidenceOk,g);
+    }
+
+    private static Case nearChainFixture(int count,double size,double gap){
+        MeshModel m=new MeshModel();for(int i=0;i<count;i++)addBox(m,i*(size+gap),i*(size+gap)+size,0,size,0,size);
+        AssemblyContactGraph.Result g=graph(m);
+        boolean nearFound=false,nearTransfer=false;for(AssemblyContactGraph.EdgeEvidence e:g.edges)if(e.state==ContactCandidateEngine.State.NEAR_CONTACT){nearFound=true;nearTransfer|=e.loadTransfer;}
+        return c(g.bodies==count&&nearFound&&!nearTransfer&&g.transferEdges==0&&!g.assemblyReady&&
+                "NEAR_CONTACT_REQUIRES_CLOSURE_EVIDENCE".equals(g.readinessReason),g);
+    }
+
+    private static Case finiteGapFixture(){
+        MeshModel m=new MeshModel();addBox(m,0,20,0,20,0,20);addBox(m,20.50,40.50,0,20,0,20);
+        AssemblyContactGraph.Result g=graph(m);
+        boolean gapFound=false,gapTransfer=false;for(AssemblyContactGraph.EdgeEvidence e:g.edges)if(e.state==ContactCandidateEngine.State.FINITE_GAP){gapFound=true;gapTransfer|=e.loadTransfer;}
+        return c(g.bodies==2&&gapFound&&!gapTransfer&&g.transferEdges==0&&!g.assemblyReady,g);
+    }
+
+    private static Case interferenceFixture(){
+        MeshModel m=new MeshModel();addBox(m,0,20,0,20,0,20);addBox(m,19.8,39.8,0,20,0,20);addBox(m,39.805,59.805,0,20,0,20);
+        AssemblyContactGraph.Result g=graph(m);
+        boolean blockingEvidence=false;for(AssemblyContactGraph.EdgeEvidence e:g.edges)if(e.state==ContactCandidateEngine.State.INTERFERENCE_SUSPECTED&&e.blocksReadiness)blockingEvidence=true;
+        return c(g.bodies==3&&g.hasInterference&&g.interferenceEdges>=1&&!g.assemblyReady&&blockingEvidence&&
+                "INTERFERENCE_SUSPECTED".equals(g.readinessReason),g);
+    }
+
+    private static AssemblyContactGraph.Result graph(MeshModel m){AssemblyBodyDecomposer.Result d=AssemblyBodyDecomposer.decompose(m);return AssemblyContactGraph.evaluate(d,ContactCandidateEngine.analyze(m,d));}
+    private static Case c(boolean p,AssemblyContactGraph.Result g){return new Case(p,String.format(Locale.US,"b=%d e=%d comp=%d iso=%d near=%d int=%d ready=%s reason=%s",g.bodies,g.transferEdges,g.connectedComponents,g.isolatedBodies,g.nearEdges,g.interferenceEdges,g.assemblyReady,g.readinessReason));}
+    private static final class Case{final boolean pass;final String summary;Case(boolean p,String s){pass=p;summary=s;}}
+
+    private static void addBox(MeshModel m,double x0,double x1,double y0,double y1,double z0,double z1){
+        double[][] v={{x0,y0,z0},{x1,y0,z0},{x1,y1,z0},{x0,y1,z0},{x0,y0,z1},{x1,y0,z1},{x1,y1,z1},{x0,y1,z1}};
+        int[][] f={{0,2,1},{0,3,2},{4,5,6},{4,6,7},{0,1,5},{0,5,4},{1,2,6},{1,6,5},{2,3,7},{2,7,6},{3,0,4},{3,4,7}};
+        for(int[] t:f){int base=m.vertices.size();for(int k=0;k<3;k++){double[] p=v[t[k]];m.addVertex(new MeshModel.V3(p[0],p[1],p[2]));}m.triangles.add(new int[]{base,base+1,base+2});}
+    }
+}
