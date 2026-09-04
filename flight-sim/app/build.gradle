@@ -4,11 +4,38 @@ android {
     namespace 'com.mg.fixturecockpitsim'
     compileSdk 35
 
+    signingConfigs {
+        fixtureUpdate {
+            storeFile file('../signing/fixture-update.jks')
+            storePassword 'FixtureSim2026'
+            keyAlias 'fixture'
+            keyPassword 'FixtureSim2026'
+        }
+    }
+
     defaultConfig {
         applicationId 'com.mg.fixturecockpitsim'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '3.0'
+        versionCode 18
+        versionName '18.0'
     }
+
+    buildTypes {
+        debug { signingConfig signingConfigs.fixtureUpdate }
+        release {
+            signingConfig signingConfigs.fixtureUpdate
+            minifyEnabled false
+        }
+    }
+
+    packagingOptions {
+        jniLibs { useLegacyPackaging = false }
+    }
+}
+
+dependencies {
+    implementation 'com.google.android.filament:filament-android:1.72.0'
+    implementation 'com.google.android.filament:gltfio-android:1.72.0'
+    implementation 'com.google.android.filament:filament-utils-android:1.72.0'
 }
