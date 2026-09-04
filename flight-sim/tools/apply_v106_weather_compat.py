@@ -14,9 +14,29 @@ s=s.replace("    public static float getSharedVisibilityM(){RealWeatherProfile x
 
 # v95 inserts updateSharedEnvironment(now) into the effective WeatherEffectsView
 # onDraw() line. Change the OLD v106 anchor itself so it matches the historical
-# patched source. Keep this replacement deliberately one-line and whitespace-light.
+# patched source.
 base_on_draw="super.onDraw(c);long now=System.currentTimeMillis();dayPhase=computeDayPhase(now);if(now>=nextWeatherChangeMs)chooseWeather(now,false);"
 s=s.replace(base_on_draw,base_on_draw+"updateSharedEnvironment(now);")
+
+# v95 also inserts an entire scheduler method between onDraw() and
+# computeDayPhase(). The v106 block replacement must match that method and must
+# preserve it in the NEW block. Inject the exact historical method before both
+# old and new computeDayPhase variants in the patch source.
+v95_scheduler=(
+"    private void updateSharedEnvironment(long now){\\n"
+"        sharedWeatherCode=weather;sharedDayPhase=dayPhase;\\n"
+"        float bank=(weather==RAIN||weather==CLOUDY||dayPhase==DAWN)?(.03f+.08f*(float)(.5+.5*Math.sin(now*.000045))):0f;\\n"
+"        sharedFog01=(float)EnvironmentRealismModel.fog01(weather,dayPhase,sharedCloudLayerCoverage,bank);\\n"
+"        sharedVisibilityM=(float)EnvironmentRealismModel.visibilityMeters(weather,dayPhase,sharedCloudLayerCoverage,bank);\\n"
+"        float target=(float)EnvironmentRealismModel.wetnessTarget(weather);wetness01+=(target-wetness01)*.025f;sharedWetness01=clamp(wetness01,0,1);\\n"
+"        sharedNightFactor=(float)EnvironmentRealismModel.nightFactor(dayPhase);\\n"
+"        sharedRunwayLightGain=(float)EnvironmentRealismModel.runwayLightGain(dayPhase,weather,sharedFog01);\\n"
+"    }\\n\\n"
+)
+old_compute="    private int computeDayPhase(long now){float f=((now-dayEpochMs)%DAY_CYCLE_MS)/(float)DAY_CYCLE_MS;if(f<0)f+=1f;if(f<.14f)return DAWN;if(f<.34f)return MORNING;if(f<.58f)return NOON;if(f<.72f)return SUNSET;if(f<.82f)return EVENING;return NIGHT;}"
+new_compute="    private int computeDayPhase(long now){float f=((now-dayEpochMs)%DAY_CYCLE_MS)/(float)DAY_CYCLE_MS;if(f<0)f+=1f;return computeDayPhase01(f);}"
+s=s.replace(old_compute,v95_scheduler+old_compute)
+s=s.replace(new_compute,v95_scheduler+new_compute)
 
 # The live branch must let v95 initialise all legacy fog/wet-runway/light state,
 # then overwrite those values with the live profile. The offline branch keeps
@@ -40,4 +60,4 @@ live_env_line=wind_line+"sharedWeatherCode=weather;sharedDayPhase=dayPhase;share
 s=s.replace(wind_line,live_env_line)
 
 P.write_text(s)
-print('v106 weather compatibility enabled: robust v95 anchors + live environment state')
+print('v106 weather compatibility enabled: v95 onDraw + scheduler preserved')
