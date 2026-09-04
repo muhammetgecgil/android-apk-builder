@@ -1,0 +1,120 @@
+name: Build Aircraft Simulator v109 Opaque Airframe High Detail Toros
+on:
+  push:
+    branches: [ aircraft-sim-v109-opaque-airframe-highdetail-toros ]
+    paths:
+      - 'flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/CinematicTerrainMesh.java'
+      - 'flight-sim/app/src/test/java/com/mg/fixturecockpitsim/visual/CinematicTerrainMeshTest.java'
+      - 'flight-sim/tools/apply_v109_opaque_airframe_highdetail_toros.py'
+      - '.github/workflows/build-flight-sim-v109-opaque-airframe-highdetail-toros.yml'
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.13' }
+      - run: python3 flight-sim/tools/apply_v87_safe_fixes.py
+      - run: python3 flight-sim/tools/apply_v88_mechanical_upgrade.py
+      - run: python3 flight-sim/tools/apply_v88_wing_geometry.py
+      - run: python3 flight-sim/tools/apply_v88_control_surface_airfoils.py
+      - run: python3 flight-sim/tools/apply_v89_fighter_control_surfaces.py
+      - run: python3 flight-sim/tools/apply_v90_fighter_lighting.py
+      - run: python3 flight-sim/tools/apply_v91_wingtip_lighting.py
+      - run: python3 flight-sim/tools/apply_v92_fighter_audio.py
+      - run: python3 flight-sim/tools/apply_v93_variable_nozzle.py
+      - run: python3 flight-sim/tools/apply_v93_nozzle_compile_fix.py
+      - run: python3 flight-sim/tools/apply_v94_runtime_anchor_compat.py
+      - run: python3 flight-sim/tools/apply_v94_supersonic_flight.py
+      - run: python3 flight-sim/tools/apply_v95_airfield_environment.py
+      - run: python3 flight-sim/tools/apply_v96_surface_material_realism_v3.py
+      - run: python3 flight-sim/tools/apply_v97_jet_blast_ground_effects.py
+      - run: python3 flight-sim/tools/apply_v98_advanced_flight_physics.py
+      - name: Enable post-v98 compatibility
+        run: python3 flight-sim/tools/apply_v100_post98_compat.py
+      - name: Apply v100 cockpit and hardpoint realism
+        run: python3 flight-sim/tools/apply_v100_cockpit_hardpoint_realism.py
+      - name: Apply v101 fuel management
+        run: python3 flight-sim/tools/apply_v101_fuel_management.py
+      - name: Apply v102 hardpoint external tank realism
+        run: python3 flight-sim/tools/apply_v102_hardpoint_external_tank_realism.py
+      - name: Apply v103 tower and turn dynamics
+        run: python3 flight-sim/tools/apply_v103_tower_turn_dynamics.py
+      - name: Apply v104 scenario briefing upgrade
+        run: python3 flight-sim/tools/apply_v104_scenario_briefing_upgrade.py
+      - name: Apply v105 runway start and autoflight envelope
+        run: python3 flight-sim/tools/apply_v105_runway_start_autoflight_envelope.py
+      - name: Enable v106 weather compatibility
+        run: python3 flight-sim/tools/apply_v106_weather_compat.py
+      - name: Apply v106 dynamic real weather world
+        run: python3 flight-sim/tools/apply_v106_dynamic_real_weather_world.py
+      - name: Apply v107 attitude and opaque airframe fix
+        run: python3 flight-sim/tools/apply_v107_attitude_opaque_airframe.py
+      - name: Apply v108 cinematic Türkiye 3D world
+        run: python3 flight-sim/tools/apply_v108_cinematic_turkiye_3d_world.py
+      - name: Apply v109 opaque shell and high detail Toros
+        run: python3 flight-sim/tools/apply_v109_opaque_airframe_highdetail_toros.py
+      - name: Verify source integration
+        run: |
+          grep -q 'CinematicJourneyState.update' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/FlightRuntimeActivity.java
+          grep -q 'drawJourneyTerrain' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
+          grep -q 'CinematicTerrainMesh.build' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
+          ! grep -q 'AirframeUndersideSeal.build' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
+          ! grep -q 'undersideBuffer' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
+          test ! -e flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/AirframeUndersideSeal.java
+          grep -Fq 'GLES20.glDisable(GLES20.GL_CULL_FACE);bindAndDraw(vbOpaque,opaqueCount);bindAndDraw(detailBuffer,detailCount);GLES20.glEnable(GLES20.GL_CULL_FACE);' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DView.java
+          grep -q 'PART_SNOW' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/CinematicTerrainMesh.java
+          grep -q 'appendTorosMassifs' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/CinematicTerrainMesh.java
+          grep -q 'versionCode 109' flight-sim/app/build.gradle
+      - name: Regression tests
+        working-directory: flight-sim
+        run: |
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.visual.CinematicTerrainMeshTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.CinematicJourneyStateTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.AutonomousAttitudeGuardTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.RealWeatherProfileTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.AutonomousTurnSmootherTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.TowerPerspectiveModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterFuelSystemModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.HardpointExternalStoreModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.visual.VisualHardpointStructuralTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.visual.VisualHardpointRealismTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterCockpitSystemsModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.AdvancedFlightPhysicsModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterFlightControlSystemTest' --stacktrace
+      - name: Build v109 outputs
+        working-directory: flight-sim
+        run: gradle --no-daemon clean :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
+      - name: Verify APK
+        run: |
+          APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.fixturecockpitsim.dev'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='109'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionName='26.27-avm36.0-opaque-airframe-highdetail-toros-debug'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
+          unzip -l "$APK" | grep 'ic_aircraft_simulator_final'
+      - name: Prepare artifacts
+        run: |
+          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Aircraft_Simulator_3D_v109_Opaque_Airframe_High_Detail_Toros_Test.apk
+          cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk Aircraft_Simulator_3D_v109_Release_Unsigned.apk
+          cp flight-sim/app/build/outputs/bundle/release/app-release.aab Aircraft_Simulator_3D_v109_Play_Unsigned.aab
+          sha256sum Aircraft_Simulator_3D_v109_Opaque_Airframe_High_Detail_Toros_Test.apk > Aircraft_Simulator_3D_v109_Opaque_Airframe_High_Detail_Toros_Test.sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aircraft-Simulator-3D-v109-Opaque-Airframe-High-Detail-Toros
+          path: |
+            Aircraft_Simulator_3D_v109_Opaque_Airframe_High_Detail_Toros_Test.apk
+            Aircraft_Simulator_3D_v109_Opaque_Airframe_High_Detail_Toros_Test.sha256.txt
+            Aircraft_Simulator_3D_v109_Release_Unsigned.apk
+            Aircraft_Simulator_3D_v109_Play_Unsigned.aab
+          if-no-files-found: error
+          retention-days: 30
