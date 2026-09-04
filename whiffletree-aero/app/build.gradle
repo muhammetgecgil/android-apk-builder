@@ -13,8 +13,8 @@ android {
         applicationId 'com.mg.whiffletreeaero'
         minSdk 26
         targetSdk 36
-        versionCode 92
-        versionName '8.3.0'
+        versionCode 93
+        versionName '8.4.0'
     }
 
     buildFeatures { buildConfig true }
@@ -25,7 +25,6 @@ android {
                 storeFile file(stableKeystorePath)
                 storePassword stableStorePassword
                 keyAlias stableKeyAlias
-                // This release keystore is PKCS12. Its private key uses the store password.
                 keyPassword stableStorePassword
                 enableV1Signing true
                 enableV2Signing true
