@@ -13,57 +13,64 @@ def rep(text,old,new,label):
     if old not in text:raise SystemExit(f'v108 anchor missing: {label}')
     return text.replace(old,new,1)
 
-# ---------------------------------------------------------------------------
-# Runtime: insert route-specific atmosphere without depending on the exact
-# world/weather/jet construction line produced by older patches.
-# ---------------------------------------------------------------------------
+# Runtime: route atmosphere and journey progression.
 r=RUNTIME.read_text()
 if 'new CinematicJourneyOverlayView(this)' not in r:
     m=re.search(r'(?m)^\s*root\.addView\(world,new FrameLayout\.LayoutParams\(-1,-1\)\);\s*$',r)
     if not m:raise SystemExit('v108 anchor missing: world view insertion point')
     indent=re.match(r'\s*',m.group(0)).group(0)
-    insert=m.group(0)+'\n'+indent+'root.addView(new CinematicJourneyOverlayView(this),new FrameLayout.LayoutParams(-1,-1));'
-    r=r[:m.start()]+insert+r[m.end():]
-
+    r=r[:m.start()]+m.group(0)+'\n'+indent+'root.addView(new CinematicJourneyOverlayView(this),new FrameLayout.LayoutParams(-1,-1));'+r[m.end():]
 if 'CinematicJourneyState.reset()' not in r:
     anchor='mission.reset(state);'
     if anchor not in r:raise SystemExit('v108 anchor missing: mission reset')
     r=r.replace(anchor,anchor+'com.mg.fixturecockpitsim.sim.CinematicJourneyState.reset();',1)
-
 if 'CinematicJourneyState.update(state.trueAirspeedMps' not in r:
     pat=r'(?m)^(\s*)if\(demoMode&&!localManual&&!btPilot&&!linkArmed\)com\.mg\.fixturecockpitsim\.sim\.AutonomousAttitudeGuard\.apply\(state,dt\);\s*$'
     m=re.search(pat,r)
     if not m:raise SystemExit('v108 anchor missing: autonomous attitude guard')
-    line=m.group(0);indent=m.group(1)
+    indent=m.group(1)
     add=indent+'if(demoMode&&!localManual&&!btPilot&&!linkArmed)com.mg.fixturecockpitsim.sim.CinematicJourneyState.update(state.trueAirspeedMps,dt,state.onGround,mission.getPhase().name());'
-    r=r[:m.start()]+line+'\n'+add+r[m.end():]
+    r=r[:m.end()]+'\n'+add+r[m.end():]
 RUNTIME.write_text(r)
 
-# ---------------------------------------------------------------------------
-# Jet renderer: real OpenGL 3D terrain is drawn in the same depth buffer as the
-# aircraft. An opaque belly/wing-root closure mesh removes remaining underside
-# see-through holes. All opaque geometry writes depth before transparent FX.
-# ---------------------------------------------------------------------------
+# Renderer imports.
 j=JET.read_text()
 j=rep(j,
 'import com.mg.fixturecockpitsim.visual.WingtipVortexMesh;\n',
 'import com.mg.fixturecockpitsim.visual.WingtipVortexMesh;\nimport com.mg.fixturecockpitsim.visual.CinematicTerrainMesh;\nimport com.mg.fixturecockpitsim.visual.AirframeUndersideSeal;\nimport com.mg.fixturecockpitsim.sim.CinematicJourneyState;\n',
 'v108 renderer imports')
-j=rep(j,
-'        FloatBuffer vbOpaque,vbCanopy,detailBuffer,engineSolidBuffer,engineTransparentBuffer,obOpaque,obGlass,vortexBuffer,birdBuffer;',
-'        FloatBuffer vbOpaque,vbCanopy,detailBuffer,engineSolidBuffer,engineTransparentBuffer,obOpaque,obGlass,vortexBuffer,birdBuffer,undersideBuffer,terrain0,terrain1,terrain2,terrain3,terrain4;\n        final float[] terrainModel=new float[16],terrainMvp=new float[16];',
-'v108 buffers')
-j=rep(j,
-'        int opaqueCount,canopyCount,detailCount,engineSolidCount,engineTransparentCount,ordnanceCount,glassCount,vortexCount,birdCount;',
-'        int opaqueCount,canopyCount,detailCount,engineSolidCount,engineTransparentCount,ordnanceCount,glassCount,vortexCount,birdCount,undersideCount,terrainCount0,terrainCount1,terrainCount2,terrainCount3,terrainCount4;',
-'v108 counts')
-anchor='float[] vortex=WingtipVortexMesh.build();vortexBuffer=buffer(vortex);vortexCount=vortex.length/7;float[] bird=buildBirdMesh();birdBuffer=buffer(bird);birdCount=bird.length/7;last=System.nanoTime();'
-replacement='float[] vortex=WingtipVortexMesh.build();vortexBuffer=buffer(vortex);vortexCount=vortex.length/7;float[] bird=buildBirdMesh();birdBuffer=buffer(bird);birdCount=bird.length/7;float[] belly=AirframeUndersideSeal.build();undersideBuffer=buffer(belly);undersideCount=belly.length/7;float[] q0=CinematicTerrainMesh.build(0),q1=CinematicTerrainMesh.build(1),q2=CinematicTerrainMesh.build(2),q3=CinematicTerrainMesh.build(3),q4=CinematicTerrainMesh.build(4);terrain0=buffer(q0);terrain1=buffer(q1);terrain2=buffer(q2);terrain3=buffer(q3);terrain4=buffer(q4);terrainCount0=q0.length/7;terrainCount1=q1.length/7;terrainCount2=q2.length/7;terrainCount3=q3.length/7;terrainCount4=q4.length/7;last=System.nanoTime();'
-j=rep(j,anchor,replacement,'terrain and belly mesh build')
 
-oldpass='GLES20.glDisable(GLES20.GL_BLEND);bindAndDraw(vbOpaque,opaqueCount);bindAndDraw(detailBuffer,detailCount);bindAndDraw(engineSolidBuffer,engineSolidCount);bindAndDraw(obOpaque,ordnanceCount);bindAndDraw(vbCanopy,canopyCount);if(birdAge>=0f&&birdAge<5.8f)bindAndDraw(birdBuffer,birdCount);'
-newpass='GLES20.glDisable(GLES20.GL_BLEND);GLES20.glDepthMask(true);drawJourneyTerrain();bindAndDraw(vbOpaque,opaqueCount);bindAndDraw(detailBuffer,detailCount);bindAndDraw(engineSolidBuffer,engineSolidCount);bindAndDraw(obOpaque,ordnanceCount);GLES20.glDisable(GLES20.GL_CULL_FACE);bindAndDraw(undersideBuffer,undersideCount);GLES20.glEnable(GLES20.GL_CULL_FACE);bindAndDraw(vbCanopy,canopyCount);if(birdAge>=0f&&birdAge<5.8f)bindAndDraw(birdBuffer,birdCount);'
-j=rep(j,oldpass,newpass,'opaque terrain and underside pass')
+# Add independent declarations rather than assuming the old field list is exact.
+if 'FloatBuffer undersideBuffer' not in j:
+    m=re.search(r'(?m)^(\s*)FloatBuffer\s+[^;]*vbOpaque[^;]*;\s*$',j)
+    if not m:raise SystemExit('v108 anchor missing: renderer FloatBuffer declaration')
+    indent=m.group(1)
+    extra='\n'+indent+'FloatBuffer undersideBuffer,terrain0,terrain1,terrain2,terrain3,terrain4;\n'+indent+'final float[] terrainModel=new float[16],terrainMvp=new float[16];'
+    j=j[:m.end()]+extra+j[m.end():]
+if 'int undersideCount' not in j:
+    m=re.search(r'(?m)^(\s*)int\s+[^;]*opaqueCount[^;]*;\s*$',j)
+    if not m:raise SystemExit('v108 anchor missing: renderer count declaration')
+    indent=m.group(1)
+    extra='\n'+indent+'int undersideCount,terrainCount0,terrainCount1,terrainCount2,terrainCount3,terrainCount4;'
+    j=j[:m.end()]+extra+j[m.end():]
+
+# Build the extra GPU meshes immediately before the renderer clock starts.
+if 'AirframeUndersideSeal.build()' not in j:
+    anchor='last=System.nanoTime();'
+    if anchor not in j:raise SystemExit('v108 anchor missing: renderer initialization clock')
+    build='float[] belly=AirframeUndersideSeal.build();undersideBuffer=buffer(belly);undersideCount=belly.length/7;float[] q0=CinematicTerrainMesh.build(0),q1=CinematicTerrainMesh.build(1),q2=CinematicTerrainMesh.build(2),q3=CinematicTerrainMesh.build(3),q4=CinematicTerrainMesh.build(4);terrain0=buffer(q0);terrain1=buffer(q1);terrain2=buffer(q2);terrain3=buffer(q3);terrain4=buffer(q4);terrainCount0=q0.length/7;terrainCount1=q1.length/7;terrainCount2=q2.length/7;terrainCount3=q3.length/7;terrainCount4=q4.length/7;'
+    j=j.replace(anchor,build+anchor,1)
+
+# Put the 3D terrain before the aircraft opaque draw, then close the belly after
+# other opaque external geometry. This avoids dependency on a full draw line.
+if 'drawJourneyTerrain();bindAndDraw(vbOpaque,opaqueCount);' not in j:
+    anchor='GLES20.glDisable(GLES20.GL_BLEND);bindAndDraw(vbOpaque,opaqueCount);'
+    if anchor not in j:raise SystemExit('v108 anchor missing: opaque aircraft draw')
+    j=j.replace(anchor,'GLES20.glDisable(GLES20.GL_BLEND);GLES20.glDepthMask(true);drawJourneyTerrain();bindAndDraw(vbOpaque,opaqueCount);',1)
+if 'bindAndDraw(undersideBuffer,undersideCount);' not in j:
+    anchor='bindAndDraw(obOpaque,ordnanceCount);'
+    if anchor not in j:raise SystemExit('v108 anchor missing: opaque external-store draw')
+    j=j.replace(anchor,anchor+'GLES20.glDisable(GLES20.GL_CULL_FACE);bindAndDraw(undersideBuffer,undersideCount);GLES20.glEnable(GLES20.GL_CULL_FACE);',1)
 
 helper='''        private void drawJourneyTerrain(){
             int s=CinematicJourneyState.getStage();FloatBuffer b=null;int count=0;
@@ -78,16 +85,20 @@ helper='''        private void drawJourneyTerrain(){
         }
 
 '''
-j=rep(j,
-'        private void bindAndDraw(FloatBuffer b,int vertices){',
-helper+'        private void bindAndDraw(FloatBuffer b,int vertices){',
-'3D terrain draw helper')
+if 'private void drawJourneyTerrain()' not in j:
+    anchor='        private void bindAndDraw(FloatBuffer b,int vertices){'
+    if anchor not in j:raise SystemExit('v108 anchor missing: generic draw helper')
+    j=j.replace(anchor,helper+anchor,1)
 
-shader_anchor='"void main(){if(vP>39.5&&vP<40.5){'
-shader_repl='"void main(){if((vP>59.5&&vP<63.5)||(vP>64.5&&vP<65.5)){vec3 N=normalize(vN);float lit=.34+.66*max(dot(N,normalize(uLightDir)),0.);vec3 tc=vP<60.5?vec3(.26,.31,.25):(vP<61.5?vec3(.25,.34,.29):(vP<62.5?vec3(.62,.46,.25):(vP<63.5?vec3(.49,.37,.22):vec3(.10,.15,.21))));float fog=smoothstep(45.,210.,-vPos.z);tc=mix(tc,vec3(.48,.57,.61),fog*.72);gl_FragColor=vec4(tc*lit,1.);return;}if(vP>63.5&&vP<64.5){vec3 N=normalize(vN);float lit=.30+.70*max(dot(N,normalize(uLightDir)),0.);gl_FragColor=vec4(vec3(.205,.218,.230)*lit,1.);return;}if(vP>39.5&&vP<40.5){'
-j=rep(j,shader_anchor,shader_repl,'terrain and underside shader')
+# Opaque materials for actual 3D ground and the underside closure.
+if 'vP>59.5&&vP<63.5' not in j:
+    shader_anchor='"void main(){if(vP>39.5&&vP<40.5){'
+    shader_repl='"void main(){if((vP>59.5&&vP<63.5)||(vP>64.5&&vP<65.5)){vec3 N=normalize(vN);float lit=.34+.66*max(dot(N,normalize(uLightDir)),0.);vec3 tc=vP<60.5?vec3(.26,.31,.25):(vP<61.5?vec3(.25,.34,.29):(vP<62.5?vec3(.62,.46,.25):(vP<63.5?vec3(.49,.37,.22):vec3(.10,.15,.21))));float fog=smoothstep(45.,210.,-vPos.z);tc=mix(tc,vec3(.48,.57,.61),fog*.72);gl_FragColor=vec4(tc*lit,1.);return;}if(vP>63.5&&vP<64.5){vec3 N=normalize(vN);float lit=.30+.70*max(dot(N,normalize(uLightDir)),0.);gl_FragColor=vec4(vec3(.205,.218,.230)*lit,1.);return;}if(vP>39.5&&vP<40.5){'
+    if shader_anchor not in j:raise SystemExit('v108 anchor missing: shader main material start')
+    j=j.replace(shader_anchor,shader_repl,1)
 JET.write_text(j)
 
+# Version.
 g=GRADLE.read_text()
 g=re.sub(r'versionCode\s+\d+','versionCode 108',g,count=1)
 g=re.sub(r"versionName\s+['\"][^'\"]+['\"]","versionName '26.26-avm35.0-cinematic-turkiye-3d-world'",g,count=1)
