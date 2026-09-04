@@ -1,0 +1,138 @@
+name: Build Aircraft Simulator v104 Clean Belly Scenario UI
+on:
+  push:
+    branches: [ aircraft-sim-v104-clean-belly-scenario-ui ]
+    paths:
+      - 'flight-sim/tools/apply_v104_clean_belly_scenario_ui.py'
+      - '.github/workflows/build-flight-sim-v104-clean-belly-scenario-ui.yml'
+  workflow_dispatch:
+permissions: { contents: read }
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.13' }
+
+      - run: python3 flight-sim/tools/apply_v87_safe_fixes.py
+      - run: python3 flight-sim/tools/apply_v88_mechanical_upgrade.py
+      - run: python3 flight-sim/tools/apply_v88_wing_geometry.py
+      - run: python3 flight-sim/tools/apply_v88_control_surface_airfoils.py
+      - run: python3 flight-sim/tools/apply_v89_fighter_control_surfaces.py
+      - run: python3 flight-sim/tools/apply_v90_fighter_lighting.py
+      - run: python3 flight-sim/tools/apply_v91_wingtip_lighting.py
+      - run: python3 flight-sim/tools/apply_v92_fighter_audio.py
+      - run: python3 flight-sim/tools/apply_v93_variable_nozzle.py
+      - run: python3 flight-sim/tools/apply_v93_nozzle_compile_fix.py
+      - run: python3 flight-sim/tools/apply_v94_runtime_anchor_compat.py
+      - run: python3 flight-sim/tools/apply_v94_supersonic_flight.py
+      - run: python3 flight-sim/tools/apply_v95_airfield_environment.py
+      - run: python3 flight-sim/tools/apply_v96_surface_material_realism_v3.py
+      - run: python3 flight-sim/tools/apply_v97_jet_blast_ground_effects.py
+      - run: python3 flight-sim/tools/apply_v98_advanced_flight_physics.py
+      - name: Enable post-v98 compatibility
+        run: python3 flight-sim/tools/apply_v100_post98_compat.py
+      - name: Apply v100 cockpit and hardpoint realism
+        run: python3 flight-sim/tools/apply_v100_cockpit_hardpoint_realism.py
+      - name: Apply v101 fuel management
+        run: python3 flight-sim/tools/apply_v101_fuel_management.py
+      - name: Apply v102 hardpoint external tank realism
+        run: python3 flight-sim/tools/apply_v102_hardpoint_external_tank_realism.py
+      - name: Apply v103 tower and turn dynamics
+        run: python3 flight-sim/tools/apply_v103_tower_turn_dynamics.py
+      - name: Apply v104 clean belly and scenario UI
+        run: python3 flight-sim/tools/apply_v104_clean_belly_scenario_ui.py
+
+      - name: Verify source integration
+        run: |
+          grep -q 'AutonomousTurnSmoother' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/sim/AutonomousFlightMission.java
+          grep -q 'TowerPerspectiveModel.sample' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/AirfieldWorldView.java
+          grep -q 'plate-like belly overlay intentionally not rendered' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/RealisticFighterMesh.java
+          ! grep -q '^[[:space:]]*b\.bellyBlend();' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/visual/RealisticFighterMesh.java
+          grep -q 'GÖREV / SENARYO SEÇİMİ' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/LauncherActivity.java
+          grep -q 'Yoğun yağmur' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/LauncherActivity.java
+          grep -q 'versionCode 104' flight-sim/app/build.gradle
+
+      - name: v104 aircraft integrity test
+        working-directory: flight-sim
+        run: gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.visual.AircraftMeshIntegrityV104Test' --stacktrace
+
+      - name: v103 regression tests
+        working-directory: flight-sim
+        run: |
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.AutonomousTurnSmootherTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.TowerPerspectiveModelTest' --stacktrace
+
+      - name: Full aircraft regression tests
+        working-directory: flight-sim
+        run: |
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.HardpointExternalStoreModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterFuelSystemModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterCockpitSystemsModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.visual.VisualHardpointStructuralTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.visual.VisualHardpointRealismTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.AdvancedFlightPhysicsModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.SupersonicFlightModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterSoundModelTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterFlightControlSystemTest' --stacktrace
+          gradle --no-daemon :app:testDebugUnitTest --tests 'com.mg.fixturecockpitsim.sim.FighterLightingSystemTest' --stacktrace
+
+      - name: Build v104 outputs
+        working-directory: flight-sim
+        run: gradle --no-daemon clean :app:assembleDebug :app:assembleRelease :app:bundleRelease --stacktrace
+
+      - name: Verify APK
+        run: |
+          APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "package: name='com.mg.fixturecockpitsim.dev'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='104'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionName='26.22-avm32.0-clean-belly-scenario-ui-debug'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "targetSdkVersion:'36'"
+          unzip -l "$APK" | grep 'ic_aircraft_simulator_final'
+
+      - name: Prepare complete v104 package
+        run: |
+          cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Aircraft_Simulator_3D_v104_Clean_Belly_Scenario_UI_Test.apk
+          cp flight-sim/app/build/outputs/apk/release/app-release-unsigned.apk Aircraft_Simulator_3D_v104_Release_Unsigned.apk
+          cp flight-sim/app/build/outputs/bundle/release/app-release.aab Aircraft_Simulator_3D_v104_Play_Unsigned.aab
+          zip -qr Aircraft_Simulator_3D_v104_Source.zip flight-sim .github/workflows/build-flight-sim-v104-clean-belly-scenario-ui.yml \
+            -x 'flight-sim/.gradle/*' 'flight-sim/app/build/*' 'flight-sim/build/*' '**/.DS_Store'
+          cat > Aircraft_Simulator_3D_v104_MANIFEST.txt <<EOF
+          Aircraft Simulator 3D v104 - Clean Belly + Scenario UI
+          versionCode: 104
+          versionName: 26.22-avm32.0-clean-belly-scenario-ui
+          debug package: com.mg.fixturecockpitsim.dev
+          targetSdk: 36
+          source branch: aircraft-sim-v104-clean-belly-scenario-ui
+          source commit: ${GITHUB_SHA}
+          baseline: aircraft-sim-v103-tower-turn-dynamics-verified
+          aircraft geometry policy: preserve v103 verified aircraft; disable only plate-like bellyBlend render call
+          scenario UI: strengthened Turkish mission descriptions
+          outputs: debug APK, unsigned release APK, unsigned Play AAB, patched Source ZIP
+          EOF
+          sed -i 's/^          //' Aircraft_Simulator_3D_v104_MANIFEST.txt
+          sha256sum Aircraft_Simulator_3D_v104_Clean_Belly_Scenario_UI_Test.apk \
+                    Aircraft_Simulator_3D_v104_Release_Unsigned.apk \
+                    Aircraft_Simulator_3D_v104_Play_Unsigned.aab \
+                    Aircraft_Simulator_3D_v104_Source.zip > Aircraft_Simulator_3D_v104_SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Aircraft-Simulator-3D-v104-Clean-Belly-Scenario-UI-COMPLETE
+          path: |
+            Aircraft_Simulator_3D_v104_Clean_Belly_Scenario_UI_Test.apk
+            Aircraft_Simulator_3D_v104_Release_Unsigned.apk
+            Aircraft_Simulator_3D_v104_Play_Unsigned.aab
+            Aircraft_Simulator_3D_v104_Source.zip
+            Aircraft_Simulator_3D_v104_MANIFEST.txt
+            Aircraft_Simulator_3D_v104_SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 30
