@@ -1,0 +1,20 @@
+Uygulama adı: Muhammet Haber
+
+Kısa açıklama:
+24 kategoride güncel haberleri ara, kaynakları incele ve yerel editörle derle.
+
+Tam açıklama:
+Muhammet Haber; gündem, bilim, yapay zekâ, savaş, arkeoloji, sanat, havacılık, uzay, enerji, otomotiv, robotik, teknoloji, savunma, ekonomi, dünya, Türkiye, sağlık, çevre, iklim, tarih, eğitim, mühendislik, elektronik ve siber güvenlik başlıklarında güncel haberleri tek ekranda takip etmeyi kolaylaştırır.
+
+İstediğiniz konuyu arama alanına yazarak güncel haber sonuçlarını görüntüleyebilirsiniz. DERLE özelliği, aynı konu hakkındaki farklı haber başlıklarını tekrarları azaltarak kitap/dergi düzeninde okunabilir bir özet halinde sunar. Kaynak bağlantıları sonuçların altında korunur; önemli gelişmeleri doğrudan asıl kaynaktan kontrol edebilirsiniz.
+
+Öne çıkan özellikler:
+• 24 haber kategorisi
+• Serbest konu arama
+• Güncel haber kaynaklarına bağlantılar
+• Anahtar veya kullanıcı hesabı gerektirmeyen kullanım
+• Yerel haber derleme motoru
+• Kitap tarzı, rahat okunabilir derleme görünümü
+• Kaynakların açık biçimde listelenmesi
+
+Uygulama haber kuruluşu değildir ve yayınlanan içeriklerin sahibi olduğunu iddia etmez. Haber bağlantıları ilgili yayıncılara yönlendirir. Derlenen metinler bilgilendirme amaçlıdır; kritik gelişmeler için özgün kaynakları kontrol edin.

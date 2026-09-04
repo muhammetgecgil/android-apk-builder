@@ -4,10 +4,10 @@ android {
     namespace 'com.mg.drawing2cad'
     compileSdk 35
     defaultConfig {
-        applicationId 'com.mg.drawing2cad.cad11'
+        applicationId 'com.mglabs.mgcadstudio'
         minSdk 26
         targetSdk 35
-        versionCode 11
-        versionName '1.1.1'
+        versionCode 33
+        versionName '3.3.0'
     }
 }

@@ -1,0 +1,19 @@
+(()=>{'use strict';
+const list=()=>{try{return typeof stations!=='undefined'&&Array.isArray(stations)?stations:[]}catch(e){return[]}};
+const idx=()=>{try{return typeof index==='number'?index:-1}catch(e){return-1}};
+const sel=(i,a=true)=>{try{if(typeof select==='function')return select(i,a)}catch(e){}};
+const keyOf=s=>s&&(s.stationuuid||s._url||s.url_resolved||s.url||s.name)||'';
+const byKey=k=>list().findIndex(s=>keyOf(s)===k);
+let lastKey=localStorage.getItem('trLastRadioKey')||'';
+function rememberCurrent(){const a=list(),i=idx();if(i<0||!a[i])return;const k=keyOf(a[i]);if(k){lastKey=k;localStorage.setItem('trLastRadioKey',k)}}
+function say(t){try{if(typeof toast==='function')toast(t)}catch(e){}}
+function removeRadar(){try{document.querySelectorAll('[data-mode="radar"],#v12Radar').forEach(el=>el.remove());document.querySelectorAll('button,[role="button"]').forEach(el=>{const t=(el.textContent||'').replace(/\s+/g,' ').trim().toLocaleUpperCase('tr-TR');if(t==='RADYO RADAR'||t.endsWith(' RADYO RADAR'))el.remove()})}catch(e){}}
+function mountButton(){if(document.querySelector('[data-last-radio]'))return;const modes=document.querySelector('.modes');if(!modes)return;const b=document.createElement('button');b.className='mode';b.setAttribute('data-last-radio','1');b.innerHTML='<b>↶</b>SON RADYO';const recent=modes.querySelector('[data-mode="recent"]');if(recent&&recent.nextSibling)modes.insertBefore(b,recent.nextSibling);else modes.appendChild(b);b.onclick=e=>{e.preventDefault();e.stopPropagation();goLast()}}
+function goLast(){const a=list();if(!a.length)return;if(!lastKey){sel(idx()-1,true);say('Önceki radyoya geçildi');return}const i=byKey(lastKey);if(i<0){sel(idx()-1,true);say('Önceki radyoya geçildi');return}const cur=a[idx()],curKey=keyOf(cur);sel(i,true);lastKey=curKey;localStorage.setItem('trLastRadioKey',lastKey);say('Son radyoya dönüldü')}
+function patchSelect(){try{if(typeof select!=='function'||select.__lastRadio)return;const old=select;const f=function(i,auto=true){const a=list(),before=keyOf(a[idx()]),n=a.length,target=n?keyOf(a[((i%n)+n)%n]):'';if(before&&target&&before!==target){lastKey=before;localStorage.setItem('trLastRadioKey',lastKey)}return old(i,auto)};f.__lastRadio=true;select=f}catch(e){}}
+function installPrevFix(){if(window.__v187PrevFix)return;window.__v187PrevFix=true;document.addEventListener('click',e=>{const b=e.target.closest?.('#prev,#prev2');if(!b)return;e.preventDefault();e.stopImmediatePropagation();const a=list();if(!a.length)return;rememberCurrent();const old=idx();sel(old-1,true);const ni=((old-1)%a.length+a.length)%a.length;say('Önceki radyo • '+(a[ni]?.name||''))},true)}
+function loadTrackPro(){const A='https://appassets.androidplatform.net/assets/';if(!document.getElementById('p2TracksProCss')){const l=document.createElement('link');l.id='p2TracksProCss';l.rel='stylesheet';l.href=A+'profile2-tracks-pro-v18-7.css?v=1874';document.head.appendChild(l)}if(!document.getElementById('p2TracksProJs')){const s=document.createElement('script');s.id='p2TracksProJs';s.src=A+'profile2-tracks-pro-v18-7.js?v=1874';document.body.appendChild(s)}}
+function loadSlowPro(){const A='https://appassets.androidplatform.net/assets/';const old=document.getElementById('p2SlowProJs');if(old)old.remove();const s=document.createElement('script');s.id='p2SlowProJs';s.src=A+'profile2-slow-pro-v18-7.js?v=1876';document.body.appendChild(s)}
+function mount(){removeRadar();mountButton();patchSelect();installPrevFix();loadTrackPro();loadSlowPro();[500,1200,2400,4200].forEach(t=>setTimeout(()=>{removeRadar();mountButton();patchSelect()},t));new MutationObserver(removeRadar).observe(document.body,{childList:true,subtree:true})}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount();
+})();

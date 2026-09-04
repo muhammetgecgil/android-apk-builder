@@ -1,0 +1,11 @@
+{
+  "name": "Sesli Rehber 3 GitHub Alpha",
+  "versionName": "3.0.0-alpha01",
+  "versionCode": 300,
+  "applicationId": "com.muhammet.seslirehber.github",
+  "minSdk": 26,
+  "targetSdk": 36,
+  "abi": ["arm64-v8a"],
+  "releaseDate": "2026-08-30",
+  "safetyStatus": "controlled-pilot-only"
+}

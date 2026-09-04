@@ -1,0 +1,36 @@
+name: Türk Radyo 715 İstasyon Denetimi
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'turkradyo/tools/radio_audit.py'
+      - '.github/workflows/radio-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 715 radyoyu üç tur test et
+        working-directory: turkradyo/tools
+        run: python radio_audit.py
+      - name: Sonuçları yükle
+        uses: actions/upload-artifact@v4
+        with:
+          name: turkradyo-715-radio-audit
+          path: |
+            turkradyo/tools/radio-audit.json
+            turkradyo/tools/radio-audit.csv
+            turkradyo/tools/radio-audit-summary.json
+          retention-days: 30

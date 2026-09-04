@@ -1,0 +1,2 @@
+CI trigger for Whiffletree Aero v7.6.0 test simulation + component selection + CAD assembly workspace
+triggered: 2026-08-25

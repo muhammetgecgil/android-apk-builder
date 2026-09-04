@@ -1,4 +1,4 @@
-name: Build Drawing2CAD v1.1.1 APK
+name: Build MG CAD Studio v3.3 APK
 on:
   push:
     branches: [ main ]
@@ -9,7 +9,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -21,27 +21,27 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
-      - name: Build Drawing2CAD v1.1.1
+      - name: Build MG CAD Studio v3.3
         working-directory: drawing2cad
         run: gradle --no-daemon clean :app:assembleDebug --stacktrace
       - name: Verify APK
         run: |
           test -s drawing2cad/app/build/outputs/apk/debug/app-debug.apk
-          cp drawing2cad/app/build/outputs/apk/debug/app-debug.apk MG_Drawing2CAD_v1.1.1_ZIP_CAD.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging MG_Drawing2CAD_v1.1.1_ZIP_CAD.apk | head -20
-          unzip -t MG_Drawing2CAD_v1.1.1_ZIP_CAD.apk >/dev/null
+          cp drawing2cad/app/build/outputs/apk/debug/app-debug.apk MG_CAD_Studio_v3.3_VectorCAD.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging MG_CAD_Studio_v3.3_VectorCAD.apk | head -20
+          unzip -t MG_CAD_Studio_v3.3_VectorCAD.apk >/dev/null
       - uses: actions/upload-artifact@v4
         with:
-          name: MG-Drawing2CAD-v1.1.1-ZIP-CAD-APK
-          path: MG_Drawing2CAD_v1.1.1_ZIP_CAD.apk
+          name: MG-CAD-Studio-v3.3-VectorCAD-APK
+          path: MG_CAD_Studio_v3.3_VectorCAD.apk
           if-no-files-found: error
           retention-days: 30
       - name: Publish APK in repo
         run: |
           mkdir -p releases
-          cp MG_Drawing2CAD_v1.1.1_ZIP_CAD.apk releases/MG_Drawing2CAD_v1.1.1_ZIP_CAD.apk
+          cp MG_CAD_Studio_v3.3_VectorCAD.apk releases/MG_CAD_Studio_v3.3_VectorCAD.apk
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add releases/MG_Drawing2CAD_v1.1.1_ZIP_CAD.apk
-          git commit -m 'Publish verified Drawing2CAD v1.1.1 ZIP CAD APK [skip ci]' || exit 0
+          git add releases/MG_CAD_Studio_v3.3_VectorCAD.apk
+          git commit -m 'Publish verified MG CAD Studio v3.3 VectorCAD APK [skip ci]' || exit 0
           git push

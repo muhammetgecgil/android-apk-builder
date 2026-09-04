@@ -44,19 +44,19 @@ jobs:
       - name: Verify APK
         run: |
           test -s photogrammetry3d/app/build/outputs/apk/debug/app-debug.apk
-          cp photogrammetry3d/app/build/outputs/apk/debug/app-debug.apk MG_3D_Studio_Pro_v2.9.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging MG_3D_Studio_Pro_v2.9.apk | head -20
-          unzip -t MG_3D_Studio_Pro_v2.9.apk >/dev/null
+          cp photogrammetry3d/app/build/outputs/apk/debug/app-debug.apk MG_3D_Studio_Pro_v3.1.apk
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging MG_3D_Studio_Pro_v3.1.apk | head -20
+          unzip -t MG_3D_Studio_Pro_v3.1.apk >/dev/null
       - uses: actions/upload-artifact@v4
         with:
-          name: MG-3D-Studio-Pro-v2.9-APK
-          path: MG_3D_Studio_Pro_v2.9.apk
+          name: MG-3D-Studio-Pro-v3.1-APK
+          path: MG_3D_Studio_Pro_v3.1.apk
           if-no-files-found: error
           retention-days: 30
       - name: Record successful build
         run: |
           mkdir -p build-status
-          printf 'run_id=%s\nsha=%s\nartifact=MG-3D-Studio-Pro-v2.9-APK\n' '${{ github.run_id }}' '${{ github.sha }}' > build-status/MG3D_LAST_SUCCESS.txt
+          printf 'run_id=%s\nsha=%s\nartifact=MG-3D-Studio-Pro-v3.1-APK\n' '${{ github.run_id }}' '${{ github.sha }}' > build-status/MG3D_LAST_SUCCESS.txt
           rm -f build-status/MG3D_LAST_FAILURE.txt
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'

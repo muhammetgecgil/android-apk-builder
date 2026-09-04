@@ -1,0 +1,4 @@
+e6719c7c7c659cc2dc6cd5fdbd3f377f24121fe9f0ef27ccfabf40b9f47b7119  out/SesliRehber-3.0.0-alpha01-debug.apk
+0f4030e2d289ad5d206af40bf2f3feef5de1ce799ac74012ce1ac6277dbc9eed  out/SesliRehber-3.0.0-alpha01-release-unsigned.aab
+c27329fd7fff7eb20f5d41b89bf20758ce1aaebdcc2a3bdd02923d1bf8e574c0  out/SesliRehber-3.0.0-alpha01-release-unsigned.apk
+38e6280847f028e81ffb3cbe1f408e8494956eed4eb1d776a3c4db0a5726b701  out/VERSION.json

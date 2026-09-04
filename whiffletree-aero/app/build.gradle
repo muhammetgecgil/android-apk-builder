@@ -1,0 +1,61 @@
+plugins { id 'com.android.application' }
+
+def stableKeystorePath = System.getenv('WHIFFLETREE_KEYSTORE_PATH')
+def stableStorePassword = System.getenv('WHIFFLETREE_STORE_PASSWORD')
+def stableKeyAlias = System.getenv('WHIFFLETREE_KEY_ALIAS')
+def hasStableSigning = stableKeystorePath && stableStorePassword && stableKeyAlias && file(stableKeystorePath).exists()
+
+android {
+    namespace 'com.mg.whiffletreeaero'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.mg.whiffletreeaero'
+        minSdk 26
+        targetSdk 36
+        versionCode 93
+        versionName '8.4.0'
+    }
+
+    buildFeatures { buildConfig true }
+
+    signingConfigs {
+        if (hasStableSigning) {
+            stableRelease {
+                storeFile file(stableKeystorePath)
+                storePassword stableStorePassword
+                keyAlias stableKeyAlias
+                keyPassword stableStorePassword
+                enableV1Signing true
+                enableV2Signing true
+                enableV3Signing true
+                enableV4Signing true
+            }
+        }
+    }
+
+    flavorDimensions 'distribution'
+    productFlavors {
+        play {
+            dimension 'distribution'
+            buildConfigField 'boolean', 'ALLOW_SIDELOAD_UPDATE', 'false'
+        }
+        sideload {
+            dimension 'distribution'
+            buildConfigField 'boolean', 'ALLOW_SIDELOAD_UPDATE', 'true'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            if (hasStableSigning) signingConfig signingConfigs.stableRelease
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core:1.13.1'
+}

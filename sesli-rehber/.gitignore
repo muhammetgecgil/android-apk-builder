@@ -1,0 +1,9 @@
+.gradle/
+**/build/
+local.properties
+native-src/out/
+native-src/apk/
+native-src/stubs/*.so
+*.jks
+*.keystore
+keystore.properties

@@ -1,0 +1,5 @@
+Reference base: user-supplied mature app-debug-18.apk
+Profile scope: Profile 1 only
+Theme layer: profile1-nature-themes.css + profile1-nature-themes.js
+Profile 2/3: intentionally not implemented in this stage
+Legacy patch assets are removed from the active radio project.

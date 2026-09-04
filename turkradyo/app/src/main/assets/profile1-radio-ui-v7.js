@@ -1,0 +1,14 @@
+(()=>{'use strict';
+const API7=['https://de1.api.radio-browser.info','https://fi1.api.radio-browser.info','https://nl1.api.radio-browser.info'];const BAD7=/kurd|kürt|kurdish|kurdi|zaza|zazaki|sorani|kurman/i;let catalog7=[];
+const q7=s=>document.querySelector(s);const key7=s=>s.stationuuid||s._url||s.url_resolved||s.url||s.name;
+async function api7(path){for(const a of API7){try{const r=await fetch(a+path);if(r.ok)return await r.json()}catch(e){}}return []}
+async function load7(){const d=await api7('/json/stations/bycountrycodeexact/TR?hidebroken=true&order=clickcount&reverse=true&limit=3000');const seen=new Set();catalog7=d.filter(s=>{const u=s.url_resolved||s.url,id=s.stationuuid||u,txt=[s.name,s.language,s.languagecodes,s.tags].join(' ');if(!u||BAD7.test(txt)||seen.has(id))return false;seen.add(id);s._url=u;return true})}
+function syncDial7(){try{const logo=q7('.logo'),now=q7('#now');if(!logo||!now)return;const name=(now.textContent||'TÜRK RADYO').trim();const parts=name.split(/\s+/);let a,b;if(parts.length<=1){a=parts[0]||'TÜRK';b='RADYO'}else if(parts.length===2){a=parts[0];b=parts[1]}else{const mid=Math.ceil(parts.length/2);a=parts.slice(0,mid).join(' ');b=parts.slice(mid).join(' ')}logo.innerHTML='<span class="classicStationMain">'+a.replace(/[&<>]/g,'')+'</span><small class="classicStationSub">'+b.replace(/[&<>]/g,'')+'</small>'}catch(e){}}
+function keys7(){try{return JSON.parse(localStorage.v6MainKeys||'[]')}catch(e){return []}}
+function saveKeys7(x){localStorage.v6MainKeys=JSON.stringify(x)}
+function toast7(t){try{toast(t)}catch(e){}}
+function patchUnlimited(){document.addEventListener('click',e=>{const b=e.target.closest('[data-v6main]');if(!b||b.textContent.trim()!=='EKLE')return;if(typeof stations==='undefined'||stations.length<80)return;e.preventDefault();e.stopImmediatePropagation();const id=b.dataset.v6main;const s=catalog7.find(x=>key7(x)===id);if(!s){toast7('Radyo kaydı bulunamadı');return}let ks=keys7();if(!ks.length)ks=stations.map(key7);if(ks.includes(id)){b.textContent='ÇIKAR';b.classList.remove('add');b.classList.add('danger');return}ks.push(id);saveKeys7(ks);stations.push(s);b.textContent='ÇIKAR';b.classList.remove('add');b.classList.add('danger');toast7('Ana listeye eklendi • toplam '+stations.length+' radyo')},true)}
+function patchTexts(){const fix=()=>{document.querySelectorAll('.v6Status').forEach(el=>{if(/en fazla 80 radyodur/i.test(el.textContent))el.textContent=el.textContent.replace(/Ana listeniz en fazla 80 radyodur\.?/i,'Ana liste 80 radyonun üzerine genişletilebilir.')})};new MutationObserver(fix).observe(document.body,{childList:true,subtree:true});fix()}
+function mount(){syncDial7();const now=q7('#now');if(now)new MutationObserver(syncDial7).observe(now,{childList:true,subtree:true,characterData:true});patchUnlimited();patchTexts();load7()}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount);else mount();
+})();

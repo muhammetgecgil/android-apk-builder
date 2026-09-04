@@ -1,0 +1,40 @@
+/* Profil 2 V18 - V17 tabani uzerinde kusursuzluk/işlev düzeltmeleri */
+body.profile2-active .hero>.name,body.profile2-active .hero>#meta{display:none!important}
+body.profile2-active .hero .freq{margin-top:12px}
+/* V17 hero açıklamalarındaki tekrarlı metinleri kaldır */
+body.profile2-active .p2UnifiedHero p,body.profile2-active .p2UnifiedHero .p2UnifiedSub{display:none!important}
+body.profile2-active .p2Panel .p2Section>small{display:none}
+/* Türkiye grupları filtre açıklaması gizli */
+body.profile2-active .p2Panel .p2Section h3+small{display:none!important}
+/* Tür kartları: siyah daire/ikon yok, yalın tipografi */
+body.profile2-active .p2GenreGrid{grid-template-columns:repeat(3,1fr);gap:12px}
+body.profile2-active .p2GenreCard{min-height:92px;padding:18px 10px;border-radius:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;background:linear-gradient(145deg,color-mix(in srgb,var(--natureA,#1677ff) 17%,#07111d),#07101a)!important}
+body.profile2-active .p2GenreCard>b{display:none!important}
+body.profile2-active .p2GenreCard strong{font-size:17px;letter-spacing:.2px}
+body.profile2-active .p2GenreCard small{font-size:12px;opacity:.68}
+body.profile2-active .p2GenreCard.on{border-color:var(--natureB,#63c7ff)!important;box-shadow:0 0 22px color-mix(in srgb,var(--natureA,#1677ff) 34%,transparent),inset 0 0 20px color-mix(in srgb,var(--natureA,#1677ff) 12%,transparent)}
+/* Keşif satırı kompakt ve isim düzeni */
+body.profile2-active #p2DiscoveryMenu button{min-height:108px}
+body.profile2-active #p2DiscoveryMenu button small{display:none!important}
+/* Alarm: zaman ve buton kesinlikle çakışmaz */
+body.profile2-active #p2AlarmTime{display:block;width:100%;height:76px;margin:16px 0 18px!important;font-size:34px;line-height:76px;padding:0 20px!important}
+body.profile2-active #p2AlarmSet{display:block;width:100%;height:58px;margin:0!important;position:static!important;transform:none!important;border-radius:18px;font-size:15px;letter-spacing:.8px}
+body.profile2-active #p2AlarmSet:active{transform:scale(.985)!important}
+/* Eşitleyici: küçük, gerçek kontrol paneli */
+.p2EqV18{max-width:620px;margin:0 auto;padding:16px;border:1px solid color-mix(in srgb,var(--natureA,#1688ff) 52%,#28435a);border-radius:24px;background:linear-gradient(160deg,color-mix(in srgb,var(--natureA,#1688ff) 14%,#07111b),#050a10);box-shadow:inset 0 1px 0 #ffffff12,0 16px 40px #0006}
+.p2EqStatus{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}.p2EqStatus strong{font-size:19px}.p2EqStatus span{font-size:12px;padding:7px 10px;border-radius:999px;background:#0c2231;border:1px solid var(--natureA,#1688ff);color:#d9f2ff}
+.p2EqPreset{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:16px}.p2EqPreset button{min-height:40px;border-radius:12px;border:1px solid #ffffff18;background:#08121d;color:#d7e7f6;font-weight:800;font-size:11px}.p2EqPreset button.on{border-color:var(--natureB,#63c7ff);color:#fff;box-shadow:0 0 14px color-mix(in srgb,var(--natureA,#1688ff) 35%,transparent)}
+.p2EqBands{display:grid;gap:12px}.p2EqBand{display:grid;grid-template-columns:56px 1fr 56px;gap:10px;align-items:center}.p2EqBand label{font-size:12px;font-weight:800;color:#d7e7f6}.p2EqBand output{text-align:right;font-size:12px;color:#a9c7df}.p2EqBand input{width:100%;accent-color:var(--natureA,#1688ff)}
+.p2EqFoot{margin-top:14px;font-size:11px;color:#7890a5;line-height:1.45}
+/* Ayarlar V18 */
+.p2SettingsV18{display:grid;gap:10px}.p2SettingRow{display:grid;grid-template-columns:50px 1fr auto;gap:12px;align-items:center;padding:14px;border:1px solid #ffffff14;border-radius:18px;background:linear-gradient(145deg,color-mix(in srgb,var(--natureA,#1688ff) 11%,#08111b),#060b12)}.p2SettingIcon{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;border:1px solid color-mix(in srgb,var(--natureA,#1688ff) 55%,#24415a);font-weight:900;color:#e9f6ff}.p2SettingRow strong{display:block;font-size:15px}.p2SettingRow small{display:block;margin-top:4px;color:#8ea4b6;font-size:11px;line-height:1.35}.p2Switch{width:48px;height:28px;border:0;border-radius:999px;background:#263440;position:relative}.p2Switch:after{content:"";position:absolute;width:22px;height:22px;left:3px;top:3px;border-radius:50%;background:#d4e2ed;transition:.16s}.p2Switch.on{background:var(--natureA,#1688ff)}.p2Switch.on:after{left:23px;background:white}.p2SettingAction{border:1px solid color-mix(in srgb,var(--natureA,#1688ff) 55%,#24415a);background:#08121c;color:#eaf5ff;border-radius:12px;padding:10px 12px;font-weight:800;font-size:11px}
+/* V18.2 - hızlı ve güven veren dokunma hissi */
+body.profile2-active button,body.profile2-active [role="button"],body.profile2-active .p2GenreCard,body.profile2-active .p2Station{touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+body.profile2-active button,body.profile2-active .p2GenreCard,body.profile2-active .p2Station{transition:transform .085s ease-out,border-color .12s linear,background-color .12s linear,opacity .12s linear!important;will-change:transform}
+body.profile2-active .p2TouchDown,body.profile2-active button:active,body.profile2-active .p2GenreCard:active,body.profile2-active .p2Station:active{transform:scale(.975)!important;opacity:.94}
+body.profile2-active #play.p2TouchDown,body.profile2-active #miniPlay.p2TouchDown{transform:scale(.955)!important}
+body.profile2-active .panel,body.profile2-active .p2Panel{overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+body.profile2-active.p2Scrolling *,body.profile2-active.p2Scrolling *:before,body.profile2-active.p2Scrolling *:after{box-shadow:none!important;text-shadow:none!important;filter:none!important;transition:none!important}
+body.profile2-active.p2Scrolling .bottom{backdrop-filter:none!important}
+@media(prefers-reduced-motion:reduce){body.profile2-active *,body.profile2-active *:before,body.profile2-active *:after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}}
+@media(max-width:430px){body.profile2-active .p2GenreGrid{grid-template-columns:repeat(3,1fr)}.p2EqPreset{grid-template-columns:repeat(2,1fr)}.p2SettingRow{grid-template-columns:44px 1fr auto;padding:12px}.p2SettingIcon{width:42px;height:42px}.p2EqV18{padding:13px}.p2EqBand{grid-template-columns:48px 1fr 48px}}

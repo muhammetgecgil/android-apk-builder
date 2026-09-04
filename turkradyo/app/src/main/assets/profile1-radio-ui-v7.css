@@ -1,0 +1,25 @@
+/* V7 — preserve classic red-screen dial geometry/typography across every theme; only colors change softly. */
+html[data-nature-theme] .logo,
+html[data-nature-theme] body.nature-themed .logo{
+  width:205px!important;height:205px!important;aspect-ratio:1/1!important;border-radius:50%!important;
+  display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:center!important;
+  overflow:hidden!important;isolation:isolate!important;
+  border:6px solid color-mix(in srgb,#e7e2e5 72%,var(--natureC) 28%)!important;
+  outline:3px solid var(--natureA)!important;
+  background:
+    radial-gradient(circle at 42% 34%,color-mix(in srgb,var(--natureC) 18%,#ffffff12) 0%,transparent 30%),
+    radial-gradient(circle at 50% 48%,color-mix(in srgb,var(--natureA) 34%,#2a1720) 0%,color-mix(in srgb,var(--natureB) 24%,#171018) 52%,color-mix(in srgb,var(--bg) 92%,#060608) 100%)!important;
+  box-shadow:0 0 26px var(--natureGlow),0 0 54px color-mix(in srgb,var(--natureA) 22%,transparent),inset 0 0 34px #0005!important;
+  text-shadow:0 2px 0 #000!important;
+}
+html[data-nature-theme] .logo:before,html[data-nature-theme] .logo:after{display:none!important;content:none!important}
+html[data-nature-theme] .logo .classicStationMain{display:block!important;position:relative!important;z-index:3!important;font-size:36px!important;font-weight:1000!important;line-height:.88!important;max-width:178px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;color:#fff!important;text-shadow:0 2px 0 #000,0 0 13px var(--natureGlow)!important}
+html[data-nature-theme] .logo .classicStationSub{display:block!important;position:relative!important;z-index:3!important;font-size:24px!important;font-weight:1000!important;line-height:.95!important;max-width:170px!important;margin-top:3px!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important;color:#fff!important;text-shadow:0 2px 0 #000,0 0 11px var(--natureGlow)!important}
+html[data-nature-theme] .logo .station-emblem-name,html[data-nature-theme] .logo .station-emblem-sub,html[data-nature-theme] .logo .artV3Station{display:none!important}
+/* Explicitly ban hard stripe/sector artwork inside the center dial. */
+html[data-nature-theme="morpho-blue"] .logo,html[data-nature-theme="ulysses"] .logo,html[data-nature-theme="blue-tiger"] .logo,
+html[data-nature-theme="peacock-feather"] .logo,html[data-nature-theme="kingfisher"] .logo,html[data-nature-theme="macaw"] .logo,
+html[data-nature-theme="rajah-brooke"] .logo,html[data-nature-theme="sunset-moth"] .logo{
+  background:radial-gradient(circle at 40% 32%,color-mix(in srgb,var(--natureC) 22%,transparent),transparent 33%),radial-gradient(circle at 50% 50%,color-mix(in srgb,var(--natureA) 36%,#1a1118),color-mix(in srgb,var(--natureB) 22%,#0c0b10) 63%,#060608 100%)!important;
+}
+@media(max-width:430px){html[data-nature-theme] .logo,html[data-nature-theme] body.nature-themed .logo{width:180px!important;height:180px!important}.logo .classicStationMain{font-size:32px!important;max-width:155px!important}.logo .classicStationSub{font-size:21px!important;max-width:150px!important}}
