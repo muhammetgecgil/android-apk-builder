@@ -16,8 +16,8 @@ android {
         applicationId 'com.muhammetgecgil.turkradyo'
         minSdk 26
         targetSdk 36
-        versionCode 283
-        versionName '2.8.3'
+        versionCode 284
+        versionName '2.8.4'
     }
 
     signingConfigs {
