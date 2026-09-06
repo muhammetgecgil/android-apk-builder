@@ -25,9 +25,9 @@ public class RadioService extends Service implements MediaPlayer.OnPreparedListe
     private final Handler handler=new Handler(Looper.getMainLooper());
     private Runnable reconnectTask, watchdogTask, fadeTask, silentWatchdogTask, networkRecoveryTask;
     private String stationName="Türk Radyo", primaryUrl="", streamUrl="", networkType="unknown", lastTrackTitle="";
-    private boolean userPaused=false, buffering=false, smooth=true, normalize=false, repairBusy=false, resumeAfterFocus=false;
+    private boolean userPaused=false, buffering=false, smooth=true, normalize=false, repairBusy=false, resumeAfterFocus=false, recoveryBusy=false;
     private float volume=1f; private int gainMb=0, reconnectAttempts=0, bufferCount=0, lastError=0, silentStallChecks=0, silentRecoveries=0, networkTransitions=0, repairFailures=0;
-    private long playStartMs=0, startupMs=0, preparedAtMs=0, lastMediaUs=Long.MIN_VALUE, serviceStartMs=0, lastNetworkChangeMs=0, lastTrackMs=0; private int lastPositionMs=-1;
+    private long playStartMs=0, startupMs=0, preparedAtMs=0, lastMediaUs=Long.MIN_VALUE, serviceStartMs=0, lastNetworkChangeMs=0, lastTrackMs=0, lastRecoveryMs=0, lastBufferStartMs=0; private int lastPositionMs=-1;
     private final short[] eqLevels=new short[]{0,0,0,0,0};
 
     @Override public void onCreate(){
@@ -103,20 +103,21 @@ public class RadioService extends Service implements MediaPlayer.OnPreparedListe
     private void startStation(String u,String n){if(u==null||u.isEmpty())return;PlaybackGuardian.manualPlay(this);primaryUrl=u;stationName=(n==null||n.isEmpty())?"Türk Radyo":n;lastTrackTitle="";lastTrackMs=0;getSharedPreferences("radio",MODE_PRIVATE).edit().putString("nowTitle","").apply();reconnectAttempts=0;repairBusy=false;userPaused=false;resumeAfterFocus=false;playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}
 
     private void playResolved(String url){
-        if(url==null||url.isEmpty())url=primaryUrl;streamUrl=url;playStartMs=System.currentTimeMillis();startupMs=0;preparedAtMs=0;buffering=false;lastError=0;silentStallChecks=0;lastMediaUs=Long.MIN_VALUE;lastPositionMs=-1;cancelTasks();releasePlayer();saveTelemetry();saveCurrent();requestFocus();updateMediaSession(false,"Bağlanıyor…");startForeground(NOTIF_ID,buildNotification("Bağlanıyor…",true));
+        if(url==null||url.isEmpty())url=primaryUrl;streamUrl=url;playStartMs=System.currentTimeMillis();startupMs=0;preparedAtMs=0;buffering=false;lastError=0;silentStallChecks=0;lastMediaUs=Long.MIN_VALUE;lastPositionMs=-1;lastBufferStartMs=0;recoveryBusy=false;cancelTasks();releasePlayer();saveTelemetry();saveCurrent();requestFocus();updateMediaSession(false,"Bağlanıyor…");startForeground(NOTIF_ID,buildNotification("Bağlanıyor…",true));
         try{player=new MediaPlayer();player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());player.setWakeMode(this,PowerManager.PARTIAL_WAKE_LOCK);player.setOnPreparedListener(this);player.setOnErrorListener(this);player.setOnInfoListener(this);if(Build.VERSION.SDK_INT>=23)player.setOnTimedMetaDataAvailableListener(this);player.setDataSource(this,Uri.parse(streamUrl));player.setVolume(smooth?0f:volume,smooth?0f:volume);player.prepareAsync();armStartupWatchdog(streamUrl);}catch(Exception e){lastError=-1;saveTelemetry();handleFailure("Açılamadı");}
     }
 
     @Override public void onPrepared(MediaPlayer mp){
-        startupMs=Math.max(1,System.currentTimeMillis()-playStartMs);preparedAtMs=System.currentTimeMillis();reconnectAttempts=0;repairBusy=false;buffering=false;cancelWatchdog();silentStallChecks=0;lastMediaUs=Long.MIN_VALUE;lastPositionMs=-1;
+        if(mp!=player)return;
+        startupMs=Math.max(1,System.currentTimeMillis()-playStartMs);preparedAtMs=System.currentTimeMillis();reconnectAttempts=0;repairBusy=false;recoveryBusy=false;buffering=false;cancelWatchdog();silentStallChecks=0;lastMediaUs=Long.MIN_VALUE;lastPositionMs=-1;
         try{mp.start();applyGain();applyEq();if(smooth)fadeIn(mp);else mp.setVolume(volume,volume);StreamFallbackManager.markGood(this,stationName,streamUrl,startupMs);if(PlaybackGuardian.mayAutoResume(this))PlaybackGuardian.recovered(this);saveRecent();saveCurrent();saveTelemetry();updateMediaSession(true,"Canlı yayın");updateNotification("Canlı yayın",true);armSilentWatchdog();}catch(Exception e){lastError=-2;handleFailure("Başlatılamadı");}
     }
 
-    @Override public boolean onError(MediaPlayer mp,int what,int extra){lastError=what;buffering=false;saveTelemetry();handleFailure("Bağlantı kesildi");return true;}
-    @Override public boolean onInfo(MediaPlayer mp,int what,int extra){if(what==MediaPlayer.MEDIA_INFO_BUFFERING_START){buffering=true;bufferCount++;silentStallChecks=0;saveTelemetry();armBufferWatchdog();}else if(what==MediaPlayer.MEDIA_INFO_BUFFERING_END){buffering=false;cancelWatchdog();silentStallChecks=0;saveTelemetry();}return false;}
+    @Override public boolean onError(MediaPlayer mp,int what,int extra){if(mp!=player)return true;lastError=what;buffering=false;saveTelemetry();handleFailure("Bağlantı kesildi");return true;}
+    @Override public boolean onInfo(MediaPlayer mp,int what,int extra){if(mp!=player)return false;if(what==MediaPlayer.MEDIA_INFO_BUFFERING_START){buffering=true;bufferCount++;lastBufferStartMs=System.currentTimeMillis();silentStallChecks=0;saveTelemetry();armBufferWatchdog();}else if(what==MediaPlayer.MEDIA_INFO_BUFFERING_END){buffering=false;lastBufferStartMs=0;cancelWatchdog();silentStallChecks=0;saveTelemetry();}return false;}
 
     @Override public void onTimedMetaDataAvailable(MediaPlayer mp, TimedMetaData data){
-        if(data==null)return;try{String title=extractTimedTitle(data.getMetaData());if(!title.isEmpty())recordTrack(title,"PLAYER");}catch(Exception ignored){}
+        if(mp!=player||data==null)return;try{String title=extractTimedTitle(data.getMetaData());if(!title.isEmpty())recordTrack(title,"PLAYER");}catch(Exception ignored){}
     }
 
     private String extractTimedTitle(byte[] raw){
@@ -131,39 +132,47 @@ public class RadioService extends Service implements MediaPlayer.OnPreparedListe
 
     private void recordTrack(String title,String source){
         title=cleanTrackTitle(title);if(title.isEmpty())return;long now=System.currentTimeMillis();if(title.equalsIgnoreCase(lastTrackTitle)&&now-lastTrackMs<90_000L)return;lastTrackTitle=title;lastTrackMs=now;
-        try{SharedPreferences p=getSharedPreferences("radio",MODE_PRIVATE);JSONArray old;try{old=new JSONArray(p.getString("tracks","[]"));}catch(Exception e){old=new JSONArray();}JSONArray out=new JSONArray();JSONObject n=new JSONObject();n.put("title",title);n.put("station",stationName);n.put("time",now);n.put("source",source);out.put(n);for(int i=0;i<old.length()&&out.length()<500;i++){JSONObject x=old.optJSONObject(i);if(x!=null)out.put(x);}p.edit().putString("tracks",out.toString()).putString("nowTitle",title).apply();updateMediaSession(true,title);}catch(Exception ignored){}
+        try{SharedPreferences p=getSharedPreferences("radio",MODE_PRIVATE);JSONArray old;try{old=new JSONArray(p.getString("tracks","[]"));}catch(Exception e){old=new JSONArray();}JSONArray out=new JSONArray();JSONObject n=new JSONObject();n.put("title",title);n.put("station",stationName);n.put("time",now);n.put("source",source);out.put(n);for(int i=0;i<old.length()&&out.length()<50;i++){JSONObject x=old.optJSONObject(i);if(x!=null)out.put(x);}p.edit().putString("tracks",out.toString()).putString("nowTitle",title).apply();updateMediaSession(true,title);}catch(Exception ignored){}
     }
 
     private void handleFailure(String label){
-        if(userPaused)return;cancelSilentWatchdog();updateMediaSession(false,label);updateNotification(label,true);StreamFallbackManager.markBad(this,stationName,streamUrl,reconnectAttempts<1?60_000L:30*60_000L);
-        if(reconnectAttempts<1){reconnectAttempts++;schedulePlay(primaryUrl,750);return;}repairSameStation();
+        if(userPaused)return;
+        long now=System.currentTimeMillis();
+        if(recoveryBusy&&now-lastRecoveryMs<1800L)return;
+        recoveryBusy=true;lastRecoveryMs=now;
+        cancelSilentWatchdog();cancelWatchdog();
+        updateMediaSession(false,label);updateNotification(label,true);
+        if("offline".equals(networkType)){recoveryBusy=false;return;}
+        StreamFallbackManager.markBad(this,stationName,streamUrl,reconnectAttempts<1?45_000L:10*60_000L);
+        if(reconnectAttempts<1){reconnectAttempts++;String next=StreamFallbackManager.getPreferred(this,stationName,primaryUrl);schedulePlay(next,1200);return;}
+        repairSameStation();
     }
 
     private void repairSameStation(){
         if(repairBusy||userPaused)return;repairBusy=true;updateNotification("Aynı radyo için kaynak aranıyor…",true);
-        StreamFallbackManager.discoverBestAsync(this,stationName,primaryUrl,u->{repairBusy=false;if(userPaused)return;if(u!=null&&!u.isEmpty()){reconnectAttempts=0;playResolved(u);}else{repairFailures++;saveTelemetry();schedulePlay(primaryUrl,2500);}});
+        StreamFallbackManager.discoverBestAsync(this,stationName,primaryUrl,u->{repairBusy=false;recoveryBusy=false;if(userPaused)return;if(u!=null&&!u.isEmpty()){reconnectAttempts=0;playResolved(u);}else{repairFailures++;saveTelemetry();schedulePlay(primaryUrl,3500);}});
     }
 
-    private void schedulePlay(String u,long delay){cancelReconnect();reconnectTask=()->{if(!userPaused)playResolved(u);};handler.postDelayed(reconnectTask,delay);}
-    private void armStartupWatchdog(final String expected){cancelWatchdog();watchdogTask=()->{if(!userPaused&&player!=null&&startupMs==0&&expected.equals(streamUrl)){lastError=-31;saveTelemetry();handleFailure("Geç bağlantı");}};handler.postDelayed(watchdogTask,6500);}
-    private void armBufferWatchdog(){cancelWatchdog();watchdogTask=()->{if(buffering&&!userPaused){lastError=-30;saveTelemetry();handleFailure("Uzun buffer");}};handler.postDelayed(watchdogTask,9000);}
+    private void schedulePlay(String u,long delay){cancelReconnect();reconnectTask=()->{recoveryBusy=false;if(!userPaused)playResolved(u);};handler.postDelayed(reconnectTask,delay);}
+    private void armStartupWatchdog(final String expected){cancelWatchdog();watchdogTask=()->{if(!userPaused&&player!=null&&startupMs==0&&expected.equals(streamUrl)){lastError=-31;saveTelemetry();handleFailure("Geç bağlantı");}};handler.postDelayed(watchdogTask,11000);}
+    private void armBufferWatchdog(){cancelWatchdog();watchdogTask=()->{if(buffering&&!userPaused){lastError=-30;saveTelemetry();handleFailure("Uzun buffer");}};handler.postDelayed(watchdogTask,15000);}
 
     private void armSilentWatchdog(){
         cancelSilentWatchdog();
         silentWatchdogTask=new Runnable(){@Override public void run(){
             if(userPaused||player==null)return;
-            if(buffering){silentStallChecks=0;handler.postDelayed(this,2500);return;}
-            boolean valid=false, advanced=false;
+            if(buffering){silentStallChecks=0;handler.postDelayed(this,3000);return;}
+            boolean validClock=false,advanced=false,actuallyPlaying=false;
             try{
-                if(Build.VERSION.SDK_INT>=23){MediaTimestamp ts=player.getTimestamp();if(ts!=null&&ts.getMediaClockRate()>0f){long us=ts.getAnchorMediaTimeUs();valid=true;if(lastMediaUs==Long.MIN_VALUE||us>lastMediaUs+100000L){advanced=true;lastMediaUs=us;}}}
-                if(!valid){int pos=player.getCurrentPosition();if(pos>=0){valid=true;if(lastPositionMs<0||pos>lastPositionMs+100){advanced=true;lastPositionMs=pos;}}}
+                actuallyPlaying=player.isPlaying();
+                if(Build.VERSION.SDK_INT>=23){MediaTimestamp ts=player.getTimestamp();if(ts!=null&&ts.getMediaClockRate()>0f){long us=ts.getAnchorMediaTimeUs();validClock=true;if(lastMediaUs==Long.MIN_VALUE||us>lastMediaUs+150000L){advanced=true;lastMediaUs=us;}}}
             }catch(Exception ignored){}
-            if(valid){if(advanced)silentStallChecks=0;else silentStallChecks++;}
+            if(validClock&&actuallyPlaying){if(advanced)silentStallChecks=0;else silentStallChecks++;}else silentStallChecks=0;
             long liveFor=preparedAtMs<=0?0:System.currentTimeMillis()-preparedAtMs;
-            if(valid&&liveFor>=7000&&silentStallChecks>=3){lastError=-32;silentRecoveries++;saveTelemetry();cancelSilentWatchdog();handleFailure("Ses akışı durdu");return;}
-            saveTelemetry();handler.postDelayed(this,2500);
+            if(validClock&&actuallyPlaying&&liveFor>=20000&&silentStallChecks>=5){lastError=-32;silentRecoveries++;saveTelemetry();cancelSilentWatchdog();handleFailure("Ses akışı durdu");return;}
+            handler.postDelayed(this,3000);
         }};
-        handler.postDelayed(silentWatchdogTask,2500);
+        handler.postDelayed(silentWatchdogTask,3000);
     }
 
     private void cancelSilentWatchdog(){if(silentWatchdogTask!=null){handler.removeCallbacks(silentWatchdogTask);silentWatchdogTask=null;}}
