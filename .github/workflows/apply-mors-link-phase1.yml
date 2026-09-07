@@ -1,0 +1,85 @@
+name: Apply MORS LINK Phase 1
+
+on:
+  push:
+    branches: [morse-playstore-v5]
+    paths:
+      - '.github/workflows/apply-mors-link-phase1.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: morse-playstore-v5
+          fetch-depth: 0
+
+      - name: Integrate MORS LINK into app
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          base = Path('mors-playstore-v5')
+          main = base / 'app/src/main/java/com/muhammetgecgil/morse/MainActivity.java'
+          s = main.read_text(encoding='utf-8')
+
+          if 'addMorseLinkLauncher();' not in s:
+              s = s.replace(
+                  '        addStatusStrip();\n        addActionGrid();',
+                  '        addStatusStrip();\n        addMorseLinkLauncher();\n        addActionGrid();'
+              )
+
+          if 'private void addMorseLinkLauncher()' not in s:
+              method = '''    private void addMorseLinkLauncher() {\n        TextView link = label("⌁  MORS LINK\\nTelefon → telefon ışık haberleşmesi", 16, GREEN, Typeface.BOLD);\n        link.setGravity(Gravity.CENTER);\n        link.setPadding(dp(14), dp(10), dp(14), dp(10));\n        link.setMinHeight(dp(72));\n        link.setBackground(ripple(rounded(Color.rgb(8, 38, 36), GREEN, 16, 1)));\n        link.setContentDescription("Mors Link iki telefon arasında ışıkla Mors gönderme");\n        link.setOnClickListener(v -> {\n            haptic(v);\n            signalEngine.cancelAll();\n            startActivity(new Intent(this, MorseLinkActivity.class));\n        });\n        root.addView(link, matchWrap(0, 12));\n    }\n\n'''
+              s = s.replace('    private void addActionGrid() {\n', method + '    private void addActionGrid() {\n')
+
+          s = s.replace('Veriler cihazda kalır • İnternet izni yok • v5.0',
+                        'Veriler cihazda kalır • İnternet izni yok • v5.1')
+          s = s.replace('.setTitle("Mors Kod Çevirici 5.0")',
+                        '.setTitle("Mors Kod Çevirici 5.1")')
+          marker = '                        "• Yerel geçmiş ve paylaşım\\n\\n" +'
+          replacement = ('                        "• Yerel geçmiş ve paylaşım\\n" +\n'
+                         '                        "• MORS LINK: flaş ve ekran ışığıyla telefon → telefon gönderim\\n\\n" +')
+          if 'MORS LINK: flaş ve ekran ışığıyla' not in s:
+              s = s.replace(marker, replacement)
+          main.write_text(s, encoding='utf-8')
+
+          manifest = base / 'app/src/main/AndroidManifest.xml'
+          m = manifest.read_text(encoding='utf-8')
+          if '.MorseLinkActivity' not in m:
+              activity = '''\n        <activity\n            android:name=".MorseLinkActivity"\n            android:exported="false"\n            android:screenOrientation="unspecified" />\n'''
+              m = m.replace('\n        <activity\n            android:name=".MainActivity"',
+                            activity + '\n        <activity\n            android:name=".MainActivity"')
+          manifest.write_text(m, encoding='utf-8')
+
+          gradle = base / 'app/build.gradle'
+          g = gradle.read_text(encoding='utf-8')
+          g = g.replace('versionCode 500', 'versionCode 510')
+          g = g.replace("versionName '5.0.0'", "versionName '5.1.0'")
+          gradle.write_text(g, encoding='utf-8')
+
+          readme = base / 'README.md'
+          r = readme.read_text(encoding='utf-8')
+          section = '''\n\n## MORS LINK - Parça 1\n\n- Telefonlar arasında kamera flaşıyla Mors gönderme\n- Tam ekran siyah/beyaz ışıkla Mors gönderme\n- 5-8 WPM optik güvenlik sınırı\n- Gönderim sırasında ekran parlaklığını geçici yükseltme ve işlem bitince geri yükleme\n- Sonraki parça: kamera ile otomatik optik alıcı\n'''
+          if '## MORS LINK - Parça 1' not in r:
+              r += section
+          readme.write_text(r, encoding='utf-8')
+          PY
+
+      - name: Commit integration
+        shell: bash
+        run: |
+          git config user.name "muhammetgecgil"
+          git config user.email "muhammetgecgilapps@gmail.com"
+          git add mors-playstore-v5
+          if git diff --cached --quiet; then
+            echo "No integration changes needed"
+          else
+            git commit -m "Integrate MORS LINK phase 1 optical transmitter"
+            git push origin HEAD:morse-playstore-v5
+          fi
