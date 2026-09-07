@@ -1,0 +1,36 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.mg.bionavaviation'
+    compileSdk 35
+
+    signingConfigs {
+        stableTest {
+            storeFile file('../signing/bionav-test.p12')
+            storePassword 'BioNavTest2026!'
+            keyAlias 'bionav_test'
+            keyPassword 'BioNavTest2026!'
+            storeType 'PKCS12'
+        }
+    }
+
+    defaultConfig {
+        applicationId 'com.mg.bionavaviation'
+        minSdk 26
+        targetSdk 35
+        versionCode 3
+        versionName '2.1.0'
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.stableTest
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.stableTest
+        }
+    }
+}
