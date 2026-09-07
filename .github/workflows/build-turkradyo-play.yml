@@ -57,29 +57,29 @@ jobs:
       - name: Package source snapshot and complete kit
         run: |
           mkdir -p dist
-          zip -rq dist/TurkRadyo-v2.8.8-Source.zip turkradyo TURKRADYO_REFERENCE.md .github/workflows/build-turkradyo-play.yml .github/workflows/ci-turkradyo-pr.yml .github/workflows/radio-audit.yml -x 'turkradyo/app/build/*' 'turkradyo/.gradle/*'
-          cp turkradyo/app/build/outputs/apk/debug/app-debug.apk dist/TurkRadyo-v2.8.8-Debug.apk
-          cp turkradyo/app/build/outputs/bundle/release/app-release.aab dist/TurkRadyo-v2.8.8-Play.aab
+          zip -rq dist/TurkRadyo-v2.8.9-Source.zip turkradyo TURKRADYO_REFERENCE.md .github/workflows/build-turkradyo-play.yml .github/workflows/ci-turkradyo-pr.yml .github/workflows/radio-audit.yml -x 'turkradyo/app/build/*' 'turkradyo/.gradle/*'
+          cp turkradyo/app/build/outputs/apk/debug/app-debug.apk dist/TurkRadyo-v2.8.9-Debug.apk
+          cp turkradyo/app/build/outputs/bundle/release/app-release.aab dist/TurkRadyo-v2.8.9-Play.aab
           if [ -f turkradyo/app/build/outputs/apk/release/app-release.apk ]; then
-            cp turkradyo/app/build/outputs/apk/release/app-release.apk dist/TurkRadyo-v2.8.8-Release.apk
+            cp turkradyo/app/build/outputs/apk/release/app-release.apk dist/TurkRadyo-v2.8.9-Release.apk
             SIGNING_STATE='stable-signed-release'
           else
-            cp turkradyo/app/build/outputs/apk/release/app-release-unsigned.apk dist/TurkRadyo-v2.8.8-Release-Unsigned.apk
+            cp turkradyo/app/build/outputs/apk/release/app-release-unsigned.apk dist/TurkRadyo-v2.8.9-Release-Unsigned.apk
             SIGNING_STATE='release-unsigned-debug-installable'
           fi
-          cat > dist/TurkRadyo-v2.8.8-MANIFEST.txt <<EOF
+          cat > dist/TurkRadyo-v2.8.9-MANIFEST.txt <<EOF
           TurkRadyo LATEST DEVELOPMENT PACKAGE
-          Version: 2.8.8
-          VersionCode: 288
+          Version: 2.8.9
+          VersionCode: 289
           Git commit: $GITHUB_SHA
           Branch: dev/turkradyo-after-v2.7.0
           Signing state: $SIGNING_STATE
-          Play Store file: TurkRadyo-v2.8.8-Play.aab
-          Installable test APK: TurkRadyo-v2.8.8-Debug.apk
-          Source snapshot: TurkRadyo-v2.8.8-Source.zip
+          Play Store file: TurkRadyo-v2.8.9-Play.aab
+          Installable test APK: TurkRadyo-v2.8.9-Debug.apk
+          Source snapshot: TurkRadyo-v2.8.9-Source.zip
           EOF
-          (cd dist && sha256sum TurkRadyo-v2.8.8-Debug.apk TurkRadyo-v2.8.8-Play.aab TurkRadyo-v2.8.8-Source.zip >> TurkRadyo-v2.8.8-MANIFEST.txt)
-          (cd dist && zip -q TurkRadyo-v2.8.8-COMPLETE.zip TurkRadyo-v2.8.8-Debug.apk TurkRadyo-v2.8.8-Play.aab TurkRadyo-v2.8.8-Source.zip TurkRadyo-v2.8.8-MANIFEST.txt TurkRadyo-v2.8.8-Release*.apk)
+          (cd dist && sha256sum TurkRadyo-v2.8.9-Debug.apk TurkRadyo-v2.8.9-Play.aab TurkRadyo-v2.8.9-Source.zip >> TurkRadyo-v2.8.9-MANIFEST.txt)
+          (cd dist && zip -q TurkRadyo-v2.8.9-COMPLETE.zip TurkRadyo-v2.8.9-Debug.apk TurkRadyo-v2.8.9-Play.aab TurkRadyo-v2.8.9-Source.zip TurkRadyo-v2.8.9-MANIFEST.txt TurkRadyo-v2.8.9-Release*.apk)
 
       - name: Upload stable signed update APK
         if: env.TURKRADYO_KEYSTORE_B64 != ''
@@ -118,18 +118,18 @@ jobs:
       - name: Upload source snapshot
         uses: actions/upload-artifact@v4
         with:
-          name: TurkRadyo-v2.8.8-Source
-          path: dist/TurkRadyo-v2.8.8-Source.zip
+          name: TurkRadyo-v2.8.9-Source
+          path: dist/TurkRadyo-v2.8.9-Source.zip
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload complete release kit
         uses: actions/upload-artifact@v4
         with:
-          name: TurkRadyo-v2.8.8-COMPLETE
+          name: TurkRadyo-v2.8.9-COMPLETE
           path: |
-            dist/TurkRadyo-v2.8.8-COMPLETE.zip
-            dist/TurkRadyo-v2.8.8-MANIFEST.txt
+            dist/TurkRadyo-v2.8.9-COMPLETE.zip
+            dist/TurkRadyo-v2.8.9-MANIFEST.txt
           if-no-files-found: error
           retention-days: 30
 
