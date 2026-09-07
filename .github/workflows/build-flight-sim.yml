@@ -2,7 +2,7 @@ name: Build Fixture Cockpit Sim APK
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, agent/fixture-cockpit-v3-apk ]
     paths:
       - 'flight-sim/**'
       - '.github/workflows/build-flight-sim.yml'
@@ -19,7 +19,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,20 +36,68 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+      - name: Prepare stable update signing
+        run: |
+          set -euxo pipefail
+          base64 -d flight-sim/signing/fixture-update.jks.b64 > flight-sim/signing/fixture-update.jks
+          keytool -list -keystore flight-sim/signing/fixture-update.jks -storepass FixtureSim2026 -alias fixture
+      - name: Build crease-smoothed full F-22 game mesh
+        run: |
+          set -euxo pipefail
+          MODEL_REV=1f02edee712b1263497428d28b3a5893dd12c264
+          rm -rf flight-sim/build/f22-source
+          git clone --quiet https://github.com/SamJD261/F-22-Raptor.git flight-sim/build/f22-source
+          git -C flight-sim/build/f22-source checkout --quiet "$MODEL_REV"
+          mkdir -p flight-sim/app/src/main/assets/models flight-sim/app/src/main/assets/licenses
+          cp flight-sim/build/f22-source/LICENSE.md flight-sim/app/src/main/assets/licenses/F22_MODEL_LICENSE.md
+          printf '%s\n' 'F-22 model source: https://github.com/SamJD261/F-22-Raptor' 'Pinned revision: 1f02edee712b1263497428d28b3a5893dd12c264' > flight-sim/app/src/main/assets/licenses/F22_MODEL_SOURCE.txt
+          python3 -m pip install --quiet pillow
+          python3 flight-sim/tools/build_f22_atlas.py \
+            flight-sim/build/f22-source/Models \
+            flight-sim/app/src/main/assets/models/f22_atlas_v18.png
+          python3 flight-sim/tools/ac3d_to_mesh.py \
+            flight-sim/build/f22-source/Models/F-22.ac \
+            flight-sim/app/src/main/assets/models/f22_v18.mesh
+          test $(stat -c%s flight-sim/build/f22-source/Models/F-22.ac) -gt 4000000
+          test -s flight-sim/app/src/main/assets/models/f22_v18.mesh
+          test -s flight-sim/app/src/main/assets/models/f22_atlas_v18.png
+          python3 - <<'PY'
+          import struct
+          p='flight-sim/app/src/main/assets/models/f22_v18.mesh'
+          d=open(p,'rb').read()
+          assert d[:8]==b'F22MSH18'
+          n=struct.unpack('<I',d[8:12])[0]
+          assert n>150000 and n%3==0, n
+          print('verified V18 vertices',n,'triangles',n//3)
+          PY
+      - name: Verify live renderer uses embedded F-22
+        run: |
+          set -euxo pipefail
+          grep -q 'new F22InternetModelView' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DViewV7.java
+          grep -q 'F22MSH18' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/F22InternetModelView.java
+          grep -q 'Dggx' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/F22InternetModelView.java
+          ! grep -q 'buildJet()' flight-sim/app/src/main/java/com/mg/fixturecockpitsim/Jet3DViewV7.java
       - name: Build APK
         working-directory: flight-sim
         run: gradle --no-daemon :app:assembleDebug --stacktrace
-      - name: Verify APK
+      - name: Verify APK update signer and V18 F-22 data
         run: |
-          test -s flight-sim/app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs flight-sim/app/build/outputs/apk/debug/app-debug.apk
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging flight-sim/app/build/outputs/apk/debug/app-debug.apk | grep "versionCode='3'"
+          set -euxo pipefail
+          APK=flight-sim/app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose --print-certs "$APK"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "versionCode='18'"
+          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep "application-icon"
+          unzip -l "$APK" | grep 'assets/models/f22_v18.mesh'
+          unzip -l "$APK" | grep 'assets/models/f22_atlas_v18.png'
+          unzip -l "$APK" | grep 'assets/licenses/F22_MODEL_LICENSE.md'
+          unzip -l "$APK" | grep 'assets/licenses/F22_MODEL_SOURCE.txt'
       - name: Rename APK
-        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Fixture_Cockpit_Sim_3D_v3.0.apk
+        run: cp flight-sim/app/build/outputs/apk/debug/app-debug.apk Fixture_Cockpit_Sim_F22_Game_Render_v18.0.apk
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
-          name: Fixture-Cockpit-Sim-3D-v3.0-APK
-          path: Fixture_Cockpit_Sim_3D_v3.0.apk
+          name: Fixture-Cockpit-Sim-F22-Game-Render-v18.0-APK
+          path: Fixture_Cockpit_Sim_F22_Game_Render_v18.0.apk
           if-no-files-found: error
           retention-days: 30
