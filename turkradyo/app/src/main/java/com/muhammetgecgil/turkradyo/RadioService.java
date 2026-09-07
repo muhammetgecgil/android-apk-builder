@@ -12,7 +12,9 @@ import android.net.*;
 import android.os.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
-import java.nio.charset.StandardCharsets;
+import java.io.*;
+import java.net.*;
+import java.nio.charset.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,13 +33,15 @@ public class RadioService extends Service implements MediaPlayer.OnPreparedListe
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
     private final Handler handler=new Handler(Looper.getMainLooper());
-    private Runnable reconnectTask, watchdogTask, fadeTask, livenessTask, networkRecoveryTask;
+    private Runnable reconnectTask, watchdogTask, fadeTask, livenessTask, networkRecoveryTask, metadataProbeTask;
 
     private String stationName="Türk Radyo", primaryUrl="", streamUrl="", networkType="unknown", lastTrackTitle="";
     private boolean userPaused=false, buffering=false, smooth=true, normalize=false, repairBusy=false, resumeAfterFocus=false;
+    private volatile boolean metadataProbeBusy=false;
     private float volume=1f;
     private int gainMb=0, reconnectAttempts=0, bufferCount=0, lastError=0, livenessMisses=0, livenessRecoveries=0, networkTransitions=0, repairFailures=0;
-    private long playStartMs=0, startupMs=0, preparedAtMs=0, serviceStartMs=0, lastNetworkChangeMs=0, lastTrackMs=0;
+    private int metadataProbeToken=0, metadataProbeSuccesses=0, metadataProbeFailures=0;
+    private long playStartMs=0, startupMs=0, preparedAtMs=0, serviceStartMs=0, lastNetworkChangeMs=0, lastTrackMs=0, lastPlayerMetadataMs=0;
     private final short[] eqLevels=new short[]{0,0,0,0,0};
 
     @Override public void onCreate(){
@@ -121,7 +125,7 @@ public class RadioService extends Service implements MediaPlayer.OnPreparedListe
         if(u==null||u.isEmpty())return;
         if(rememberCurrent)pushHistory(u);
         PlaybackGuardian.manualPlay(this);
-        primaryUrl=u; stationName=(n==null||n.isEmpty())?"Türk Radyo":n; lastTrackTitle=""; lastTrackMs=0;
+        primaryUrl=u; stationName=(n==null||n.isEmpty())?"Türk Radyo":n; lastTrackTitle=""; lastTrackMs=0; lastPlayerMetadataMs=0;
         getSharedPreferences(PREF,MODE_PRIVATE).edit().putString("nowTitle","").apply();
         reconnectAttempts=0; repairBusy=false; userPaused=false; resumeAfterFocus=false; livenessMisses=0;
         syncQueueIndexForUrl(u);
@@ -174,7 +178,7 @@ public class RadioService extends Service implements MediaPlayer.OnPreparedListe
         startupMs=Math.max(1,System.currentTimeMillis()-playStartMs); preparedAtMs=System.currentTimeMillis(); reconnectAttempts=0; repairBusy=false; buffering=false; cancelWatchdog(); livenessMisses=0;
         try{
             mp.start(); applyGain(); applyEq(); if(smooth)fadeIn(mp);else mp.setVolume(volume,volume);
-            StreamFallbackManager.markGood(this,stationName,streamUrl,startupMs); PlaybackGuardian.recovered(this); saveRecent(); saveCurrent(); saveTelemetry(); updateMediaSession(true,"Canlı yayın"); updateNotification("Canlı yayın",true); armLivenessWatchdog();
+            StreamFallbackManager.markGood(this,stationName,streamUrl,startupMs); PlaybackGuardian.recovered(this); saveRecent(); saveCurrent(); saveTelemetry(); updateMediaSession(true,"Canlı yayın"); updateNotification("Canlı yayın",true); armLivenessWatchdog(); armMetadataProbe();
         }catch(Exception e){lastError=-2;handleFailure("Başlatılamadı");}
     }
 
@@ -185,13 +189,73 @@ public class RadioService extends Service implements MediaPlayer.OnPreparedListe
         return false;
     }
 
-    @Override public void onTimedMetaDataAvailable(MediaPlayer mp,TimedMetaData data){if(data==null)return;try{String title=extractTimedTitle(data.getMetaData());if(!title.isEmpty())recordTrack(title,"PLAYER");}catch(Exception ignored){}}
+    @Override public void onTimedMetaDataAvailable(MediaPlayer mp,TimedMetaData data){
+        if(data==null)return;
+        try{String title=extractTimedTitle(data.getMetaData());if(!title.isEmpty()){lastPlayerMetadataMs=System.currentTimeMillis();recordTrack(title,"PLAYER");}}catch(Exception ignored){}
+    }
     private String extractTimedTitle(byte[] raw){if(raw==null||raw.length==0)return"";String text;try{text=new String(raw,StandardCharsets.UTF_8).replace('\u0000',' ').trim();}catch(Exception e){return"";}Matcher m=STREAM_TITLE.matcher(text);if(m.find())return cleanTrackTitle(m.group(1));int i=text.indexOf("TIT2");if(i>=0){String t=text.substring(i+4).replaceAll("[\\x00-\\x1F]+"," ").trim();int cut=t.length();for(String marker:new String[]{"TPE1","TALB","TRCK","TCON","COMM","TYER","TDRC"}){int p=t.indexOf(marker);if(p>=0&&p<cut)cut=p;}if(cut>0)return cleanTrackTitle(t.substring(0,cut));}return"";}
     private String cleanTrackTitle(String s){String x=s==null?"":s.replaceAll("\\s+"," ").trim();x=x.replaceAll("^[\\-–—|•\\s]+|[\\-–—|•\\s]+$","").trim();if(x.length()>240)x=x.substring(0,240).trim();if(x.length()<2||x.equalsIgnoreCase("unknown")||x.equalsIgnoreCase("null")||x.equals("-"))return"";return x;}
-    private void recordTrack(String title,String source){title=cleanTrackTitle(title);if(title.isEmpty())return;long now=System.currentTimeMillis();if(title.equalsIgnoreCase(lastTrackTitle)&&now-lastTrackMs<90_000L)return;lastTrackTitle=title;lastTrackMs=now;try{SharedPreferences p=getSharedPreferences(PREF,MODE_PRIVATE);JSONArray old;try{old=new JSONArray(p.getString("tracks","[]"));}catch(Exception e){old=new JSONArray();}JSONArray out=new JSONArray();JSONObject n=new JSONObject();n.put("title",title);n.put("station",stationName);n.put("time",now);n.put("source",source);out.put(n);for(int i=0;i<old.length()&&out.length()<500;i++){JSONObject x=old.optJSONObject(i);if(x!=null)out.put(x);}p.edit().putString("tracks",out.toString()).putString("nowTitle",title).apply();updateMediaSession(true,title);}catch(Exception ignored){}}
+    private synchronized void recordTrack(String title,String source){title=cleanTrackTitle(title);if(title.isEmpty())return;long now=System.currentTimeMillis();if(title.equalsIgnoreCase(lastTrackTitle)&&now-lastTrackMs<90_000L)return;lastTrackTitle=title;lastTrackMs=now;try{SharedPreferences p=getSharedPreferences(PREF,MODE_PRIVATE);JSONArray old;try{old=new JSONArray(p.getString("tracks","[]"));}catch(Exception e){old=new JSONArray();}JSONArray out=new JSONArray();JSONObject n=new JSONObject();n.put("title",title);n.put("station",stationName);n.put("time",now);n.put("source",source);out.put(n);for(int i=0;i<old.length()&&out.length()<50;i++){JSONObject x=old.optJSONObject(i);if(x!=null)out.put(x);}p.edit().putString("tracks",out.toString()).putString("nowTitle",title).apply();updateMediaSession(true,title);}catch(Exception ignored){}}
+
+    private String decodeIcyMeta(byte[] raw){
+        try{String u=new String(raw,StandardCharsets.UTF_8).replace("\u0000","").trim();if(!u.contains("�"))return u;}catch(Exception ignored){}
+        try{return new String(raw,Charset.forName("ISO-8859-9")).replace("\u0000","").trim();}catch(Exception ignored){}
+        return new String(raw,StandardCharsets.ISO_8859_1).replace("\u0000","").trim();
+    }
+
+    private String readIcyTitleOnce(String target) throws Exception {
+        URLConnection c=new URL(target).openConnection();
+        c.setConnectTimeout(3500); c.setReadTimeout(7000); c.setUseCaches(false);
+        c.setRequestProperty("Icy-MetaData","1"); c.setRequestProperty("User-Agent","TurkRadyo/2.8.9"); c.setRequestProperty("Accept","*/*");
+        if(c instanceof HttpURLConnection)((HttpURLConnection)c).setInstanceFollowRedirects(true);
+        InputStream in=null;
+        try{
+            c.connect(); String h=c.getHeaderField("icy-metaint"); if(h==null)return"";
+            int mi=Integer.parseInt(h.trim()); if(mi<=0||mi>1048576)return"";
+            in=new BufferedInputStream(c.getInputStream(),8192); byte[] skip=new byte[8192]; int left=mi;
+            while(left>0){int n=in.read(skip,0,Math.min(skip.length,left));if(n<0)return"";left-=n;}
+            int len=in.read(); if(len<0)return""; int bytes=len*16; if(bytes<=0||bytes>65536)return"";
+            byte[] meta=new byte[bytes]; int got=0; while(got<bytes){int n=in.read(meta,got,bytes-got);if(n<0)return"";got+=n;}
+            String text=decodeIcyMeta(meta); Matcher m=STREAM_TITLE.matcher(text); return m.find()?cleanTrackTitle(m.group(1)):"";
+        }finally{
+            try{if(in!=null)in.close();}catch(Exception ignored){}
+            if(c instanceof HttpURLConnection)try{((HttpURLConnection)c).disconnect();}catch(Exception ignored){}
+        }
+    }
+
+    private void runMetadataProbe(final String target,final int token){
+        if(metadataProbeBusy||target==null||target.isEmpty())return;
+        metadataProbeBusy=true;
+        new Thread(()->{
+            try{
+                String title=readIcyTitleOnce(target);
+                if(token==metadataProbeToken&&!userPaused&&target.equals(streamUrl)&&!title.isEmpty()){metadataProbeSuccesses++;recordTrack(title,"ICY_PROBE");}
+                else if(title.isEmpty())metadataProbeFailures++;
+            }catch(Exception e){metadataProbeFailures++;}
+            finally{metadataProbeBusy=false;}
+        },"turkradyo-icy-probe").start();
+    }
+
+    private void armMetadataProbe(){
+        cancelMetadataProbe();
+        final int token=metadataProbeToken;
+        metadataProbeTask=new Runnable(){@Override public void run(){
+            if(userPaused||player==null)return;
+            if(buffering||"offline".equals(networkType)){handler.postDelayed(this,8000);return;}
+            long now=System.currentTimeMillis();
+            if(lastPlayerMetadataMs<=0||now-lastPlayerMetadataMs>=20000L)runMetadataProbe(streamUrl,token);
+            handler.postDelayed(this,15000);
+        }};
+        handler.postDelayed(metadataProbeTask,7000);
+    }
+
+    private void cancelMetadataProbe(){
+        if(metadataProbeTask!=null){handler.removeCallbacks(metadataProbeTask);metadataProbeTask=null;}
+        metadataProbeToken++; metadataProbeBusy=false;
+    }
 
     private void handleFailure(String label){
-        if(userPaused)return; cancelLivenessWatchdog(); updateMediaSession(false,label); updateNotification(label,true); StreamFallbackManager.markBad(this,stationName,streamUrl,reconnectAttempts<1?60_000L:30*60_000L);
+        if(userPaused)return; cancelMetadataProbe(); cancelLivenessWatchdog(); updateMediaSession(false,label); updateNotification(label,true); StreamFallbackManager.markBad(this,stationName,streamUrl,reconnectAttempts<1?60_000L:30*60_000L);
         if(reconnectAttempts<1){reconnectAttempts++;schedulePlay(primaryUrl,1200);return;} repairSameStation();
     }
     private void repairSameStation(){if(repairBusy||userPaused)return;repairBusy=true;updateNotification("Aynı radyo için kaynak aranıyor…",true);StreamFallbackManager.discoverBestAsync(this,stationName,primaryUrl,u->{repairBusy=false;if(userPaused)return;if(u!=null&&!u.isEmpty()){reconnectAttempts=0;playResolved(u);}else{repairFailures++;saveTelemetry();schedulePlay(primaryUrl,3500);}});}
@@ -215,7 +279,7 @@ public class RadioService extends Service implements MediaPlayer.OnPreparedListe
     private void cancelLivenessWatchdog(){if(livenessTask!=null){handler.removeCallbacks(livenessTask);livenessTask=null;}}
     private void cancelWatchdog(){if(watchdogTask!=null){handler.removeCallbacks(watchdogTask);watchdogTask=null;}}
     private void cancelReconnect(){if(reconnectTask!=null){handler.removeCallbacks(reconnectTask);reconnectTask=null;}}
-    private void cancelTasks(){cancelReconnect();cancelWatchdog();cancelLivenessWatchdog();if(networkRecoveryTask!=null){handler.removeCallbacks(networkRecoveryTask);networkRecoveryTask=null;}if(fadeTask!=null){handler.removeCallbacks(fadeTask);fadeTask=null;}}
+    private void cancelTasks(){cancelReconnect();cancelWatchdog();cancelLivenessWatchdog();cancelMetadataProbe();if(networkRecoveryTask!=null){handler.removeCallbacks(networkRecoveryTask);networkRecoveryTask=null;}if(fadeTask!=null){handler.removeCallbacks(fadeTask);fadeTask=null;}}
 
     private void syncQueueIndexForUrl(String url){try{SharedPreferences p=getSharedPreferences(PREF,MODE_PRIVATE);JSONArray a=new JSONArray(p.getString("queue","[]"));for(int i=0;i<a.length();i++){JSONObject o=a.optJSONObject(i);if(o!=null&&url.equals(o.optString("url"))){p.edit().putInt("queueIndex",i).apply();break;}}}catch(Exception ignored){}}
     private void stepQueue(int d){try{SharedPreferences p=getSharedPreferences(PREF,MODE_PRIVATE);JSONArray q=new JSONArray(p.getString("queue","[]"));if(q.length()==0)return;int i=p.getInt("queueIndex",0);i=(i+d)%q.length();if(i<0)i+=q.length();playQueueIndex(i);}catch(Exception ignored){}}
@@ -223,12 +287,12 @@ public class RadioService extends Service implements MediaPlayer.OnPreparedListe
 
     private void saveCurrent(){getSharedPreferences(PREF,MODE_PRIVATE).edit().putString("url",primaryUrl).putString("resolvedUrl",streamUrl).putString("name",stationName).apply();}
     private void saveRecent(){try{SharedPreferences p=getSharedPreferences(PREF,MODE_PRIVATE);JSONArray old;try{old=new JSONArray(p.getString("recentStations","[]"));}catch(Exception e){old=new JSONArray();}JSONArray out=new JSONArray();JSONObject n=new JSONObject();n.put("name",stationName);n.put("url",primaryUrl);out.put(n);for(int i=0;i<old.length()&&out.length()<20;i++){JSONObject x=old.optJSONObject(i);if(x!=null&&!primaryUrl.equals(x.optString("url")))out.put(x);}p.edit().putString("recentStations",out.toString()).apply();}catch(Exception ignored){}}
-    private void saveTelemetry(){try{JSONObject o=new JSONObject();o.put("startupMs",startupMs);o.put("bufferCount",bufferCount);o.put("lastError",lastError);o.put("since",playStartMs);o.put("buffering",buffering);o.put("reconnectAttempts",reconnectAttempts);o.put("resolvedUrl",streamUrl);o.put("silentGuard",false);o.put("livenessGuard",true);o.put("livenessMisses",livenessMisses);o.put("livenessRecoveries",livenessRecoveries);o.put("networkType",networkType);o.put("networkTransitions",networkTransitions);o.put("lastNetworkChangeMs",lastNetworkChangeMs);o.put("repairFailures",repairFailures);o.put("serviceUptimeMs",Math.max(0,System.currentTimeMillis()-serviceStartMs));o.put("liveMs",preparedAtMs>0?Math.max(0,System.currentTimeMillis()-preparedAtMs):0);o.put("playbackGuardian",true);o.put("guardianReason",PlaybackGuardian.reason(this));getSharedPreferences(PREF,MODE_PRIVATE).edit().putString("telemetry",o.toString()).apply();}catch(Exception ignored){}}
+    private void saveTelemetry(){try{JSONObject o=new JSONObject();o.put("startupMs",startupMs);o.put("bufferCount",bufferCount);o.put("lastError",lastError);o.put("since",playStartMs);o.put("buffering",buffering);o.put("reconnectAttempts",reconnectAttempts);o.put("resolvedUrl",streamUrl);o.put("silentGuard",false);o.put("livenessGuard",true);o.put("livenessMisses",livenessMisses);o.put("livenessRecoveries",livenessRecoveries);o.put("metadataProbe",true);o.put("metadataProbeBusy",metadataProbeBusy);o.put("metadataProbeSuccesses",metadataProbeSuccesses);o.put("metadataProbeFailures",metadataProbeFailures);o.put("lastPlayerMetadataMs",lastPlayerMetadataMs);o.put("networkType",networkType);o.put("networkTransitions",networkTransitions);o.put("lastNetworkChangeMs",lastNetworkChangeMs);o.put("repairFailures",repairFailures);o.put("serviceUptimeMs",Math.max(0,System.currentTimeMillis()-serviceStartMs));o.put("liveMs",preparedAtMs>0?Math.max(0,System.currentTimeMillis()-preparedAtMs):0);o.put("playbackGuardian",true);o.put("guardianReason",PlaybackGuardian.reason(this));getSharedPreferences(PREF,MODE_PRIVATE).edit().putString("telemetry",o.toString()).apply();}catch(Exception ignored){}}
 
     private void updateMediaSession(boolean playing,String subtitle){if(mediaSession==null)return;long acts=PlaybackState.ACTION_PLAY|PlaybackState.ACTION_PAUSE|PlaybackState.ACTION_PLAY_PAUSE|PlaybackState.ACTION_STOP|PlaybackState.ACTION_SKIP_TO_NEXT|PlaybackState.ACTION_SKIP_TO_PREVIOUS|PlaybackState.ACTION_PLAY_FROM_MEDIA_ID;int state=playing?PlaybackState.STATE_PLAYING:(userPaused?PlaybackState.STATE_PAUSED:PlaybackState.STATE_CONNECTING);mediaSession.setPlaybackState(new PlaybackState.Builder().setActions(acts).setState(state,PlaybackState.PLAYBACK_POSITION_UNKNOWN,playing?1f:0f).build());String now=getSharedPreferences(PREF,MODE_PRIVATE).getString("nowTitle","");mediaSession.setMetadata(new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,stationName).putString(MediaMetadata.METADATA_KEY_ARTIST,now.isEmpty()?subtitle:now).putString(MediaMetadata.METADATA_KEY_ALBUM,"Türk Radyo").build());}
     private void pause(boolean manual){if(manual){userPaused=true;resumeAfterFocus=false;PlaybackGuardian.manualPause(this);}else PlaybackGuardian.interrupted(this,"audio_focus");cancelTasks();if(player!=null)try{if(player.isPlaying())player.pause();}catch(Exception ignored){}updateMediaSession(false,manual?"Duraklatıldı":"Geçici olarak duraklatıldı");updateNotification(manual?"Duraklatıldı":"Geçici olarak duraklatıldı",false);}
-    private void resume(){PlaybackGuardian.manualPlay(this);resumeAfterFocus=false;userPaused=false;if(player!=null)try{player.start();updateMediaSession(true,"Canlı yayın");updateNotification("Canlı yayın",true);armLivenessWatchdog();}catch(Exception e){playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}else if(!primaryUrl.isEmpty())playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}
-    private void autoResumeAfterFocus(){if(userPaused||!resumeAfterFocus||!PlaybackGuardian.mayAutoResume(this))return;resumeAfterFocus=false;if(player!=null)try{player.start();PlaybackGuardian.recovered(this);updateMediaSession(true,"Canlı yayın");updateNotification("Canlı yayın",true);armLivenessWatchdog();}catch(Exception e){playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}else if(!primaryUrl.isEmpty())playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}
+    private void resume(){PlaybackGuardian.manualPlay(this);resumeAfterFocus=false;userPaused=false;if(player!=null)try{player.start();updateMediaSession(true,"Canlı yayın");updateNotification("Canlı yayın",true);armLivenessWatchdog();armMetadataProbe();}catch(Exception e){playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}else if(!primaryUrl.isEmpty())playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}
+    private void autoResumeAfterFocus(){if(userPaused||!resumeAfterFocus||!PlaybackGuardian.mayAutoResume(this))return;resumeAfterFocus=false;if(player!=null)try{player.start();PlaybackGuardian.recovered(this);updateMediaSession(true,"Canlı yayın");updateNotification("Canlı yayın",true);armLivenessWatchdog();armMetadataProbe();}catch(Exception e){playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}else if(!primaryUrl.isEmpty())playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}
     private void stopAll(){userPaused=true;resumeAfterFocus=false;PlaybackGuardian.manualPause(this);cancelTasks();releasePlayer();abandonFocus();if(mediaSession!=null)mediaSession.setActive(false);stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
 
     private void requestFocus(){if(Build.VERSION.SDK_INT>=26){if(focusRequest!=null)audioManager.abandonAudioFocusRequest(focusRequest);focusRequest=new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN).setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build()).setOnAudioFocusChangeListener(change->{if(change==AudioManager.AUDIOFOCUS_LOSS_TRANSIENT||change==AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK){resumeAfterFocus=player!=null&&!userPaused;pause(false);}else if(change==AudioManager.AUDIOFOCUS_GAIN){autoResumeAfterFocus();}else if(change==AudioManager.AUDIOFOCUS_LOSS){resumeAfterFocus=false;PlaybackGuardian.interrupted(this,"audio_focus_loss");pause(false);}}).build();audioManager.requestAudioFocus(focusRequest);}}
