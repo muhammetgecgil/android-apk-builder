@@ -1,0 +1,94 @@
+name: Build Battleship v18 Play Store RC
+
+on:
+  push:
+    branches: [ battleship-v1 ]
+    paths:
+      - 'battleship/**'
+      - '.github/workflows/build-battleship.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Install Android API 36
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+      - name: Set up Gradle 8.10.2
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10.2'
+      - name: Apply v8 stability patch
+        working-directory: battleship
+        run: python3 patch_v8.py
+      - name: Apply v9 cinematic patch
+        working-directory: battleship
+        run: python3 patch_v9.py
+      - name: Apply v10 tactical damage patch
+        working-directory: battleship
+        run: python3 patch_v10.py
+      - name: Apply v11 Naval Command UI patch
+        working-directory: battleship
+        run: python3 patch_v11.py
+      - name: Apply v12 Flagship Command Center patch
+        working-directory: battleship
+        run: python3 patch_v12.py
+      - name: Apply v13 Combat Command patch
+        working-directory: battleship
+        run: python3 patch_v13.py
+      - name: Apply v15 Bluetooth parity and undo patch
+        working-directory: battleship
+        run: python3 patch_v15.py
+      - name: Apply v16 responsive controls patch
+        working-directory: battleship
+        run: python3 patch_v16.py
+      - name: Apply v17 release candidate patch
+        working-directory: battleship
+        run: python3 patch_v17.py
+      - name: Build release APK and AAB
+        working-directory: battleship
+        run: gradle --no-daemon :app:assembleRelease :app:bundleRelease --stacktrace
+      - name: Verify package and version
+        run: |
+          test -s battleship/app/build/outputs/apk/release/app-release.apk
+          test -s battleship/app/build/outputs/bundle/release/app-release.aab
+          $ANDROID_HOME/build-tools/36.0.0/apksigner verify --verbose --print-certs battleship/app/build/outputs/apk/release/app-release.apk
+          $ANDROID_HOME/build-tools/36.0.0/aapt dump badging battleship/app/build/outputs/apk/release/app-release.apk | grep "package: name='com.mg.battleship'"
+          $ANDROID_HOME/build-tools/36.0.0/aapt dump badging battleship/app/build/outputs/apk/release/app-release.apk | grep "versionCode='18'"
+          jarsigner -verify -verbose -certs battleship/app/build/outputs/bundle/release/app-release.aab >/dev/null
+      - name: Rename outputs
+        run: |
+          cp battleship/app/build/outputs/apk/release/app-release.apk Amiral_Batti_v18.0_Play_Store_RC.apk
+          cp battleship/app/build/outputs/bundle/release/app-release.aab Amiral_Batti_v18.0_Play_Store_RC.aab
+      - name: Upload Play Store RC artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Amiral-Batti-v18.0-Play-Store-RC
+          path: |
+            Amiral_Batti_v18.0_Play_Store_RC.apk
+            Amiral_Batti_v18.0_Play_Store_RC.aab
+          if-no-files-found: error
+          retention-days: 30
+      - name: Publish RC release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="amiral-batti-v18-play-store-rc"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" Amiral_Batti_v18.0_Play_Store_RC.apk Amiral_Batti_v18.0_Play_Store_RC.aab --clobber
+          else
+            gh release create "$TAG" Amiral_Batti_v18.0_Play_Store_RC.apk Amiral_Batti_v18.0_Play_Store_RC.aab --title "Amiral Battı v18.0 - Play Store RC" --notes "Android 16 / API 36 hedefli Play Store release candidate. Release APK ve AAB üretilir. Paket adı com.mg.battleship ve versionCode 18. v17 oyun özellikleri korunur. Not: üretim Play yükleme anahtarı public repodaki geliştirme anahtarından ayrı tutulmalıdır."
+          fi

@@ -1,0 +1,40 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.mg.battleship'
+    compileSdk 36
+
+    signingConfigs {
+        persistentDev {
+            storeFile file('../signing/amiral-dev.jks')
+            storePassword 'AmiralDev2026!'
+            keyAlias 'amiral'
+            keyPassword 'AmiralDev2026!'
+        }
+    }
+
+    defaultConfig {
+        applicationId 'com.mg.battleship'
+        minSdk 26
+        targetSdk 36
+        versionCode 18
+        versionName '18.0'
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.persistentDev
+        }
+        release {
+            // RC/internal-test signing only. Production Play upload key is kept outside the public repo.
+            signingConfig signingConfigs.persistentDev
+            minifyEnabled false
+        }
+    }
+
+    sourceSets {
+        main.java.srcDirs = ['src/v7/java', 'src/v4/java']
+    }
+}

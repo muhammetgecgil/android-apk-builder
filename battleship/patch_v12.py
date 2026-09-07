@@ -1,0 +1,68 @@
+from pathlib import Path
+
+p=Path('app/src/v7/java/com/mg/battleship/GameActivity.java')
+s=p.read_text(encoding='utf-8')
+
+def rep(old,new,label):
+    global s
+    if old not in s:
+        raise SystemExit('missing v12 patch target: '+label)
+    s=s.replace(old,new,1)
+
+# Tactical-mode state and controls.
+rep('private Button rotate,randomize,ready;\n    private LinearLayout setupControls;',
+    'private Button rotate,randomize,ready,sonarB,reconB;\n    private LinearLayout setupControls,tacticalBar;','tactical-fields')
+rep('private boolean solo=false,career=false,connected=false,localReady=false,remoteReady=false,myTurn=false;',
+    'private boolean solo=false,career=false,connected=false,localReady=false,remoteReady=false,myTurn=false,tacticalMode=false,sonarUsed=false,reconUsed=false,sonarArmed=false;','tactical-state')
+
+# Two-column dashboard helper.
+rep('private void addButton(LinearLayout root,Button b){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(56));lp.setMargins(dp(8),dp(5),dp(8),dp(5));root.addView(b,lp);}',
+'''private void addButton(LinearLayout root,Button b){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(56));lp.setMargins(dp(8),dp(5),dp(8),dp(5));root.addView(b,lp);}\n    private void addCommandRow(LinearLayout root,Button a,Button b){LinearLayout row=new LinearLayout(this);row.setOrientation(LinearLayout.HORIZONTAL);LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,dp(68));rp.setMargins(dp(4),dp(4),dp(4),dp(4));root.addView(row,rp);for(Button x:new Button[]{a,b}){x.setTextSize(14);x.setGravity(Gravity.CENTER);x.setPadding(dp(8),0,dp(8),0);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);lp.setMargins(dp(4),0,dp(4),0);row.addView(x,lp);}}\n    private String bar(int value,int target){int n=Math.max(0,Math.min(6,target==0?6:Math.round(6f*value/target)));StringBuilder z=new StringBuilder();for(int i=0;i<6;i++)z.append(i<n?'■':'□');return z.toString();}''','dashboard-helper')
+
+# Dashboard menu replaces the long single-column button stack.
+rep('Button soloB=btn("⚔  TEK OYUNCU"),btB=btn("⌁  BLUETOOTH SAVAŞI"),careerB=btn("★  DENİZ HARBİ KARİYERİ"),fleetB=btn("▰  FİLOM"),statsB=btn("◎  MUHAREBE KAYDI");\n        addButton(root,soloB);addButton(root,btB);addButton(root,careerB);addButton(root,fleetB);addButton(root,statsB);',
+'''int s0=shots(),h0=hits();float a0=s0==0?0f:100f*h0/s0;TextView readiness=label("KOMUTA DURUMU   •   "+wins()+" ZAFER   •   %"+String.format(java.util.Locale.US,"%.0f",a0)+" İSABET   •   "+Math.min(5,prefs.getInt("career",0)+1)+"/5 BÖLGE",12,Color.rgb(157,210,220));readiness.setBackground(panel(Color.rgb(5,28,39),Color.rgb(35,79,92),12));LinearLayout.LayoutParams qlp=new LinearLayout.LayoutParams(-1,dp(38));qlp.setMargins(dp(10),0,dp(10),dp(8));root.addView(readiness,qlp);\n        Button soloB=btn("⚔  TEK OYUNCU"),btB=btn("⌁  BLUETOOTH"),careerB=btn("★  KARİYER"),tacticalB=btn("◉  TAKTİK MOD"),fleetB=btn("▰  FİLOM"),missionB=btn("◇  GÖREVLER"),achievementB=btn("✦  BAŞARIMLAR"),statsB=btn("◎  KAYITLAR");\n        addCommandRow(root,soloB,btB);addCommandRow(root,careerB,tacticalB);addCommandRow(root,fleetB,missionB);addCommandRow(root,achievementB,statsB);''','menu-dashboard')
+rep('TextView footer=label("v11 • NAVAL COMMAND UI • Tactical Glass • Radar Grid • Cinematic Warfare",11,Color.rgb(112,151,164));',
+    'TextView footer=label("v12 • FLAGSHIP COMMAND CENTER • Sonar • Recon • Missions • Achievements",11,Color.rgb(112,151,164));','footer')
+rep('soloB.setOnClickListener(v->showDifficulty(false));btB.setOnClickListener(v->startBattle(false,false,2));careerB.setOnClickListener(v->showCareer());fleetB.setOnClickListener(v->showFleet());statsB.setOnClickListener(v->showStats());',
+'''soloB.setOnClickListener(v->{tacticalMode=false;showDifficulty(false);});btB.setOnClickListener(v->{tacticalMode=false;startBattle(false,false,2);});careerB.setOnClickListener(v->{tacticalMode=false;showCareer();});tacticalB.setOnClickListener(v->{tacticalMode=true;showDifficulty(false);});fleetB.setOnClickListener(v->showFleet());missionB.setOnClickListener(v->showMissions());achievementB.setOnClickListener(v->showAchievements());statsB.setOnClickListener(v->showStats());''','menu-actions')
+
+# Add real mission + achievement screens before stats.
+rep('    private void showStats(){',
+'''    private void showMissions(){\n        LinearLayout root=shell();root.addView(label("OPERASYON MERKEZİ",27,Color.WHITE));root.addView(label("Aktif görevler otomatik olarak savaş kayıtlarından ilerler.",13,Color.rgb(110,205,230)));\n        int[][] m={{wins(),3},{hits(),30},{shots(),80},{prefs.getInt("career",0)+1,3}};String[] n={"3 MUHAREBE KAZAN","30 DOĞRUDAN İSABET","80 ATIŞ YAP","3 KARİYER BÖLGESİ AÇ"};for(int i=0;i<n.length;i++){int v=Math.min(m[i][0],m[i][1]);TextView x=label(n[i]+"\\n"+bar(v,m[i][1])+"   "+v+" / "+m[i][1],15,v>=m[i][1]?Color.rgb(150,235,183):Color.rgb(214,232,238));x.setBackground(panel(Color.rgb(7,34,47),v>=m[i][1]?Color.rgb(47,133,91):Color.rgb(35,87,105),14));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(70));lp.setMargins(dp(6),dp(5),dp(6),dp(5));root.addView(x,lp);}\n        Button back=btn("← Komuta Merkezi");addButton(root,back);back.setOnClickListener(v->showMainMenu());setContentView(root);root.requestApplyInsets();\n    }\n\n    private void showAchievements(){\n        LinearLayout root=shell();root.addView(label("BAŞARIM ROZETLERİ",27,Color.WHITE));String[] n={"İLK ZAFER","KESKİN NİŞANCI","SAVAŞ VETERANI","100 İSABET","AMİRAL RÜTBESİ","OKYANUS KOMUTANI"};boolean[] ok={wins()>=1,shots()>=30&&hits()*100>=shots()*40,wins()+losses()>=10,hits()>=100,rankIndex()>=4,prefs.getInt("career",0)>=4};for(int i=0;i<n.length;i++){TextView x=label((ok[i]?"✦  ":"◇  ")+n[i]+"\\n"+(ok[i]?"KAZANILDI":"KİLİTLİ"),15,ok[i]?Color.rgb(255,218,112):Color.rgb(128,156,166));x.setBackground(panel(ok[i]?Color.rgb(38,40,28):Color.rgb(7,31,42),ok[i]?Color.rgb(138,111,47):Color.rgb(34,75,88),14));LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,dp(62));lp.setMargins(dp(6),dp(4),dp(6),dp(4));root.addView(x,lp);}\n        Button back=btn("← Komuta Merkezi");addButton(root,back);back.setOnClickListener(v->showMainMenu());setContentView(root);root.requestApplyInsets();\n    }\n\n    private void showStats(){''','mission-achievement-screens')
+
+# Reset tactical abilities per battle and show tactical doctrine in the heading.
+rep('solo=soloMode;career=careerMode;aiLevel=difficulty;connected=false;localReady=remoteReady=myTurn=false;aiTargets.clear();matchShots=matchHits=enemySunkCount=hitStreak=bestStreak=0;matchStartTime=System.currentTimeMillis();lastAiHitR=lastAiHitC=prevAiHitR=prevAiHitC=-1;',
+    'solo=soloMode;career=careerMode;aiLevel=difficulty;connected=false;localReady=remoteReady=myTurn=false;aiTargets.clear();sonarUsed=reconUsed=sonarArmed=false;matchShots=matchHits=enemySunkCount=hitStreak=bestStreak=0;matchStartTime=System.currentTimeMillis();lastAiHitR=lastAiHitC=prevAiHitR=prevAiHitC=-1;','battle-reset')
+rep('TextView top=label(career?REGIONS[careerStage]:(solo?"TEK OYUNCU • "+DIFF[aiLevel]:"BLUETOOTH SAVAŞI"),18,Color.WHITE);root.addView(top);',
+    'TextView top=label(career?REGIONS[careerStage]:(solo?(tacticalMode?"TAKTİK MOD • ":"TEK OYUNCU • ")+DIFF[aiLevel]:"BLUETOOTH SAVAŞI"),18,Color.WHITE);top.setLetterSpacing(.08f);root.addView(top);','battle-title')
+
+# Tactical ability bar, hidden until combat starts.
+rep('for(Button b:new Button[]{rotate,randomize,ready}){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(54),1);lp.setMargins(dp(3),dp(4),dp(3),0);setupControls.addView(b,lp);}root.addView(setupControls);',
+'''for(Button b:new Button[]{rotate,randomize,ready}){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(54),1);lp.setMargins(dp(3),dp(4),dp(3),0);setupControls.addView(b,lp);}root.addView(setupControls);\n        tacticalBar=new LinearLayout(this);tacticalBar.setOrientation(LinearLayout.HORIZONTAL);tacticalBar.setVisibility(View.GONE);sonarB=btn("◉ SONAR  1×");reconB=btn("⌖ KEŞİF  1×");for(Button b:new Button[]{sonarB,reconB}){b.setGravity(Gravity.CENTER);LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(50),1);lp.setMargins(dp(4),dp(3),dp(4),0);tacticalBar.addView(b,lp);}root.addView(tacticalBar);''','tactical-bar')
+rep('ready.setOnClickListener(v->setReady());\n        if(solo){board.randomizeAi();}else ensureBluetooth();',
+'''ready.setOnClickListener(v->setReady());sonarB.setOnClickListener(v->{if(tacticalMode&&solo&&!sonarUsed&&board.playing&&myTurn){sonarArmed=true;status.setText("SONAR HAZIR — düşman denizinde merkez kare seç.");cinematic("◉  SONAR DARBESİ HAZIR",650);}});reconB.setOnClickListener(v->{if(tacticalMode&&solo&&!reconUsed&&board.playing&&myTurn)useRecon();});\n        if(solo){board.randomizeAi();}else ensureBluetooth();''','tactical-actions')
+
+# Show tactical actions when combat begins.
+rep('private void enterCombat(){if(setupControls!=null)setupControls.setVisibility(View.GONE);if(battleHud!=null)battleHud.setVisibility(View.VISIBLE);updateHud();}',
+    'private void enterCombat(){if(setupControls!=null)setupControls.setVisibility(View.GONE);if(battleHud!=null)battleHud.setVisibility(View.VISIBLE);if(tacticalBar!=null)tacticalBar.setVisibility(tacticalMode&&solo?View.VISIBLE:View.GONE);updateHud();}','enter-combat')
+
+# Tactical abilities implementation.
+rep('private void restoreTurnPrompt(){if(board!=null&&board.playing&&!board.gameOver&&myTurn){status.setText("SIRA SENDE — vurulmamış bir hedef seç.");updateHud();}}',
+'''private void restoreTurnPrompt(){if(board!=null&&board.playing&&!board.gameOver&&myTurn){status.setText("SIRA SENDE — vurulmamış bir hedef seç.");updateHud();}}\n    private void useSonar(int r,int c){if(sonarUsed||!tacticalMode||!solo)return;sonarUsed=true;sonarArmed=false;int count=0;for(int rr=Math.max(0,r-1);rr<=Math.min(9,r+1);rr++)for(int cc=Math.max(0,c-1);cc<=Math.min(9,c+1);cc++)if(board.aiFleet[rr][cc]>=0)count++;if(sonarB!=null){sonarB.setEnabled(false);sonarB.setText("SONAR KULLANILDI");}board.intelR=r;board.intelC=c;board.intelUntil=System.currentTimeMillis()+1800;board.invalidate();cinematic("◉  SONAR: 3×3 BÖLGEDE "+count+" GÖVDE İZİ",1250);status.setText("Sonar taraması tamamlandı — sıran devam ediyor.");}\n    private void useRecon(){reconUsed=true;if(reconB!=null){reconB.setEnabled(false);reconB.setText("KEŞİF KULLANILDI");}List<int[]> q=new ArrayList<>();for(int r=0;r<10;r++)for(int c=0;c<10;c++)if(board.aiFleet[r][c]>=0&&board.enemyMarks[r][c]==0)q.add(new int[]{r,c});if(q.isEmpty()){cinematic("⌖  KEŞİF: YENİ HEDEF YOK",700);return;}int[] z=q.get(rnd.nextInt(q.size()));board.intelR=z[0];board.intelC=z[1];board.intelUntil=System.currentTimeMillis()+2600;board.invalidate();cinematic("⌖  KEŞİF TEMASI — "+(char)('A'+z[1])+(z[0]+1),1500);status.setText("Keşif olası düşman bölümünü işaretledi — sıran devam ediyor.");}''','tactical-methods')
+
+# Intel marker state.
+rep('int placed=0;boolean horizontal=true,playing=false,gameOver=false;int flashR=-1,flashC=-1;boolean flashMine=false,flashHit=false;long flashUntil=0;int sinkShip=-1;',
+    'int placed=0;boolean horizontal=true,playing=false,gameOver=false;int flashR=-1,flashC=-1;boolean flashMine=false,flashHit=false;long flashUntil=0;int intelR=-1,intelC=-1;long intelUntil=0;int sinkShip=-1;','intel-fields')
+
+# Draw sonar/recon marker over enemy grid.
+rep('if(System.currentTimeMillis()<flashUntil&&flashMine==mine){float cx=left+(flashC+.5f)*cell,cy=top+(flashR+.5f)*cell;',
+'''if(!mine&&System.currentTimeMillis()<intelUntil&&intelR>=0){float ix=left+(intelC+.5f)*cell,iy=top+(intelR+.5f)*cell;p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(cell*.07f);p.setColor(Color.rgb(255,218,90));c.drawCircle(ix,iy,cell*.36f,p);c.drawLine(ix-cell*.45f,iy,ix+cell*.45f,iy,p);c.drawLine(ix,iy-cell*.45f,ix,iy+cell*.45f,p);p.setStyle(Paint.Style.FILL);postInvalidateDelayed(100);}\n            if(System.currentTimeMillis()<flashUntil&&flashMine==mine){float cx=left+(flashC+.5f)*cell,cy=top+(flashR+.5f)*cell;''','intel-draw')
+
+# Sonar selection intercepts the v8 safe-turn enemy-grid tap without consuming the turn.
+old_touch='''if(playing&&myTurn&&!gameOver){int c=(int)((e.getX()-left)/cell),r=(int)((e.getY()-t2)/cell);if(valid(r,c)){if(enemyMarks[r][c]!=0){status.setText("BU KOORDİNAT ZATEN VURULDU — sıran devam ediyor.");flash(r,c,false,false);main.postDelayed(GameActivity.this::restoreTurnPrompt,700);return true;}if(solo)playerShot(r,c);else if(connected){myTurn=false;link.send("SHOT|"+r+"|"+c);status.setText("ATIŞ GÖNDERİLDİ — sonuç bekleniyor…");updateHud();main.postDelayed(()->{if(!solo&&board!=null&&board.playing&&!board.gameOver&&!myTurn&&connected)status.setText("SONUÇ BEKLENİYOR — Bluetooth bağlantısı aktif…");},2200);}}}return true;}'''
+new_touch='''if(playing&&myTurn&&!gameOver){int c=(int)((e.getX()-left)/cell),r=(int)((e.getY()-t2)/cell);if(valid(r,c)){if(tacticalMode&&solo&&sonarArmed){useSonar(r,c);return true;}if(enemyMarks[r][c]!=0){status.setText("BU KOORDİNAT ZATEN VURULDU — sıran devam ediyor.");flash(r,c,false,false);main.postDelayed(GameActivity.this::restoreTurnPrompt,700);return true;}if(solo)playerShot(r,c);else if(connected){myTurn=false;link.send("SHOT|"+r+"|"+c);status.setText("ATIŞ GÖNDERİLDİ — sonuç bekleniyor…");updateHud();main.postDelayed(()->{if(!solo&&board!=null&&board.playing&&!board.gameOver&&!myTurn&&connected)status.setText("SONUÇ BEKLENİYOR — Bluetooth bağlantısı aktif…");},2200);}}}return true;}'''
+rep(old_touch,new_touch,'sonar-touch')
+
+p.write_text(s,encoding='utf-8')
+print('v12 flagship command center patch applied')
