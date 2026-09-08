@@ -1,0 +1,38 @@
+name: Validate v108.8 landscape rendering
+on:
+  push:
+    branches: [aircraft-sim-v108-8-realistic-landscape]
+    paths: ['flight-sim/landscape-v1088/**', '.github/workflows/aircraft-v108-8-render.yml']
+permissions: {contents: read}
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v5
+        with: {distribution: temurin, java-version: '17'}
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.11'}
+      - name: Install headless OpenGL validation dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libegl1-mesa-dev libgles2-mesa-dev
+          pip install numpy==1.26.4 Pillow==10.4.0 PyOpenGL==3.1.7
+      - name: Validate geometry and render actual APK shaders
+        working-directory: flight-sim/landscape-v1088
+        run: |
+          mkdir -p build/classes build/validation
+          javac --release 8 -d build/classes src/com/mg/fixturecockpitsim/visual/CinematicTerrainMesh.java tests/TerrainCheck.java
+          java -cp build/classes TerrainCheck build/validation | tee build/validation/geometry-results.txt
+          python tests/render_validate.py build/validation
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aircraft-v108-8-render-validation
+          path: |
+            flight-sim/landscape-v1088/build/validation/*.png
+            flight-sim/landscape-v1088/build/validation/*.json
+            flight-sim/landscape-v1088/build/validation/*.txt
+          retention-days: 30
+          if-no-files-found: error
