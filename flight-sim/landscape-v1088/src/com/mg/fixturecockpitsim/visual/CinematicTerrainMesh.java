@@ -14,20 +14,27 @@ public final class CinematicTerrainMesh {
         float part = kind == 4 ? 65f : 60f + kind;
         for (int iz = 0; iz < NZ; iz++) {
             float depth = (float) Math.pow(iz / (float) (NZ - 1), 1.45);
-            float z = -7f - 398f * depth;
+            float z = 22f - 427f * depth;
             for (int ix = 0; ix < NX; ix++) {
                 float u = ix * 2f / (NX - 1) - 1f;
                 float x = Math.copySign(112f * (float) Math.pow(Math.abs(u), 1.2), u);
                 float y = height(kind, x, z);
-                // Central differences preserve a coherent surface across all triangles.
-                float eps = .42f;
-                float dx = (height(kind, x + eps, z) - height(kind, x - eps, z)) / (2f * eps);
-                float dz = (height(kind, x, z + eps) - height(kind, x, z - eps)) / (2f * eps);
-                float inv = 1f / (float) Math.sqrt(dx * dx + dz * dz + 1f);
                 int p = (iz * NX + ix) * 6;
                 points[p] = x; points[p + 1] = y; points[p + 2] = z;
-                points[p + 3] = -dx * inv; points[p + 4] = inv; points[p + 5] = -dz * inv;
             }
+        }
+        // Normals follow the sampled mesh, avoiding high-frequency shading that
+        // cannot be represented by distant geometry at this level of detail.
+        for (int iz = 0; iz < NZ; iz++) for (int ix = 0; ix < NX; ix++) {
+            int p = (iz * NX + ix) * 6;
+            int l = (iz * NX + Math.max(0, ix - 1)) * 6;
+            int r = (iz * NX + Math.min(NX - 1, ix + 1)) * 6;
+            int n = (Math.max(0, iz - 1) * NX + ix) * 6;
+            int f = (Math.min(NZ - 1, iz + 1) * NX + ix) * 6;
+            float dx = (points[r + 1] - points[l + 1]) / (points[r] - points[l]);
+            float dz = (points[f + 1] - points[n + 1]) / (points[f + 2] - points[n + 2]);
+            float inv = 1f / (float) Math.sqrt(dx * dx + dz * dz + 1f);
+            points[p + 3] = -dx * inv; points[p + 4] = inv; points[p + 5] = -dz * inv;
         }
         float[] out = new float[(NX - 1) * (NZ - 1) * 6 * 7];
         int cursor = 0;
@@ -70,7 +77,7 @@ public final class CinematicTerrainMesh {
         if (kind == 0) {
             float center = 18f * (noise(z * .018f, 4.3f) - .5f);
             float valley = 1f - smooth(4f, 25f, Math.abs(x - center));
-            float mountain = (10f * broad + 35f * ridges + 3.2f * detail);
+            float mountain = (10f * broad + 30f * ridges + 1.1f * detail);
             return -10.8f + (0.06f + .94f * far) * mountain * (1f - .72f * valley);
         }
         if (kind == 1) {
@@ -96,7 +103,7 @@ public final class CinematicTerrainMesh {
 
     private static float ridge(float x, float z) {
         float sum = 0f, weight = .56f;
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < 3; i++) {
             float n = 1f - Math.abs(2f * noise(x, z) - 1f);
             sum += n * n * weight;
             float oldX = x;
