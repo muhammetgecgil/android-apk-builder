@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Fix stable-reset syntax in candidate workspace
+      - name: Fix candidate compile details in workspace
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -24,8 +24,10 @@ jobs:
           s=p.read_text()
           old='private void armStableReset(){cancelStable();stableTask=()->{if(player!=null&&!userPaused)try{if(player.isPlaying()){sameSourceRetries=0;reconnectAttempts=0;recoveryBusy=false;PlaybackGuardian.recovered(this);saveTelemetry();}}catch(Exception ignored){};handler.postDelayed(stableTask,STABLE_RESET_MS);}'
           new='private void armStableReset(){cancelStable();stableTask=()->{if(player!=null&&!userPaused){try{if(player.isPlaying()){sameSourceRetries=0;reconnectAttempts=0;recoveryBusy=false;PlaybackGuardian.recovered(this);saveTelemetry();}}catch(Exception ignored){}}};handler.postDelayed(stableTask,STABLE_RESET_MS);}'
-          if old not in s: raise SystemExit('expected syntax line not found')
-          p.write_text(s.replace(old,new))
+          if old in s:
+              s=s.replace(old,new)
+          s=s.replace('Process.THREAD_PRIORITY_AUDIO','android.os.Process.THREAD_PRIORITY_AUDIO')
+          p.write_text(s)
           PY
       - name: Set up JDK 17
         uses: actions/setup-java@v4
