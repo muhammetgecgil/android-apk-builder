@@ -40,6 +40,7 @@ public class AutoMediaService extends MediaBrowserService {
     private Runnable syncTask;
     private String lastMetaSignature="";
     private int lastState=-1;
+    private boolean stoppedByCar=false;
 
     @Override public void onCreate(){
         super.onCreate();
@@ -47,12 +48,12 @@ public class AutoMediaService extends MediaBrowserService {
         session=new MediaSession(this,"TurkRadyoAuto");
         session.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS|MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS);
         session.setCallback(new MediaSession.Callback(){
-            @Override public void onPlay(){playLast();}
-            @Override public void onPause(){send(RadioService.ACTION_PAUSE,false);setState(PlaybackState.STATE_PAUSED);}
-            @Override public void onStop(){send(RadioService.ACTION_STOP,false);setState(PlaybackState.STATE_STOPPED);}
-            @Override public void onSkipToNext(){send(RadioService.ACTION_NEXT,false);setState(PlaybackState.STATE_CONNECTING);syncSoon();}
-            @Override public void onSkipToPrevious(){send(RadioService.ACTION_PREV,false);setState(PlaybackState.STATE_CONNECTING);syncSoon();}
-            @Override public void onPlayFromMediaId(String mediaId,Bundle extras){playMediaId(mediaId);}
+            @Override public void onPlay(){stoppedByCar=false;playLast();}
+            @Override public void onPause(){stoppedByCar=false;send(RadioService.ACTION_PAUSE,false);setState(PlaybackState.STATE_PAUSED);}
+            @Override public void onStop(){stoppedByCar=true;send(RadioService.ACTION_STOP,false);setState(PlaybackState.STATE_STOPPED);}
+            @Override public void onSkipToNext(){stoppedByCar=false;send(RadioService.ACTION_NEXT,false);setState(PlaybackState.STATE_CONNECTING);syncSoon();}
+            @Override public void onSkipToPrevious(){stoppedByCar=false;send(RadioService.ACTION_PREV,false);setState(PlaybackState.STATE_CONNECTING);syncSoon();}
+            @Override public void onPlayFromMediaId(String mediaId,Bundle extras){stoppedByCar=false;playMediaId(mediaId);}
         });
         session.setActive(true);
         setSessionToken(session.getSessionToken());
@@ -152,12 +153,16 @@ public class AutoMediaService extends MediaBrowserService {
             boolean playing=t.optBoolean("isPlaying",false);
             boolean buffering=t.optBoolean("buffering",false);
             int playerState=t.optInt("playerState",0);
+            boolean manualPause=false;
+            try{manualPause=new JSONObject(PlaybackGuardian.statusJson(this)).optBoolean("manualPause",false);}catch(Exception ignored){}
             String url=prefs.getString("url","");
 
+            if(playing)stoppedByCar=false;
             int state;
             if(playing)state=PlaybackState.STATE_PLAYING;
-            else if(buffering||playerState==2)state=PlaybackState.STATE_CONNECTING;
-            else if(url!=null&&!url.isEmpty())state=PlaybackState.STATE_PAUSED;
+            else if(stoppedByCar)state=PlaybackState.STATE_STOPPED;
+            else if(manualPause)state=PlaybackState.STATE_PAUSED;
+            else if(buffering||playerState==2||(url!=null&&!url.isEmpty()))state=PlaybackState.STATE_CONNECTING;
             else state=PlaybackState.STATE_STOPPED;
 
             String sig=station+"\n"+track;
