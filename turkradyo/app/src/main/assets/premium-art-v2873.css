@@ -1,0 +1,51 @@
+/* Keep card dimensions, placement, profile and theme; enrich only the artwork. */
+body.tr-refined .tr-premium-art{
+ --art-accent:var(--p270accent,var(--accent,#ff3647));
+ --art-light:color-mix(in srgb,var(--art-accent) 48%,#fff);
+ --art-shade:color-mix(in srgb,var(--art-accent) 28%,#9aa3b5);
+ --art-dark:color-mix(in srgb,var(--art-accent) 55%,#221521);
+ display:block;fill:none;stroke:none;overflow:visible;pointer-events:none;
+}
+body.tr-refined.profile2-active #p2UnifiedPremiumGrid263>:is(#v12Similar,#v12Genres,#v12Smart,#p2DNA,#p2Tracks,#p2Alarm,#p2Sleep,#p2Genres) .p263Icon{
+ width:53px!important;height:53px!important;min-width:53px!important;min-height:53px!important;max-width:53px!important;max-height:53px!important;
+ margin:0 0 6px!important;padding:0!important;overflow:visible!important;
+ border:1px solid color-mix(in srgb,var(--p270accent,var(--accent)) 48%,#ffffff35)!important;
+ background:radial-gradient(ellipse at 32% 18%,#ffffff16,transparent 58%),radial-gradient(circle at 62% 75%,color-mix(in srgb,var(--p270accent,var(--accent)) 13%,transparent),transparent 65%),linear-gradient(145deg,var(--p270surface2,#241520),#0a0a12)!important;
+ box-shadow:inset 0 1px 1px #ffffff25,inset 0 -3px 7px #0008,0 3px 8px #0005!important;
+ text-shadow:none!important;
+}
+body.tr-refined.profile2-active #p2UnifiedPremiumGrid263>:is(#v12Similar,#v12Genres,#v12Smart,#p2DNA,#p2Tracks,#p2Alarm,#p2Sleep,#p2Genres) .p263Icon::before{
+ content:"";position:absolute;inset:3px;border-radius:50%;border:1px solid #ffffff09;pointer-events:none;
+}
+body.tr-refined.profile2-active #p2UnifiedPremiumGrid263>:is(#v12Similar,#v12Genres,#v12Smart,#p2DNA,#p2Tracks,#p2Alarm,#p2Sleep,#p2Genres) .p263Icon svg.tr-premium-art{
+ position:relative;z-index:1;width:48px!important;height:48px!important;max-width:48px!important;max-height:48px!important;
+ fill:none!important;stroke:none!important;filter:none!important;transform:none!important;
+}
+body.tr-refined .tr-art-hero{display:grid;place-items:center;flex:0 0 auto;pointer-events:none}
+body.tr-refined .tr-art-hero .tr-premium-art{width:88px;height:88px}
+body.tr-refined .p24TimerHero{
+ display:flex;align-items:center;justify-content:center;gap:19px;min-height:150px;
+ background:radial-gradient(ellipse at 20% 25%,color-mix(in srgb,var(--accent) 13%,transparent),transparent 65%),linear-gradient(150deg,var(--card2,#21131c),var(--bg,#08070b))!important;
+ box-shadow:inset 0 1px 0 #ffffff12;
+}
+body.tr-refined .p24Clock{min-width:0;font-size:42px;line-height:1.15;text-align:left}
+body.tr-refined .p24Clock small{margin-top:12px;font-size:9px;letter-spacing:1.1px;font-weight:600;color:var(--detail-muted)}
+body.tr-refined .tr-dna-identity{display:flex;align-items:center;gap:10px;min-width:0}
+body.tr-refined .tr-dna-identity .tr-art-hero .tr-premium-art{width:57px;height:70px}
+body.tr-refined .tr-dna-identity>div{min-width:0}
+body.tr-refined .tr-dna-identity strong{font-size:18px;overflow-wrap:anywhere}
+body.tr-refined .tr-dna-identity small{line-height:1.5}
+body.tr-refined .p24Hero{background:radial-gradient(ellipse at 8% 20%,color-mix(in srgb,var(--accent) 13%,transparent),transparent 65%),linear-gradient(150deg,var(--card2,#21131c),var(--bg,#08070b))!important;border-color:var(--detail-line)!important}
+body.tr-refined .p24Score{flex:0 0 auto;border-color:var(--detail-line);background:color-mix(in srgb,var(--accent) 8%,var(--card));font-variant-numeric:tabular-nums}
+@media(max-width:375px){
+ body.tr-refined.profile2-active #p2UnifiedPremiumGrid263>:is(#v12Similar,#v12Genres,#v12Smart,#p2DNA,#p2Tracks,#p2Alarm,#p2Sleep,#p2Genres) .p263Icon{width:48px!important;height:48px!important;min-width:48px!important;min-height:48px!important;max-width:48px!important;max-height:48px!important;margin-bottom:7px!important}
+ body.tr-refined.profile2-active #p2UnifiedPremiumGrid263>:is(#v12Similar,#v12Genres,#v12Smart,#p2DNA,#p2Tracks,#p2Alarm,#p2Sleep,#p2Genres) .p263Icon svg.tr-premium-art{width:44px!important;height:44px!important;max-width:44px!important;max-height:44px!important}
+ body.tr-refined .p24TimerHero{gap:10px;padding:16px 12px!important}
+ body.tr-refined .tr-art-hero .tr-premium-art{width:74px;height:80px}
+ body.tr-refined .p24Clock{font-size:36px!important}
+ body.tr-refined .tr-dna-identity{gap:6px}
+ body.tr-refined .tr-dna-identity .tr-art-hero .tr-premium-art{width:43px;height:60px}
+ body.tr-refined .tr-dna-identity strong{font-size:16px}
+}
+
+body.tr-refined.profile2-active #p2UnifiedPremiumGrid263>#v12Smart .p263Icon svg.p285CalmPulse{width:40px!important;height:40px!important;max-width:40px!important;max-height:40px!important}

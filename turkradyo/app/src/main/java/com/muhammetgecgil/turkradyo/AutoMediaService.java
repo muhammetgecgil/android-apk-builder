@@ -54,6 +54,11 @@ public class AutoMediaService extends MediaBrowserService {
             @Override public void onSkipToNext(){stoppedByCar=false;send(RadioService.ACTION_NEXT,false);setState(PlaybackState.STATE_CONNECTING);syncSoon();}
             @Override public void onSkipToPrevious(){stoppedByCar=false;send(RadioService.ACTION_PREV,false);setState(PlaybackState.STATE_CONNECTING);syncSoon();}
             @Override public void onPlayFromMediaId(String mediaId,Bundle extras){stoppedByCar=false;playMediaId(mediaId);}
+            @Override public void onPlayFromSearch(String query,Bundle extras){
+                stoppedByCar=false;
+                Intent command=new Intent(AutoMediaService.this,RadioService.class).setAction(RadioService.ACTION_SEARCH).putExtra("query",query);
+                startForegroundService(command);setState(PlaybackState.STATE_CONNECTING);syncSoon();
+            }
         });
         session.setActive(true);
         setSessionToken(session.getSessionToken());
@@ -67,7 +72,7 @@ public class AutoMediaService extends MediaBrowserService {
     private long actions(){
         return PlaybackState.ACTION_PLAY|PlaybackState.ACTION_PAUSE|PlaybackState.ACTION_PLAY_PAUSE|
                 PlaybackState.ACTION_STOP|PlaybackState.ACTION_SKIP_TO_NEXT|PlaybackState.ACTION_SKIP_TO_PREVIOUS|
-                PlaybackState.ACTION_PLAY_FROM_MEDIA_ID;
+                PlaybackState.ACTION_PLAY_FROM_MEDIA_ID|PlaybackState.ACTION_PLAY_FROM_SEARCH;
     }
 
     private void setState(int state){
@@ -157,11 +162,11 @@ public class AutoMediaService extends MediaBrowserService {
             try{manualPause=new JSONObject(PlaybackGuardian.statusJson(this)).optBoolean("manualPause",false);}catch(Exception ignored){}
             String url=prefs.getString("url","");
 
-            if(playing)stoppedByCar=false;
+            if(playing&&!manualPause)stoppedByCar=false;
             int state;
-            if(playing)state=PlaybackState.STATE_PLAYING;
-            else if(stoppedByCar)state=PlaybackState.STATE_STOPPED;
+            if(stoppedByCar||!t.optBoolean("serviceActive",true))state=PlaybackState.STATE_STOPPED;
             else if(manualPause)state=PlaybackState.STATE_PAUSED;
+            else if(playing)state=PlaybackState.STATE_PLAYING;
             else if(buffering||playerState==2||(url!=null&&!url.isEmpty()))state=PlaybackState.STATE_CONNECTING;
             else state=PlaybackState.STATE_STOPPED;
 

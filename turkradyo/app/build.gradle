@@ -16,8 +16,8 @@ android {
         applicationId 'com.muhammetgecgil.turkradyo'
         minSdk 26
         targetSdk 36
-        versionCode 287
-        versionName '2.8.7'
+        versionCode 293
+        versionName '2.8.7.4'
     }
 
     signingConfigs {
@@ -31,11 +31,29 @@ android {
         }
     }
 
+    testOptions {
+        unitTests.includeAndroidResources = true
+        unitTests.all {
+            jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED',
+                    '--add-opens=java.base/java.util=ALL-UNNAMED',
+                    '--add-opens=java.base/java.io=ALL-UNNAMED',
+                    '--add-opens=java.base/java.net=ALL-UNNAMED',
+                    '--add-opens=java.base/java.security=ALL-UNNAMED',
+                    '--add-opens=java.base/java.text=ALL-UNNAMED',
+                    '--add-opens=java.base/jdk.internal.access=ALL-UNNAMED'
+        }
+    }
+
     lint {
-        abortOnError false
+        abortOnError true
     }
 
     buildTypes {
+        debug {
+            // Install test builds alongside the user's signed production app.
+            applicationIdSuffix '.test.v293'
+            versionNameSuffix '-test'
+        }
         release {
             if (hasStableSigning) {
                 signingConfig signingConfigs.stableRelease
@@ -53,6 +71,8 @@ android {
 }
 
 dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    testImplementation 'org.robolectric:robolectric:4.17'
     implementation 'androidx.media3:media3-exoplayer:1.11.0'
     implementation 'androidx.media3:media3-exoplayer-hls:1.11.0'
 }
