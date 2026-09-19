@@ -51,6 +51,8 @@ public class PlaybackStateTest {
         assertTrue(state.getBoolean("manualPause"));
         assertTrue(state.getBoolean("nativeRecovery"));
         assertTrue(repair.isCancelled());
+        android.media.session.MediaSession session=ReflectionHelpers.getField(service,"mediaSession");
+        assertTrue((session.getController().getPlaybackState().getActions()&android.media.session.PlaybackState.ACTION_PLAY_FROM_SEARCH)!=0);
         controller.destroy();
         shadowOf(worker.getLooper()).idle();
     }
@@ -77,6 +79,8 @@ public class PlaybackStateTest {
         ServiceController<AutoMediaService> controller=Robolectric.buildService(AutoMediaService.class).create();
         int state=ReflectionHelpers.getField(controller.get(),"lastState");
         assertEquals(android.media.session.PlaybackState.STATE_PAUSED,state);
+        android.media.session.MediaSession session=ReflectionHelpers.getField(controller.get(),"session");
+        assertTrue((session.getController().getPlaybackState().getActions()&android.media.session.PlaybackState.ACTION_PLAY_FROM_SEARCH)!=0);
         controller.destroy();
     }
 
