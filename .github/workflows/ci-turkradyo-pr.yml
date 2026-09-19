@@ -50,12 +50,12 @@ jobs:
           cp -a turkradyo/. /tmp/turkradyo-source/
           rm -rf /tmp/turkradyo-source/app/build /tmp/turkradyo-source/.gradle
           cd /tmp
-          zip -qr "$GITHUB_WORKSPACE/TurkRadyo-v2.8.7.2-Source.zip" turkradyo-source
+          zip -qr "$GITHUB_WORKSPACE/TurkRadyo-v2.8.7.3-Source.zip" turkradyo-source
 
       - name: Upload APK and bundle
         uses: actions/upload-artifact@v4
         with:
-          name: turkradyo-v2.8.7.2-build
+          name: turkradyo-v2.8.7.3-build
           if-no-files-found: error
           path: |
             turkradyo/app/build/outputs/apk/debug/*.apk
@@ -64,6 +64,6 @@ jobs:
       - name: Upload complete source ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: turkradyo-v2.8.7.2-source
+          name: turkradyo-v2.8.7.3-source
           if-no-files-found: error
-          path: TurkRadyo-v2.8.7.2-Source.zip
+          path: TurkRadyo-v2.8.7.3-Source.zip

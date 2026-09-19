@@ -12,8 +12,8 @@ build_tools = sdk / "build-tools/35.0.0"
 subprocess.run([str(build_tools / "apksigner"), "verify", "--verbose", str(apk)], check=True)
 badging = subprocess.check_output([str(build_tools / "aapt"), "dump", "badging", str(apk)], text=True)
 package = re.search(r"^package: name='([^']+)'", badging, re.M)
-assert package and package[1] == "com.muhammetgecgil.turkradyo.test.v291", badging
-assert "application-label:'MGtürk Radyo 2.8.7.2'" in badging, badging
-assert "versionName='2.8.7.2-test'" in badging, badging
+assert package and package[1] == "com.muhammetgecgil.turkradyo.test.v292", badging
+assert "application-label:'MGtürk Radyo 2.8.7.3'" in badging, badging
+assert "versionName='2.8.7.3-test'" in badging, badging
 assert "launchable-activity: name='com.muhammetgecgil.turkradyo.MainActivity'" in badging, badging
 print("Verified signed side-by-side APK: " + package[1])
