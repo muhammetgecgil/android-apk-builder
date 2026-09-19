@@ -8,6 +8,8 @@
 - Radyo ile Uyan: saat kadranı, akrep/yelkovan ve gün doğumu.
 - Müzik Türü: kulaklık ve ses dalgası; Türler: özel kanal fader çizimi.
 - Türkiye Grupları: meridyenli küre ve yayın işareti.
+- Slow Mod: mevcut sakin nabız çizimi ortak boyut ve çerçeveye hizalandı.
+- Eski etiket yenilemesinin Müzik Türü simgesini metinle silmesi düzeltildi.
 - DNA ve zamanlayıcı panellerinde de aynı çizimlerin büyük sürümü.
 
 Kart sırası, dış boyutları, ana kadran, profiller ve tıklama işlevleri korunur.
