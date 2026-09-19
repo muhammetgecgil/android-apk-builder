@@ -156,7 +156,10 @@ final class NotaTranscriber {
             if (!running || token != generation) return;
         }
         try {
-            Visualizer v = new Visualizer(0);
+            JSONObject playback=new JSONObject(app.getSharedPreferences(PREF,Context.MODE_PRIVATE).getString("telemetry","{}"));
+            int sessionId=playback.optInt("audioSessionId",0);
+            if(sessionId<=0||!RadioService.isRunning)throw new IllegalStateException("Aktif radyo ses oturumu yok");
+            Visualizer v = new Visualizer(sessionId);
             int[] range = Visualizer.getCaptureSizeRange();
             int size = range == null || range.length < 2 ? 1024 : range[1];
             size = Math.max(128, Math.min(2048, size));

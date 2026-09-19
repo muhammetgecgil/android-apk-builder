@@ -29,6 +29,80 @@ async function pageFor(html='<!doctype html><body></body>'){
 }
 async function script(page,name){await page.addScriptTag({content:source(ASSETS+name)})}
 
+async function fullApp(){
+ const page=await pageFor();await page.setViewportSize({width:390,height:844});
+ await page.addInitScript(()=>{
+  localStorage.setItem('p2Active','1');window.sentCommands=[];
+  window.nativeState={nativeRecovery:true,serviceActive:true,isPlaying:false,manualPause:true,eq:[0,0,600,0,0],normalize:true,smooth:false,volume:.7};
+  window.RadioNative={command:u=>window.sentCommands.push(u),getTelemetry:()=>JSON.stringify(window.nativeState),getNowTitle:()=>'',getRecentTracks:()=>'[]',getStreamHealth:()=>'{}',getProductGuard:()=>'{}',getCatalogHealth:()=>'{}',setQueue:()=>{},getNotaTextArchive:()=>'[]'};
+ });
+ await page.goto(A+'index.html');
+ const java=source('turkradyo/app/src/main/java/com/muhammetgecgil/turkradyo/MainActivity.java');
+ const raw=java.match(/v\.evaluateJavascript\("(.*)",null\);/)[1].replaceAll('"+A+"',A);
+ await page.evaluate(JSON.parse('"'+raw+'"'));await page.waitForTimeout(6500);return page;
+}
+
+test('Mobile favorites and search select a station through the native command bridge',{timeout:30000},async()=>{
+ const page=await fullApp();try{
+  await page.locator('#menuBtn').click();await page.locator('#search').fill('TRT');
+  assert.equal(await page.locator('#list .item').count(),1);
+  await page.locator('#list .fav').click();await page.locator('#closeSheet').click();
+  await page.locator('.bottom [data-nav="favorites"]').click();
+  assert.match(await page.locator('#list').textContent(),/TRT FM/);
+  await page.locator('#list .item').first().click();
+  assert.ok((await page.evaluate(()=>window.sentCommands)).some(u=>u.startsWith('radioapp://play?')&&decodeURIComponent(u).includes('TRT FM')));
+ }finally{await page.close()}
+});
+
+test('EQ presets send all five bands and settings show stored audio preferences',{timeout:30000},async()=>{
+ const page=await fullApp();try{
+  await page.locator('[data-mode="eq"]').click();
+  assert.equal(await page.locator('[data-eq="2"]').inputValue(),'6');
+  await page.locator('[data-preset="bass"]').click();
+  const commands=await page.evaluate(()=>window.sentCommands.filter(u=>u.startsWith('radioapp://eq?')));
+  assert.equal(commands.length,5);
+  assert.deepEqual(commands.map(u=>Number(new URL(u).searchParams.get('level'))),[800,500,100,-100,-200]);
+  await page.locator('#closeSheet').click();await page.locator('#settingsBtn').click();
+  assert.ok(await page.locator('#sNorm').evaluate(e=>e.classList.contains('on')));
+  assert.ok(!(await page.locator('#sSmooth').evaluate(e=>e.classList.contains('on'))));
+ }finally{await page.close()}
+});
+
+test('Sleep timer passes fade to Android and cancellation clears the countdown',{timeout:30000},async()=>{
+ const page=await fullApp();try{
+  await page.locator('#p2Sleep').click();await page.locator('#p24Fade').check();
+  await page.locator('.p24Quick [data-q="15"]').click();
+  const commands=await page.evaluate(()=>window.sentCommands);
+  assert.ok(commands.some(u=>u.startsWith('radioapp://sleep?')&&new URL(u).searchParams.get('fade')==='1'));
+  assert.notEqual(await page.locator('#p24Countdown').textContent(),'--:--');
+  await page.locator('#p24Cancel').click();
+  assert.equal(await page.locator('#p24Countdown').textContent(),'--:--');
+  assert.ok((await page.evaluate(()=>window.sentCommands)).includes('radioapp://sleepclear?id=8299'));
+ }finally{await page.close()}
+});
+
+test('Theme reset clears inline colors and back closes the theme overlay',{timeout:30000},async()=>{
+ const page=await fullApp();try{
+  await page.locator('[data-mode="themes"]').click();await page.locator('[data-use="morpho-blue"]').click();
+  assert.equal(await page.evaluate(()=>document.documentElement.style.getPropertyValue('--red')),'#23a9ff');
+  await page.locator('#natureReset').click();
+  assert.equal(await page.evaluate(()=>document.documentElement.style.getPropertyValue('--red')),'');
+  assert.ok(await page.evaluate(()=>window.trCloseTopOverlay()));
+  assert.equal(await page.locator('#natureThemeModal.show').count(),0);
+ }finally{await page.close()}
+});
+
+test('Playback labels follow real pause and buffering states without restarting playback',{timeout:30000},async()=>{
+ const page=await fullApp();try{
+  assert.equal(await page.locator('.tr-live-text').textContent(),'DURAKLATILDI');
+  assert.match(await page.locator('#v9Health').textContent(),/DURAKLATILDI/);
+  await page.evaluate(()=>Object.assign(window.nativeState,{manualPause:false,buffering:true}));
+  await page.waitForFunction(()=>document.body.dataset.playback==='buffering');
+  assert.equal(await page.locator('.tr-live-text').textContent(),'BAĞLANIYOR');
+  assert.deepEqual(await page.evaluate(()=>window.sentCommands.filter(u=>/radioapp:\/\/(play|resume)\?/.test(u))),[]);
+ }finally{await page.close()}
+});
+
 test('Slow Mod stops mutating an unchanged label',{timeout:15000},async()=>{
  const page=await pageFor('<body><button id="v12Smart"><b>☾</b>SLOW MOD</button></body>');
  try{

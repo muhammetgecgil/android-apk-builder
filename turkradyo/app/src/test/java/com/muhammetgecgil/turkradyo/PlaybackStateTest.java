@@ -21,6 +21,35 @@ import static org.robolectric.Shadows.shadowOf;
 @Config(sdk=28)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class PlaybackStateTest {
+    @Test public void sleepFadePreservesUserVolumeAndOnlyFadesTheLastMinute() {
+        assertEquals(.8f,SleepTimer.effectiveVolume(.8f,100_000,true,20_000),.001f);
+        assertEquals(.4f,SleepTimer.effectiveVolume(.8f,100_000,true,70_000),.001f);
+        assertEquals(0f,SleepTimer.effectiveVolume(.8f,100_000,true,100_001),.001f);
+        assertEquals(.8f,SleepTimer.effectiveVolume(.8f,0,false,100_001),.001f);
+    }
+
+    @Test public void sleepDeadlineStopsWithoutAnOpenActivity() throws Exception {
+        ServiceController<RadioService> controller=Robolectric.buildService(RadioService.class).create();
+        RadioService service=controller.get();
+        Handler worker=ReflectionHelpers.getField(service,"handler");
+        service.getSharedPreferences("radio",0).edit().putLong("sleepDeadline",System.currentTimeMillis()+500).putBoolean("sleepFade",true).commit();
+        service.onStartCommand(new Intent(service,RadioService.class).setAction(RadioService.ACTION_SLEEP_TIMER),0,1);
+        shadowOf(worker.getLooper()).idleFor(java.time.Duration.ofSeconds(2));
+        assertEquals(0L,service.getSharedPreferences("radio",0).getLong("sleepDeadline",0));
+        JSONObject state=new JSONObject(service.getSharedPreferences("radio",0).getString("telemetry","{}"));
+        assertTrue(state.getBoolean("manualPause"));
+        controller.destroy();shadowOf(worker.getLooper()).idle();
+    }
+
+    @Test public void expiredSleepAlarmDoesNotStartAnIdlePlaybackService() {
+        Context app=RuntimeEnvironment.getApplication();
+        RadioService.isRunning=false;
+        app.getSharedPreferences("radio",0).edit().putLong("sleepDeadline",1).commit();
+        new AlarmReceiver().onReceive(app,new Intent().putExtra("sleep",true));
+        assertNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedService());
+        assertEquals(0L,app.getSharedPreferences("radio",0).getLong("sleepDeadline",0));
+    }
+
     @Test public void voiceSearchPrefersExactNamesAndHandlesTurkishSpelling() throws Exception {
         org.json.JSONArray queue=new org.json.JSONArray("[{\"name\":\"Power Türk Akustik\",\"url\":\"https://a.test\"},{\"name\":\"Power Türk\",\"url\":\"https://b.test\"},{\"name\":\"İstanbul\",\"url\":\"https://c.test\"}]");
         assertEquals(1,StationSearch.find(queue,"  POWER TURK  "));

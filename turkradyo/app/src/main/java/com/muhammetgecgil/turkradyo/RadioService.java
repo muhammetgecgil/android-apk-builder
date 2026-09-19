@@ -49,6 +49,9 @@ public class RadioService extends Service {
     private HandlerThread playbackThread;
     private Handler handler;
     private volatile boolean destroyed=false;
+    static volatile boolean isRunning=false;
+    static final String ACTION_SLEEP_TIMER="com.muhammetgecgil.turkradyo.SLEEP_TIMER";
+    private Runnable sleepTask;
     private long playbackGeneration=0;
     private volatile long playCommandSerial=0;
     private java.util.concurrent.Future<?> repairFuture;
@@ -64,6 +67,7 @@ public class RadioService extends Service {
 
     @Override public void onCreate(){
         super.onCreate();
+        isRunning=true;
         serviceStartMs=System.currentTimeMillis();
         playbackThread=new HandlerThread("TurkRadyoPlayback",android.os.Process.THREAD_PRIORITY_AUDIO);
         playbackThread.start();
@@ -80,6 +84,8 @@ public class RadioService extends Service {
         userPaused=true;
         initMediaSession();
         registerNetworkMonitor();
+        if(p.getLong("sleepDeadline",0)<=System.currentTimeMillis())p.edit().remove("sleepDeadline").remove("sleepFade").apply();
+        post(this::scheduleSleepTimer);
     }
 
     private void registerNetworkMonitor(){
@@ -184,12 +190,13 @@ public class RadioService extends Service {
         else if(ACTION_PAUSE.equals(a))pause(true);
         else if(ACTION_RESUME.equals(a))resume();
         else if(ACTION_STOP.equals(a))stopAll();
+        else if(ACTION_SLEEP_TIMER.equals(a))scheduleSleepTimer();
         else if(ACTION_VOLUME.equals(a)){
             float requested=in.getFloatExtra("volume",1f);
             if(!Float.isFinite(requested))return;
             volume=Math.max(0f,Math.min(1f,requested));
             getSharedPreferences("radio",MODE_PRIVATE).edit().putFloat("volume",volume).apply();
-            if(player!=null)player.setVolume(volume);
+            if(player!=null)player.setVolume(effectiveVolume());
         }else if(ACTION_GAIN.equals(a)){
             gainMb=Math.max(0,Math.min(1200,in.getIntExtra("gain",0)));
             getSharedPreferences("radio",MODE_PRIVATE).edit().putInt("gainMb",gainMb).apply();applyGain();
@@ -323,7 +330,7 @@ public class RadioService extends Service {
             };
             ep.addListener(playerListener);
             ep.setMediaItem(MediaItem.fromUri(Uri.parse(streamUrl)));
-            ep.setVolume(smooth?0f:volume);
+            ep.setVolume(smooth?0f:effectiveVolume());
             ep.setPlayWhenReady(true);
             ep.prepare();
             if(smooth)fadeIn(ep);
@@ -455,7 +462,7 @@ public class RadioService extends Service {
         try{
             JSONObject o=new JSONObject();
             o.put("engine","media3-exoplayer-1.11.0");
-            o.put("nativeRecovery",true);o.put("manualPause",userPaused);o.put("station",stationName);o.put("primaryUrl",primaryUrl);
+            o.put("volume",volume);o.put("audioSessionId",audioSessionId());o.put("nativeRecovery",true);o.put("manualPause",userPaused);o.put("station",stationName);o.put("primaryUrl",primaryUrl);
             o.put("updatedAt",System.currentTimeMillis());o.put("serviceActive",!destroyed);
             o.put("isPlaying",false);o.put("playWhenReady",false);o.put("playerState",Player.STATE_IDLE);
             o.put("startupMs",startupMs);o.put("bufferCount",bufferCount);o.put("lastError",lastError);o.put("since",playStartMs);o.put("buffering",buffering);o.put("reconnectAttempts",reconnectAttempts);o.put("sameSourceRetries",sameSourceRetries);o.put("engineRestarts",engineRestarts);o.put("resolvedUrl",streamUrl);
@@ -503,10 +510,35 @@ public class RadioService extends Service {
     private void applyGain(){int sid=audioSessionId();if(sid<=0)return;try{if(enhancer!=null)enhancer.release();enhancer=new LoudnessEnhancer(sid);int t=normalize?Math.max(300,gainMb):gainMb;t=Math.max(0,Math.min(1200,t));enhancer.setTargetGain(t);enhancer.setEnabled(t>0);}catch(Exception ignored){}}
     private void applyEq(){int sid=audioSessionId();if(sid<=0)return;try{if(equalizer!=null)equalizer.release();equalizer=new Equalizer(0,sid);short bands=equalizer.getNumberOfBands();short[] range=equalizer.getBandLevelRange();for(short b=0;b<bands&&b<eqLevels.length;b++)equalizer.setBandLevel(b,(short)Math.max(range[0],Math.min(range[1],eqLevels[b])));equalizer.setEnabled(true);}catch(Exception ignored){}}
 
+    private float effectiveVolume(){
+        SharedPreferences p=getSharedPreferences("radio",MODE_PRIVATE);
+        return SleepTimer.effectiveVolume(volume,p.getLong("sleepDeadline",0),p.getBoolean("sleepFade",false),System.currentTimeMillis());
+    }
+
+    private void scheduleSleepTimer(){
+        if(sleepTask!=null)handler.removeCallbacks(sleepTask);
+        sleepTask=null;
+        if(player!=null)player.setVolume(effectiveVolume());
+        if(getSharedPreferences("radio",MODE_PRIVATE).getLong("sleepDeadline",0)<=0)return;
+        sleepTask=new Runnable(){@Override public void run(){
+            if(destroyed)return;
+            SharedPreferences p=getSharedPreferences("radio",MODE_PRIVATE);
+            long deadline=p.getLong("sleepDeadline",0);
+            if(deadline<=0){sleepTask=null;return;}
+            if(deadline<=System.currentTimeMillis()){
+                p.edit().remove("sleepDeadline").remove("sleepFade").apply();
+                sleepTask=null;stopAll();return;
+            }
+            if(player!=null&&p.getBoolean("sleepFade",false))player.setVolume(effectiveVolume());
+            handler.postDelayed(this,1000);
+        }};
+        handler.postDelayed(sleepTask,1000);
+    }
+
     private void fadeIn(ExoPlayer ep){
         if(fadeTask!=null)handler.removeCallbacks(fadeTask);
         final int[] n={0};
-        fadeTask=new Runnable(){@Override public void run(){if(player!=ep)return;n[0]++;float f=Math.min(1f,n[0]/10f);try{ep.setVolume(volume*f);}catch(Exception ignored){}if(f<1f)handler.postDelayed(this,60);}};
+        fadeTask=new Runnable(){@Override public void run(){if(player!=ep)return;n[0]++;float f=Math.min(1f,n[0]/10f);try{ep.setVolume(effectiveVolume()*f);}catch(Exception ignored){}if(f<1f)handler.postDelayed(this,60);}};
         handler.post(fadeTask);
     }
 
@@ -531,6 +563,7 @@ public class RadioService extends Service {
     }
 
     @Override public void onDestroy(){
+        isRunning=false;
         destroyed=true;
         if(connectivityManager!=null&&networkCallback!=null)try{connectivityManager.unregisterNetworkCallback(networkCallback);}catch(Exception ignored){}
         handler.removeCallbacksAndMessages(null);
