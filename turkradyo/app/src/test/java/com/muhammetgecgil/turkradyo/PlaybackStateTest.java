@@ -21,6 +21,20 @@ import static org.robolectric.Shadows.shadowOf;
 @Config(sdk=28)
 @LooperMode(LooperMode.Mode.PAUSED)
 public class PlaybackStateTest {
+    @Test public void voiceSearchPrefersExactNamesAndHandlesTurkishSpelling() throws Exception {
+        org.json.JSONArray queue=new org.json.JSONArray("[{\"name\":\"Power Türk Akustik\",\"url\":\"https://a.test\"},{\"name\":\"Power Türk\",\"url\":\"https://b.test\"},{\"name\":\"İstanbul\",\"url\":\"https://c.test\"}]");
+        assertEquals(1,StationSearch.find(queue,"  POWER TURK  "));
+        assertEquals(2,StationSearch.find(queue,"istanbul"));
+        assertEquals(0,StationSearch.find(queue,"akustik"));
+    }
+
+    @Test public void voiceSearchRejectsUnknownNamesAndStationsWithoutStreams() throws Exception {
+        org.json.JSONArray queue=new org.json.JSONArray("[{\"name\":\"TRT FM\"},null]");
+        assertEquals(-1,StationSearch.find(queue,"TRT FM"));
+        assertEquals(-1,StationSearch.find(queue,""));
+        assertEquals(-1,StationSearch.find(queue,"bilinmeyen"));
+    }
+
     @Test public void pausePublishesFreshStateAndCancelsPendingRecovery() throws Exception {
         ServiceController<RadioService> controller=Robolectric.buildService(RadioService.class).create();
         RadioService service=controller.get();

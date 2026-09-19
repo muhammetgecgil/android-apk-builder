@@ -46,6 +46,10 @@ Radyo dalları commit tarihine göre karşılaştırıldığında en güncel kay
 - Derleme dosya adları gerçek 2.8.7.1 sürümünü taşır; emekli Android SDK
   `tools` paketi artık talep edilmez.
 
+- Android Auto sesli istasyon araması ve Android 13+ geri hareketi desteği.
+- Mikrofon yedeği başlamadan önce güncel izin kontrolü; Media3 API
+  işaretlemeleri ve ses sabitleri düzeltildi. Lint hata kapısı etkinleştirildi.
+
 ## Doğrulama ve kapsam
 
 Arayüz: `node --test turkradyo/tests/ui-regression.cjs` (Playwright/Chromium).

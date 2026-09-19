@@ -54,6 +54,11 @@ public class AutoMediaService extends MediaBrowserService {
             @Override public void onSkipToNext(){stoppedByCar=false;send(RadioService.ACTION_NEXT,false);setState(PlaybackState.STATE_CONNECTING);syncSoon();}
             @Override public void onSkipToPrevious(){stoppedByCar=false;send(RadioService.ACTION_PREV,false);setState(PlaybackState.STATE_CONNECTING);syncSoon();}
             @Override public void onPlayFromMediaId(String mediaId,Bundle extras){stoppedByCar=false;playMediaId(mediaId);}
+            @Override public void onPlayFromSearch(String query,Bundle extras){
+                stoppedByCar=false;
+                Intent command=new Intent(AutoMediaService.this,RadioService.class).setAction(RadioService.ACTION_SEARCH).putExtra("query",query);
+                startForegroundService(command);setState(PlaybackState.STATE_CONNECTING);syncSoon();
+            }
         });
         session.setActive(true);
         setSessionToken(session.getSessionToken());

@@ -21,6 +21,7 @@ public class MainActivity extends Activity {
     private boolean pendingNotaText=false;
     private boolean rendererRecoveryPending=false;
     private boolean activityDestroyed=false;
+    private android.window.OnBackInvokedCallback backCallback;
     private final Handler uiHandler=new Handler(Looper.getMainLooper());
     private long recoveryWindowStart=0;
     private int recoveryCount=0;
@@ -32,7 +33,16 @@ public class MainActivity extends Activity {
         view.destroy();
     }
 
-    @Override public void onCreate(Bundle b){super.onCreate(b);ProductGuard.install(this,"MainActivity");ProductGuard.recordLaunch(this,"MainActivity");buildWebView();}
+    @Override public void onCreate(Bundle b){super.onCreate(b);ProductGuard.install(this,"MainActivity");ProductGuard.recordLaunch(this,"MainActivity");buildWebView();
+        if(Build.VERSION.SDK_INT>=33){backCallback=this::handleBack;getOnBackInvokedDispatcher().registerOnBackInvokedCallback(android.window.OnBackInvokedDispatcher.PRIORITY_DEFAULT,backCallback);}
+        handleSearchIntent(getIntent());
+    }
+
+    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handleSearchIntent(intent);}
+    private void handleSearchIntent(Intent intent){
+        if(intent!=null&&android.media.MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH.equals(intent.getAction()))
+            startFg(new Intent(this,RadioService.class).setAction(RadioService.ACTION_SEARCH).putExtra("query",intent.getStringExtra(android.app.SearchManager.QUERY)));
+    }
 
     private void buildWebView(){
         if(activityDestroyed||isFinishing())return;
@@ -134,7 +144,18 @@ public class MainActivity extends Activity {
     @Override protected void onPause(){if(webView!=null)webView.onPause();super.onPause();}
     @Override protected void onDestroy(){
         activityDestroyed=true;uiHandler.removeCallbacksAndMessages(null);
+        if(Build.VERSION.SDK_INT>=33&&backCallback!=null)getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backCallback);
         WebView old=webView;webView=null;disposeWebView(old);super.onDestroy();
     }
-    @Override public void onBackPressed(){if(webView!=null&&webView.canGoBack())webView.goBack();else super.onBackPressed();}
+    private void handleBack(){
+        WebView view=webView;
+        if(view==null){finish();return;}
+        view.evaluateJavascript("(function(){var s=document.getElementById('sheet');if(s&&s.classList.contains('show')){s.classList.remove('show');return true}return false})()",closed->{
+            if(activityDestroyed||view!=webView||"true".equals(closed))return;
+            if(view.canGoBack())view.goBack();else finish();
+        });
+    }
+    // Android 13+ uses the dispatcher registered above; this is the API 26-32 fallback.
+    @android.annotation.SuppressLint("GestureBackNavigation")
+    @Override public void onBackPressed(){handleBack();}
 }

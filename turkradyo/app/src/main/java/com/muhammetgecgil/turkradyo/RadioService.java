@@ -27,8 +27,9 @@ import org.json.JSONObject;
  * v2.8.6: Media3/ExoPlayer engine, less aggressive network recovery,
  * same-source retry before fallback and state-based buffering watchdog.
  */
+@androidx.annotation.OptIn(markerClass = androidx.media3.common.util.UnstableApi.class)
 public class RadioService extends Service {
-    public static final String ACTION_PLAY="com.muhammetgecgil.turkradyo.PLAY", ACTION_PAUSE="com.muhammetgecgil.turkradyo.PAUSE", ACTION_RESUME="com.muhammetgecgil.turkradyo.RESUME", ACTION_STOP="com.muhammetgecgil.turkradyo.STOP", ACTION_PREV="com.muhammetgecgil.turkradyo.PREV", ACTION_NEXT="com.muhammetgecgil.turkradyo.NEXT", ACTION_VOLUME="com.muhammetgecgil.turkradyo.VOLUME", ACTION_GAIN="com.muhammetgecgil.turkradyo.GAIN", ACTION_EQ="com.muhammetgecgil.turkradyo.EQ", ACTION_NORMALIZE="com.muhammetgecgil.turkradyo.NORMALIZE", ACTION_SMOOTH="com.muhammetgecgil.turkradyo.SMOOTH";
+    public static final String ACTION_SEARCH="com.muhammetgecgil.turkradyo.SEARCH", ACTION_PLAY="com.muhammetgecgil.turkradyo.PLAY", ACTION_PAUSE="com.muhammetgecgil.turkradyo.PAUSE", ACTION_RESUME="com.muhammetgecgil.turkradyo.RESUME", ACTION_STOP="com.muhammetgecgil.turkradyo.STOP", ACTION_PREV="com.muhammetgecgil.turkradyo.PREV", ACTION_NEXT="com.muhammetgecgil.turkradyo.NEXT", ACTION_VOLUME="com.muhammetgecgil.turkradyo.VOLUME", ACTION_GAIN="com.muhammetgecgil.turkradyo.GAIN", ACTION_EQ="com.muhammetgecgil.turkradyo.EQ", ACTION_NORMALIZE="com.muhammetgecgil.turkradyo.NORMALIZE", ACTION_SMOOTH="com.muhammetgecgil.turkradyo.SMOOTH";
     private static final int NOTIF_ID=1201;
     private static final String CHANNEL="radio_playback";
     private static final long STARTUP_TIMEOUT_MS=20_000L;
@@ -147,6 +148,7 @@ public class RadioService extends Service {
             @Override public void onSkipToNext(){stepQueue(1);}
             @Override public void onSkipToPrevious(){stepQueue(-1);}
             @Override public void onPlayFromMediaId(String mediaId,Bundle extras){playFromMediaId(mediaId);}
+            @Override public void onPlayFromSearch(String query,Bundle extras){playSearch(query);}
         },handler);
         mediaSession.setActive(true);
         updateMediaSession(false,"Hazır");
@@ -156,7 +158,7 @@ public class RadioService extends Service {
         if(in==null)return START_NOT_STICKY;
         String action=in.getAction();
         // Fulfil foreground-service timing even when release() is still busy on the worker.
-        if(ACTION_PLAY.equals(action)||ACTION_RESUME.equals(action)||ACTION_NEXT.equals(action)||ACTION_PREV.equals(action)){
+        if(ACTION_SEARCH.equals(action)||ACTION_PLAY.equals(action)||ACTION_RESUME.equals(action)||ACTION_NEXT.equals(action)||ACTION_PREV.equals(action)){
             startForeground(NOTIF_ID,buildNotification("Bağlanıyor…",true));
         }
         final Intent command=new Intent(in);
@@ -176,7 +178,8 @@ public class RadioService extends Service {
                 }
                 startStation(u,n);
             }
-        }else if(ACTION_PREV.equals(a))stepQueue(-1);
+        }else if(ACTION_SEARCH.equals(a))playSearch(in.getStringExtra("query"));
+        else if(ACTION_PREV.equals(a))stepQueue(-1);
         else if(ACTION_NEXT.equals(a))stepQueue(1);
         else if(ACTION_PAUSE.equals(a))pause(true);
         else if(ACTION_RESUME.equals(a))resume();
@@ -196,6 +199,16 @@ public class RadioService extends Service {
                 getSharedPreferences("radio",MODE_PRIVATE).edit().putInt("eq_"+b,eqLevels[b]).apply();applyEq();}
         }else if(ACTION_NORMALIZE.equals(a)){normalize=in.getBooleanExtra("on",false);getSharedPreferences("radio",MODE_PRIVATE).edit().putBoolean("normalize",normalize).apply();applyGain();}
         else if(ACTION_SMOOTH.equals(a)){smooth=in.getBooleanExtra("on",true);getSharedPreferences("radio",MODE_PRIVATE).edit().putBoolean("smooth",smooth).apply();}
+    }
+
+    private void playSearch(String query){
+        if(query==null||query.trim().isEmpty()){resume();return;}
+        try{
+            JSONArray queue=new JSONArray(getSharedPreferences("radio",MODE_PRIVATE).getString("queue","[]"));
+            int index=StationSearch.find(queue,query);
+            if(index>=0)playQueueIndex(index);
+            else updateNotification("Aranan radyo listede bulunamadı",player!=null&&player.isPlaying());
+        }catch(Exception ignored){}
     }
 
     private void playFromMediaId(String id){
@@ -235,8 +248,8 @@ public class RadioService extends Service {
                 .setLoadControl(loadControl)
                 .build();
         androidx.media3.common.AudioAttributes attrs=new androidx.media3.common.AudioAttributes.Builder()
-                .setUsage(android.media.AudioAttributes.USAGE_MEDIA)
-                .setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+                .setUsage(C.USAGE_MEDIA)
+                .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
                 .build();
         ep.setAudioAttributes(attrs,true);
         ep.setHandleAudioBecomingNoisy(true);
@@ -300,7 +313,7 @@ public class RadioService extends Service {
                     if(destroyed||ep!=player||metadata==null)return;
                     String t=metadata.title==null?"":metadata.title.toString();
                     String ar=metadata.artist==null?"":metadata.artist.toString();
-                    if(!ar.isEmpty()&&!t.isEmpty()&&!t.toLowerCase().contains(ar.toLowerCase()))t=ar+" - "+t;
+                    if(!ar.isEmpty()&&!t.isEmpty()&&!t.toLowerCase(java.util.Locale.ROOT).contains(ar.toLowerCase(java.util.Locale.ROOT)))t=ar+" - "+t;
                     if(!t.isEmpty()&&!t.equalsIgnoreCase(stationName))recordTrack(t,"MEDIA3");
                 }
                 @Override public void onAudioSessionIdChanged(int audioSessionId){
