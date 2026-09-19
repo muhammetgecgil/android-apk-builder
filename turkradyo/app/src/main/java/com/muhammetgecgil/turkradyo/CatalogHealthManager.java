@@ -52,7 +52,7 @@ public final class CatalogHealthManager {
         if(last==0||now-last>=24*60*60_000L)fullSweepAsync(c,queueJson);
     }
 
-    private static void scan(Context c,String queueJson){
+    private static synchronized void scan(Context c,String queueJson){
         try{
             JSONArray q=new JSONArray(queueJson==null?"[]":queueJson); if(q.length()==0)return;
             SharedPreferences p=c.getSharedPreferences(P,Context.MODE_PRIVATE);
