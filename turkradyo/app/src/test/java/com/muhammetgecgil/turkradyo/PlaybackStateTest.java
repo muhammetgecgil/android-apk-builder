@@ -32,8 +32,13 @@ public class PlaybackStateTest {
         ServiceController<RadioService> controller=Robolectric.buildService(RadioService.class).create();
         RadioService service=controller.get();
         Handler worker=ReflectionHelpers.getField(service,"handler");
-        service.getSharedPreferences("radio",0).edit().putLong("sleepDeadline",System.currentTimeMillis()+500).putBoolean("sleepFade",true).commit();
+        service.getSharedPreferences("radio",0).edit().putLong("sleepDeadline",System.currentTimeMillis()+60_000).putBoolean("sleepFade",true).commit();
+        ReflectionHelpers.setField(service,"userPaused",false);
         service.onStartCommand(new Intent(service,RadioService.class).setAction(RadioService.ACTION_SLEEP_TIMER),0,1);
+        shadowOf(worker.getLooper()).idle();
+        // Handler uptime is virtual in Robolectric; the persisted deadline uses wall time.
+        // Simulate the next dispatch arriving after that deadline without a real sleep.
+        service.getSharedPreferences("radio",0).edit().putLong("sleepDeadline",System.currentTimeMillis()-1000).commit();
         shadowOf(worker.getLooper()).idleFor(java.time.Duration.ofSeconds(2));
         assertEquals(0L,service.getSharedPreferences("radio",0).getLong("sleepDeadline",0));
         JSONObject state=new JSONObject(service.getSharedPreferences("radio",0).getString("telemetry","{}"));

@@ -46,7 +46,7 @@ body.tr-refined .modes>.mode{font-family:inherit!important;font-weight:750!impor
 .tr-refined .bottom button.active{color:var(--accent,#ff3647)!important}
 .tr-refined .sheet{background:#07060bac!important;backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}
 .tr-refined .sheet .panel{border:1px solid var(--detail-line)!important;border-radius:28px 28px 20px 20px!important;background:linear-gradient(155deg,color-mix(in srgb,var(--card,#15121a) 94%,#fff 6%),var(--bg,#08070b))!important;box-shadow:0 -12px 60px #0007,inset 0 1px 0 #ffffff12!important;overscroll-behavior:contain;padding:18px 16px 24px!important;scrollbar-width:thin;scrollbar-color:var(--detail-line) transparent}
-.tr-refined .sheetTop{padding-bottom:13px;border-bottom:1px solid #ffffff0b;margin-bottom:14px;gap:12px}
+.tr-refined .sheetTop{padding:5px 0 13px;border-bottom:1px solid #ffffff0b;margin-bottom:14px;gap:12px;background:color-mix(in srgb,var(--card,#15121a) 96%,#fff 4%)!important;border-radius:12px 12px 0 0}
 .tr-refined .sheetTop h2{font-size:22px!important;font-weight:750!important;letter-spacing:-.5px;line-height:1.2;margin:0}
 .tr-refined .close,.tr-refined .nature-close{min-width:63px;min-height:42px;border-color:var(--detail-line)!important;border-radius:14px!important;background:#ffffff06!important;color:var(--text,#fff)!important;font-weight:650}
 .tr-refined .search,.tr-refined .p2Input,.tr-refined .tr273Input,.tr-refined .tr273Select,.tr-refined .p24Custom input{min-height:48px!important;border:1px solid var(--detail-line)!important;border-radius:15px!important;background:color-mix(in srgb,var(--bg,#08070b) 94%,var(--accent) 6%)!important;color:var(--text,#fff)!important;font-family:inherit;font-size:14px}

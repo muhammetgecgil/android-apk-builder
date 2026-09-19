@@ -38,6 +38,7 @@ function update(){
  if(document.body.dataset.playback!==state)document.body.dataset.playback=state;
  const labels={idle:'HAZIR',paused:'DURAKLATILDI',playing:'CANLI YAYIN',buffering:'BAĞLANIYOR',offline:'İNTERNET BEKLENİYOR'};
  text($('.tr-live-text'),labels[state]);
+ text($('#miniState'),({idle:'Oynatmak için dokun',paused:'Duraklatıldı',playing:'Canlı yayın',buffering:'Bağlanıyor…',offline:'İnternet bekleniyor'})[state]);
  text($('.mini>div:nth-child(2)>small'),isPlaying?'Şu anda çalıyor':'Seçili istasyon');
  icon($('#play'),isPlaying?'pause':'play',isPlaying?'Duraklat':'Oynat');icon($('#miniPlay'),isPlaying?'pause':'play',isPlaying?'Duraklat':'Oynat');
  const v=$('#volume');if(v){const fill=String(Math.round(Number(v.value)*100))+'%';if(v.style.getPropertyValue('--range-fill')!==fill)v.style.setProperty('--range-fill',fill);attr(v,'aria-valuetext',fill+' ses')}
