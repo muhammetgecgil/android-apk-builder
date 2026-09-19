@@ -44,10 +44,17 @@ public class RadioService extends Service {
     private MediaSession mediaSession;
     private ConnectivityManager connectivityManager;
     private ConnectivityManager.NetworkCallback networkCallback;
-    private final Handler handler=new Handler(Looper.getMainLooper());
+    // Every player call, including network and resolver callbacks, uses this looper.
+    private HandlerThread playbackThread;
+    private Handler handler;
+    private volatile boolean destroyed=false;
+    private long playbackGeneration=0;
+    private volatile long playCommandSerial=0;
+    private java.util.concurrent.Future<?> repairFuture;
     private Runnable reconnectTask, watchdogTask, fadeTask, networkRecoveryTask, stableTask;
 
-    private String stationName="Türk Radyo", primaryUrl="", streamUrl="", networkType="unknown", lastTrackTitle="";
+    private volatile String stationName="Türk Radyo";
+    private String primaryUrl="", streamUrl="", networkType="unknown", lastTrackTitle="";
     private boolean userPaused=false, buffering=false, smooth=true, normalize=false, repairBusy=false, recoveryBusy=false;
     private float volume=1f;
     private int gainMb=0, reconnectAttempts=0, sameSourceRetries=0, bufferCount=0, lastError=0, networkTransitions=0, repairFailures=0, engineRestarts=0;
@@ -57,11 +64,19 @@ public class RadioService extends Service {
     @Override public void onCreate(){
         super.onCreate();
         serviceStartMs=System.currentTimeMillis();
+        playbackThread=new HandlerThread("TurkRadyoPlayback",android.os.Process.THREAD_PRIORITY_AUDIO);
+        playbackThread.start();
+        handler=new Handler(playbackThread.getLooper());
         createChannel();
         SharedPreferences p=getSharedPreferences("radio",MODE_PRIVATE);
         smooth=p.getBoolean("smooth",true);
         normalize=p.getBoolean("normalize",false);
         volume=p.getFloat("volume",1f);
+        gainMb=p.getInt("gainMb",0);
+        for(int b=0;b<eqLevels.length;b++)eqLevels[b]=(short)p.getInt("eq_"+b,0);
+        primaryUrl=p.getString("url","");
+        stationName=p.getString("name","Türk Radyo");
+        userPaused=true;
         initMediaSession();
         registerNetworkMonitor();
     }
@@ -72,9 +87,9 @@ public class RadioService extends Service {
             networkType=currentNetworkType();
             if(Build.VERSION.SDK_INT>=24){
                 networkCallback=new ConnectivityManager.NetworkCallback(){
-                    @Override public void onAvailable(Network network){onNetworkChanged(currentNetworkType(),"available");}
-                    @Override public void onLost(Network network){onNetworkChanged(currentNetworkType(),"lost");}
-                    @Override public void onCapabilitiesChanged(Network network,NetworkCapabilities caps){onNetworkChanged(typeFromCaps(caps),"capabilities");}
+                    @Override public void onAvailable(Network network){post(()->onNetworkChanged(currentNetworkType(),"available"));}
+                    @Override public void onLost(Network network){post(()->onNetworkChanged(currentNetworkType(),"lost"));}
+                    @Override public void onCapabilitiesChanged(Network network,NetworkCapabilities caps){post(()->onNetworkChanged(typeFromCaps(caps),"capabilities"));}
                 };
                 connectivityManager.registerDefaultNetworkCallback(networkCallback);
             }
@@ -94,7 +109,9 @@ public class RadioService extends Service {
         networkTransitions++;
         lastNetworkChangeMs=System.currentTimeMillis();
         saveTelemetry();
+        if(networkRecoveryTask!=null){handler.removeCallbacks(networkRecoveryTask);networkRecoveryTask=null;}
         if("offline".equals(nextNet)){
+            cancelReconnect();
             if(!userPaused&&!primaryUrl.isEmpty()){
                 PlaybackGuardian.interrupted(this,"network");
                 updateMediaSession(false,"İnternet bekleniyor");
@@ -105,10 +122,10 @@ public class RadioService extends Service {
         if(userPaused||primaryUrl.isEmpty())return;
         if(networkRecoveryTask!=null)handler.removeCallbacks(networkRecoveryTask);
         networkRecoveryTask=()->{
-            if(userPaused||player==null)return;
+            if(userPaused||destroyed)return;
             int state;
             boolean playWhenReady;
-            try{state=player.getPlaybackState();playWhenReady=player.getPlayWhenReady();}catch(Exception e){state=Player.STATE_IDLE;playWhenReady=false;}
+            try{state=player==null?Player.STATE_IDLE:player.getPlaybackState();playWhenReady=player!=null&&player.getPlayWhenReady();}catch(Exception e){state=Player.STATE_IDLE;playWhenReady=false;}
             if(state==Player.STATE_IDLE||state==Player.STATE_ENDED||!playWhenReady){
                 sameSourceRetries=0;
                 schedulePlay(streamUrl.isEmpty()?StreamFallbackManager.getPreferred(this,stationName,primaryUrl):streamUrl,250);
@@ -130,28 +147,34 @@ public class RadioService extends Service {
             @Override public void onSkipToNext(){stepQueue(1);}
             @Override public void onSkipToPrevious(){stepQueue(-1);}
             @Override public void onPlayFromMediaId(String mediaId,Bundle extras){playFromMediaId(mediaId);}
-        });
+        },handler);
         mediaSession.setActive(true);
         updateMediaSession(false,"Hazır");
     }
 
     @Override public int onStartCommand(Intent in,int flags,int id){
-        if(in==null)return START_STICKY;
+        if(in==null)return START_NOT_STICKY;
+        String action=in.getAction();
+        // Fulfil foreground-service timing even when release() is still busy on the worker.
+        if(ACTION_PLAY.equals(action)||ACTION_RESUME.equals(action)||ACTION_NEXT.equals(action)||ACTION_PREV.equals(action)){
+            startForeground(NOTIF_ID,buildNotification("Bağlanıyor…",true));
+        }
+        final Intent command=new Intent(in);
+        final long serial=(ACTION_PLAY.equals(action)||ACTION_PAUSE.equals(action)||ACTION_STOP.equals(action))?++playCommandSerial:playCommandSerial;
+        post(()->{if(!ACTION_PLAY.equals(action)||serial==playCommandSerial)handleCommand(command);});
+        return START_NOT_STICKY;
+    }
+
+    private void handleCommand(Intent in){
         String a=in.getAction();
         if(ACTION_PLAY.equals(a)){
             String u=in.getStringExtra("url"), n=in.getStringExtra("name");
             if(u!=null&&!u.isEmpty()){
                 if(!userPaused&&u.equals(primaryUrl)&&player!=null){
-                    try{if(player.getPlaybackState()!=Player.STATE_IDLE&&player.getPlaybackState()!=Player.STATE_ENDED){player.play();return START_STICKY;}}catch(Exception ignored){}
+                    int state=player.getPlaybackState();
+                    if(state!=Player.STATE_IDLE&&state!=Player.STATE_ENDED){player.play();saveTelemetry();return;}
                 }
-                PlaybackGuardian.manualPlay(this);
-                primaryUrl=u;
-                stationName=(n==null||n.isEmpty())?"Türk Radyo":n;
-                lastTrackTitle="";lastTrackMs=0;
-                getSharedPreferences("radio",MODE_PRIVATE).edit().putString("nowTitle","").apply();
-                reconnectAttempts=0;sameSourceRetries=0;repairBusy=false;userPaused=false;
-                syncQueueIndexForUrl(u);
-                playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));
+                startStation(u,n);
             }
         }else if(ACTION_PREV.equals(a))stepQueue(-1);
         else if(ACTION_NEXT.equals(a))stepQueue(1);
@@ -159,14 +182,20 @@ public class RadioService extends Service {
         else if(ACTION_RESUME.equals(a))resume();
         else if(ACTION_STOP.equals(a))stopAll();
         else if(ACTION_VOLUME.equals(a)){
-            volume=Math.max(0f,Math.min(1f,in.getFloatExtra("volume",1f)));
+            float requested=in.getFloatExtra("volume",1f);
+            if(!Float.isFinite(requested))return;
+            volume=Math.max(0f,Math.min(1f,requested));
             getSharedPreferences("radio",MODE_PRIVATE).edit().putFloat("volume",volume).apply();
-            if(player!=null)try{player.setVolume(volume);}catch(Exception ignored){}
-        }else if(ACTION_GAIN.equals(a)){gainMb=in.getIntExtra("gain",0);applyGain();}
-        else if(ACTION_EQ.equals(a)){int b=in.getIntExtra("band",0),l=in.getIntExtra("level",0);if(b>=0&&b<eqLevels.length){eqLevels[b]=(short)Math.max(-1500,Math.min(1500,l));applyEq();}}
-        else if(ACTION_NORMALIZE.equals(a)){normalize=in.getBooleanExtra("on",false);getSharedPreferences("radio",MODE_PRIVATE).edit().putBoolean("normalize",normalize).apply();applyGain();}
+            if(player!=null)player.setVolume(volume);
+        }else if(ACTION_GAIN.equals(a)){
+            gainMb=Math.max(0,Math.min(1200,in.getIntExtra("gain",0)));
+            getSharedPreferences("radio",MODE_PRIVATE).edit().putInt("gainMb",gainMb).apply();applyGain();
+        }else if(ACTION_EQ.equals(a)){
+            int b=in.getIntExtra("band",0),l=in.getIntExtra("level",0);
+            if(b>=0&&b<eqLevels.length){eqLevels[b]=(short)Math.max(-1500,Math.min(1500,l));
+                getSharedPreferences("radio",MODE_PRIVATE).edit().putInt("eq_"+b,eqLevels[b]).apply();applyEq();}
+        }else if(ACTION_NORMALIZE.equals(a)){normalize=in.getBooleanExtra("on",false);getSharedPreferences("radio",MODE_PRIVATE).edit().putBoolean("normalize",normalize).apply();applyGain();}
         else if(ACTION_SMOOTH.equals(a)){smooth=in.getBooleanExtra("on",true);getSharedPreferences("radio",MODE_PRIVATE).edit().putBoolean("smooth",smooth).apply();}
-        return START_STICKY;
     }
 
     private void playFromMediaId(String id){
@@ -179,17 +208,19 @@ public class RadioService extends Service {
 
     private void startStation(String u,String n){
         if(u==null||u.isEmpty())return;
+        invalidateRepair();
         PlaybackGuardian.manualPlay(this);
         primaryUrl=u;stationName=(n==null||n.isEmpty())?"Türk Radyo":n;
         lastTrackTitle="";lastTrackMs=0;
         getSharedPreferences("radio",MODE_PRIVATE).edit().putString("nowTitle","").apply();
-        reconnectAttempts=0;sameSourceRetries=0;repairBusy=false;userPaused=false;
+        reconnectAttempts=0;sameSourceRetries=0;bufferCount=0;repairBusy=false;userPaused=false;
+        syncQueueIndexForUrl(u);
         playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));
     }
 
     private ExoPlayer buildPlayer(){
         DefaultHttpDataSource.Factory http=new DefaultHttpDataSource.Factory()
-                .setUserAgent("TurkRadyo/2.8.6")
+                .setUserAgent("TurkRadyo/2.8.7.1")
                 .setConnectTimeoutMs(8_000)
                 .setReadTimeoutMs(15_000)
                 .setAllowCrossProtocolRedirects(true);
@@ -199,6 +230,7 @@ public class RadioService extends Service {
                 .setPrioritizeTimeOverSizeThresholds(true)
                 .build();
         ExoPlayer ep=new ExoPlayer.Builder(this)
+                .setLooper(handler.getLooper())
                 .setMediaSourceFactory(mediaSourceFactory)
                 .setLoadControl(loadControl)
                 .build();
@@ -213,10 +245,11 @@ public class RadioService extends Service {
     }
 
     private void playResolved(String url){
+        if(destroyed||userPaused)return;
         if(url==null||url.isEmpty())url=primaryUrl;
         streamUrl=url;
         playStartMs=System.currentTimeMillis();startupMs=0;preparedAtMs=0;buffering=false;lastError=0;lastBufferStartMs=0;recoveryBusy=false;
-        cancelTasks();releasePlayer();saveTelemetry();saveCurrent();
+        cancelTasks();releasePlayer();if(destroyed)return;saveTelemetry();saveCurrent();
         updateMediaSession(false,"Bağlanıyor…");
         startForeground(NOTIF_ID,buildNotification("Bağlanıyor…",true));
         try{
@@ -224,10 +257,10 @@ public class RadioService extends Service {
             player=ep;
             playerListener=new Player.Listener(){
                 @Override public void onPlaybackStateChanged(int state){
-                    if(ep!=player)return;
+                    if(destroyed||ep!=player)return;
                     if(state==Player.STATE_BUFFERING){
                         if(!buffering){bufferCount++;lastBufferStartMs=System.currentTimeMillis();}
-                        buffering=true;saveTelemetry();armBufferWatchdog();
+                        buffering=true;saveTelemetry();if(!userPaused){if(preparedAtMs>0)armBufferWatchdog();else armStartupWatchdog(streamUrl);}
                         updateMediaSession(false,preparedAtMs>0?"Yayın tamponlanıyor…":"Bağlanıyor…");
                     }else if(state==Player.STATE_READY){
                         buffering=false;lastBufferStartMs=0;cancelWatchdog();
@@ -241,29 +274,37 @@ public class RadioService extends Service {
                     }
                 }
                 @Override public void onIsPlayingChanged(boolean isPlaying){
-                    if(ep!=player)return;
+                    if(destroyed||ep!=player)return;
                     if(isPlaying){
                         buffering=false;lastBufferStartMs=0;cancelWatchdog();
                         updateMediaSession(true,"Canlı yayın");updateNotification("Canlı yayın",true);
                         armStableReset();
                     }else if(!userPaused&&ep.getPlaybackState()==Player.STATE_READY){
+                        cancelStableReset();
                         updateMediaSession(false,"Ses odağı bekleniyor");
                     }
+                    saveTelemetry();
+                }
+                @Override public void onPlayWhenReadyChanged(boolean ready,int reason){
+                    if(destroyed||ep!=player)return;
+                    if(!ready&&(reason==Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY||reason==Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS)){
+                        pause(true);
+                    }else saveTelemetry();
                 }
                 @Override public void onPlayerError(PlaybackException error){
-                    if(ep!=player)return;
+                    if(destroyed||ep!=player)return;
                     lastError=error==null?-40:error.errorCode;
                     buffering=false;saveTelemetry();handleFailure("Bağlantı kesildi");
                 }
                 @Override public void onMediaMetadataChanged(androidx.media3.common.MediaMetadata metadata){
-                    if(ep!=player||metadata==null)return;
+                    if(destroyed||ep!=player||metadata==null)return;
                     String t=metadata.title==null?"":metadata.title.toString();
                     String ar=metadata.artist==null?"":metadata.artist.toString();
                     if(!ar.isEmpty()&&!t.isEmpty()&&!t.toLowerCase().contains(ar.toLowerCase()))t=ar+" - "+t;
                     if(!t.isEmpty()&&!t.equalsIgnoreCase(stationName))recordTrack(t,"MEDIA3");
                 }
                 @Override public void onAudioSessionIdChanged(int audioSessionId){
-                    if(ep!=player)return;
+                    if(destroyed||ep!=player)return;
                     applyGain();applyEq();
                 }
             };
@@ -322,17 +363,26 @@ public class RadioService extends Service {
     }
 
     private void repairSameStation(){
-        if(repairBusy||userPaused)return;
+        if(repairBusy||userPaused||destroyed)return;
         repairBusy=true;updateNotification("Aynı radyo için sağlam kaynak aranıyor…",true);
-        StreamFallbackManager.discoverBestAsync(this,stationName,primaryUrl,u->{
-            repairBusy=false;recoveryBusy=false;
-            if(userPaused)return;
+        final long generation=playbackGeneration;
+        final String expectedStation=stationName, expectedPrimary=primaryUrl;
+        repairFuture=StreamFallbackManager.discoverBestAsync(getApplicationContext(),expectedStation,expectedPrimary,u->post(()->{
+            // A late result must never replace a newer station or undo pause/stop.
+            if(generation!=playbackGeneration||userPaused||!expectedPrimary.equals(primaryUrl))return;
+            repairFuture=null;repairBusy=false;recoveryBusy=false;
             if(u!=null&&!u.isEmpty()){
                 reconnectAttempts=0;sameSourceRetries=0;playResolved(u);
             }else{
                 repairFailures++;saveTelemetry();sameSourceRetries=0;schedulePlay(primaryUrl,4000L);
             }
-        });
+        }));
+    }
+
+    private void invalidateRepair(){
+        playbackGeneration++;
+        if(repairFuture!=null){repairFuture.cancel(true);repairFuture=null;}
+        repairBusy=false;recoveryBusy=false;
     }
 
     private void schedulePlay(String u,long delay){
@@ -354,7 +404,7 @@ public class RadioService extends Service {
     private void armBufferWatchdog(){
         cancelWatchdog();
         watchdogTask=()->{
-            if(userPaused||player==null)return;
+            if(userPaused||destroyed)return;
             int state;try{state=player.getPlaybackState();}catch(Exception e){state=Player.STATE_IDLE;}
             if(buffering&&state==Player.STATE_BUFFERING){lastError=-30;saveTelemetry();handleFailure("Uzun buffer");}
         };
@@ -368,7 +418,7 @@ public class RadioService extends Service {
             try{
                 if(player.isPlaying()){
                     sameSourceRetries=0;reconnectAttempts=0;recoveryBusy=false;
-                    if(PlaybackGuardian.mayAutoResume(this))PlaybackGuardian.recovered(this);
+                    PlaybackGuardian.recoveredIfInterrupted(this);
                     saveTelemetry();
                 }
             }catch(Exception ignored){}
@@ -392,6 +442,9 @@ public class RadioService extends Service {
         try{
             JSONObject o=new JSONObject();
             o.put("engine","media3-exoplayer-1.11.0");
+            o.put("nativeRecovery",true);o.put("manualPause",userPaused);o.put("station",stationName);o.put("primaryUrl",primaryUrl);
+            o.put("updatedAt",System.currentTimeMillis());o.put("serviceActive",!destroyed);
+            o.put("isPlaying",false);o.put("playWhenReady",false);o.put("playerState",Player.STATE_IDLE);
             o.put("startupMs",startupMs);o.put("bufferCount",bufferCount);o.put("lastError",lastError);o.put("since",playStartMs);o.put("buffering",buffering);o.put("reconnectAttempts",reconnectAttempts);o.put("sameSourceRetries",sameSourceRetries);o.put("engineRestarts",engineRestarts);o.put("resolvedUrl",streamUrl);
             o.put("networkType",networkType);o.put("networkTransitions",networkTransitions);o.put("lastNetworkChangeMs",lastNetworkChangeMs);o.put("repairFailures",repairFailures);o.put("serviceUptimeMs",Math.max(0,System.currentTimeMillis()-serviceStartMs));o.put("liveMs",preparedAtMs>0?Math.max(0,System.currentTimeMillis()-preparedAtMs):0);o.put("playbackGuardian",true);o.put("guardianReason",PlaybackGuardian.reason(this));
             if(player!=null){try{o.put("playerState",player.getPlaybackState());o.put("isPlaying",player.isPlaying());o.put("playWhenReady",player.getPlayWhenReady());}catch(Exception ignored){}}
@@ -410,10 +463,13 @@ public class RadioService extends Service {
 
     private void pause(boolean manual){
         if(manual){userPaused=true;PlaybackGuardian.manualPause(this);}
+        invalidateRepair();
+        buffering=false;
         cancelTasks();
         if(player!=null)try{player.pause();}catch(Exception ignored){}
         updateMediaSession(false,manual?"Duraklatıldı":"Geçici olarak duraklatıldı");
         updateNotification(manual?"Duraklatıldı":"Geçici olarak duraklatıldı",false);
+        saveTelemetry();
     }
 
     private void resume(){
@@ -422,12 +478,13 @@ public class RadioService extends Service {
             try{
                 int state=player.getPlaybackState();
                 if(state==Player.STATE_IDLE||state==Player.STATE_ENDED){playResolved(streamUrl.isEmpty()?StreamFallbackManager.getPreferred(this,stationName,primaryUrl):streamUrl);return;}
-                player.play();updateMediaSession(true,"Canlı yayın");updateNotification("Canlı yayın",true);
+                if(state==Player.STATE_BUFFERING){buffering=true;armBufferWatchdog();}
+                player.play();updateMediaSession(player.isPlaying(),"Canlı yayın");updateNotification("Canlı yayın",true);saveTelemetry();
             }catch(Exception e){playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));}
         }else if(!primaryUrl.isEmpty())playResolved(StreamFallbackManager.getPreferred(this,stationName,primaryUrl));
     }
 
-    private void stopAll(){userPaused=true;PlaybackGuardian.manualPause(this);cancelTasks();releasePlayer();if(mediaSession!=null)mediaSession.setActive(false);stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
+    private void stopAll(){userPaused=true;buffering=false;PlaybackGuardian.manualPause(this);invalidateRepair();cancelTasks();releasePlayer();saveTelemetry();if(mediaSession!=null)mediaSession.setActive(false);stopForeground(STOP_FOREGROUND_REMOVE);stopSelf();}
 
     private int audioSessionId(){try{return player==null?0:player.getAudioSessionId();}catch(Exception e){return 0;}}
     private void applyGain(){int sid=audioSessionId();if(sid<=0)return;try{if(enhancer!=null)enhancer.release();enhancer=new LoudnessEnhancer(sid);int t=normalize?Math.max(300,gainMb):gainMb;t=Math.max(0,Math.min(1200,t));enhancer.setTargetGain(t);enhancer.setEnabled(t>0);}catch(Exception ignored){}}
@@ -455,6 +512,21 @@ public class RadioService extends Service {
     private void updateNotification(String text,boolean playing){if(mediaSession!=null&&!mediaSession.isActive())mediaSession.setActive(true);((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIF_ID,buildNotification(text,playing));}
     private void createChannel(){if(Build.VERSION.SDK_INT>=26){NotificationChannel c=new NotificationChannel(CHANNEL,getString(R.string.notif_channel_name),NotificationManager.IMPORTANCE_LOW);c.setDescription(getString(R.string.notif_channel_desc));c.setShowBadge(false);c.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(c);}}
 
-    @Override public void onDestroy(){userPaused=true;cancelTasks();releasePlayer();if(connectivityManager!=null&&networkCallback!=null)try{connectivityManager.unregisterNetworkCallback(networkCallback);}catch(Exception ignored){}if(mediaSession!=null){try{mediaSession.release();}catch(Exception ignored){}}super.onDestroy();}
+    private void post(Runnable action){
+        Handler h=handler;
+        if(!destroyed&&h!=null)h.post(()->{if(!destroyed)action.run();});
+    }
+
+    @Override public void onDestroy(){
+        destroyed=true;
+        if(connectivityManager!=null&&networkCallback!=null)try{connectivityManager.unregisterNetworkCallback(networkCallback);}catch(Exception ignored){}
+        handler.removeCallbacksAndMessages(null);
+        handler.post(()->{
+            userPaused=true;buffering=false;invalidateRepair();cancelTasks();releasePlayer();saveTelemetry();
+            if(mediaSession!=null){mediaSession.release();mediaSession=null;}
+            playbackThread.quitSafely();
+        });
+        super.onDestroy();
+    }
     @Override public IBinder onBind(Intent i){return null;}
 }

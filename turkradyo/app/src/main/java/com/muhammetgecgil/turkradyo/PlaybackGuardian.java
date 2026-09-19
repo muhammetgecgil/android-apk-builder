@@ -50,6 +50,10 @@ public final class PlaybackGuardian {
         return true;
     }
 
+    public static void recoveredIfInterrupted(Context c){
+        if(prefs(c).getBoolean("interrupted",false))recovered(c);
+    }
+
     public static void recovered(Context c){
         SharedPreferences p=prefs(c);
         p.edit().putBoolean("interrupted",false).putBoolean("loopBlocked",false)

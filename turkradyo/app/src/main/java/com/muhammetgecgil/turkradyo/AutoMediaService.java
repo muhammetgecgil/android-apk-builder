@@ -157,11 +157,11 @@ public class AutoMediaService extends MediaBrowserService {
             try{manualPause=new JSONObject(PlaybackGuardian.statusJson(this)).optBoolean("manualPause",false);}catch(Exception ignored){}
             String url=prefs.getString("url","");
 
-            if(playing)stoppedByCar=false;
+            if(playing&&!manualPause)stoppedByCar=false;
             int state;
-            if(playing)state=PlaybackState.STATE_PLAYING;
-            else if(stoppedByCar)state=PlaybackState.STATE_STOPPED;
+            if(stoppedByCar||!t.optBoolean("serviceActive",true))state=PlaybackState.STATE_STOPPED;
             else if(manualPause)state=PlaybackState.STATE_PAUSED;
+            else if(playing)state=PlaybackState.STATE_PLAYING;
             else if(buffering||playerState==2||(url!=null&&!url.isEmpty()))state=PlaybackState.STATE_CONNECTING;
             else state=PlaybackState.STATE_STOPPED;
 

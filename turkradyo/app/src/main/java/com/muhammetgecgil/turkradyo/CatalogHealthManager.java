@@ -16,9 +16,14 @@ public final class CatalogHealthManager {
     private static final String P="catalog_health_v3", KEY="report", CURSOR="cursor";
     private static final int BATCH=12, THREADS=3;
     private static final AtomicBoolean FULL_SWEEP_RUNNING=new AtomicBoolean(false);
+    private static final AtomicBoolean BATCH_RUNNING=new AtomicBoolean(false);
     private CatalogHealthManager(){}
 
-    public static void scanAsync(Context c,String queueJson){new Thread(()->scan(c.getApplicationContext(),queueJson),"catalog-health").start();}
+    public static void scanAsync(Context c,String queueJson){
+        if(FULL_SWEEP_RUNNING.get()||!BATCH_RUNNING.compareAndSet(false,true))return;
+        final Context app=c.getApplicationContext();
+        new Thread(()->{try{scan(app,queueJson);}finally{BATCH_RUNNING.set(false);}},"catalog-health").start();
+    }
 
     /** Starts one controlled end-to-end sweep. Duplicate requests are ignored. */
     public static void fullSweepAsync(Context c,String queueJson){

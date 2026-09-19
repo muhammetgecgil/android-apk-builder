@@ -20,6 +20,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Node for UI regression tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install browser test driver
+        run: npm install --prefix "$RUNNER_TEMP/radio-ui-test" --no-package-lock --no-save playwright@1.62.1
+
+      - name: UI regression tests
+        run: |
+          NODE_PATH="$RUNNER_TEMP/radio-ui-test/node_modules" CHROME_PATH="$(command -v google-chrome)" node --test turkradyo/tests/ui-regression.cjs
+
 
       - name: Prepare selected launcher icon
         run: |
@@ -52,34 +67,34 @@ jobs:
 
       - name: Build APK and Play bundle
         working-directory: turkradyo
-        run: gradle --no-daemon clean lintRelease assembleRelease assembleDebug bundleRelease
+        run: gradle --no-daemon clean testDebugUnitTest lintRelease assembleRelease assembleDebug bundleRelease
 
       - name: Package source snapshot and complete kit
         run: |
           mkdir -p dist
-          zip -rq dist/TurkRadyo-v2.8.3-Source.zip turkradyo TURKRADYO_REFERENCE.md .github/workflows/build-turkradyo-play.yml .github/workflows/ci-turkradyo-pr.yml .github/workflows/radio-audit.yml -x 'turkradyo/app/build/*' 'turkradyo/.gradle/*'
-          cp turkradyo/app/build/outputs/apk/debug/app-debug.apk dist/TurkRadyo-v2.8.3-Debug.apk
-          cp turkradyo/app/build/outputs/bundle/release/app-release.aab dist/TurkRadyo-v2.8.3-Play.aab
+          zip -rq dist/TurkRadyo-v2.8.7.1-Source.zip turkradyo TURKRADYO_REFERENCE.md .github/workflows/build-turkradyo-play.yml .github/workflows/ci-turkradyo-pr.yml .github/workflows/radio-audit.yml -x 'turkradyo/app/build/*' 'turkradyo/.gradle/*'
+          cp turkradyo/app/build/outputs/apk/debug/app-debug.apk dist/TurkRadyo-v2.8.7.1-Debug.apk
+          cp turkradyo/app/build/outputs/bundle/release/app-release.aab dist/TurkRadyo-v2.8.7.1-Play.aab
           if [ -f turkradyo/app/build/outputs/apk/release/app-release.apk ]; then
-            cp turkradyo/app/build/outputs/apk/release/app-release.apk dist/TurkRadyo-v2.8.3-Release.apk
+            cp turkradyo/app/build/outputs/apk/release/app-release.apk dist/TurkRadyo-v2.8.7.1-Release.apk
             SIGNING_STATE='stable-signed-release'
           else
-            cp turkradyo/app/build/outputs/apk/release/app-release-unsigned.apk dist/TurkRadyo-v2.8.3-Release-Unsigned.apk
+            cp turkradyo/app/build/outputs/apk/release/app-release-unsigned.apk dist/TurkRadyo-v2.8.7.1-Release-Unsigned.apk
             SIGNING_STATE='release-unsigned-debug-installable'
           fi
-          cat > dist/TurkRadyo-v2.8.3-MANIFEST.txt <<EOF
+          cat > dist/TurkRadyo-v2.8.7.1-MANIFEST.txt <<EOF
           TurkRadyo LATEST DEVELOPMENT PACKAGE
-          Version: 2.8.3
-          VersionCode: 283
+          Version: 2.8.7.1
+          VersionCode: 290
           Git commit: $GITHUB_SHA
-          Branch: dev/turkradyo-after-v2.7.0
+          Branch: $GITHUB_REF_NAME
           Signing state: $SIGNING_STATE
-          Play Store file: TurkRadyo-v2.8.3-Play.aab
-          Installable test APK: TurkRadyo-v2.8.3-Debug.apk
-          Source snapshot: TurkRadyo-v2.8.3-Source.zip
+          Play Store file: TurkRadyo-v2.8.7.1-Play.aab
+          Installable test APK: TurkRadyo-v2.8.7.1-Debug.apk
+          Source snapshot: TurkRadyo-v2.8.7.1-Source.zip
           EOF
-          (cd dist && sha256sum TurkRadyo-v2.8.3-Debug.apk TurkRadyo-v2.8.3-Play.aab TurkRadyo-v2.8.3-Source.zip >> TurkRadyo-v2.8.3-MANIFEST.txt)
-          (cd dist && zip -q TurkRadyo-v2.8.3-COMPLETE.zip TurkRadyo-v2.8.3-Debug.apk TurkRadyo-v2.8.3-Play.aab TurkRadyo-v2.8.3-Source.zip TurkRadyo-v2.8.3-MANIFEST.txt TurkRadyo-v2.8.3-Release*.apk)
+          (cd dist && sha256sum TurkRadyo-v2.8.7.1-Debug.apk TurkRadyo-v2.8.7.1-Play.aab TurkRadyo-v2.8.7.1-Source.zip >> TurkRadyo-v2.8.7.1-MANIFEST.txt)
+          (cd dist && zip -q TurkRadyo-v2.8.7.1-COMPLETE.zip TurkRadyo-v2.8.7.1-Debug.apk TurkRadyo-v2.8.7.1-Play.aab TurkRadyo-v2.8.7.1-Source.zip TurkRadyo-v2.8.7.1-MANIFEST.txt TurkRadyo-v2.8.7.1-Release*.apk)
 
       - name: Upload stable signed update APK
         if: env.TURKRADYO_KEYSTORE_B64 != ''
@@ -118,18 +133,18 @@ jobs:
       - name: Upload source snapshot
         uses: actions/upload-artifact@v4
         with:
-          name: TurkRadyo-v2.8.3-Source
-          path: dist/TurkRadyo-v2.8.3-Source.zip
+          name: TurkRadyo-v2.8.7.1-Source
+          path: dist/TurkRadyo-v2.8.7.1-Source.zip
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload complete release kit
         uses: actions/upload-artifact@v4
         with:
-          name: TurkRadyo-v2.8.3-COMPLETE
+          name: TurkRadyo-v2.8.7.1-COMPLETE
           path: |
-            dist/TurkRadyo-v2.8.3-COMPLETE.zip
-            dist/TurkRadyo-v2.8.3-MANIFEST.txt
+            dist/TurkRadyo-v2.8.7.1-COMPLETE.zip
+            dist/TurkRadyo-v2.8.7.1-MANIFEST.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -139,5 +154,16 @@ jobs:
         with:
           name: TurkRadyo-Lint-Report
           path: turkradyo/app/build/reports/lint-results-release.html
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload Android regression reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TurkRadyo-v2.8.7.1-Tests
+          path: |
+            turkradyo/app/build/reports/tests/
+            turkradyo/app/build/test-results/
           if-no-files-found: ignore
           retention-days: 30
