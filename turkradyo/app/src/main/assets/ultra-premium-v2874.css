@@ -1,6 +1,7 @@
 /* The radio's circular dial, dark surfaces and theme accent remain the design language. */
 body.tr-refined{--ultra-accent:var(--p270accent,var(--accent,#ff3647));--ultra-rim:color-mix(in srgb,var(--ultra-accent) 35%,#c9d0e144);--ultra-ink:var(--p270surface,var(--card,#15121a))}
 body.tr-refined .tr-premium-art{--art-light:color-mix(in srgb,var(--ultra-accent) 55%,#fff);--art-shade:color-mix(in srgb,var(--ultra-accent) 12%,#798393);--art-dark:color-mix(in srgb,var(--ultra-accent) 46%,#101222)}
+body.tr-refined.profile2-active .modes>.mode:nth-child(n+5):nth-child(-n+8),
 body.tr-refined.profile2-active #p2UnifiedPremiumGrid263>:is(#v12Similar,#v12Genres,#v12Smart,#p2DNA,#p2Tracks,#p2Alarm,#p2Sleep,#p2Genres){
  border:1px solid var(--ultra-rim)!important;border-radius:20px!important;
  background:radial-gradient(ellipse at 24% -12%,color-mix(in srgb,var(--ultra-accent) 14%,transparent),transparent 56%),linear-gradient(145deg,color-mix(in srgb,var(--p270surface2,#251622) 92%,#fff),var(--ultra-ink) 66%,color-mix(in srgb,var(--ultra-ink) 90%,#000))!important;
@@ -25,6 +26,7 @@ body.tr-refined.profile2-active #p2UnifiedPremiumGrid263>:is(#v12Similar,#v12Gen
 }
 body.tr-refined.profile2-active #p2UnifiedPremiumGrid263>.p263UnifiedCard .p263Label{font-weight:700!important;letter-spacing:.3px!important;color:var(--p270text,#f2f3f7)!important}
 body.tr-refined.profile2-active #p2UnifiedPremiumGrid263>#v12Smart::after{content:""!important;display:none!important}
+body.tr-refined.profile2-active #p2UnifiedPremiumGrid263>#v12Smart:is(.tr275SlowOn,.tr274SlowOn)::after{content:"AÇIK"!important;display:block!important;font-size:6px!important;letter-spacing:.5px!important;padding:3px 5px!important}
 body.tr-refined .actions{gap:9px!important}
 body.tr-refined .actions .action{
  position:relative;isolation:isolate;min-height:70px!important;padding:11px 6px!important;border-radius:20px!important;border:1px solid var(--ultra-rim)!important;

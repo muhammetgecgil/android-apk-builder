@@ -85,6 +85,7 @@ function mainStep(direction){
  if(i<0)i=list.findIndex(x=>key(x)===lastMainKey);
  const next=i<0?(direction>0?0:list.length-1):(i+direction+list.length)%list.length;
  try{localStorage.removeItem('v208GenreMode');localStorage.setItem('trGenre273',JSON.stringify({active:'',pos:0,pool:[]}))}catch{}
+ window.dispatchEvent(new CustomEvent('turkradyo-queue-mode-changed'));
  playStation(list[next]);
 }
 async function groupStep(direction){
@@ -103,6 +104,7 @@ async function groupStep(direction){
   if(key(chosen)===key(s)||url(chosen)===start)return notify(g+' grubunda başka uygun radyo bulunamadı.');
   // Do not keep a stale explicitly selected genre pointing at a different radio group.
   try{const st=JSON.parse(localStorage.getItem('trGenre273')||'{}');if(st.active)localStorage.setItem('trGenre273',JSON.stringify({active:g,pos:i,pool:candidates}))}catch{}
+  window.dispatchEvent(new CustomEvent('turkradyo-queue-mode-changed'));
   playStation(chosen);notify(g+' • '+(i+1)+'/'+candidates.length+' • '+chosen.name);
  }catch{if(id===requestId)notify('Tür listesi alınamadı. Mevcut yayın korunuyor.')}finally{if(id===requestId)busy(false)}
 }
