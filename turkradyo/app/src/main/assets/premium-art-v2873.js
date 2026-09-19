@@ -1,27 +1,26 @@
 /* Small, theme-aware vector illustrations. No polling, animation or DOM observers. */
 (()=>{'use strict';
 const drawings={
- dna:(m,a,g)=>`<g transform="rotate(-18 32 32)">
-  <path d="M20 8c0 12 24 12 24 24S20 44 20 56" stroke="${a}" stroke-width="4.6" opacity=".64"/>
-  <g stroke="${m}" stroke-width="1.7" opacity=".72">
-   <path d="m21 12 21 3m-17 4 12 3m-9 5 9 2m-17 5 23 3m-18 5 14 3m-13 5 13 3m-18 3 20 3"/>
-  </g>
-  <path d="M44 8c0 12-24 12-24 24s24 12 24 24" stroke="${m}" stroke-width="4.6"/>
-  <path d="M43 8c0 12-24 12-24 24s24 12 24 24" stroke="#fff" stroke-width=".8" opacity=".65"/>
-  <path d="M20 8c0 6 6 9 12 12M44 32c0 6-6 9-12 12" stroke="${a}" stroke-width="4.6"/>
-  <g fill="${m}" stroke="none"><circle cx="20" cy="8" r="2.8"/><circle cx="44" cy="8" r="2.8"/><circle cx="20" cy="32" r="2.8"/><circle cx="44" cy="32" r="2.8"/><circle cx="20" cy="56" r="2.8"/><circle cx="44" cy="56" r="2.8"/></g>
- </g>`,
- hourglass:(m,a,g)=>`<ellipse cx="32" cy="55" rx="19" ry="3" fill="#000" opacity=".3"/>
-  <path d="M17 12v40m30-40v40" stroke="${m}" stroke-width="2.5" opacity=".58"/>
-  <path d="M22 13h20c0 10-3 12-8 17v4c5 5 8 7 8 17H22c0-10 3-12 8-17v-4c-5-5-8-7-8-17Z" fill="${g}" stroke="${m}" stroke-width="1.65"/>
+ dna:(m,a,g)=>{
+  const x=(y,sign)=>32+sign*10.8*Math.sin((y-8)/48*Math.PI*3-.6);
+  const curve=sign=>Array.from({length:65},(_,i)=>{const y=8+i*.75;return(i?'L':'M')+x(y,sign).toFixed(2)+' '+y.toFixed(2)}).join(' ');
+  const rungs=Array.from({length:11},(_,i)=>{const y=11+i*4;return`<path d="M${x(y,1).toFixed(2)} ${y}H${x(y,-1).toFixed(2)}" stroke="${i%2?m:a}" stroke-width="1.45" opacity=".7"/>`}).join('');
+  return `<g transform="rotate(-16 32 32)"><path d="${curve(1)}" stroke="#02030a" stroke-width="5" transform="translate(1 1)"/><path d="${curve(-1)}" stroke="${a}" stroke-width="3.6" opacity=".8"/>${rungs}<path d="${curve(1)}" stroke="${m}" stroke-width="3.6"/><path d="${curve(1)}" stroke="#fff" stroke-width=".65" transform="translate(-.6 -.5)" opacity=".7"/><g fill="${m}" stroke="none">${[8,24,40,56].map(y=>`<circle cx="${x(y,1)}" cy="${y}" r="2.1"/><circle cx="${x(y,-1)}" cy="${y}" r="1.8"/>`).join('')}</g></g>`;
+ },
+ hourglass:(m,a,g)=>`<ellipse cx="32" cy="56" rx="19" ry="3" fill="#000" opacity=".36"/>
+  <path d="M17 13v37m30-37v37" stroke="${m}" stroke-width="2.8"/>
+  <path d="M18 15v32m28-32v32" stroke="#fff" stroke-width=".6" opacity=".6"/>
+  <path d="M22 13h20c0 10-3 12-8 17v4c5 5 8 7 8 17H22c0-10 3-12 8-17v-4c-5-5-8-7-8-17Z" fill="${g}" stroke="${m}" stroke-width="1.5"/>
   <path d="M24 22h16c-1 3-4 5-8 9-4-4-7-6-8-9Z" fill="${a}" stroke="none"/>
-  <ellipse cx="32" cy="22" rx="8" ry="1.5" fill="${m}" opacity=".85"/>
+  <ellipse cx="32" cy="22" rx="8" ry="1.4" fill="${m}" opacity=".75"/>
   <path d="M24 49c1-3 5-4 8-9 3 5 7 6 8 9Z" fill="${a}" stroke="none"/>
-  <path d="M32 33v2m0 2v1" stroke="${m}" stroke-width="1.6"/>
-  <path d="M25 15c0 5 1 8 3 10m-4 18 2-4" stroke="#fff" stroke-width="1.3" opacity=".8"/>
-  <rect x="14" y="9" width="36" height="5" rx="2.5" fill="${m}" stroke="none"/>
-  <rect x="14" y="51" width="36" height="5" rx="2.5" fill="${m}" stroke="none"/>
-  <path d="M18 10h28M18 52h28" stroke="#fff" stroke-width=".8" opacity=".7"/>`,
+  <path d="M25 49h14" stroke="${m}" stroke-width=".6" opacity=".7"/>
+  <path d="M32 33v2m0 2v1" stroke="${m}" stroke-width="1.45"/>
+  <path d="M25 15c0 5 1 8 3 10m-4 18 2-4" stroke="#fff" stroke-width="1.2" opacity=".85"/>
+  <path d="M14 10v3c0 4 36 4 36 0v-3M14 51v3c0 4 36 4 36 0v-3" fill="${m}" stroke="${m}" stroke-width=".7"/>
+  <ellipse cx="32" cy="10" rx="18" ry="3.5" fill="${m}" stroke="none"/>
+  <ellipse cx="32" cy="51" rx="18" ry="3.5" fill="${m}" stroke="none"/>
+  <path d="M18 9c7-2 21-2 28 0M18 50c7-2 21-2 28 0" stroke="#fff" stroke-width=".8" opacity=".8"/>`,
  wave:(m,a,g)=>`<g transform="rotate(-9 32 32)"><rect x="12" y="9" width="38" height="42" rx="6" fill="${g}" stroke="${a}" stroke-width="1.5"/><path d="M18 15h17" stroke="${m}" stroke-width="1.6"/></g>
   <circle cx="34" cy="34" r="21" fill="#101019" stroke="${m}" stroke-width="1.9"/>
   <g stroke="${m}" stroke-width=".7" opacity=".32"><circle cx="34" cy="34" r="16.5"/><circle cx="34" cy="34" r="13.5"/><circle cx="34" cy="34" r="10.5"/></g>
@@ -64,7 +63,7 @@ window.trPremiumArt=(name,instance)=>{
  const id='tr2873-'+String(instance).replace(/[^a-zA-Z0-9_-]/g,'');
  const m=`url(#${id}-metal)`,a=`url(#${id}-accent)`,g=`url(#${id}-glass)`;
  return `<svg class="tr-premium-art" data-art="${name}" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><defs>
-  <linearGradient id="${id}-metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fffafc"/><stop offset=".38" stop-color="#eadce2"/><stop offset=".65" stop-color="var(--art-shade,#ad7589)"/><stop offset="1" stop-color="#fff2f7"/></linearGradient>
+  <linearGradient id="${id}-metal" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fbfdff"/><stop offset=".38" stop-color="#e4e9f0"/><stop offset=".65" stop-color="var(--art-shade,#7b8293)"/><stop offset="1" stop-color="#eaf4ff"/></linearGradient>
   <linearGradient id="${id}-accent" x1="0" y1="0" x2="1" y2="1"><stop stop-color="var(--art-light,#ffa7b6)"/><stop offset=".46" stop-color="var(--art-accent,#ff3647)"/><stop offset="1" stop-color="var(--art-dark,#95273b)"/></linearGradient>
   <linearGradient id="${id}-glass" x1="0" y1="0" x2="1" y2=".7"><stop stop-color="#fff" stop-opacity=".21"/><stop offset=".48" stop-color="var(--art-accent,#ff3647)" stop-opacity=".035"/><stop offset="1" stop-color="#fff" stop-opacity=".13"/></linearGradient>
  </defs><g fill="none" stroke="none" stroke-linecap="round" stroke-linejoin="round">${draw(m,a,g)}</g></svg>`;

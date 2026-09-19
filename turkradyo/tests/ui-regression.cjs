@@ -13,7 +13,7 @@ const stations=[{stationuuid:'one',name:'Power Türk',url:'https://stream.test/o
 let browser;
 before(async()=>{browser=await pw.chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{})})});
 after(async()=>{await browser?.close()});
-async function pageFor(html='<!doctype html><body></body>'){
+async function pageFor(html='<!doctype html><body></body>',radioData=stations,catalogData=radioData){
  const page=await browser.newPage();
  await page.route('**/*',async route=>{
   const url=route.request().url();
@@ -21,7 +21,7 @@ async function pageFor(html='<!doctype html><body></body>'){
   if(url.startsWith(A)){
    try{const file=new URL(url).pathname.replace('/assets/','');return route.fulfill({contentType:file.endsWith('.css')?'text/css':file.endsWith('.js')?'application/javascript':file.endsWith('.html')?'text/html':'application/json',body:source(ASSETS+file)})}catch{return route.fulfill({status:404,body:''})}
   }
-  if(url.includes('api.radio-browser.info'))return route.fulfill({contentType:'application/json',body:JSON.stringify(stations)});
+  if(url.includes('api.radio-browser.info'))return route.fulfill({contentType:'application/json',body:JSON.stringify(url.includes('limit=3000')?catalogData:radioData)});
   return route.abort();
  });
  await page.goto(A+'fixture.html');
@@ -29,8 +29,8 @@ async function pageFor(html='<!doctype html><body></body>'){
 }
 async function script(page,name){await page.addScriptTag({content:source(ASSETS+name)})}
 
-async function fullApp(){
- const page=await pageFor();await page.setViewportSize({width:390,height:844});
+async function fullApp({main=stations,catalog=main}={}){
+ const page=await pageFor(undefined,main,catalog);await page.setViewportSize({width:390,height:844});
  await page.addInitScript(()=>{
   localStorage.setItem('p2Active','1');window.sentCommands=[];
   window.nativeState={nativeRecovery:true,serviceActive:true,isPlaying:false,manualPause:true,eq:[0,0,600,0,0],normalize:true,smooth:false,volume:.7};
@@ -41,6 +41,91 @@ async function fullApp(){
  const raw=java.match(/v\.evaluateJavascript\("(.*)",null\);/)[1].replaceAll('"+A+"',A);
  await page.evaluate(JSON.parse('"'+raw+'"'));await page.waitForTimeout(6500);return page;
 }
+
+const groupStation=(id,name,tags,clickcount=100)=>({stationuuid:id,name,tags,clickcount,bitrate:128,lastcheckok:1,countrycode:'TR',url:'https://stream.test/'+id});
+const groupMain=[groupStation('pop-a','Pop A','pop',900),groupStation('news-a','Haber A','news',800),groupStation('rock-a','Rock A','rock',700)];
+const groupCatalog=[...groupMain,groupStation('pop-b','Pop B','pop',600),groupStation('pop-c','Pop C','pop',500),groupStation('news-b','Haber B','news',400),
+ {...groupStation('foreign','Foreign Pop','pop',2000),countrycode:'DE'},
+ {...groupStation('broken','Broken Pop','pop',1900),lastcheckok:0},
+ {...groupStation('pop-b','Pop B alternate','pop',1800),url:'https://stream.test/duplicate'},
+ {...groupStation('copy','Duplicate stream','pop',1700),url:'https://stream.test/pop-c'}];
+async function groupApp(main=groupMain,catalog=groupCatalog){
+ const page=await fullApp({main,catalog});
+ await page.evaluate(data=>{
+  localStorage.setItem('v5MainKeys',JSON.stringify(data.main.map(s=>s.stationuuid)));
+  localStorage.setItem('v201CatalogCache',JSON.stringify({at:Date.now(),data:data.catalog}));
+  const list=window.trGetStations();window.select(list.findIndex(s=>s.stationuuid===data.main[0].stationuuid),false);window.sentCommands=[];
+ },{main,catalog});
+ return page;
+}
+async function playedNames(page){return page.evaluate(()=>window.sentCommands.filter(u=>u.startsWith('radioapp://play?')).map(u=>new URL(u).searchParams.get('name')))}
+
+test('Upper buttons follow the main list; lower buttons share Turkey Groups classification',{timeout:30000},async()=>{
+ const page=await groupApp();try{
+  await page.locator('#next').click();assert.equal(await page.locator('#now').textContent(),'Haber A');
+  await page.locator('#p2Genres').click();await page.locator('[data-p2g="Haber"]').click();
+  const names=await page.locator('#p2Stations strong').allTextContents();assert.deepEqual(new Set(names),new Set(['Haber A','Haber B']));
+  await page.locator('#closeSheet').click();
+  await page.locator('#next2').click();await page.waitForFunction(()=>document.querySelector('#now').textContent==='Haber B');
+  assert.equal(await page.locator('#next2>span').textContent(),'HABER GRUBU');
+  await page.locator('#prev2').click();await page.waitForFunction(()=>document.querySelector('#now').textContent==='Haber A');
+  await page.locator('#next').click();assert.equal(await page.locator('#now').textContent(),'Rock A');
+  assert.deepEqual(await playedNames(page),['Haber A','Haber B','Haber A','Rock A']);
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.v5MainKeys)),groupMain.map(s=>s.stationuuid));
+ }finally{await page.close()}
+});
+
+test('Cached group navigation works offline, wraps and skips duplicate, foreign and broken streams',{timeout:30000},async()=>{
+ const page=await groupApp();try{
+  await page.route('**/*api.radio-browser.info/**',route=>route.abort());
+  for(const name of ['Pop B','Pop C','Pop A']){await page.locator('#next2').click();await page.waitForFunction(n=>document.querySelector('#now').textContent===n,name)}
+  await page.locator('#prev2').click();await page.waitForFunction(()=>document.querySelector('#now').textContent==='Pop C');
+  assert.deepEqual(await playedNames(page),['Pop B','Pop C','Pop A','Pop C']);
+  await page.locator('#next').click();assert.equal(await page.locator('#now').textContent(),'Haber A');
+ }finally{await page.close()}
+});
+
+test('Legacy genre mode cannot duplicate lower navigation or hijack upper main-list buttons',{timeout:30000},async()=>{
+ const page=await groupApp();try{
+  await page.evaluate(()=>localStorage.setItem('trGenre273',JSON.stringify({active:'Rock',pos:0,pool:[{name:'Wrong rock',_url:'https://wrong.test/rock'}]})));
+  await page.locator('#next2').click();await page.waitForFunction(()=>document.querySelector('#now').textContent==='Pop B');
+  await page.locator('#next').click();assert.equal(await page.locator('#now').textContent(),'Haber A');
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.trGenre273).active),'');
+  assert.deepEqual(await playedNames(page),['Pop B','Haber A']);
+ }finally{await page.close()}
+});
+
+test('A delayed group catalog cannot override a later main-list selection or pause',{timeout:30000},async()=>{
+ const page=await groupApp();try{
+  await page.evaluate(()=>{localStorage.removeItem('v201CatalogCache');window.radioFetchJson=()=>new Promise(r=>window.completeGroupCatalog=r)});
+  await page.locator('#next2').click();await page.waitForFunction(()=>typeof window.completeGroupCatalog==='function');
+  await page.locator('#next').click();
+  await page.evaluate(data=>window.completeGroupCatalog(data),groupCatalog);await page.waitForTimeout(150);
+  assert.equal(await page.locator('#now').textContent(),'Haber A');assert.deepEqual(await playedNames(page),['Haber A']);
+  await page.evaluate(()=>{localStorage.removeItem('v201CatalogCache');window.completeGroupCatalog=null;window.sentCommands=[]});
+  await page.locator('#next2').click();await page.waitForFunction(()=>typeof window.completeGroupCatalog==='function');
+  await page.locator('#play').click();
+  await page.evaluate(data=>window.completeGroupCatalog(data),groupCatalog);await page.waitForTimeout(150);
+  assert.equal(await page.locator('#now').textContent(),'Haber A');assert.deepEqual(await playedNames(page),[]);
+  await page.evaluate(()=>{localStorage.removeItem('v201CatalogCache');window.select(window.trGetStations().findIndex(s=>s.stationuuid==='pop-a'),false);window.completeGroupCatalog=null;window.sentCommands=[]});
+  await page.locator('#next2').click();await page.waitForFunction(()=>typeof window.completeGroupCatalog==='function');
+  await page.locator('#prev2').click();
+  await page.evaluate(data=>window.completeGroupCatalog(data),groupCatalog);
+  await page.waitForFunction(()=>document.querySelector('#now').textContent==='Pop C');
+  assert.deepEqual(await playedNames(page),['Pop C']);
+ }finally{await page.close()}
+});
+
+test('A single-station or unknown group preserves playback instead of choosing another genre',{timeout:30000},async()=>{
+ const main=[groupStation('solo','Solo Jazz','jazz'),groupStation('unknown','Etiketsiz Radyo','')];
+ const page=await groupApp(main,[...main,...groupMain]);try{
+  await page.locator('#next2').click();await page.waitForTimeout(100);
+  assert.equal(await page.locator('#now').textContent(),'Solo Jazz');assert.match(await page.locator('#toast').textContent(),/başka uygun radyo/);
+  await page.evaluate(()=>window.select(window.trGetStations().findIndex(s=>s.stationuuid==='unknown'),false));
+  await page.locator('#prev2').click();assert.equal(await page.locator('#now').textContent(),'Etiketsiz Radyo');
+  assert.match(await page.locator('#toast').textContent(),/türü belirlenemedi/);assert.deepEqual(await playedNames(page),[]);
+ }finally{await page.close()}
+});
 
 test('Mobile favorites and search select a station through the native command bridge',{timeout:30000},async()=>{
  const page=await fullApp();try{

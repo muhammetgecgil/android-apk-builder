@@ -13,14 +13,16 @@ const stations=names.map((name,i)=>({name,stationuuid:'preview-'+i,url:'https://
  await page.goto(A+'index.html');const java=source('turkradyo/app/src/main/java/com/muhammetgecgil/turkradyo/MainActivity.java');const raw=java.match(/v\.evaluateJavascript\("(.*)",null\);/)[1].replaceAll('"+A+"',A);await page.evaluate(JSON.parse('"'+raw+'"'));await page.waitForTimeout(6500);
  const shot=async name=>{const overlay=await page.locator('.sheet.show,.nature-modal.show').count();await page.screenshot({path:path.join(out,name+'.png'),fullPage:!overlay,animations:'disabled'})};
  await shot('profile2-home');
+ await page.locator('.hero').screenshot({path:path.join(out,'transport-red.png'),animations:'disabled'});
  await page.locator('#p2UnifiedPremiumGrid263').screenshot({path:path.join(out,'premium-cards-red.png'),animations:'disabled'});
  const cards=await page.locator('#p2UnifiedPremiumGrid263>button').evaluateAll(nodes=>nodes.map(e=>{const r=e.getBoundingClientRect(),icon=e.querySelector('.p263Icon'),label=e.querySelector('.p263Label'),ir=icon.getBoundingClientRect(),lr=label.getBoundingClientRect();return{id:e.id,art:icon.querySelector('svg')?.dataset.art||'slow-pulse',iconWidth:ir.width,cardHeight:r.height,overlaps:ir.bottom>lr.top,overflow:lr.bottom>r.bottom||ir.left<r.left||ir.right>r.right}}));
  const buttons=await page.locator('button').evaluateAll(a=>a.filter(e=>e.getBoundingClientRect().height>0).map(e=>({id:e.id,text:e.textContent.trim(),mode:e.dataset.mode,rect:{x:e.getBoundingClientRect().x,y:e.getBoundingClientRect().y,width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height}})));
  await page.locator('#settingsBtn').click();await page.waitForTimeout(500);await shot('settings');await page.locator('#closeSheet').click();
  await page.locator('#p2DNA').click();await page.waitForTimeout(300);await shot('dna');await page.locator('#closeSheet').click();
  await page.locator('#p2Sleep').click();await page.waitForTimeout(300);await shot('timer');await page.locator('#closeSheet').click();
- await page.locator('[data-mode="themes"]').click();await page.locator('[data-use="morpho-blue"]').click();await page.evaluate(()=>window.trCloseTopOverlay());await page.waitForTimeout(1400);
- await page.locator('#p2UnifiedPremiumGrid263').screenshot({path:path.join(out,'premium-cards-blue.png'),animations:'disabled'});
+ await page.locator('[data-mode="themes"]').click();await page.locator('[data-use="orchid"]').click();await page.evaluate(()=>window.trCloseTopOverlay());await page.waitForTimeout(1400);
+ await page.locator('#p2UnifiedPremiumGrid263').screenshot({path:path.join(out,'premium-cards-purple.png'),animations:'disabled'});
+ await page.locator('.hero').screenshot({path:path.join(out,'transport-purple.png'),animations:'disabled'});
  await page.setViewportSize({width:360,height:800});await page.locator('#p2UnifiedPremiumGrid263').screenshot({path:path.join(out,'premium-cards-small.png'),animations:'disabled'});
  await page.locator('[data-mode="themes"]').click();await page.locator('#natureReset').click();await page.evaluate(()=>window.trCloseTopOverlay());await page.setViewportSize({width:412,height:915});await page.waitForTimeout(500);
  await page.locator('.nature-profile-pill').click();await page.waitForTimeout(250);await page.locator('[data-prof="1"]').click();await page.waitForTimeout(1300);await shot('profile1-home');

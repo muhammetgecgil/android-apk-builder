@@ -14,7 +14,7 @@ function readState(){try{return JSON.parse(window.RadioNative?.getTelemetry?.()|
 let graceUntil=0,lastNativeVolume=null;
 function decorate(){
  icon($('#menuBtn'),'menu','Radyo listesini aç');icon($('#settingsBtn'),'settings','Ayarları aç');
- icon($('#prev'),'prev','Önceki radyo');icon($('#next'),'next','Sonraki radyo');
+ icon($('#prev'),'prev','Ana listede önceki radyo');icon($('#next'),'next','Ana listede sonraki radyo');
  icon($('.vol>span:first-child'),'low');icon($('.vol>span:last-child'),'high');
  document.querySelectorAll('.bottom [data-nav]').forEach(b=>icon(b.querySelector('b'),paths[b.dataset.nav]?b.dataset.nav:'settings'));
  attr($('#volume'),'aria-label','Ses seviyesi');attr($('#search'),'aria-label','Radyolarda ara');
@@ -48,6 +48,7 @@ function syncOverlays(){const open=!!document.querySelector('.sheet.show,.nature
 window.trCloseTopOverlay=()=>{const open=[...document.querySelectorAll('.sheet.show,.nature-modal.show')];const top=open.at(-1);if(!top)return false;top.classList.remove('show');syncOverlays();return true};
 function boot(){
  document.body.classList.add('tr-refined');
+ window.addEventListener('turkradyo-user-playback',()=>{graceUntil=Date.now()+1500});
  const css=document.createElement('link');css.rel='stylesheet';css.href='https://appassets.androidplatform.net/assets/refinement-v2872.css?v=2872';document.head.appendChild(css);
  [0,300,1100,2600,5000].forEach(ms=>setTimeout(decorate,ms));
  document.addEventListener('click',e=>{if(e.target.closest?.('#play,#miniPlay,#prev,#next,#prev2,#next2,.item,[data-p2play],.tr273Choice'))graceUntil=Date.now()+1500;setTimeout(update,40);if(e.target.closest?.('[data-prof],[data-use],.nature-reset'))setTimeout(decorate,500)},true);
