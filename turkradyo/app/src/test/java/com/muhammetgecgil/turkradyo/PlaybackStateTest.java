@@ -52,7 +52,7 @@ public class PlaybackStateTest {
         assertTrue(state.getBoolean("nativeRecovery"));
         assertTrue(repair.isCancelled());
         android.media.session.MediaSession session=ReflectionHelpers.getField(service,"mediaSession");
-        assertTrue((session.getController().getPlaybackState().getActions()&android.media.session.PlaybackState.ACTION_PLAY_FROM_SEARCH)!=0);
+        assertVoiceSearchPublished(session);
         controller.destroy();
         shadowOf(worker.getLooper()).idle();
     }
@@ -80,8 +80,16 @@ public class PlaybackStateTest {
         int state=ReflectionHelpers.getField(controller.get(),"lastState");
         assertEquals(android.media.session.PlaybackState.STATE_PAUSED,state);
         android.media.session.MediaSession session=ReflectionHelpers.getField(controller.get(),"session");
-        assertTrue((session.getController().getPlaybackState().getActions()&android.media.session.PlaybackState.ACTION_PLAY_FROM_SEARCH)!=0);
+        assertVoiceSearchPublished(session);
         controller.destroy();
+    }
+
+    private static void assertVoiceSearchPublished(android.media.session.MediaSession session) {
+        // Robolectric does not relay session state through the system media Binder.
+        // Inspect the state retained by the real API 28 MediaSession setter instead.
+        android.media.session.PlaybackState state=ReflectionHelpers.getField(session,"mPlaybackState");
+        assertNotNull(state);
+        assertTrue((state.getActions()&android.media.session.PlaybackState.ACTION_PLAY_FROM_SEARCH)!=0);
     }
 
     @Test public void healthyPlaybackDoesNotConsumeAutoResumeBudget() throws Exception {
