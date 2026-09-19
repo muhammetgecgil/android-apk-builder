@@ -1,0 +1,19 @@
+"""Check the delivered APK, including its signature and independent identity."""
+import os
+from pathlib import Path
+import re
+import subprocess
+
+project = Path(__file__).resolve().parents[1]
+apk = project / "app/build/outputs/apk/debug/app-debug.apk"
+sdk = Path(os.environ.get("ANDROID_HOME") or os.environ["ANDROID_SDK_ROOT"])
+build_tools = sdk / "build-tools/35.0.0"
+
+subprocess.run([str(build_tools / "apksigner"), "verify", "--verbose", str(apk)], check=True)
+badging = subprocess.check_output([str(build_tools / "aapt"), "dump", "badging", str(apk)], text=True)
+package = re.search(r"^package: name='([^']+)'", badging, re.M)
+assert package and package[1] == "com.muhammetgecgil.turkradyo.test", badging
+assert "application-label:'MGtürk Radyo Test'" in badging, badging
+assert "versionName='2.8.7.1-test'" in badging, badging
+assert "launchable-activity: name='com.muhammetgecgil.turkradyo.MainActivity'" in badging, badging
+print("Verified signed side-by-side APK: " + package[1])

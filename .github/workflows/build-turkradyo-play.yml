@@ -72,18 +72,21 @@ jobs:
         working-directory: turkradyo
         run: gradle --no-daemon clean testDebugUnitTest lintRelease assembleRelease assembleDebug bundleRelease
 
+      - name: Verify installable test APK identity and signature
+        run: python3 turkradyo/tests/verify-test-apk.py
+
       - name: Package source snapshot and complete kit
         run: |
           mkdir -p dist
           zip -rq dist/TurkRadyo-v2.8.7.1-Source.zip turkradyo TURKRADYO_REFERENCE.md .github/workflows/build-turkradyo-play.yml .github/workflows/ci-turkradyo-pr.yml .github/workflows/radio-audit.yml -x 'turkradyo/app/build/*' 'turkradyo/.gradle/*'
-          cp turkradyo/app/build/outputs/apk/debug/app-debug.apk dist/TurkRadyo-v2.8.7.1-Debug.apk
+          cp turkradyo/app/build/outputs/apk/debug/app-debug.apk dist/TurkRadyo-v2.8.7.1-SideBySide-Test.apk
           cp turkradyo/app/build/outputs/bundle/release/app-release.aab dist/TurkRadyo-v2.8.7.1-Play.aab
           if [ -f turkradyo/app/build/outputs/apk/release/app-release.apk ]; then
             cp turkradyo/app/build/outputs/apk/release/app-release.apk dist/TurkRadyo-v2.8.7.1-Release.apk
             SIGNING_STATE='stable-signed-release'
           else
             cp turkradyo/app/build/outputs/apk/release/app-release-unsigned.apk dist/TurkRadyo-v2.8.7.1-Release-Unsigned.apk
-            SIGNING_STATE='release-unsigned-debug-installable'
+            SIGNING_STATE='release-unsigned-side-by-side-test'
           fi
           cat > dist/TurkRadyo-v2.8.7.1-MANIFEST.txt <<EOF
           TurkRadyo LATEST DEVELOPMENT PACKAGE
@@ -93,11 +96,14 @@ jobs:
           Branch: $GITHUB_REF_NAME
           Signing state: $SIGNING_STATE
           Play Store file: TurkRadyo-v2.8.7.1-Play.aab
-          Installable test APK: TurkRadyo-v2.8.7.1-Debug.apk
+          Installable test APK: TurkRadyo-v2.8.7.1-SideBySide-Test.apk
+          Test application ID: com.muhammetgecgil.turkradyo.test
+          Test app name: MGtürk Radyo Test
+          Test data and settings are separate from the production app.
           Source snapshot: TurkRadyo-v2.8.7.1-Source.zip
           EOF
-          (cd dist && sha256sum TurkRadyo-v2.8.7.1-Debug.apk TurkRadyo-v2.8.7.1-Play.aab TurkRadyo-v2.8.7.1-Source.zip >> TurkRadyo-v2.8.7.1-MANIFEST.txt)
-          (cd dist && zip -q TurkRadyo-v2.8.7.1-COMPLETE.zip TurkRadyo-v2.8.7.1-Debug.apk TurkRadyo-v2.8.7.1-Play.aab TurkRadyo-v2.8.7.1-Source.zip TurkRadyo-v2.8.7.1-MANIFEST.txt TurkRadyo-v2.8.7.1-Release*.apk)
+          (cd dist && sha256sum TurkRadyo-v2.8.7.1-SideBySide-Test.apk TurkRadyo-v2.8.7.1-Play.aab TurkRadyo-v2.8.7.1-Source.zip >> TurkRadyo-v2.8.7.1-MANIFEST.txt)
+          (cd dist && zip -q TurkRadyo-v2.8.7.1-COMPLETE.zip TurkRadyo-v2.8.7.1-SideBySide-Test.apk TurkRadyo-v2.8.7.1-Play.aab TurkRadyo-v2.8.7.1-Source.zip TurkRadyo-v2.8.7.1-MANIFEST.txt TurkRadyo-v2.8.7.1-Release*.apk)
 
       - name: Upload stable signed update APK
         if: env.TURKRADYO_KEYSTORE_B64 != ''
@@ -117,10 +123,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload debug test APK
+      - name: Upload side-by-side test APK
         uses: actions/upload-artifact@v4
         with:
-          name: TurkRadyo-Debug-Test-APK-NOT-FOR-UPDATES
+          name: TurkRadyo-SideBySide-Test-APK
           path: turkradyo/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30

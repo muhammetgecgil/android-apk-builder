@@ -40,6 +40,9 @@ jobs:
         working-directory: turkradyo
         run: gradle --no-daemon clean assembleDebug bundleRelease --stacktrace
 
+      - name: Verify installable test APK identity and signature
+        run: python3 turkradyo/tests/verify-test-apk.py
+
       - name: Package complete source
         run: |
           rm -rf /tmp/turkradyo-source

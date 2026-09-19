@@ -63,8 +63,12 @@ kapatıp açma; kesinti sırasında pause/stop; ekran kilitli uzun dinleme;
 kulaklık çıkarma/telefon görüşmesi; Android Auto oynat-duraklat; profil,
 favori, arama, alarm ve uyku zamanlayıcısı.
 
-İmzalama: mevcut Gradle release anahtarı yapılandırması korunur. Anahtar
-sağlanmadığında release APK/AAB imzasız, debug APK test imzalıdır. Üzerine
-güncelleme kurulabilmesi için telefondaki paketle aynı imza gerekir; mevcut
-uygulamayı kaldırmak veri kaybına neden olabileceğinden güncelleme yöntemi
-olarak önerilmez. Referans dalları ve ana dal değiştirilmedi.
+İmzalama ve kurulum: mevcut Gradle release anahtarı yapılandırması korunur.
+Anahtar sağlanmadığında release APK/AAB imzasızdır. Test APK artık ayrı
+`com.muhammetgecgil.turkradyo.test` paket kimliği, `2.8.7.1-test` sürümü ve
+“MGtürk Radyo Test” adıyla üretilir. Böylece mevcut uygulamanın imzasıyla
+çakışmadan yanına kurulabilir. Favoriler ve ayarlar iki uygulamada ayrıdır;
+otomatik veri aktarımı yapılmaz. Mevcut uygulamayı kaldırmak gerekmez.
+CI, APK'nın gerçek paket kimliğini, etiketini, açılış Activity'sini ve imzasını
+doğrular. Üretim uygulamasının üzerine güncelleme için aynı orijinal imza
+gerekir. Referans dalları ve ana dal değiştirilmedi.
