@@ -40,7 +40,7 @@ public class MainActivity extends Activity {
 
     @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);handleSearchIntent(intent);}
     private void handleSearchIntent(Intent intent){
-        if(intent!=null&&android.media.MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH.equals(intent.getAction()))
+        if(intent!=null&&android.provider.MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH.equals(intent.getAction()))
             startFg(new Intent(this,RadioService.class).setAction(RadioService.ACTION_SEARCH).putExtra("query",intent.getStringExtra(android.app.SearchManager.QUERY)));
     }
 
