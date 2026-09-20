@@ -36,6 +36,7 @@ jobs:
           NODE_PATH="$RUNNER_TEMP/radio-ui-test/node_modules" CHROME_PATH="$(command -v google-chrome)" node --test turkradyo/tests/ui-regression.cjs
 
       - name: Capture mobile UI for visual review
+        if: ${{ !cancelled() }}
         run: NODE_PATH="$RUNNER_TEMP/radio-ui-test/node_modules" CHROME_PATH="$(command -v google-chrome)" UI_CAPTURE_DIR="$RUNNER_TEMP/radio-ui-preview" node turkradyo/tests/ui-preview.cjs
 
       - name: Upload UI review screenshots

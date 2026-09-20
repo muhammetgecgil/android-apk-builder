@@ -72,12 +72,14 @@ function settleFocus(){const o=topOverlay();if(!o){if(opener?.isConnected){opene
 function boot(){
  if(!$('#signatureV290Css')){const css=document.createElement('link');css.id='signatureV290Css';css.rel='stylesheet';css.href=A+'signature-v290.css?v=290';document.head.appendChild(css)}
  [0,400,1300,3000,5500].forEach(ms=>setTimeout(mount,ms));
- document.addEventListener('click',e=>{
+ window.addEventListener('click',e=>{
   const b=e.target.closest('button,[role="button"]');if(!b)return;
   if(!topOverlay())opener=b;
   setTimeout(()=>{decoratePanel();settleFocus()},100);
   if(b.closest('[data-prof],.nature-profile-pill,[data-use],#natureReset'))[300,1100,2700].forEach(ms=>setTimeout(mount,ms));
  },true);
+ const closeOverlay=window.trCloseTopOverlay;
+ if(closeOverlay)window.trCloseTopOverlay=()=>{const closed=closeOverlay();if(closed)requestAnimationFrame(settleFocus);return closed};
  document.addEventListener('keydown',e=>{
   if((e.key==='Enter'||e.key===' ')&&e.target.matches('.item[data-i]')){e.preventDefault();e.target.click();return}
   if(e.key!=='Tab')return;const o=topOverlay();if(!o)return;

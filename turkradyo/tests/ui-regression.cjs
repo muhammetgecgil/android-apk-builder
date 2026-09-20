@@ -84,7 +84,7 @@ test('Compact layout keeps both transport rows and expanded broadcast tools usab
    const r=await page.locator('#'+id).boundingBox();assert.ok(r.width>=44&&r.height>=44,id+' touch target');
   }
   await page.locator('#sigTools summary').click();
-  await page.locator('#v6Quality').click();assert.match(await page.locator('#sheetTitle').textContent(),/Kalite/);
+  await page.locator('#v6Quality').click();await page.waitForFunction(()=>/Kalite/.test(document.querySelector('#sheetTitle').textContent));
   await page.locator('#closeSheet').click();
   await page.locator('.nature-profile-pill').click();await page.waitForTimeout(250);await page.locator('[data-prof="1"]').click();await page.waitForTimeout(3000);
   await page.locator('#settingsBtn').click();assert.match(await page.locator('#sheetTitle').textContent(),/Ayar/);

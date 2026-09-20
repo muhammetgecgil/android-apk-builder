@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
     private void buildWebView(){
         if(activityDestroyed||isFinishing())return;
         rendererRecoveryPending=false;
-        webView=new WebView(this);setContentView(webView);
+        webView=new WebView(this);webView.setBackgroundColor(android.graphics.Color.rgb(9,11,16));setContentView(webView);
         if(Build.VERSION.SDK_INT>=26)webView.setRendererPriorityPolicy(WebView.RENDERER_PRIORITY_IMPORTANT,false);
         if(Build.VERSION.SDK_INT>=29){
             webView.setWebViewRenderProcessClient(new WebViewRenderProcessClient(){
