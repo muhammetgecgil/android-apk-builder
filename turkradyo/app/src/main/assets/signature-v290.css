@@ -1,6 +1,7 @@
 /* Signature 2.9.1: compact controls, theme-colored surfaces, a genuinely minimal Baz profile. */
 #trSignature{color-scheme:dark;background:var(--bg,#151018)}
 #trSignature body.tr-signature{
+ min-height:100vh;min-height:100dvh;
  --sig-accent:var(--red,#ff5264);--sig-light:color-mix(in srgb,var(--sig-accent) 54%,#fff);
  --sig-bg:color-mix(in srgb,var(--bg,#151018) 86%,var(--sig-accent));
  --sig-panel:color-mix(in srgb,var(--bg2,#271822) 76%,var(--sig-accent));

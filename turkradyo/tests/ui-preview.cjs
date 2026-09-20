@@ -43,6 +43,8 @@ const stations=names.map((name,i)=>({name,stationuuid:'preview-'+i,url:'https://
  await page.locator('[data-mode="themes"]').click();await page.locator('#natureReset').click();await page.evaluate(()=>window.trCloseTopOverlay());await page.setViewportSize({width:412,height:915});await page.waitForTimeout(500);
  await page.locator('.nature-profile-pill').click();await page.waitForTimeout(250);await page.locator('[data-prof="1"]').click();await page.waitForTimeout(1300);await shot('profile1-home');
  await page.setViewportSize({width:360,height:800});await shot('profile1-small');
+ await page.locator('.bottom [data-nav="home"]').click();
+ await page.locator('.nature-profile-pill').click();await page.waitForTimeout(250);await page.locator('[data-prof="2"]').click();await page.waitForTimeout(1600);await shot('profile2-return');
  await page.locator('.nature-profile-pill').click();await page.waitForTimeout(250);await page.locator('[data-baz-profile]').click();await page.waitForTimeout(1600);await shot('baz-small');
  await page.setViewportSize({width:412,height:915});await shot('baz-home');
  for(const [theme,name] of [['morpho-blue','baz-blue'],['emerald-swallowtail','baz-green']]){

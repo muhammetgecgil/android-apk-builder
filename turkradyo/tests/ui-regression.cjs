@@ -81,7 +81,7 @@ test('Baz stays minimal after delayed mounts, profile switches and a fresh page 
   await page.locator('[data-baz="tracks"]').click();await page.waitForTimeout(150);assert.match(await page.locator('#sheetTitle').textContent(),/50/);await page.locator('#closeSheet').click();
   await page.locator('[data-baz="groups"]').click();assert.match(await page.locator('#sheetTitle').textContent(),/Türkiye/);await page.locator('#closeSheet').click();
   await chooseProfile(page,'1');assert.equal(await page.locator('#trBazGrid').isVisible(),false);
-  await chooseProfile(page,'2');assert.equal(await page.locator('#p2UnifiedPremiumGrid263').isVisible(),true);
+  await chooseProfile(page,'2');assert.equal(await page.locator('#p2UnifiedPremiumGrid263').isVisible(),true,await page.evaluate(()=>JSON.stringify({body:document.body.className,active:localStorage.p2Active,profile:localStorage.trActiveProfileV281,gridStyle:document.querySelector('#p2UnifiedPremiumGrid263').style.cssText,parent:document.querySelector('#p2UnifiedPremiumGrid263').parentElement.className,children:document.querySelector('#p2UnifiedPremiumGrid263').children.length})));
   await chooseProfile(page,'baz');await minimal();
   await page.reload();const java=source('turkradyo/app/src/main/java/com/muhammetgecgil/turkradyo/MainActivity.java');const raw=java.match(/v\.evaluateJavascript\("(.*)",null\);/)[1].replaceAll('"+A+"',A);await page.evaluate(JSON.parse('"'+raw+'"'));await page.waitForTimeout(6500);await minimal();
  }finally{await page.close()}
