@@ -52,6 +52,19 @@ function mount(){
   modes.querySelectorAll('.mode').forEach(b=>{const d=b.hasAttribute('data-last-radio')?['Son radyo','Önceki istasyona dön','back']:b.hasAttribute('data-nota-ai')?['NOTA AI','Deneysel nota analizi','note']:modeCopy[b.dataset.mode];if(d)copyCard(b,...d)});
  }
  const grid=$('#p2UnifiedPremiumGrid263');title('sigStudioTitle','Dinleme stüdyosu',grid,true);
+ const bazCopy={zap:['Zapping','zap'],favorites:['Favoriler','heart'],back:['Önceki radyo','back'],recent:['Son dinlenenler','clock'],tracks:['Son 50','note'],groups:['Türkiye grupları','grid']};
+ document.querySelectorAll('#trBazGrid [data-baz]').forEach(b=>{const d=bazCopy[b.dataset.baz];if(!d)return;const icon=b.querySelector('.trBazIcon');if(icon&&!icon.querySelector('.sig-icon'))icon.innerHTML=svg(d[1]);setText(b.querySelector('strong'),d[0]);attr(b,'aria-label',d[0])});
+ const picker=$('#profileModal .nature-shell');
+ if(picker){
+  setText(picker.querySelector('.nature-sub'),'Tema tüm profillerde korunur');
+  setText(picker.querySelector('[data-prof="1"] strong'),'Profil 1 • Standart');
+  setText(picker.querySelector('[data-prof="1"] small'),'Radyo ve keşif kısayolları');
+  setText(picker.querySelector('[data-prof="2"] strong'),'Profil 2 • Tüm özellikler');
+  setText(picker.querySelector('[data-prof="2"] small'),'Kompakt dinleme stüdyosu ve gelişmiş araçlar');
+  if(!$('#sigThemeShortcut')){const b=document.createElement('button');b.id='sigThemeShortcut';b.dataset.sigThemes='1';b.innerHTML=svg('theme')+'<span>Temalar</span>';picker.appendChild(b)}
+ }
+ setText($('#natureThemeModal .nature-sub'),'Tüm profiller • 50 renk paleti');
+ setText($('#natureThemeModal .nature-foot'),'Seçtiğin tema arka plana, kartlara ve özellik panellerine uygulanır. Profil değiştirsen de aynı tema korunur.');
  const captions={v12Similar:'Dinlediğine benzer',v12Genres:'Türlere göre keşfet',v12Smart:'Yavaşla, dinlemeye devam et',p2DNA:'Bağlantını yakından tanı',p2Tracks:'Şarkı geçmişin',p2Alarm:'Güne radyoyla başla',p2Sleep:'Süreyi sen belirle',p2Genres:'Türkiye’yi tür tür keşfet'};
  Object.entries(captions).forEach(([id,caption])=>{const e=$('#'+id);attr(e?.querySelector('.p263Label'),'data-caption',caption);if(e)attr(e,'aria-label',(e.querySelector('.p263Label')?.textContent||'')+' — '+caption)});
  const tools=$('.radio-tools-v6');
@@ -70,10 +83,11 @@ let opener=null;
 function topOverlay(){return [...document.querySelectorAll('.sheet.show,.nature-modal.show')].at(-1)}
 function settleFocus(){const o=topOverlay();if(!o){if(opener?.isConnected){opener.focus({preventScroll:true});opener=null}return}if(!o.contains(document.activeElement)){const close=o.querySelector('#closeSheet,[data-close],[data-pclose]');close?.focus({preventScroll:true})}}
 function boot(){
- if(!$('#signatureV290Css')){const css=document.createElement('link');css.id='signatureV290Css';css.rel='stylesheet';css.href=A+'signature-v290.css?v=290';document.head.appendChild(css)}
+ if(!$('#signatureV290Css')){const css=document.createElement('link');css.id='signatureV290Css';css.rel='stylesheet';css.href=A+'signature-v290.css?v=291';document.head.appendChild(css)}
  [0,400,1300,3000,5500].forEach(ms=>setTimeout(mount,ms));
  window.addEventListener('click',e=>{
   const b=e.target.closest('button,[role="button"]');if(!b)return;
+  if(b.id==='sigThemeShortcut')$('#profileModal')?.classList.remove('show');
   if(!topOverlay())opener=b;
   setTimeout(()=>{decoratePanel();settleFocus()},100);
   if(b.closest('[data-prof],.nature-profile-pill,[data-use],#natureReset'))[300,1100,2700].forEach(ms=>setTimeout(mount,ms));
@@ -88,6 +102,7 @@ function boot(){
   if(e.shiftKey&&(document.activeElement===first||!o.contains(document.activeElement))){e.preventDefault();last.focus()}else if(!e.shiftKey&&(document.activeElement===last||!o.contains(document.activeElement))){e.preventDefault();first.focus()}
  });
  window.addEventListener('turkradyo-theme-synced',()=>setTimeout(mount,0));
+ window.addEventListener('turkradyo-profile-changed',()=>setTimeout(mount,0));
  window.addEventListener('pageshow',()=>setTimeout(mount,0));
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();

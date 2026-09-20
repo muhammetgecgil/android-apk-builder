@@ -60,6 +60,61 @@ async function groupApp(main=groupMain,catalog=groupCatalog){
 }
 async function playedNames(page){return page.evaluate(()=>window.sentCommands.filter(u=>u.startsWith('radioapp://play?')).map(u=>new URL(u).searchParams.get('name')))}
 
+async function chooseProfile(page,value){
+ await page.locator('.nature-profile-pill').click();await page.waitForTimeout(250);
+ await page.locator(value==='baz'?'[data-baz-profile]':'[data-prof="'+value+'"]').click();
+ await page.waitForTimeout(1600);
+}
+
+test('Baz stays minimal after delayed mounts, profile switches and a fresh page load',{timeout:50000},async()=>{
+ const page=await fullApp();try{
+  await page.setViewportSize({width:360,height:800});
+  const minimal=async()=>{
+   assert.equal(await page.locator('#p2UnifiedPremiumGrid263').isVisible(),false,'studio must stay hidden');
+   assert.equal(await page.locator('.modes').isVisible(),false);
+   assert.equal(await page.locator('.wave').isVisible(),false);
+   assert.equal(await page.locator('#trBazGrid button:visible').count(),6);
+   assert.equal(await page.locator('.app>*:visible').count(),3,'only header, player and shortcuts');
+   for(const r of await page.locator('#trBazGrid button').evaluateAll(a=>a.map(e=>({height:e.getBoundingClientRect().height,width:e.getBoundingClientRect().width}))))assert.ok(r.height>=44&&r.height<=64&&r.width>=44);
+  };
+  await chooseProfile(page,'baz');await page.waitForTimeout(3100);await minimal();
+  await page.locator('[data-baz="tracks"]').click();await page.waitForTimeout(150);assert.match(await page.locator('#sheetTitle').textContent(),/50/);await page.locator('#closeSheet').click();
+  await page.locator('[data-baz="groups"]').click();assert.match(await page.locator('#sheetTitle').textContent(),/Türkiye/);await page.locator('#closeSheet').click();
+  await chooseProfile(page,'1');assert.equal(await page.locator('#trBazGrid').isVisible(),false);
+  await chooseProfile(page,'2');assert.equal(await page.locator('#p2UnifiedPremiumGrid263').isVisible(),true);
+  await chooseProfile(page,'baz');await minimal();
+  await page.reload();const java=source('turkradyo/app/src/main/java/com/muhammetgecgil/turkradyo/MainActivity.java');const raw=java.match(/v\.evaluateJavascript\("(.*)",null\);/)[1].replaceAll('"+A+"',A);await page.evaluate(JSON.parse('"'+raw+'"'));await page.waitForTimeout(6500);await minimal();
+ }finally{await page.close()}
+});
+
+test('Theme palettes color page, player, cards and dialogs, including Baz theme access',{timeout:45000},async()=>{
+ const page=await fullApp();try{
+  const surfaces=()=>page.evaluate(()=>['body','.hero','.modes .mode','#p2UnifiedPremiumGrid263>button','#sheet .panel'].map(s=>{const c=getComputedStyle(document.querySelector(s));return c.backgroundColor+' '+c.backgroundImage}));
+  const palettes=[];
+  for(const id of ['morpho-blue','orchid','emerald-swallowtail']){
+   await page.locator('[data-mode="themes"]').click();await page.locator('[data-use="'+id+'"]').click();await page.evaluate(()=>window.trCloseTopOverlay());await page.waitForTimeout(300);palettes.push(await surfaces());
+  }
+  for(let i=0;i<5;i++)assert.equal(new Set(palettes.map(p=>p[i])).size,3,'surface '+i+' must reflect all theme palettes');
+  await chooseProfile(page,'baz');assert.equal((await surfaces())[0],palettes[2][0]);
+  await page.locator('.nature-profile-pill').click();await page.waitForTimeout(250);await page.locator('#sigThemeShortcut').click();
+  assert.equal(await page.locator('#profileModal.show').count(),0);
+  await page.locator('[data-use="morpho-blue"]').click();await page.evaluate(()=>window.trCloseTopOverlay());await page.waitForTimeout(400);
+  assert.equal((await surfaces())[0],palettes[0][0]);assert.equal(await page.locator('#p2UnifiedPremiumGrid263').isVisible(),false);
+  assert.equal(await page.evaluate(()=>localStorage.getItem('trActiveProfileV281')),'baz');
+ }finally{await page.close()}
+});
+
+test('Studio shortcuts fit compact rows without artwork overlap at narrow phone widths',{timeout:30000},async()=>{
+ const page=await fullApp();try{
+  for(const width of [360,412]){
+   await page.setViewportSize({width,height:844});
+   const cards=await page.locator('#p2UnifiedPremiumGrid263>button').evaluateAll(a=>a.map(e=>{const r=e.getBoundingClientRect(),i=e.querySelector('.p263Icon').getBoundingClientRect(),t=e.querySelector('.p263Label').getBoundingClientRect();return{height:r.height,overlap:i.left<t.right&&i.right>t.left&&i.top<t.bottom&&i.bottom>t.top,contained:t.right<=r.right&&t.bottom<=r.bottom&&i.left>=r.left}}));
+   assert.equal(cards.length,8);assert.ok(cards.every(c=>c.height>=44&&c.height<=96&&!c.overlap&&c.contained),JSON.stringify(cards));
+   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  }
+ }finally{await page.close()}
+});
+
 test('Redesigned dialogs contain keyboard focus and return to the invoking control',{timeout:30000},async()=>{
  const page=await fullApp();try{
   await page.locator('#menuBtn').click();await page.waitForTimeout(160);
