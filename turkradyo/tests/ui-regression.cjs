@@ -62,8 +62,10 @@ async function playedNames(page){return page.evaluate(()=>window.sentCommands.fi
 
 async function chooseProfile(page,value){
  await page.locator('.nature-profile-pill').click();await page.waitForTimeout(250);
+ if(value!=='baz')assert.equal(await page.locator('[data-prof="'+value+'"]').getAttribute('data-about-app'),null,'A selectable profile must not become the About entry');
  await page.locator(value==='baz'?'[data-baz-profile]':'[data-prof="'+value+'"]').click();
  await page.waitForTimeout(1600);
+ assert.equal(await page.locator('#sheet.show').count(),0,'Profile selection must not open a feature dialog');
 }
 
 test('Baz stays minimal after delayed mounts, profile switches and a fresh page load',{timeout:50000},async()=>{
