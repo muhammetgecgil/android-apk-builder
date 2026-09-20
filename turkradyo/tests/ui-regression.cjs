@@ -60,6 +60,37 @@ async function groupApp(main=groupMain,catalog=groupCatalog){
 }
 async function playedNames(page){return page.evaluate(()=>window.sentCommands.filter(u=>u.startsWith('radioapp://play?')).map(u=>new URL(u).searchParams.get('name')))}
 
+test('Redesigned dialogs contain keyboard focus and return to the invoking control',{timeout:30000},async()=>{
+ const page=await fullApp();try{
+  await page.locator('#menuBtn').click();await page.waitForTimeout(160);
+  assert.equal(await page.locator('#closeSheet').evaluate(e=>e===document.activeElement),true);
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await page.locator('#sheet').evaluate(e=>e.contains(document.activeElement)),true);
+  await page.locator('#closeSheet').click();await page.waitForTimeout(160);
+  assert.equal(await page.locator('#menuBtn').evaluate(e=>e===document.activeElement),true);
+  await page.locator('#settingsBtn').click();await page.waitForTimeout(160);
+  assert.equal(await page.locator('#sNorm').getAttribute('role'),'switch');
+  assert.equal(await page.locator('#sNorm').getAttribute('aria-checked'),'true');
+  await page.locator('#sNorm').click();await page.waitForTimeout(160);
+  assert.equal(await page.locator('#sNorm').getAttribute('aria-checked'),'false');
+ }finally{await page.close()}
+});
+
+test('Compact layout keeps both transport rows and expanded broadcast tools usable',{timeout:30000},async()=>{
+ const page=await fullApp();try{
+  await page.setViewportSize({width:360,height:800});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+  for(const id of ['prev','play','next','prev2','shazam','next2']){
+   const r=await page.locator('#'+id).boundingBox();assert.ok(r.width>=44&&r.height>=44,id+' touch target');
+  }
+  await page.locator('#sigTools summary').click();
+  await page.locator('#v6Quality').click();assert.match(await page.locator('#sheetTitle').textContent(),/Kalite/);
+  await page.locator('#closeSheet').click();
+  await page.locator('.nature-profile-pill').click();await page.waitForTimeout(250);await page.locator('[data-prof="1"]').click();await page.waitForTimeout(3000);
+  await page.locator('#settingsBtn').click();assert.match(await page.locator('#sheetTitle').textContent(),/Ayar/);
+ }finally{await page.close()}
+});
+
 test('Upper buttons follow the main list; lower buttons share Turkey Groups classification',{timeout:30000},async()=>{
  const page=await groupApp();try{
   await page.locator('#next').click();assert.equal(await page.locator('#now').textContent(),'Haber A');
