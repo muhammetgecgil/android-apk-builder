@@ -18,7 +18,7 @@ const paths={
 const svg=n=>'<svg class="sig-icon" viewBox="0 0 24 24" aria-hidden="true">'+(paths[n]||paths.radio)+'</svg>';
 function setText(e,v){if(e&&e.textContent!==v)e.textContent=v}
 function attr(e,k,v){if(e&&e.getAttribute(k)!==v)e.setAttribute(k,v)}
-function title(id,label,before,p2=false){if(!before)return;let e=$('#'+id);if(!e){e=document.createElement('h2');e.id=id;e.className='sig-section-title'+(p2?' sig-p2-only':'');e.textContent=label;before.before(e)}}
+function title(id,label,before,p2=false){if(!before)return;let e=$('#'+id);if(!e){e=document.createElement('h2');e.id=id;e.className='sig-section-title'+(p2?' sig-p2-only':'');e.textContent=label}if(e.nextElementSibling!==before)before.before(e)}
 function copyCard(el,title,caption,art){
  if(!el)return;
  const old=el.querySelector('.sig-copy');

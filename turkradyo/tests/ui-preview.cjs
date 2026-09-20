@@ -15,6 +15,7 @@ const stations=names.map((name,i)=>({name,stationuuid:'preview-'+i,url:'https://
  const shot=async name=>{const overlay=await page.locator('.sheet.show,.nature-modal.show').count();if(!overlay)await page.evaluate(()=>scrollTo(0,0));await page.screenshot({path:path.join(out,name+'.png'),fullPage:!overlay,animations:'disabled'});captures.push({name,overflow:await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1)})};
  const feature=async(selector,name)=>{await page.locator(selector).click();await page.waitForTimeout(450);await shot(name);await page.evaluate(()=>window.trCloseTopOverlay())};
  await shot('profile2-home');
+ await page.screenshot({path:path.join(out,'home-screen.png'),fullPage:false,animations:'disabled'});
  await page.locator('.hero').screenshot({path:path.join(out,'transport-red.png'),animations:'disabled'});
  await page.locator('#p2UnifiedPremiumGrid263').screenshot({path:path.join(out,'premium-cards-red.png'),animations:'disabled'});
  const cards=await page.locator('#p2UnifiedPremiumGrid263>button').evaluateAll(nodes=>nodes.map(e=>{const r=e.getBoundingClientRect(),icon=e.querySelector('.p263Icon'),label=e.querySelector('.p263Label'),ir=icon.getBoundingClientRect(),lr=label.getBoundingClientRect();return{id:e.id,art:icon.querySelector('svg')?.dataset.art||'slow-pulse',iconWidth:ir.width,cardHeight:r.height,overlaps:ir.bottom>lr.top,overflow:lr.bottom>r.bottom||ir.left<r.left||ir.right>r.right}}));

@@ -24,7 +24,7 @@ let score=100;score-=Math.min(35,(t.bufferCount||0)*7);score-=t.buffering?18:0;s
 if(!t.nativeRecovery&&!t.manualPause&&!paused&&t.lastError&&t.lastError!==lastErr){lastErr=t.lastError;setHealth9(score,'HATA • YEDEK DENENİYOR','bad');await heal9('error');return}
 if((t.bufferCount||0)>lastBuffer){lastBuffer=t.bufferCount||0;if(!t.nativeRecovery&&!t.manualPause&&!paused&&lastBuffer>=3){setHealth9(score,'SIK BUFFER • KAYNAK DEĞİŞİMİ','warn');await heal9('buffer');return}}
 setHealth9(score,score>=90?'STABİL':score>=70?'İYİ':score>=50?'ZAYIF':'ONARILIYOR',score<50?'bad':score<75?'warn':'')},2500)}
-function moveProfile9(){const pill=document.querySelector('.nature-profile-pill');const hero=document.querySelector('.hero');if(!pill||!hero)return;if(pill.parentElement!==hero)hero.prepend(pill)}
+function moveProfile9(){const pill=document.querySelector('.nature-profile-pill');const status=document.querySelector('.sig-status');const host=status||document.querySelector('.hero');if(!pill||!host)return;if(pill.parentElement!==host){if(status)host.append(pill);else host.prepend(pill)}}
 function mount9(){moveProfile9();healthEl9();monitor9();const mo=new MutationObserver(moveProfile9);mo.observe(document.body,{childList:true,subtree:true})}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount9);else mount9();
 })();
