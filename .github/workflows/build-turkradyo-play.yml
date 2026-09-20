@@ -33,10 +33,21 @@ jobs:
 
       - name: UI regression tests
         run: |
-          NODE_PATH="$RUNNER_TEMP/radio-ui-test/node_modules" CHROME_PATH="$(command -v google-chrome)" node --test turkradyo/tests/ui-regression.cjs
+          set -o pipefail
+          NODE_PATH="$RUNNER_TEMP/radio-ui-test/node_modules" CHROME_PATH="$(command -v google-chrome)" node --test turkradyo/tests/ui-regression.cjs | tee "$RUNNER_TEMP/radio-ui-tests.log"
+
+      - name: Upload UI test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TurkRadyo-UI-Test-Results
+          path: ${{ runner.temp }}/radio-ui-tests.log
+          if-no-files-found: ignore
+          retention-days: 30
 
       - name: Capture mobile UI for visual review
         if: ${{ !cancelled() }}
+        timeout-minutes: 4
         run: NODE_PATH="$RUNNER_TEMP/radio-ui-test/node_modules" CHROME_PATH="$(command -v google-chrome)" UI_CAPTURE_DIR="$RUNNER_TEMP/radio-ui-preview" node turkradyo/tests/ui-preview.cjs
 
       - name: Upload UI review screenshots
