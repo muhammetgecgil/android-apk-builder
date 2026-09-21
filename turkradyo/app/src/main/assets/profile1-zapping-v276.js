@@ -9,8 +9,8 @@ function genre(s){const t=((s?.name||'')+' '+(s?.tags||'')).toLocaleLowerCase('t
 function tags(s){return new Set(String(s?.tags||'').toLocaleLowerCase('tr').split(',').map(x=>x.trim()).filter(Boolean))}
 function health(s){let x=50;x+=s?.lastcheckok?18:-12;x+=Math.min(12,(s?.bitrate||0)/32);x+=Math.min(10,(s?.clicktrend||0)/50);x+=Math.min(10,(s?.votes||0)/100);x+=Math.min(8,(s?.clickcount||0)/3000);return Math.max(0,Math.min(100,Math.round(x)))}
 function score(cur,s){let z=health(s);if(genre(cur)===genre(s))z+=28;const a=tags(cur),b=tags(s);let n=0;a.forEach(x=>{if(b.has(x))n++});z+=Math.min(30,n*10);if((s?.bitrate||0)>=128)z+=5;return z}
-function recent(){try{return JSON.parse(sessionStorage.getItem('trP1ZapRecent')||'[]')}catch(e){return[]}}
-function saveRecent(a){try{sessionStorage.setItem('trP1ZapRecent',JSON.stringify(a.slice(0,8)))}catch(e){}}
+function recent(){try{return JSON.parse(localStorage.getItem('trP1ZapRecent')||'[]')}catch(e){return[]}}
+function saveRecent(a){try{localStorage.setItem('trP1ZapRecent',JSON.stringify(a.slice(0,8)))}catch(e){}}
 function msg(t){try{toast(t)}catch(e){}}
 function zap(){try{if(!Array.isArray(stations)||stations.length<2||typeof index!=='number'||index<0){msg('Zapping için radyo listesi hazırlanıyor');return}const cur=stations[index],used=recent();let a=stations.map((s,i)=>({s,i,k:k(s),score:score(cur,s)})).filter(x=>x.i!==index&&x.k&&!used.includes(x.k));if(!a.length)a=stations.map((s,i)=>({s,i,k:k(s),score:score(cur,s)})).filter(x=>x.i!==index&&x.k);a.sort((x,y)=>y.score-x.score);const top=a.slice(0,Math.min(5,a.length));if(!top.length){msg('Uygun radyo bulunamadı');return}const pick=top[Math.floor(Math.random()*top.length)];saveRecent([pick.k,...used.filter(x=>x!==pick.k)]);select(pick.i,true);msg('Zapping • '+pick.s.name+' • '+health(pick.s)+'/100')}catch(e){msg('Zapping başlatılamadı')}}
 function intercept(e){const b=e.target?.closest?.(SEL);if(!b||b.dataset.p1Zap!=='1'||!isP1())return;e.preventDefault();e.stopImmediatePropagation();zap()}

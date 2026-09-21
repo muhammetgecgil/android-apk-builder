@@ -1,22 +1,23 @@
-# TurkRadyo Reference Baseline
+# MGtürk Radyo — Onaylı referans v2.8.7.4
 
-Current approved frozen reference: `TurkRadyo v2.7.0 – Theme Synced Cards`
+20 Eylül 2026 tarihinde kullanıcının “Bu yazılımı referans kabul et hem ChatGPT hem de GitHub tarafında” talimatıyla onaylandı.
 
-Canonical source commit: `2ec945e6e543400142116c76e0ec37857dc681de`
-Canonical source tree: `595f3c46874021440c508892a1ce7a8dfd2767b2`
+- Referans sürüm: 2.8.7.4 / versionCode 293.
+- Kanonik uygulama kaynak kaydı: 6c14c5eeb5dcb03f99c10d5df897a96a0bb92484.
+- Kaynak ağacı: 7e009ffdb1b65edaabe2d6787cee65936db817b5.
+- Depo: https://github.com/muhammetgecgil/android-apk-builder
+- Referans dalı: reference/mgturk-v2.8.7.4-20260920
+- Referans bağlantısı: https://github.com/muhammetgecgil/android-apk-builder/tree/reference/mgturk-v2.8.7.4-20260920
+- Doğrulanmış APK SHA-256: 395d54201d9f0930c709a2ab5e1770842b7f77d19cd302bc71422a331d37590d
+- Referans APK kimliği: com.muhammetgecgil.turkradyo.test.v293
+- Başarılı derleme: https://github.com/muhammetgecgil/android-apk-builder/actions/runs/35445864508
 
-Reference branch: `reference/turkradyo-v2.7.0-theme-synced-cards`
-Backup branch: `backup/turkradyo-v2.7.0-theme-synced-cards`
-Development branch: `dev/turkradyo-after-v2.7.0`
+## Korunacak davranışlar
 
-Reference version: `2.7.0`
-Reference versionCode: `270`
+Üst önceki/sonraki tuşları ana radyo listesini, Shazam yanındaki alt tuşlar Türkiye Grupları içindeki mevcut radyo türünü izler. Pop, haber gibi grup adı düğmede görünür. Dikey ekran kilidi, iki profil, ortak temalar, favoriler, ses ayarları, zamanlayıcı ve kararlılık düzeltmeleri referansın parçasıdır.
 
-Rules:
-- v2.7.0 is the frozen canonical reference.
-- Do not modify the reference or backup branches.
-- All subsequent TurkRadyo development starts from `dev/turkradyo-after-v2.7.0` or a descendant created from it.
-- A newer version does not replace v2.7.0 as the canonical reference unless explicitly approved by the user.
+Referansta 18 tarayıcı ve 9 Android birim testi geçti. Fiziksel telefonda uzun süreli yayın testi yapılmadı. Test APK’sı orijinal üretim imzası bulunmadığı için ayrı kurulur; favoriler otomatik taşınmaz.
 
-Verified reference APK SHA-256:
-`b72c056c9b057e6cdff6742ac02163bf3f689b83c2141819942822f25d149509`
+## Geliştirme kuralı
+
+Bu referans önceki v2.7.0 referansının yerini kullanıcı onayıyla alır. Referans dalındaki uygulama koduna yeni geliştirme eklenmez. Yeni premium tasarım codex/mgturk-signature-20260920 dalında geliştirilir. Yeni sürüm, kullanıcının ayrıca kabulü olmadan referansın yerini almaz. Referans dalındaki tek ek kayıt bu onay belgesidir; uygulama kaynak dosyaları yukarıdaki kanonik kayıtla aynıdır.
