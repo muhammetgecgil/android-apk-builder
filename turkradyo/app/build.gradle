@@ -16,8 +16,8 @@ android {
         applicationId 'com.muhammetgecgil.turkradyo'
         minSdk 26
         targetSdk 36
-        versionCode 301
-        versionName '2.9.1'
+        versionCode 302
+        versionName '2.9.2'
     }
 
     signingConfigs {
@@ -51,7 +51,7 @@ android {
     buildTypes {
         debug {
             // Install test builds alongside the user's signed production app.
-            applicationIdSuffix '.test.v301'
+            applicationIdSuffix '.test.v302'
             versionNameSuffix '-test'
         }
         release {

@@ -1,16 +1,19 @@
-/* Signature 2.9.1: compact controls, theme-colored surfaces, a genuinely minimal Baz profile. */
+/* Signature 2.9.2: layered theme materials, remembered alarms, compact controls. */
 #trSignature{color-scheme:dark;background:var(--bg,#151018)}
 #trSignature body.tr-signature{
  min-height:100vh;min-height:100dvh;
- --sig-accent:var(--red,#ff5264);--sig-light:color-mix(in srgb,var(--sig-accent) 54%,#fff);
- --sig-bg:color-mix(in srgb,var(--bg,#151018) 86%,var(--sig-accent));
- --sig-panel:color-mix(in srgb,var(--bg2,#271822) 76%,var(--sig-accent));
- --sig-surface:color-mix(in srgb,var(--card,#291c26) 72%,var(--sig-accent));
+ --sig-accent:var(--red,#ff5264);--sig-secondary:var(--red2,#b13665);--sig-pearl:var(--natureC,#ffe0cf);
+ --sig-light:color-mix(in srgb,var(--sig-accent) 48%,#fff);
+ --sig-bg:color-mix(in srgb,var(--bg,#151018) 96%,var(--sig-secondary));
+ --sig-panel:color-mix(in srgb,var(--bg2,#271822) 84%,#101421);
+ --sig-surface:color-mix(in srgb,var(--card,#291c26) 86%,var(--sig-accent));
+ --sig-material:radial-gradient(ellipse at 0 0,color-mix(in srgb,var(--sig-pearl) 8%,transparent),transparent 62%),radial-gradient(ellipse at 100% 100%,color-mix(in srgb,var(--sig-secondary) 16%,transparent),transparent 70%),linear-gradient(135deg,var(--sig-surface),var(--sig-panel) 65%,color-mix(in srgb,var(--sig-panel) 82%,var(--sig-secondary)));
+ --sig-primary:linear-gradient(120deg,color-mix(in srgb,var(--sig-accent) 76%,#fff),var(--sig-accent) 46%,color-mix(in srgb,var(--sig-secondary) 72%,var(--sig-accent)));
  --sig-raised:color-mix(in srgb,var(--sig-surface) 85%,#fff);
  --sig-line:#ffffff19;--sig-border:#ffffff29;--sig-muted:#c8ceda;--sig-text:#f7f8fc;
  --sig-tint:color-mix(in srgb,var(--sig-accent) 11%,var(--sig-panel));
  --sig-accent-line:color-mix(in srgb,var(--sig-accent) 34%,#ffffff15);
- color:var(--sig-text)!important;background:radial-gradient(ellipse 80% 420px at 50% 0,color-mix(in srgb,var(--sig-accent) 22%,transparent),transparent),var(--sig-bg)!important;
+ color:var(--sig-text)!important;background:radial-gradient(ellipse 100% 480px at 0 0,color-mix(in srgb,var(--sig-accent) 25%,transparent),transparent 75%),radial-gradient(ellipse 85% 650px at 100% 380px,color-mix(in srgb,var(--sig-secondary) 19%,transparent),transparent 80%),linear-gradient(165deg,var(--sig-bg),var(--bg,#151018) 72%)!important;
  font-family:system-ui,-apple-system,"Segoe UI",sans-serif!important;line-height:1.45;letter-spacing:0;
  -webkit-font-smoothing:antialiased;font-variant-numeric:tabular-nums;
 }
@@ -28,7 +31,7 @@
 #trSignature body.tr-signature .sig-brand>span{font-size:25px;font-weight:760;letter-spacing:-1.3px}
 #trSignature body.tr-signature .sig-brand-dot{color:var(--sig-accent)}
 #trSignature body.tr-signature .sig-brand small{font-size:8px;font-weight:650;letter-spacing:2.4px;color:var(--sig-muted)}
-#trSignature body.tr-signature .hero{padding:18px 18px 16px!important;margin:0!important;border-radius:30px!important;border:1px solid var(--sig-border)!important;background:radial-gradient(ellipse at 50% 25%,color-mix(in srgb,var(--sig-accent) 14%,transparent),transparent 60%),linear-gradient(160deg,var(--sig-surface),var(--sig-panel) 75%)!important;box-shadow:inset 0 1px 0 #ffffff09,0 18px 44px #0003!important;overflow:hidden!important;position:relative!important}
+#trSignature body.tr-signature .hero{padding:18px 18px 16px!important;margin:0!important;border-radius:30px!important;border:1px solid var(--sig-border)!important;background:radial-gradient(ellipse at 15% 0,color-mix(in srgb,var(--sig-accent) 22%,transparent),transparent 65%),radial-gradient(ellipse at 100% 95%,color-mix(in srgb,var(--sig-secondary) 22%,transparent),transparent 72%),linear-gradient(150deg,color-mix(in srgb,var(--sig-surface) 88%,var(--sig-pearl)),var(--sig-panel) 60%,var(--sig-surface))!important;box-shadow:inset 0 1px 0 #ffffff26,inset 0 -1px 0 #0002,0 18px 44px #0004!important;overflow:hidden!important;position:relative!important}
 #trSignature body.tr-signature .sig-status{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:30px}
 #trSignature body.tr-signature .live{padding:0!important;min-width:0!important;min-height:28px!important;margin:0!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;font-size:9px!important;font-weight:650!important;letter-spacing:.8px!important;color:var(--sig-muted)!important;gap:7px!important}
 #trSignature body.tr-signature .live .tr-live-mark{width:5px!important;height:5px!important;box-shadow:none!important}
@@ -48,7 +51,7 @@
 #trSignature body.tr-signature .sig-dial-ticks{fill:none;stroke:#c6ccd7;stroke-width:1;opacity:.4}
 #trSignature body.tr-signature .sig-waveform{opacity:.65;transform-origin:center;transition:opacity .2s}
 #trSignature body.tr-signature[data-playback="playing"] .sig-waveform{opacity:1}
-#trSignature body.tr-signature #heroFavorite{position:absolute!important;top:165px!important;right:23px!important;left:auto!important;bottom:auto!important;width:44px!important;height:44px!important;min-height:44px!important;border:1px solid var(--sig-border)!important;border-radius:50%!important;background:var(--sig-panel)!important;color:var(--sig-muted)!important;box-shadow:0 4px 12px #0004!important;font-size:25px!important;line-height:1!important;transform:none!important;z-index:3!important}
+#trSignature body.tr-signature #heroFavorite{position:absolute!important;top:165px!important;right:23px!important;left:auto!important;bottom:auto!important;width:44px!important;height:44px!important;min-height:44px!important;border:1px solid var(--sig-border)!important;border-radius:50%!important;background:var(--sig-material)!important;color:var(--sig-muted)!important;box-shadow:0 4px 12px #0004!important;font-size:25px!important;line-height:1!important;transform:none!important;z-index:3!important}
 #trSignature body.tr-signature #heroFavorite.on{color:var(--sig-light)!important;border-color:var(--sig-accent-line)!important}
 #trSignature body.tr-signature .hero #now{display:block!important;max-width:100%!important;margin:12px auto 4px!important;padding:0!important;font-size:25px!important;line-height:1.18!important;font-weight:720!important;letter-spacing:-.9px!important;text-align:center!important;text-shadow:none!important;white-space:normal!important;overflow-wrap:anywhere!important;color:var(--sig-text)!important}
 #trSignature body.tr-signature .hero #meta{display:block!important;font-size:11px!important;line-height:1.5!important;max-width:95%;margin:4px auto 10px!important;color:var(--sig-muted)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -76,7 +79,7 @@
 #trSignature body.tr-signature :is(.tr-product-title,.sig-section-title){display:flex!important;align-items:center!important;gap:10px!important;margin:20px 2px 10px!important;padding:0!important;font-size:16px!important;font-weight:650!important;letter-spacing:-.3px!important;color:var(--sig-text)!important;line-height:1.4!important}
 #trSignature body.tr-signature .sig-section-title::after{content:"";height:1px;background:var(--sig-line);flex:1;margin-left:8px}
 #trSignature body.tr-signature .tr-product-quick{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:9px!important;margin:0!important}
-#trSignature body.tr-signature .tr-product-quick button{min-height:68px!important;border:1px solid var(--sig-line)!important;background:var(--sig-panel)!important;border-radius:19px!important;box-shadow:none!important;padding:9px 2px!important;color:var(--sig-text)!important;text-align:center!important}
+#trSignature body.tr-signature .tr-product-quick button{min-height:68px!important;border:1px solid var(--sig-line)!important;background:var(--sig-material)!important;border-radius:19px!important;box-shadow:none!important;padding:9px 2px!important;color:var(--sig-text)!important;text-align:center!important}
 #trSignature body.tr-signature .tr-product-quick .sig-mini-art{width:28px!important;height:28px!important;display:block!important;margin:0 auto 6px!important;color:var(--sig-light)!important;background:none!important;border:0!important;box-shadow:none!important}
 #trSignature body.tr-signature .sig-icon{width:24px;height:24px;display:block;fill:none;stroke:currentColor;stroke-width:1.55;stroke-linecap:round;stroke-linejoin:round}
 #trSignature body.tr-signature .sig-copy{display:block;min-width:0}
@@ -86,7 +89,7 @@
 #trSignature body.tr-signature .tr-product-quick .sig-copy small{display:none}
 #trSignature body.tr-signature .tr-product-more{display:none!important}
 #trSignature body.tr-signature .modes{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important;margin:0!important;padding:0!important}
-#trSignature body.tr-signature .modes>.mode{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important;min-height:68px!important;height:auto!important;padding:10px!important;border:1px solid var(--sig-line)!important;background:var(--sig-panel)!important;box-shadow:none!important;border-radius:19px!important;text-align:left!important;color:var(--sig-text)!important;overflow:hidden!important}
+#trSignature body.tr-signature .modes>.mode{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important;min-height:68px!important;height:auto!important;padding:10px!important;border:1px solid var(--sig-line)!important;background:var(--sig-material)!important;box-shadow:none!important;border-radius:19px!important;text-align:left!important;color:var(--sig-text)!important;overflow:hidden!important}
 #trSignature body.tr-signature .modes>.mode .sig-mini-art,#trSignature body.tr-signature .modes>.mode .sig-copy{position:static!important;inset:auto!important;transform:none!important;order:initial!important}
 #trSignature body.tr-signature .modes>.mode .sig-copy{flex:1!important;margin:0!important;padding:0!important;text-align:left!important}
 #trSignature body.tr-signature .modes>.mode::before,#trSignature body.tr-signature .modes>.mode::after{display:none!important}
@@ -94,7 +97,7 @@
 #trSignature body.tr-signature .modes>.mode .sig-mini-art::before,#trSignature body.tr-signature .modes>.mode .sig-mini-art::after{display:none!important}
 #trSignature body.tr-signature.profile2-active #p2UnifiedPremiumGrid263{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;margin:0!important;padding:0!important}
 #trSignature body.tr-signature.profile2-active #p2UnifiedPremiumGrid263>:is(#v12Similar,#v12Genres,#v12Smart,#p2DNA,#p2Tracks,#p2Alarm,#p2Sleep,#p2Genres){
- display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important;position:relative!important;min-width:0!important;width:auto!important;min-height:80px!important;height:auto!important;padding:11px!important;border-radius:16px!important;border:1px solid var(--sig-border)!important;background:radial-gradient(ellipse at 90% -5%,color-mix(in srgb,var(--sig-accent) 7%,transparent),transparent 60%),linear-gradient(155deg,var(--sig-surface),var(--sig-panel))!important;box-shadow:inset 0 1px 0 #ffffff05,0 5px 18px #0002!important;text-align:left!important;
+ display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important;position:relative!important;min-width:0!important;width:auto!important;min-height:80px!important;height:auto!important;padding:11px!important;border-radius:16px!important;border:1px solid var(--sig-border)!important;background:var(--sig-material)!important;box-shadow:inset 0 1px 0 #ffffff05,0 5px 18px #0002!important;text-align:left!important;
 }
 #trSignature body.tr-signature.profile2-active #p2UnifiedPremiumGrid263>:is(#v12Similar,#v12Genres,#v12Smart,#p2DNA,#p2Tracks,#p2Alarm,#p2Sleep,#p2Genres)::before{inset:4px!important;border:0!important;background:none!important;border-radius:19px!important}
 #trSignature body.tr-signature.profile2-active #p2UnifiedPremiumGrid263>:is(#v12Similar,#v12Genres,#v12Smart,#p2DNA,#p2Tracks,#p2Alarm,#p2Sleep,#p2Genres) .p263Icon{width:40px!important;height:40px!important;min-width:40px!important;min-height:40px!important;max-width:40px!important;max-height:40px!important;flex:0 0 40px!important;margin:0!important;align-self:center!important;border:1px solid #a5b0c42c!important;box-shadow:inset 0 0 0 3px #070a1166,inset 0 1px 0 #fff2,0 5px 12px #0006!important;background:radial-gradient(ellipse at 25% 5%,#ffffff10,transparent 62%),linear-gradient(155deg,var(--sig-raised),var(--sig-panel))!important;color:var(--sig-light)!important}
@@ -117,7 +120,7 @@
 #trSignature body.tr-signature .radio-tools-v6 button{min-height:60px!important;border:1px solid var(--sig-border)!important;border-radius:13px!important;background:#ffffff03!important;box-shadow:none!important;color:var(--sig-text)!important;font-size:9px!important;line-height:1.3!important;padding:9px 4px!important}
 #trSignature body.tr-signature .radio-tools-v6 button b{font-size:21px!important;color:var(--sig-light)!important;text-shadow:none!important}
 #trSignature body.tr-signature .radio-tools-v6 button.on{border-color:var(--sig-accent-line)!important;background:var(--sig-tint)!important}
-#trSignature body.tr-signature .mini{margin-top:20px!important;padding:13px!important;gap:12px!important;background:var(--sig-panel)!important;border:1px solid var(--sig-line)!important;border-radius:20px!important;box-shadow:none!important;grid-template-columns:42px minmax(0,1fr) 44px!important}
+#trSignature body.tr-signature .mini{margin-top:20px!important;padding:13px!important;gap:12px!important;background:var(--sig-material)!important;border:1px solid var(--sig-line)!important;border-radius:20px!important;box-shadow:none!important;grid-template-columns:42px minmax(0,1fr) 44px!important}
 #trSignature body.tr-signature .miniLogo{width:42px!important;height:42px!important;border:1px solid var(--sig-border)!important;background:var(--sig-surface)!important;border-radius:13px!important;font-size:8px!important;box-shadow:none!important;line-height:1.1!important;color:var(--sig-light)!important}
 #trSignature body.tr-signature .mini strong{display:block!important;font-size:13px!important;font-weight:650!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #trSignature body.tr-signature .mini small{font-size:9px!important;color:var(--sig-muted)!important;margin-bottom:3px!important}
@@ -130,8 +133,8 @@
 #trSignature body.tr-signature .bottom button.active{background:var(--sig-tint)!important;color:var(--sig-light)!important}
 /* Shared sheets, lists and controls. No remote images or fonts are required. */
 #trSignature body.tr-signature :is(.sheet,.nature-modal){padding:calc(16px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom))!important;background:#04060bd9!important;backdrop-filter:blur(8px)!important;-webkit-backdrop-filter:blur(8px)!important}
-#trSignature body.tr-signature :is(.sheet .panel,.nature-shell){max-width:540px!important;width:100%!important;height:100%!important;max-height:100%!important;margin:0 auto!important;padding:18px 17px 28px!important;border:1px solid var(--sig-border)!important;border-radius:28px!important;background:var(--sig-panel)!important;box-shadow:0 20px 80px #0008,inset 0 1px 0 #fff07!important;color:var(--sig-text)!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;scrollbar-width:thin;scrollbar-color:#ffffff18 transparent}
-#trSignature body.tr-signature :is(.sheetTop,.nature-head){position:sticky!important;top:-18px!important;background:var(--sig-panel)!important;padding:14px 0 15px!important;margin:0 0 18px!important;border-bottom:1px solid var(--sig-line)!important;border-radius:0!important;z-index:10!important;gap:12px!important}
+#trSignature body.tr-signature :is(.sheet .panel,.nature-shell){max-width:540px!important;width:100%!important;height:100%!important;max-height:100%!important;margin:0 auto!important;padding:18px 17px 28px!important;border:1px solid var(--sig-border)!important;border-radius:28px!important;background:var(--sig-material)!important;box-shadow:0 20px 80px #0008,inset 0 1px 0 #fff07!important;color:var(--sig-text)!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;scrollbar-width:thin;scrollbar-color:#ffffff18 transparent}
+#trSignature body.tr-signature :is(.sheetTop,.nature-head){position:sticky!important;top:-18px!important;background:var(--sig-material)!important;padding:14px 0 15px!important;margin:0 0 18px!important;border-bottom:1px solid var(--sig-line)!important;border-radius:0!important;z-index:10!important;gap:12px!important}
 #trSignature body.tr-signature :is(.sheetTop h2,.nature-head h2){font-size:23px!important;line-height:1.18!important;letter-spacing:-.7px!important;font-weight:680!important;color:var(--sig-text)!important;margin:0!important}
 #trSignature body.tr-signature :is(.close,.nature-close){min-width:58px!important;min-height:44px!important;border:1px solid var(--sig-border)!important;background:#ffffff04!important;border-radius:13px!important;padding:9px 12px!important;color:#bac3d1!important;font-size:11px!important;font-weight:500!important;box-shadow:none!important;flex-shrink:0}
 #trSignature body.tr-signature :is(.search,.p2Input,.p2TracksSearch,.catalogSearch,.tr273Input,.tr273Select,.p24Custom input,#v6Search){min-height:48px!important;width:100%!important;border:1px solid var(--sig-border)!important;border-radius:14px!important;background:var(--sig-bg)!important;color:var(--sig-text)!important;font-family:inherit!important;font-size:13px!important;padding:12px 14px!important;box-shadow:none!important}
@@ -147,7 +150,7 @@
 #trSignature body.tr-signature :is(.p2Station button,.catalogBtn,.v5ItemBtns button){min-width:44px!important;min-height:44px!important;border:1px solid var(--sig-accent-line)!important;background:var(--sig-tint)!important;color:var(--sig-light)!important;border-radius:12px!important;font-size:11px!important;box-shadow:none!important}
 #trSignature body.tr-signature :is(.empty,.catalogEmpty,.p2TracksEmpty){min-height:170px!important;display:grid!important;place-content:center!important;text-align:center!important;border:1px dashed var(--sig-border)!important;border-radius:20px!important;padding:32px 20px!important;color:var(--sig-muted)!important;font-size:13px!important;line-height:1.7!important;background:#ffffff02!important}
 /* Feature interiors use the same materials and type scale. */
-#trSignature body.tr-signature :is(.p24Hero,.p24TimerHero,.p2Section,.p2Hero,.p2GenreHero,.p2SimilarHero,.catalogHero,.p2EqV18,.p2TracksHero,.v187SlowHero,.tr273Hero,.tr273Section,.trsection,.trsmart-panel,.naiHero,.naiSec,.p2Total,.tr273Stat,.p24Metric,.p24Verify,.v6Status,.p2SettingRow,.p24Fade,.v187SlowSection,.p2TracksStat,.p2TrackGroupHead){border:1px solid var(--sig-line)!important;background:linear-gradient(145deg,var(--sig-surface),var(--sig-panel))!important;border-radius:20px!important;box-shadow:inset 0 1px 0 #ffffff03!important;color:var(--sig-text)!important}
+#trSignature body.tr-signature :is(.p24Hero,.p24TimerHero,.p2Section,.p2Hero,.p2GenreHero,.p2SimilarHero,.catalogHero,.p2EqV18,.p2TracksHero,.v187SlowHero,.tr273Hero,.tr273Section,.trsection,.trsmart-panel,.naiHero,.naiSec,.p2Total,.tr273Stat,.p24Metric,.p24Verify,.v6Status,.p2SettingRow,.p24Fade,.v187SlowSection,.p2TracksStat,.p2TrackGroupHead){border:1px solid var(--sig-line)!important;background:var(--sig-material)!important;border-radius:20px!important;box-shadow:inset 0 1px 0 #ffffff03!important;color:var(--sig-text)!important}
 #trSignature body.tr-signature :is(.p2Panel,.p24Health,.p24Timer,.tr273Panel,.v187SlowPanel){color:var(--sig-text)!important;gap:12px!important}
 #trSignature body.tr-signature :is(.p2Panel,.p24Health,.p24Timer,.tr273Panel,.v187SlowPanel,.nai280) :is(h3,h4){font-weight:640!important;letter-spacing:-.35px!important;line-height:1.3!important;color:var(--sig-text)!important}
 #trSignature body.tr-signature :is(.p24Note,.p2EqFoot,.p2TracksFoot,.p2TracksTitle p,.p2GenreHero p,.p2Section p,.tr273Hero p,.trmuted,.naiSub,.naiWarn,.nature-sub,.nature-foot){color:var(--sig-muted)!important;font-size:11px!important;line-height:1.65!important;letter-spacing:0!important}
@@ -158,7 +161,7 @@
 #trSignature body.tr-signature .p2GenreCard strong{font-size:14px!important;font-weight:630!important}
 #trSignature body.tr-signature .p2GenreCard small{font-size:11px!important;color:var(--sig-muted)!important}
 #trSignature body.tr-signature :is(.p2Btn,.p24Action,.tr273Primary,.tr273Secondary,.naiPrimary,.naiSecondary,.v187SlowPrimary,.v187SlowOff,.p2SettingAction,.catalogRefresh,.nature-reset){min-height:46px!important;padding:12px 15px!important;border:1px solid var(--sig-border)!important;border-radius:14px!important;background:var(--sig-raised)!important;color:var(--sig-text)!important;font-size:12px!important;font-weight:620!important;letter-spacing:.2px!important;box-shadow:none!important}
-#trSignature body.tr-signature :is(.p24Action.primary,.tr273Primary,.naiPrimary,.v187SlowPrimary,#p2AlarmSet){background:linear-gradient(130deg,color-mix(in srgb,var(--sig-accent) 85%,#fff),var(--sig-accent))!important;color:#080b12!important;border-color:transparent!important}
+#trSignature body.tr-signature :is(.p24Action.primary,.tr273Primary,.naiPrimary,.v187SlowPrimary,#p2AlarmSet){background:var(--sig-primary)!important;color:#080b12!important;border-color:transparent!important}
 #trSignature body.tr-signature :is(.p24Action.danger,.v187SlowOff){background:#ffffff02!important;color:#c6cfde!important}
 #trSignature body.tr-signature .p24TimerHero{padding:28px 15px!important;background:radial-gradient(circle at 50% 5%,color-mix(in srgb,var(--sig-accent) 7%,transparent),transparent 65%),var(--sig-surface)!important}
 #trSignature body.tr-signature .p24TimerHero .tr-art-hero{width:108px!important;height:108px!important;background:none!important;margin:0 auto 18px!important}
@@ -251,7 +254,7 @@
 #trSignature body.tr-signature.tr-baz-profile .app > :not(.top):not(.hero):not(#trBazGrid){display:none!important}
 #trSignature body.tr-signature:not(.tr-baz-profile) #trBazGrid{display:none!important}
 #trSignature body.tr-signature.tr-baz-profile #trBazGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px!important;margin:14px 0 0!important;padding:0!important}
-#trSignature body.tr-signature .trBazCard{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important;min-height:54px!important;height:auto!important;padding:10px 12px!important;text-align:left!important;background:var(--sig-panel)!important;border:1px solid var(--sig-border)!important;border-radius:14px!important;box-shadow:none!important;color:var(--sig-text)!important}
+#trSignature body.tr-signature .trBazCard{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;gap:10px!important;min-height:54px!important;height:auto!important;padding:10px 12px!important;text-align:left!important;background:var(--sig-material)!important;border:1px solid var(--sig-border)!important;border-radius:14px!important;box-shadow:none!important;color:var(--sig-text)!important}
 #trSignature body.tr-signature .trBazIcon{display:grid!important;place-items:center!important;flex:0 0 24px!important;width:24px!important;height:24px!important;margin:0!important;padding:0!important;border:0!important;background:none!important;color:var(--sig-light)!important;box-shadow:none!important}
 #trSignature body.tr-signature .trBazCard strong{font-size:11px!important;font-weight:600!important;line-height:1.3!important}
 #trSignature body.tr-signature .trBazCard small{display:none!important}
@@ -264,3 +267,23 @@
 #trSignature body.tr-signature .trBazRow button{min-height:44px!important;min-width:44px!important;background:var(--sig-raised)!important;color:var(--sig-text)!important;border-color:var(--sig-accent-line)!important}
 #trSignature body.tr-signature #sigThemeShortcut{display:flex;align-items:center;gap:10px;min-height:48px;width:100%;margin-top:12px;padding:11px 14px;background:var(--sig-tint);color:var(--sig-text);border:1px solid var(--sig-accent-line);border-radius:14px;font-size:13px;text-align:left}
 #trSignature body.tr-signature #sigThemeShortcut .sig-icon{color:var(--sig-light)}
+
+/* Wake-up settings share the timer's material without expanding home cards. */
+#trSignature body.tr-signature .p292Alarm{display:grid;gap:12px}
+#trSignature body.tr-signature .p292AlarmHero{display:grid;gap:8px;text-align:center;padding:22px 16px!important;background:radial-gradient(ellipse at 30% 0,color-mix(in srgb,var(--sig-accent) 22%,transparent),transparent 70%),var(--sig-material)!important}
+#trSignature body.tr-signature .p292Eyebrow{font-size:9px!important;letter-spacing:1.4px;color:var(--sig-light);line-height:1.6}
+#trSignature body.tr-signature .p292AlarmHero label{font-size:12px;color:var(--sig-muted)}
+#trSignature body.tr-signature #p2AlarmTime{width:100%!important;min-width:0!important;margin:2px 0!important;background:linear-gradient(140deg,#ffffff09,#ffffff01)!important;border-color:var(--sig-accent-line)!important;font-size:48px!important}
+#trSignature body.tr-signature #p292AlarmStatus{font-size:12px;color:var(--sig-light);line-height:1.5}
+#trSignature body.tr-signature #p292NextAlarm{font-size:11px;color:var(--sig-muted);line-height:1.5}
+#trSignature body.tr-signature :is(.p292Saved,.p292Options){display:grid;gap:10px;padding:16px!important}
+#trSignature body.tr-signature .p292Saved strong{font-size:15px;font-weight:600;overflow-wrap:anywhere}
+#trSignature body.tr-signature .p292Options small{display:block;color:var(--sig-muted);font-size:10px;margin-bottom:5px}
+#trSignature body.tr-signature .p292Options strong{font-size:15px;font-weight:600}
+#trSignature body.tr-signature .p292Repeat{display:flex;gap:12px;align-items:center;justify-content:space-between;min-height:44px;font-size:13px}
+#trSignature body.tr-signature .p292Repeat small{margin:4px 0 0;line-height:1.5}
+#trSignature body.tr-signature #p292AlarmDaily{width:44px;height:44px;accent-color:var(--sig-accent);flex:0 0 44px}
+#trSignature body.tr-signature .p292Permission{padding:14px;border:1px solid var(--sig-accent-line);border-radius:16px;background:var(--sig-material)}
+#trSignature body.tr-signature .p292Permission[hidden]{display:none!important}
+#trSignature body.tr-signature .p292Permission p{font-size:12px;line-height:1.6;margin:0 0 10px;color:var(--sig-muted)}
+#trSignature body.tr-signature #p2AlarmCancel:disabled{opacity:.45;cursor:default}

@@ -84,7 +84,7 @@ public class RadioService extends Service {
         userPaused=true;
         initMediaSession();
         registerNetworkMonitor();
-        if(p.getLong("sleepDeadline",0)<=System.currentTimeMillis())p.edit().remove("sleepDeadline").remove("sleepFade").apply();
+        RadioSchedule.finishSleepIfDue(this);
         post(this::scheduleSleepTimer);
     }
 
@@ -512,12 +512,13 @@ public class RadioService extends Service {
 
     private float effectiveVolume(){
         SharedPreferences p=getSharedPreferences("radio",MODE_PRIVATE);
-        return SleepTimer.effectiveVolume(volume,p.getLong("sleepDeadline",0),p.getBoolean("sleepFade",false),System.currentTimeMillis());
+        return SleepTimer.effectiveVolume(volume,p.getLong("sleepDeadline",0)>0?System.currentTimeMillis()+SleepTimer.remaining(p):0,p.getBoolean("sleepFade",false),System.currentTimeMillis());
     }
 
     private void scheduleSleepTimer(){
         if(sleepTask!=null)handler.removeCallbacks(sleepTask);
         sleepTask=null;
+        if(RadioSchedule.finishSleepIfDue(this)){stopAll();return;}
         if(player!=null)player.setVolume(effectiveVolume());
         if(getSharedPreferences("radio",MODE_PRIVATE).getLong("sleepDeadline",0)<=0)return;
         sleepTask=new Runnable(){@Override public void run(){
@@ -525,8 +526,7 @@ public class RadioService extends Service {
             SharedPreferences p=getSharedPreferences("radio",MODE_PRIVATE);
             long deadline=p.getLong("sleepDeadline",0);
             if(deadline<=0){sleepTask=null;return;}
-            if(deadline<=System.currentTimeMillis()){
-                p.edit().remove("sleepDeadline").remove("sleepFade").apply();
+            if(RadioSchedule.finishSleepIfDue(RadioService.this)){
                 sleepTask=null;stopAll();return;
             }
             if(player!=null&&p.getBoolean("sleepFade",false))player.setVolume(effectiveVolume());

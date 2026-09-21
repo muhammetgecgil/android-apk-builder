@@ -1,4 +1,4 @@
-# MGtürk Signature — 2.9.1
+# MGtürk Signature — 2.9.2
 
 The approved reference is **2.8.7.4**, recorded in `TURKRADYO_REFERENCE.md`.
 This design is a separate development line and does not replace that reference.
@@ -32,8 +32,8 @@ This design is a separate development line and does not replace that reference.
 
 ## Build and review
 
-Version: 2.9.1 / 301. Independent test app ID:
-`com.muhammetgecgil.turkradyo.test.v301`. As in the reference, a stable production
+Version: 2.9.2 / 302. Independent test app ID:
+`com.muhammetgecgil.turkradyo.test.v302`. As in the reference, a stable production
 signing key is unavailable, so this test APK installs alongside previous apps.
 Favorites/settings are separate; no automatic migration is claimed.
 
@@ -42,3 +42,27 @@ include all three profiles, a small screen, red/purple/blue/green themes and fea
 Results and exact build revision are recorded in the design pull request.
 Device playback, long streaming sessions and physical rotation require a phone;
 browser previews use controlled catalog/telemetry data.
+
+## Wake alarm and sleep timer (2.9.2)
+
+- The last wake time, station and optional daily repeat are native persistent state.
+  Closing the app, cancelling an alarm or pausing playback retains the last selection.
+- Wake-ups use Android AlarmClockInfo. Missing exact-alarm permission is shown as
+  pending, with a settings button; it is never advertised as a successfully armed alarm.
+  Returning from permission settings, rebooting and clock/time-zone changes restore
+  eligible schedules. A missed one-shot remains off instead of starting unexpectedly.
+- A valid wake delivery starts the playback foreground service even when idle/paused.
+  It clears a previous evening's sleep timer. Cancelled, replaced and duplicate wake
+  deliveries are ignored. Optional daily repeat schedules the next local occurrence.
+- Sleep durations use elapsed realtime, so changing the phone clock cannot shorten
+  the timer. The service checks the same persisted deadline as the system receiver;
+  stale/cancelled sleep callbacks cannot stop a newly selected timer or wake-up.
+  Native scheduling results drive the visible countdown and failure messages.
+- Theme surfaces combine both palette colors, subtle pearl highlights and shaded
+  material layers. Baz sizing, compact controls and portrait lock remain intact.
+- A live radio alarm requires internet and audible device media volume. Force-stop,
+  a powered-off phone and vendor battery restrictions still require device validation.
+
+Android scheduling design references:
+https://developer.android.com/develop/background-work/services/alarms
+https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start

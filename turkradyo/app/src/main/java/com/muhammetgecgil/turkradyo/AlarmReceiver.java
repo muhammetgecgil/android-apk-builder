@@ -1,5 +1,14 @@
 package com.muhammetgecgil.turkradyo;
-import android.content.*;import android.os.Build;import org.json.*;
-public class AlarmReceiver extends BroadcastReceiver{
- @Override public void onReceive(Context c,Intent in){if(in.getBooleanExtra("sleep",false)){c.getSharedPreferences("radio",Context.MODE_PRIVATE).edit().remove("sleepDeadline").remove("sleepFade").apply();if(RadioService.isRunning)c.startService(new Intent(c,RadioService.class).setAction(RadioService.ACTION_STOP));return;}String u=in.getStringExtra("url"),n=in.getStringExtra("name");if(u==null||u.isEmpty())return;SharedPreferences p=c.getSharedPreferences("radio",Context.MODE_PRIVATE);try{JSONArray chain=new JSONArray();JSONObject first=new JSONObject();first.put("name",n==null?"Türk Radyo":n);first.put("url",u);chain.put(first);JSONArray q=new JSONArray(p.getString("queue","[]"));int idx=p.getInt("queueIndex",0);for(int k=1;k<=3&&q.length()>0;k++){JSONObject x=q.optJSONObject((idx+k)%q.length());if(x!=null&&!x.optString("url").isEmpty())chain.put(x);}p.edit().putString("alarmFallbackChain",chain.toString()).putInt("alarmFallbackIndex",0).apply();}catch(Exception ignored){}Intent s=new Intent(c,RadioService.class).setAction(RadioService.ACTION_PLAY).putExtra("url",u).putExtra("name",n).putExtra("alarmMode",true);if(Build.VERSION.SDK_INT>=26)c.startForegroundService(s);else c.startService(s);}
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+public class AlarmReceiver extends BroadcastReceiver {
+    @Override public void onReceive(Context c,Intent in){
+        if(in==null)return;
+        if(RadioSchedule.SLEEP.equals(in.getAction())){RadioSchedule.deliverSleep(c,in);return;}
+        if(!RadioSchedule.WAKE.equals(in.getAction()))return;
+        Intent play=RadioSchedule.consumeWake(c,in);if(play==null)return;
+        try{c.startForegroundService(play);}
+        catch(RuntimeException e){RadioSchedule.prefs(c).edit().putString("wakeError","Android yayını başlatamadı. Alarm ve pil ayarlarını kontrol et.").apply();}
+    }
 }

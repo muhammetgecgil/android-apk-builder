@@ -34,7 +34,8 @@ async function fullApp({main=stations,catalog=main}={}){
  await page.addInitScript(()=>{
   localStorage.setItem('p2Active','1');window.sentCommands=[];
   window.nativeState={nativeRecovery:true,serviceActive:true,isPlaying:false,manualPause:true,eq:[0,0,600,0,0],normalize:true,smooth:false,volume:.7};
-  window.RadioNative={command:u=>window.sentCommands.push(u),getTelemetry:()=>JSON.stringify(window.nativeState),getNowTitle:()=>'',getRecentTracks:()=>'[]',getStreamHealth:()=>'{}',getProductGuard:()=>'{}',getCatalogHealth:()=>'{}',setQueue:()=>{},getNotaTextArchive:()=>'[]'};
+  const wake=()=>JSON.parse(localStorage.testNativeWake||'{"time":"07:00","status":"off","enabled":false,"exactAllowed":true}');
+  window.RadioNative={getWakeAlarm:()=>JSON.stringify(wake()),setWakeAlarm:(h,m,url,name,daily)=>{const d=new Date();d.setHours(h,m,0,0);if(d<=Date.now())d.setDate(d.getDate()+1);const exact=window.wakeExactAllowed!==false;const state={time:String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'),url,name,daily,savedAt:Date.now(),when:+d,enabled:true,scheduled:exact,exactAllowed:exact,status:exact?'scheduled':'permission'};localStorage.testNativeWake=JSON.stringify(state);return JSON.stringify(state)},clearWakeAlarm:()=>{const s={...wake(),enabled:false,scheduled:false,status:'cancelled'};localStorage.testNativeWake=JSON.stringify(s);return JSON.stringify(s)},command:u=>window.sentCommands.push(u),getTelemetry:()=>JSON.stringify(window.nativeState),getNowTitle:()=>'',getRecentTracks:()=>'[]',getStreamHealth:()=>'{}',getProductGuard:()=>'{}',getCatalogHealth:()=>'{}',setQueue:()=>{},getNotaTextArchive:()=>'[]'};
  });
  await page.goto(A+'index.html');
  const java=source('turkradyo/app/src/main/java/com/muhammetgecgil/turkradyo/MainActivity.java');
@@ -251,6 +252,40 @@ test('Sleep timer passes fade to Android and cancellation clears the countdown',
   await page.locator('#p24Cancel').click();
   assert.equal(await page.locator('#p24Countdown').textContent(),'--:--');
   assert.ok((await page.evaluate(()=>window.sentCommands)).includes('radioapp://sleepclear?id=8299'));
+ }finally{await page.close()}
+});
+
+test('Wake alarm remembers last time and station after closing, cancellation and reload',{timeout:40000},async()=>{
+ const page=await fullApp();try{
+  await page.locator('#p2Alarm').click();await page.locator('#p2AlarmTime').fill('09:35');await page.locator('#p292AlarmDaily').check();await page.locator('#p2AlarmSet').click();
+  assert.match(await page.locator('#p292AlarmStatus').textContent(),/Alarm açık/);assert.match(await page.locator('#p292LastAlarm').textContent(),/09:35.*Power Türk/);
+  await page.locator('#closeSheet').click();await page.evaluate(()=>select(1,false));await page.locator('#p2Alarm').click();
+  assert.equal(await page.locator('#p2AlarmTime').inputValue(),'09:35');assert.equal(await page.locator('#p292AlarmStation').textContent(),'Power Türk');assert.ok(await page.locator('#p292AlarmDaily').isChecked());
+  await page.locator('#p2AlarmCancel').click();assert.match(await page.locator('#p292AlarmStatus').textContent(),/Alarm kapalı/);assert.equal(await page.locator('#p2AlarmTime').inputValue(),'09:35');
+  await page.reload();const java=source('turkradyo/app/src/main/java/com/muhammetgecgil/turkradyo/MainActivity.java');const raw=java.match(/v\.evaluateJavascript\("(.*)",null\);/)[1].replaceAll('"+A+"',A);await page.evaluate(JSON.parse('"'+raw+'"'));await page.waitForTimeout(6500);
+  await page.locator('#p2Alarm').click();assert.equal(await page.locator('#p2AlarmTime').inputValue(),'09:35');assert.match(await page.locator('#p292LastAlarm').textContent(),/Power Türk/);
+  assert.deepEqual(await page.evaluate(()=>window.sentCommands.filter(u=>u.startsWith('radioapp://play'))),[],'Setting an alarm must not start radio immediately');
+ }finally{await page.close()}
+});
+
+test('Wake permission is actionable and a pending alarm is never shown as armed',{timeout:30000},async()=>{
+ const page=await fullApp();try{
+  await page.evaluate(()=>window.wakeExactAllowed=false);await page.locator('#p2Alarm').click();await page.locator('#p2AlarmTime').fill('06:20');await page.locator('#p2AlarmSet').click();
+  assert.match(await page.locator('#p292AlarmStatus').textContent(),/izin/i);assert.equal(await page.locator('#p292NextAlarm').textContent(),'');assert.ok(await page.locator('#p292AlarmPermission').isVisible());
+  await page.locator('#p292AllowAlarm').click();assert.ok((await page.evaluate(()=>window.sentCommands)).includes('radioapp://alarmsettings'));
+  await page.evaluate(()=>{const s=JSON.parse(localStorage.testNativeWake);Object.assign(s,{scheduled:true,exactAllowed:true,status:'scheduled'});localStorage.testNativeWake=JSON.stringify(s);window.dispatchEvent(new Event('turkradyo-schedules-changed'))});
+  assert.match(await page.locator('#p292AlarmStatus').textContent(),/Alarm açık/);assert.equal(await page.locator('#p292AlarmPermission').isVisible(),false);assert.equal(await page.locator('#p2AlarmTime').inputValue(),'06:20');
+ }finally{await page.close()}
+});
+
+test('Sleep countdown reads native state after reopening, respects expiry and reports scheduling errors',{timeout:30000},async()=>{
+ const page=await fullApp();try{
+  await page.evaluate(()=>{window.timerState={when:Date.now()+61_000,fade:true};window.RadioNative.getSleepTimer=()=>JSON.stringify(window.timerState);window.RadioNative.setSleepTimer=(n,fade)=>{if(window.timerFail)return '{"error":"Zamanlayıcı başlatılamadı"}';window.timerState={when:Date.now()+n*60000,fade};return JSON.stringify(window.timerState)};window.RadioNative.clearSleepTimer=()=>JSON.stringify(window.timerState={when:0,fade:false});localStorage.p24Timer=JSON.stringify({when:Date.now()+900000,pendingUntil:Date.now()+900000})});
+  await page.locator('#p2Sleep').click();assert.match(await page.locator('#p24Countdown').textContent(),/^01:0[01]$/);assert.ok(await page.locator('#p24Fade').isChecked());
+  await page.locator('.p24Quick [data-q="30"]').click();await page.locator('#closeSheet').click();await page.locator('#p2Sleep').click();assert.match(await page.locator('#p24Countdown').textContent(),/^(30:00|29:5\d)$/);
+  await page.evaluate(()=>window.timerState.when=Date.now()-1);await page.waitForTimeout(1100);assert.equal(await page.locator('#p24Countdown').textContent(),'--:--');
+  await page.evaluate(()=>window.timerFail=true);await page.locator('.p24Quick [data-q="15"]').click();assert.match(await page.locator('#toast').textContent(),/başlatılamadı/);assert.equal(await page.locator('#p24Countdown').textContent(),'--:--');
+  await page.locator('#p24Cancel').click();assert.equal(await page.evaluate(()=>window.timerState.when),0);
  }finally{await page.close()}
 });
 

@@ -50,7 +50,7 @@ public class PlaybackStateTest {
         Context app=RuntimeEnvironment.getApplication();
         RadioService.isRunning=false;
         app.getSharedPreferences("radio",0).edit().putLong("sleepDeadline",1).commit();
-        new AlarmReceiver().onReceive(app,new Intent().putExtra("sleep",true));
+        new AlarmReceiver().onReceive(app,new Intent().setAction(RadioSchedule.SLEEP).putExtra("when",1L));
         assertNull(shadowOf(RuntimeEnvironment.getApplication()).getNextStartedService());
         assertEquals(0L,app.getSharedPreferences("radio",0).getLong("sleepDeadline",0));
     }
