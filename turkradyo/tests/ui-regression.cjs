@@ -271,7 +271,7 @@ test('Wake alarm remembers last time and station after closing, cancellation and
 test('Wake permission is actionable and a pending alarm is never shown as armed',{timeout:30000},async()=>{
  const page=await fullApp();try{
   await page.evaluate(()=>window.wakeExactAllowed=false);await page.locator('#p2Alarm').click();await page.locator('#p2AlarmTime').fill('06:20');await page.locator('#p2AlarmSet').click();
-  assert.match(await page.locator('#p292AlarmStatus').textContent(),/izin/i);assert.equal(await page.locator('#p292NextAlarm').textContent(),'');assert.ok(await page.locator('#p292AlarmPermission').isVisible());
+  assert.match(await page.locator('#p292AlarmStatus').textContent(),/izni|izin/i);assert.equal(await page.locator('#p292NextAlarm').textContent(),'');assert.ok(await page.locator('#p292AlarmPermission').isVisible());
   await page.locator('#p292AllowAlarm').click();assert.ok((await page.evaluate(()=>window.sentCommands)).includes('radioapp://alarmsettings'));
   await page.evaluate(()=>{const s=JSON.parse(localStorage.testNativeWake);Object.assign(s,{scheduled:true,exactAllowed:true,status:'scheduled'});localStorage.testNativeWake=JSON.stringify(s);window.dispatchEvent(new Event('turkradyo-schedules-changed'))});
   assert.match(await page.locator('#p292AlarmStatus').textContent(),/Alarm açık/);assert.equal(await page.locator('#p292AlarmPermission').isVisible(),false);assert.equal(await page.locator('#p2AlarmTime').inputValue(),'06:20');

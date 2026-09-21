@@ -87,7 +87,12 @@ final class RadioSchedule {
             else if(boot||when<now-60_000){p.edit().putBoolean("wakeEnabled",false).putString("wakeStatus","missed").apply();cancelPending(c,WAKE,WAKE_ID);}
         }
         if(boot){long left=p.getLong("sleepDeadline",0)-now;if(left>0)p.edit().putLong("sleepElapsedDeadline",SystemClock.elapsedRealtime()+left).apply();else cancelSleep(c,false);}
-        if(SleepTimer.remaining(p)>0)scheduleSleep(c);
+        long remaining=SleepTimer.remaining(p);
+        if(remaining>0){
+            // Keep the reboot recovery timestamp aligned after a clock adjustment.
+            if(Intent.ACTION_TIME_CHANGED.equals(reason))p.edit().putLong("sleepDeadline",now+remaining).apply();
+            scheduleSleep(c);
+        }
     }
     static synchronized String setSleep(Context c,long when,boolean fade){
         long delay=when-System.currentTimeMillis();if(delay<=0||delay>13*60*60_000L)return "{\"error\":\"1 dakika ile 12 saat 59 dakika arasında süre seç\"}";

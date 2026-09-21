@@ -91,6 +91,7 @@ public class RadioScheduleTest {
         RadioSchedule.setSleep(app,System.currentTimeMillis()+60_000,true);long old=p.getLong("sleepDeadline",0);
         // A wall-clock adjustment cannot shorten a duration timer.
         p.edit().putLong("sleepDeadline",System.currentTimeMillis()-3600_000).commit();assertTrue(SleepTimer.remaining(p)>50_000);
+        RadioSchedule.restore(app,Intent.ACTION_TIME_CHANGED);assertTrue(p.getLong("sleepDeadline",0)>System.currentTimeMillis()+50_000);
         RadioSchedule.setSleep(app,System.currentTimeMillis()+120_000,false);long current=p.getLong("sleepDeadline",0);
         new AlarmReceiver().onReceive(app,new Intent().setAction(RadioSchedule.SLEEP).putExtra("when",old));assertEquals(current,p.getLong("sleepDeadline",0));
         RadioSchedule.cancelSleep(app,true);new AlarmReceiver().onReceive(app,new Intent().setAction(RadioSchedule.SLEEP).putExtra("when",current));
