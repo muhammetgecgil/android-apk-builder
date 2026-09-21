@@ -100,8 +100,11 @@ public class RadioScheduleTest {
     @Test public void sleepReceiverStopsAnActiveServiceButCannotStopALaterTimer(){
         ServiceController<RadioService> controller=Robolectric.buildService(RadioService.class).create();RadioService service=controller.get();Handler worker=ReflectionHelpers.getField(service,"handler");
         try{
+            // Drain startup work before arranging a receiver delivery; otherwise the
+            // service's independent deadline check can legitimately consume it first.
+            shadowOf(worker.getLooper()).idle();
             long deadline=System.currentTimeMillis()-1;p.edit().putLong("sleepDeadline",deadline).putLong("sleepElapsedDeadline",SystemClock.elapsedRealtime()-1).commit();
-            new AlarmReceiver().onReceive(app,new Intent().setAction(RadioSchedule.SLEEP).putExtra("when",deadline));Intent check=shadowOf(RuntimeEnvironment.getApplication()).getNextStartedService();assertNotNull(check);
+            new AlarmReceiver().onReceive(app,new Intent().setAction(RadioSchedule.SLEEP).putExtra("when",deadline));Intent check=shadowOf(RuntimeEnvironment.getApplication()).getNextStartedService();assertNotNull("running="+RadioService.isRunning+", remaining="+SleepTimer.remaining(p)+", deadline="+p.getLong("sleepDeadline",0),check);
             // This queued delivery arrives after the user replaced the timer.
             RadioSchedule.setSleep(app,System.currentTimeMillis()+120_000,true);service.onStartCommand(check,0,1);shadowOf(worker.getLooper()).idle();assertTrue(SleepTimer.remaining(p)>0);
             p.edit().putLong("sleepElapsedDeadline",SystemClock.elapsedRealtime()-1).commit();service.onStartCommand(check,0,2);shadowOf(worker.getLooper()).idle();assertEquals(0,p.getLong("sleepDeadline",0));
