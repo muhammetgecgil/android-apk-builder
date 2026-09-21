@@ -1,4 +1,4 @@
-# MGtürk Signature — 2.9.2
+# MGtürk Signature — 2.9.3
 
 The approved reference is **2.8.7.4**, recorded in `TURKRADYO_REFERENCE.md`.
 This design is a separate development line and does not replace that reference.
@@ -32,8 +32,8 @@ This design is a separate development line and does not replace that reference.
 
 ## Build and review
 
-Version: 2.9.2 / 302. Independent test app ID:
-`com.muhammetgecgil.turkradyo.test.v302`. As in the reference, a stable production
+Version: 2.9.3 / 303. Independent test app ID:
+`com.muhammetgecgil.turkradyo.test.v303`. As in the reference, a stable production
 signing key is unavailable, so this test APK installs alongside previous apps.
 Favorites/settings are separate; no automatic migration is claimed.
 
@@ -66,3 +66,29 @@ browser previews use controlled catalog/telemetry data.
 Android scheduling design references:
 https://developer.android.com/develop/background-work/services/alarms
 https://developer.android.com/develop/background-work/services/fgs/restrictions-bg-start
+
+## Remembered preferences (2.9.3)
+
+- Settings are saved on user input in the existing WebView origin storage or
+  Android SharedPreferences, not only when the app closes. No new polling is used.
+- The selected station is restored by identity with no autoplay, even outside the
+  main 80. Catalog rebuilds preserve that identity and saved alternate streams;
+  favorites/recent stations remain resolvable from the cached catalog.
+- Sound normalization has one native source of truth: an old alignment flag cannot
+  re-enable it during startup. Volume, gain, all EQ bands and smooth transitions
+  retain their native values. Rapid edits to different EQ bands are coalesced
+  separately, with a lifecycle flush. Preset highlighting follows the saved bands.
+- Timer duration and fade preferences are separate from the active timer. Cancelling
+  or expiring the timer does not reset these choices or schedule another timer.
+- Wake form drafts persist separately from the last armed alarm. Only pressing
+  Alarm kur changes its schedule. The last armed time remains visible.
+- Theme/profile, liked/disabled themes, theme filters, catalog tab/filter/search,
+  Turkey Groups filter/search, station search, track filters, tools disclosure,
+  quality/repair choices and bounded zapping history persist. Slow/NOTA/smart
+  listener settings keep their existing stores; an expired Slow session does not
+  open its panel automatically. Catalog refresh respects the active genre queue.
+- Browser regression cases reopen a fresh context from durable origin storage,
+  discarding globals and sessionStorage. Native regression recreates RadioService
+  and checks volume, gain, EQ, normalization and smooth-transition preferences.
+- These guarantees concern reopening the same installed app. A separate test APK
+  has independent storage. Uninstalling or clearing app data removes preferences.

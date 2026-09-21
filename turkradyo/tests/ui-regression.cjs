@@ -13,8 +13,8 @@ const stations=[{stationuuid:'one',name:'Power Türk',url:'https://stream.test/o
 let browser;
 before(async()=>{browser=await pw.chromium.launch({headless:true,...(process.env.CHROME_PATH?{executablePath:process.env.CHROME_PATH}:{})})});
 after(async()=>{await browser?.close()});
-async function pageFor(html='<!doctype html><body></body>',radioData=stations,catalogData=radioData){
- const page=await browser.newPage();
+async function pageFor(html='<!doctype html><body></body>',radioData=stations,catalogData=radioData,storageState){
+ const page=await browser.newPage({storageState});
  await page.route('**/*',async route=>{
   const url=route.request().url();
   if(url===A+'fixture.html')return route.fulfill({contentType:'text/html',body:html});
@@ -29,13 +29,14 @@ async function pageFor(html='<!doctype html><body></body>',radioData=stations,ca
 }
 async function script(page,name){await page.addScriptTag({content:source(ASSETS+name)})}
 
-async function fullApp({main=stations,catalog=main}={}){
- const page=await pageFor(undefined,main,catalog);await page.setViewportSize({width:390,height:844});
+async function fullApp({main=stations,catalog=main,storageState}={}){
+ const page=await pageFor(undefined,main,catalog,storageState);await page.setViewportSize({width:390,height:844});
  await page.addInitScript(()=>{
-  localStorage.setItem('p2Active','1');window.sentCommands=[];
-  window.nativeState={nativeRecovery:true,serviceActive:true,isPlaying:false,manualPause:true,eq:[0,0,600,0,0],normalize:true,smooth:false,volume:.7};
+  if(localStorage.getItem('p2Active')===null)localStorage.setItem('p2Active','1');window.sentCommands=[];
+  window.nativeState={nativeRecovery:true,serviceActive:true,isPlaying:false,manualPause:true,eq:[0,0,600,0,0],normalize:true,smooth:false,volume:.7,...JSON.parse(localStorage.testNativeAudio||'{}')};
+  const command=u=>{window.sentCommands.push(u);const x=new URL(u),p=x.searchParams,t=window.nativeState;if(x.hostname==='normalize')t.normalize=p.get('on')==='1';if(x.hostname==='smooth')t.smooth=p.get('on')==='1';if(x.hostname==='vol')t.volume=Number(p.get('v'));if(x.hostname==='eq')t.eq[Number(p.get('band'))]=Number(p.get('level'));localStorage.testNativeAudio=JSON.stringify({eq:t.eq,normalize:t.normalize,smooth:t.smooth,volume:t.volume})};
   const wake=()=>JSON.parse(localStorage.testNativeWake||'{"time":"07:00","status":"off","enabled":false,"exactAllowed":true}');
-  window.RadioNative={getWakeAlarm:()=>JSON.stringify(wake()),setWakeAlarm:(h,m,url,name,daily)=>{const d=new Date();d.setHours(h,m,0,0);if(d<=Date.now())d.setDate(d.getDate()+1);const exact=window.wakeExactAllowed!==false;const state={time:String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'),url,name,daily,savedAt:Date.now(),when:+d,enabled:true,scheduled:exact,exactAllowed:exact,status:exact?'scheduled':'permission'};localStorage.testNativeWake=JSON.stringify(state);return JSON.stringify(state)},clearWakeAlarm:()=>{const s={...wake(),enabled:false,scheduled:false,status:'cancelled'};localStorage.testNativeWake=JSON.stringify(s);return JSON.stringify(s)},command:u=>window.sentCommands.push(u),getTelemetry:()=>JSON.stringify(window.nativeState),getNowTitle:()=>'',getRecentTracks:()=>'[]',getStreamHealth:()=>'{}',getProductGuard:()=>'{}',getCatalogHealth:()=>'{}',setQueue:()=>{},getNotaTextArchive:()=>'[]'};
+  window.RadioNative={getWakeAlarm:()=>JSON.stringify(wake()),setWakeAlarm:(h,m,url,name,daily)=>{const d=new Date();d.setHours(h,m,0,0);if(d<=Date.now())d.setDate(d.getDate()+1);const exact=window.wakeExactAllowed!==false;const state={time:String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'),url,name,daily,savedAt:Date.now(),when:+d,enabled:true,scheduled:exact,exactAllowed:exact,status:exact?'scheduled':'permission'};localStorage.testNativeWake=JSON.stringify(state);return JSON.stringify(state)},clearWakeAlarm:()=>{const s={...wake(),enabled:false,scheduled:false,status:'cancelled'};localStorage.testNativeWake=JSON.stringify(s);return JSON.stringify(s)},command,getTelemetry:()=>JSON.stringify(window.nativeState),getNowTitle:()=>'',getRecentTracks:()=>'[]',getStreamHealth:()=>'{}',getProductGuard:()=>'{}',getCatalogHealth:()=>'{}',setQueue:(q,i)=>{window.lastQueue={items:JSON.parse(q),index:i}},getNotaTextArchive:()=>'[]'};
  });
  await page.goto(A+'index.html');
  const java=source('turkradyo/app/src/main/java/com/muhammetgecgil/turkradyo/MainActivity.java');
@@ -68,6 +69,95 @@ async function chooseProfile(page,value){
  await page.waitForTimeout(1600);
  assert.equal(await page.locator('#sheet.show').count(),0,'Profile selection must not open a feature dialog');
 }
+
+async function reopenApp(page,options={}){
+ const storageState=await page.context().storageState();await page.close();
+ // A fresh WebView has persistent origin storage, but no JS globals or sessionStorage.
+ return fullApp({...options,storageState});
+}
+
+test('Fresh opening restores a favorite outside the main list through catalog reordering without autoplay',{timeout:45000},async()=>{
+ const main=Array.from({length:80},(_,i)=>groupStation('main-'+i,'Radyo '+i,i%2?'rock':'pop',1000-i));
+ const outside=groupStation('outside','Dış Pop','pop',50),catalog=[...main,outside];
+ let page=await fullApp({main,catalog});try{
+  await page.locator('#p2Genres').click();await page.locator('[data-p2g="Pop"]').click();await page.locator('[data-p2play="outside"]').click();
+  await page.locator('#play').click();
+  await page.locator('#menuBtn').click();await page.locator('#search').fill('Dış Pop');await page.locator('#list .fav').click();await page.locator('#closeSheet').click();
+  const previous=await page.evaluate(()=>localStorage.trLastRadioKey);
+  page=await reopenApp(page,{main:[...main].reverse(),catalog:[...catalog].reverse()});
+  assert.equal(await page.locator('#now').textContent(),'Dış Pop');
+  assert.equal(await page.evaluate(()=>localStorage.trLastRadioKey),previous);
+  assert.equal(await page.evaluate(()=>window.trNavigation.mainStations().length),80);
+  assert.deepEqual(await playedNames(page),[]);
+  await page.locator('.bottom [data-nav="favorites"]').click();
+  assert.match(await page.locator('#list').textContent(),/Dış Pop/);assert.equal(await page.locator('#search').inputValue(),'Dış Pop');
+  await page.locator('#closeSheet').click();await page.locator('#play').click();assert.deepEqual(await playedNames(page),['Dış Pop']);
+ }finally{await page.close()}
+});
+
+test('Timer preferences and alarm drafts survive a fresh opening without creating new schedules',{timeout:45000},async()=>{
+ let page=await fullApp();try{
+  await page.locator('#p2Sleep').click();await page.locator('#p24H').fill('2');await page.locator('#p24M').fill('17');await page.locator('#p24Fade').check();
+  await page.locator('#p24Set').click();await page.locator('#p24Cancel').click();await page.locator('#closeSheet').click();
+  await page.locator('#p2Alarm').click();await page.locator('#p2AlarmTime').fill('06:25');await page.locator('#p2AlarmSet').click();
+  await page.locator('#p2AlarmTime').fill('08:40');await page.locator('#p292AlarmDaily').check();
+  page=await reopenApp(page);
+  await page.locator('#p2Sleep').click();assert.equal(await page.locator('#p24H').inputValue(),'2');assert.equal(await page.locator('#p24M').inputValue(),'17');assert.ok(await page.locator('#p24Fade').isChecked());assert.equal(await page.locator('#p24Countdown').textContent(),'--:--');
+  await page.locator('#closeSheet').click();await page.locator('#p2Alarm').click();
+  assert.equal(await page.locator('#p2AlarmTime').inputValue(),'08:40');assert.ok(await page.locator('#p292AlarmDaily').isChecked());assert.match(await page.locator('#p292LastAlarm').textContent(),/06:25/);
+  assert.equal(await page.evaluate(()=>JSON.parse(localStorage.testNativeWake).time),'06:25','A remembered draft must not silently change the armed alarm');
+  assert.deepEqual(await page.evaluate(()=>window.sentCommands.filter(u=>/radioapp:\/\/(play|resume|sleep|alarm)/.test(u))),[]);
+ }finally{await page.close()}
+});
+
+test('Native sound choices win over stale alignment and all EQ bands and quality restore after reopening',{timeout:45000},async()=>{
+ const hd={...stations[0],stationuuid:'one-hd',url:'https://stream.test/hd',bitrate:320},catalog=[...stations,hd];
+ let page=await fullApp({catalog});try{
+  await page.locator('#settingsBtn').click();await page.locator('#sNorm').click();await page.locator('#sSmooth').click();await page.locator('#closeSheet').click();
+  await page.locator('#volume').evaluate(e=>{e.value='.35';e.dispatchEvent(new Event('input',{bubbles:true}))});
+  await page.locator('[data-mode="eq"]').click();await page.locator('[data-preset="bass"]').click();
+  await page.evaluate(()=>{for(const [band,value] of [[0,-4],[4,7]]){const el=document.querySelector('[data-eq="'+band+'"]');el.value=value;el.dispatchEvent(new Event('input',{bubbles:true}))}});await page.waitForTimeout(100);
+  await page.locator('#closeSheet').click();await page.locator('#sigTools summary').click();await page.locator('#v6Heal').click();await page.locator('#v6Quality').click();await page.locator('[data-v6q="high"]').click();await page.waitForTimeout(300);
+  await page.evaluate(()=>localStorage.v6Align='1');
+  page=await reopenApp(page,{catalog});
+  assert.equal(await page.locator('#sigTools').evaluate(e=>e.open),true);assert.equal(await page.locator('#volume').inputValue(),'0.35');
+  assert.equal(await page.locator('#v6Align').evaluate(e=>e.classList.contains('on')),false);assert.equal(await page.locator('#v6Heal').evaluate(e=>e.classList.contains('on')),false);assert.equal(await page.locator('#v6Quality b').textContent(),'HQ');
+  assert.equal(await page.evaluate(()=>window.trGetStations()[window.trGetIndex()]._url),'https://stream.test/hd');
+  assert.deepEqual(await page.evaluate(()=>window.sentCommands),[],'Restoring preferences must not replay old commands');
+  await page.locator('#settingsBtn').click();assert.equal(await page.locator('#sNorm').evaluate(e=>e.classList.contains('on')),false);assert.equal(await page.locator('#sSmooth').evaluate(e=>e.classList.contains('on')),true);await page.locator('#closeSheet').click();
+  await page.locator('[data-mode="eq"]').click();assert.deepEqual(await page.locator('[data-eq]').evaluateAll(a=>a.map(e=>Number(e.value))),[-4,5,1,-1,7]);
+ }finally{await page.close()}
+});
+
+test('Profile, theme choices, feature options and genre queue are remembered in a fresh app',{timeout:50000},async()=>{
+ const mixed=[...stations,groupStation('rock','Rock Radyo','rock')];let page=await fullApp({main:mixed});try{
+  await page.locator('[data-mode="themes"]').click();await page.locator('.nature-filter[data-f="Çiçek"]').click();await page.locator('[data-like="orchid"]').click();await page.locator('[data-off="rose"]').click();await page.locator('[data-use="orchid"]').click();await page.evaluate(()=>window.trCloseTopOverlay());
+  await page.evaluate(()=>window.trOpenSlow279());await page.locator('[data-slow279-min="60"]').click();await page.locator('[data-slow279-int="deep"]').click();await page.locator('#tr279SlowAuto').click();await page.locator('#tr279SlowCap').evaluate(e=>{e.value='.55';e.dispatchEvent(new Event('input',{bubbles:true}))});await page.locator('#closeSheet').click();
+  await page.evaluate(()=>window.openNotaAI());await page.locator('[data-nai-sec="120"]').click();await page.locator('[data-nai-mode="text"]').click();await page.locator('#closeSheet').click();
+  await page.evaluate(()=>window.trSmartListener.open());await page.locator('[data-trtoggle="alarmGuard"]').click();await page.locator('#trSmartClose').click();
+  await page.evaluate(()=>window.trOpenGenre280());await page.locator('[data-g280="Pop"]').click();await page.locator('#closeSheet').click();await chooseProfile(page,'1');
+  page=await reopenApp(page,{main:mixed});
+  assert.equal(await page.evaluate(()=>localStorage.trActiveProfileV281),'1');assert.equal(await page.locator('#p2UnifiedPremiumGrid263').isVisible(),false);assert.equal(await page.evaluate(()=>document.documentElement.dataset.natureTheme),'orchid');
+  assert.deepEqual(new Set(await page.evaluate(()=>window.lastQueue.items.map(s=>s.name))),new Set(['Power Türk','TRT FM']));assert.equal(await page.evaluate(()=>JSON.parse(localStorage.trGenre273).active),'Pop');
+  await page.locator('[data-mode="themes"]').click();assert.equal(await page.locator('.nature-filter.on').textContent(),'Çiçek');assert.ok(await page.locator('[data-like="orchid"]').evaluate(e=>e.classList.contains('liked')));assert.ok(await page.locator('[data-off="rose"]').evaluate(e=>e.classList.contains('disabled')));await page.evaluate(()=>window.trCloseTopOverlay());
+  await page.evaluate(()=>window.trOpenSlow279());assert.ok(await page.locator('[data-slow279-min="60"]').evaluate(e=>e.classList.contains('on')));assert.ok(await page.locator('[data-slow279-int="deep"]').evaluate(e=>e.classList.contains('on')));assert.equal(await page.locator('#tr279SlowCap').inputValue(),'0.55');assert.equal(await page.locator('#tr279SlowAuto').textContent(),'KAPALI');await page.locator('#closeSheet').click();
+  await page.evaluate(()=>window.openNotaAI());assert.ok(await page.locator('[data-nai-sec="120"]').evaluate(e=>e.classList.contains('on')));assert.ok(await page.locator('[data-nai-mode="text"]').evaluate(e=>e.classList.contains('on')));assert.equal(await page.evaluate(()=>window.trSmartListener.state().alarmGuard),false);
+  assert.deepEqual(await playedNames(page),[]);
+ }finally{await page.close()}
+});
+
+test('Catalog, Turkey Groups and track filters retain their choices and search text',{timeout:45000},async()=>{
+ let page=await fullApp({main:groupMain,catalog:groupCatalog});try{
+  await page.locator('[data-mode="all"]').click();await page.locator('[data-cat-view="main"]').click();await page.locator('[data-cat-group="Pop"]').click();await page.locator('#catalogSearch').pressSequentially('Pop');
+  assert.equal(await page.locator('#catalogSearch').inputValue(),'Pop');await page.locator('#closeSheet').click();
+  await page.locator('#p2Genres').click();await page.locator('[data-p2g="Haber"]').click();await page.locator('#p2Search').fill('Haber A');await page.locator('#closeSheet').click();
+  await page.locator('#p2Tracks').click();await page.locator('#p2TrackSearch').fill('Sezen');
+  page=await reopenApp(page,{main:groupMain,catalog:groupCatalog});
+  await page.locator('[data-mode="all"]').click();assert.equal(await page.locator('[data-cat-view="main"]').evaluate(e=>e.classList.contains('active')),true);assert.equal(await page.locator('[data-cat-group="Pop"]').evaluate(e=>e.classList.contains('active')),true);assert.equal(await page.locator('#catalogSearch').inputValue(),'Pop');await page.locator('#closeSheet').click();
+  await page.locator('#p2Genres').click();assert.equal(await page.locator('.p2Cat.on').textContent(),'Haber');assert.equal(await page.locator('#p2Search').inputValue(),'Haber A');assert.deepEqual(await page.locator('#p2Stations strong').allTextContents(),['Haber A']);await page.locator('#closeSheet').click();
+  await page.locator('#p2Tracks').click();assert.equal(await page.locator('#p2TrackSearch').inputValue(),'Sezen');
+ }finally{await page.close()}
+});
 
 test('Baz stays minimal after delayed mounts, profile switches and a fresh page load',{timeout:50000},async()=>{
  const page=await fullApp();try{
@@ -363,7 +453,7 @@ test('Manual repair result is discarded after selecting a different station',{ti
 test('Damaged preferences do not prevent catalog and play controls from loading',{timeout:15000},async()=>{
  const page=await pageFor();
  try{
-  await page.evaluate(()=>{localStorage.setItem('favs','{broken');localStorage.setItem('recent','null')});
+  await page.evaluate(()=>{localStorage.setItem('favs','{broken');localStorage.setItem('recent','null');localStorage.setItem('trLastStation293','{broken');localStorage.setItem('v6Overrides','null')});
   await page.goto(A+'index.html');
   await page.waitForFunction(()=>document.getElementById('now')?.textContent==='Power Türk');
   await page.locator('#next').click();

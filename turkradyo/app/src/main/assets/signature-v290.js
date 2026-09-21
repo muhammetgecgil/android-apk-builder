@@ -68,7 +68,7 @@ function mount(){
  const captions={v12Similar:'Dinlediğine benzer',v12Genres:'Türlere göre keşfet',v12Smart:'Yavaşla, dinlemeye devam et',p2DNA:'Bağlantını yakından tanı',p2Tracks:'Şarkı geçmişin',p2Alarm:'Güne radyoyla başla',p2Sleep:'Süreyi sen belirle',p2Genres:'Türkiye’yi tür tür keşfet'};
  Object.entries(captions).forEach(([id,caption])=>{const e=$('#'+id);attr(e?.querySelector('.p263Label'),'data-caption',caption);if(e)attr(e,'aria-label',(e.querySelector('.p263Label')?.textContent||'')+' — '+caption)});
  const tools=$('.radio-tools-v6');
- if(tools){let box=$('#sigTools');if(!box){box=document.createElement('details');box.id='sigTools';box.className='sig-tools';box.innerHTML='<summary><span>Yayın araçları<small>Ses, kalite ve bağlantı</small></span><span class="sig-chevron" aria-hidden="true">⌄</span></summary>';($('.mini')||modes)?.before(box)}if(tools.parentNode!==box)box.appendChild(tools)}
+ if(tools){let box=$('#sigTools');if(!box){box=document.createElement('details');box.id='sigTools';box.className='sig-tools';box.open=window.trMemory?.get('trToolsOpen293',false)===true;box.addEventListener('toggle',()=>window.trMemory?.set('trToolsOpen293',box.open));box.innerHTML='<summary><span>Yayın araçları<small>Ses, kalite ve bağlantı</small></span><span class="sig-chevron" aria-hidden="true">⌄</span></summary>';($('.mini')||modes)?.before(box)}if(tools.parentNode!==box)box.appendChild(tools)}
  document.querySelectorAll('.bottom [data-nav]').forEach(b=>{attr(b,'aria-label',({home:'Ana sayfa',discover:'Keşfet',favorites:'Favoriler',settings:'Ayarlar'})[b.dataset.nav]);attr(b,'aria-current',b.classList.contains('active')?'page':'false')});
  decoratePanel();
 }
@@ -83,7 +83,7 @@ let opener=null;
 function topOverlay(){return [...document.querySelectorAll('.sheet.show,.nature-modal.show')].at(-1)}
 function settleFocus(){const o=topOverlay();if(!o){if(opener?.isConnected){opener.focus({preventScroll:true});opener=null}return}if(!o.contains(document.activeElement)){const close=o.querySelector('#closeSheet,[data-close],[data-pclose]');close?.focus({preventScroll:true})}}
 function boot(){
- if(!$('#signatureV290Css')){const css=document.createElement('link');css.id='signatureV290Css';css.rel='stylesheet';css.href=A+'signature-v290.css?v=291';document.head.appendChild(css)}
+ if(!$('#signatureV290Css')){const css=document.createElement('link');css.id='signatureV290Css';css.rel='stylesheet';css.href=A+'signature-v290.css?v=293';document.head.appendChild(css)}
  [0,400,1300,3000,5500].forEach(ms=>setTimeout(mount,ms));
  window.addEventListener('click',e=>{
   const b=e.target.closest('button,[role="button"]');if(!b)return;

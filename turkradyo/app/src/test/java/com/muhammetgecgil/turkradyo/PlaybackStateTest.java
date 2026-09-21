@@ -91,16 +91,22 @@ public class PlaybackStateTest {
         shadowOf(worker.getLooper()).idle();
     }
 
-    @Test public void gainAndEqSurviveServiceRecreation() {
+    @Test public void allAudioPreferencesSurviveServiceRecreation() {
         ServiceController<RadioService> controller=Robolectric.buildService(RadioService.class).create();
         RadioService service=controller.get();
         Handler worker=ReflectionHelpers.getField(service,"handler");
         service.onStartCommand(new Intent(service,RadioService.class).setAction(RadioService.ACTION_GAIN).putExtra("gain",450),0,1);
         service.onStartCommand(new Intent(service,RadioService.class).setAction(RadioService.ACTION_EQ).putExtra("band",2).putExtra("level",600),0,2);
+        service.onStartCommand(new Intent(service,RadioService.class).setAction(RadioService.ACTION_VOLUME).putExtra("volume",.35f),0,3);
+        service.onStartCommand(new Intent(service,RadioService.class).setAction(RadioService.ACTION_NORMALIZE).putExtra("on",true),0,4);
+        service.onStartCommand(new Intent(service,RadioService.class).setAction(RadioService.ACTION_SMOOTH).putExtra("on",false),0,5);
         shadowOf(worker.getLooper()).idle();
         controller.destroy();shadowOf(worker.getLooper()).idle();
         controller=Robolectric.buildService(RadioService.class).create();service=controller.get();
         assertEquals(450,(int)ReflectionHelpers.getField(service,"gainMb"));
+        assertEquals(.35f,(float)ReflectionHelpers.getField(service,"volume"),.001f);
+        assertTrue((boolean)ReflectionHelpers.getField(service,"normalize"));
+        assertFalse((boolean)ReflectionHelpers.getField(service,"smooth"));
         short[] levels=ReflectionHelpers.getField(service,"eqLevels");assertEquals(600,levels[2]);
         worker=ReflectionHelpers.getField(service,"handler");
         controller.destroy();shadowOf(worker.getLooper()).idle();

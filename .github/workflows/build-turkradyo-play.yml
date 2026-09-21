@@ -102,32 +102,32 @@ jobs:
       - name: Package source snapshot and complete kit
         run: |
           mkdir -p dist
-          zip -rq dist/TurkRadyo-v2.9.2-Source.zip turkradyo TURKRADYO_REFERENCE.md .github/workflows/build-turkradyo-play.yml .github/workflows/ci-turkradyo-pr.yml .github/workflows/radio-audit.yml -x 'turkradyo/app/build/*' 'turkradyo/.gradle/*'
-          cp turkradyo/app/build/outputs/apk/debug/app-debug.apk dist/TurkRadyo-v2.9.2-SideBySide-Test.apk
-          cp turkradyo/app/build/outputs/bundle/release/app-release.aab dist/TurkRadyo-v2.9.2-Play.aab
+          zip -rq dist/TurkRadyo-v2.9.3-Source.zip turkradyo TURKRADYO_REFERENCE.md .github/workflows/build-turkradyo-play.yml .github/workflows/ci-turkradyo-pr.yml .github/workflows/radio-audit.yml -x 'turkradyo/app/build/*' 'turkradyo/.gradle/*'
+          cp turkradyo/app/build/outputs/apk/debug/app-debug.apk dist/TurkRadyo-v2.9.3-SideBySide-Test.apk
+          cp turkradyo/app/build/outputs/bundle/release/app-release.aab dist/TurkRadyo-v2.9.3-Play.aab
           if [ -f turkradyo/app/build/outputs/apk/release/app-release.apk ]; then
-            cp turkradyo/app/build/outputs/apk/release/app-release.apk dist/TurkRadyo-v2.9.2-Release.apk
+            cp turkradyo/app/build/outputs/apk/release/app-release.apk dist/TurkRadyo-v2.9.3-Release.apk
             SIGNING_STATE='stable-signed-release'
           else
-            cp turkradyo/app/build/outputs/apk/release/app-release-unsigned.apk dist/TurkRadyo-v2.9.2-Release-Unsigned.apk
+            cp turkradyo/app/build/outputs/apk/release/app-release-unsigned.apk dist/TurkRadyo-v2.9.3-Release-Unsigned.apk
             SIGNING_STATE='release-unsigned-side-by-side-test'
           fi
-          cat > dist/TurkRadyo-v2.9.2-MANIFEST.txt <<EOF
+          cat > dist/TurkRadyo-v2.9.3-MANIFEST.txt <<EOF
           TurkRadyo LATEST DEVELOPMENT PACKAGE
-          Version: 2.9.2
-          VersionCode: 302
+          Version: 2.9.3
+          VersionCode: 303
           Git commit: $GITHUB_SHA
           Branch: $GITHUB_REF_NAME
           Signing state: $SIGNING_STATE
-          Play Store file: TurkRadyo-v2.9.2-Play.aab
-          Installable test APK: TurkRadyo-v2.9.2-SideBySide-Test.apk
-          Test application ID: com.muhammetgecgil.turkradyo.test.v302
-          Test app name: MGtürk Radyo 2.9.2
+          Play Store file: TurkRadyo-v2.9.3-Play.aab
+          Installable test APK: TurkRadyo-v2.9.3-SideBySide-Test.apk
+          Test application ID: com.muhammetgecgil.turkradyo.test.v303
+          Test app name: MGtürk Radyo 2.9.3
           Test data and settings are separate from the production app.
-          Source snapshot: TurkRadyo-v2.9.2-Source.zip
+          Source snapshot: TurkRadyo-v2.9.3-Source.zip
           EOF
-          (cd dist && sha256sum TurkRadyo-v2.9.2-SideBySide-Test.apk TurkRadyo-v2.9.2-Play.aab TurkRadyo-v2.9.2-Source.zip >> TurkRadyo-v2.9.2-MANIFEST.txt)
-          (cd dist && zip -q TurkRadyo-v2.9.2-COMPLETE.zip TurkRadyo-v2.9.2-SideBySide-Test.apk TurkRadyo-v2.9.2-Play.aab TurkRadyo-v2.9.2-Source.zip TurkRadyo-v2.9.2-MANIFEST.txt TurkRadyo-v2.9.2-Release*.apk)
+          (cd dist && sha256sum TurkRadyo-v2.9.3-SideBySide-Test.apk TurkRadyo-v2.9.3-Play.aab TurkRadyo-v2.9.3-Source.zip >> TurkRadyo-v2.9.3-MANIFEST.txt)
+          (cd dist && zip -q TurkRadyo-v2.9.3-COMPLETE.zip TurkRadyo-v2.9.3-SideBySide-Test.apk TurkRadyo-v2.9.3-Play.aab TurkRadyo-v2.9.3-Source.zip TurkRadyo-v2.9.3-MANIFEST.txt TurkRadyo-v2.9.3-Release*.apk)
 
       - name: Upload stable signed update APK
         if: env.TURKRADYO_KEYSTORE_B64 != ''
@@ -166,18 +166,18 @@ jobs:
       - name: Upload source snapshot
         uses: actions/upload-artifact@v4
         with:
-          name: TurkRadyo-v2.9.2-Source
-          path: dist/TurkRadyo-v2.9.2-Source.zip
+          name: TurkRadyo-v2.9.3-Source
+          path: dist/TurkRadyo-v2.9.3-Source.zip
           if-no-files-found: error
           retention-days: 30
 
       - name: Upload complete release kit
         uses: actions/upload-artifact@v4
         with:
-          name: TurkRadyo-v2.9.2-COMPLETE
+          name: TurkRadyo-v2.9.3-COMPLETE
           path: |
-            dist/TurkRadyo-v2.9.2-COMPLETE.zip
-            dist/TurkRadyo-v2.9.2-MANIFEST.txt
+            dist/TurkRadyo-v2.9.3-COMPLETE.zip
+            dist/TurkRadyo-v2.9.3-MANIFEST.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -194,7 +194,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TurkRadyo-v2.9.2-Tests
+          name: TurkRadyo-v2.9.3-Tests
           path: |
             turkradyo/app/build/reports/tests/
             turkradyo/app/build/test-results/
