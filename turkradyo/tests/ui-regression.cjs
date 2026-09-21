@@ -257,7 +257,7 @@ test('Sleep timer passes fade to Android and cancellation clears the countdown',
 
 test('Wake alarm remembers last time and station after closing, cancellation and reload',{timeout:40000},async()=>{
  const page=await fullApp();try{
-  await page.locator('#p2Alarm').click();await page.locator('#p2AlarmTime').fill('09:35');await page.locator('#p292AlarmDaily').check();await page.locator('#p2AlarmSet').click();
+  await page.setViewportSize({width:360,height:800});await page.locator('#p2Alarm').click();await page.locator('#p2AlarmTime').fill('09:35');assert.equal(await page.locator('#p292TimeValue').textContent(),'09:35');assert.ok(await page.locator('.p292Saved .p292Eyebrow').isVisible());await page.locator('#p292AlarmDaily').check();await page.locator('#p2AlarmSet').click();
   assert.match(await page.locator('#p292AlarmStatus').textContent(),/Alarm açık/);assert.match(await page.locator('#p292LastAlarm').textContent(),/09:35.*Power Türk/);
   await page.locator('#closeSheet').click();await page.evaluate(()=>select(1,false));await page.locator('#p2Alarm').click();
   assert.equal(await page.locator('#p2AlarmTime').inputValue(),'09:35');assert.equal(await page.locator('#p292AlarmStation').textContent(),'Power Türk');assert.ok(await page.locator('#p292AlarmDaily').isChecked());

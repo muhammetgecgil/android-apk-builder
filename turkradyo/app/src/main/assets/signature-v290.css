@@ -271,7 +271,7 @@
 /* Wake-up settings share the timer's material without expanding home cards. */
 #trSignature body.tr-signature .p292Alarm{display:grid;gap:12px}
 #trSignature body.tr-signature .p292AlarmHero{display:grid;gap:8px;text-align:center;padding:22px 16px!important;background:radial-gradient(ellipse at 30% 0,color-mix(in srgb,var(--sig-accent) 22%,transparent),transparent 70%),var(--sig-material)!important}
-#trSignature body.tr-signature .p292Eyebrow{font-size:9px!important;letter-spacing:1.4px;color:var(--sig-light);line-height:1.6}
+#trSignature body.tr-signature .p292Eyebrow{display:block!important;font-size:9px!important;letter-spacing:1.4px;color:var(--sig-light);line-height:1.6}
 #trSignature body.tr-signature .p292AlarmHero label{font-size:12px;color:var(--sig-muted)}
 #trSignature body.tr-signature #p2AlarmTime{width:100%!important;min-width:0!important;margin:2px 0!important;background:linear-gradient(140deg,#ffffff09,#ffffff01)!important;border-color:var(--sig-accent-line)!important;font-size:48px!important}
 #trSignature body.tr-signature #p292AlarmStatus{font-size:12px;color:var(--sig-light);line-height:1.5}
@@ -282,8 +282,14 @@
 #trSignature body.tr-signature .p292Options strong{font-size:15px;font-weight:600}
 #trSignature body.tr-signature .p292Repeat{display:flex;gap:12px;align-items:center;justify-content:space-between;min-height:44px;font-size:13px}
 #trSignature body.tr-signature .p292Repeat small{margin:4px 0 0;line-height:1.5}
-#trSignature body.tr-signature #p292AlarmDaily{width:44px;height:44px;accent-color:var(--sig-accent);flex:0 0 44px}
+#trSignature body.tr-signature #p292AlarmDaily{width:22px;height:22px;accent-color:var(--sig-accent);flex:0 0 22px}
 #trSignature body.tr-signature .p292Permission{padding:14px;border:1px solid var(--sig-accent-line);border-radius:16px;background:var(--sig-material)}
 #trSignature body.tr-signature .p292Permission[hidden]{display:none!important}
 #trSignature body.tr-signature .p292Permission p{font-size:12px;line-height:1.6;margin:0 0 10px;color:var(--sig-muted)}
 #trSignature body.tr-signature #p2AlarmCancel:disabled{opacity:.45;cursor:default}
+
+#trSignature body.tr-signature .p292TimePicker{position:relative;display:flex;align-items:center;justify-content:center;gap:18px;height:88px;border:1px solid var(--sig-accent-line);border-radius:18px;background:linear-gradient(140deg,#ffffff09,#ffffff01);color:var(--sig-text)}
+#trSignature body.tr-signature #p292TimeValue{font-size:48px;font-weight:400;letter-spacing:2px;line-height:1.2}
+#trSignature body.tr-signature .p292TimePicker svg{width:27px;height:27px;fill:none;stroke:var(--sig-light);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+#trSignature body.tr-signature .p292TimePicker #p2AlarmTime{position:absolute!important;inset:0!important;margin:0!important;width:100%!important;height:100%!important;opacity:0!important;cursor:pointer}
+#trSignature body.tr-signature .p292TimePicker:focus-within{outline:2px solid var(--sig-light);outline-offset:3px}
