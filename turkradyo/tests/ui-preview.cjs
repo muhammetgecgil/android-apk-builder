@@ -41,7 +41,7 @@ let browser;
  await page.locator('#p2UnifiedPremiumGrid263').screenshot({path:path.join(out,'premium-cards-purple.png'),animations:'disabled'});
  await page.locator('.hero').screenshot({path:path.join(out,'transport-purple.png'),animations:'disabled'});
  await shot('profile2-purple');await feature('#p2Alarm','alarm-purple');await feature('#p2Sleep','timer-purple');
- await page.setViewportSize({width:360,height:800});await page.locator('#p2UnifiedPremiumGrid263').screenshot({path:path.join(out,'premium-cards-small.png'),animations:'disabled'});
+ await page.setViewportSize({width:360,height:800});await feature('#p2Alarm','alarm-small');await page.locator('#p2UnifiedPremiumGrid263').screenshot({path:path.join(out,'premium-cards-small.png'),animations:'disabled'});
  await page.locator('[data-mode="themes"]').click();await page.locator('#natureReset').click();await page.evaluate(()=>window.trCloseTopOverlay());await page.setViewportSize({width:412,height:915});await page.waitForTimeout(500);
  await page.locator('.nature-profile-pill').click();await page.waitForTimeout(250);await page.locator('[data-prof="1"]').click();await page.waitForTimeout(1300);await shot('profile1-home');
  await page.setViewportSize({width:360,height:800});await shot('profile1-small');

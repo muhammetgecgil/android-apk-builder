@@ -163,7 +163,7 @@
 #trSignature body.tr-signature :is(.p2Btn,.p24Action,.tr273Primary,.tr273Secondary,.naiPrimary,.naiSecondary,.v187SlowPrimary,.v187SlowOff,.p2SettingAction,.catalogRefresh,.nature-reset){min-height:46px!important;padding:12px 15px!important;border:1px solid var(--sig-border)!important;border-radius:14px!important;background:var(--sig-raised)!important;color:var(--sig-text)!important;font-size:12px!important;font-weight:620!important;letter-spacing:.2px!important;box-shadow:none!important}
 #trSignature body.tr-signature :is(.p24Action.primary,.tr273Primary,.naiPrimary,.v187SlowPrimary,#p2AlarmSet){background:var(--sig-primary)!important;color:#080b12!important;border-color:transparent!important}
 #trSignature body.tr-signature :is(.p24Action.danger,.v187SlowOff){background:#ffffff02!important;color:#c6cfde!important}
-#trSignature body.tr-signature .p24TimerHero{padding:28px 15px!important;background:radial-gradient(circle at 50% 5%,color-mix(in srgb,var(--sig-accent) 7%,transparent),transparent 65%),var(--sig-surface)!important}
+#trSignature body.tr-signature .p24TimerHero{padding:28px 15px!important;background:radial-gradient(ellipse at 50% 0,color-mix(in srgb,var(--sig-accent) 16%,transparent),transparent 68%),var(--sig-material)!important}
 #trSignature body.tr-signature .p24TimerHero .tr-art-hero{width:108px!important;height:108px!important;background:none!important;margin:0 auto 18px!important}
 #trSignature body.tr-signature .p24Clock{font-size:56px!important;font-weight:380!important;letter-spacing:-1px!important;line-height:1.25!important}
 #trSignature body.tr-signature .p24Clock small{font-size:9px!important;color:var(--sig-muted)!important;letter-spacing:1.5px!important;margin-top:8px!important;font-weight:500!important}
