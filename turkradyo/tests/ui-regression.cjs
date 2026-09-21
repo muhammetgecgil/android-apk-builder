@@ -29,15 +29,15 @@ async function pageFor(html='<!doctype html><body></body>',radioData=stations,ca
 }
 async function script(page,name){await page.addScriptTag({content:source(ASSETS+name)})}
 
-async function fullApp({main=stations,catalog=main,storageState}={}){
+async function fullApp({main=stations,catalog=main,storageState,serviceActive=true}={}){
  const page=await pageFor(undefined,main,catalog,storageState);await page.setViewportSize({width:390,height:844});
- await page.addInitScript(()=>{
+ await page.addInitScript(serviceActive=>{
   if(localStorage.getItem('p2Active')===null)localStorage.setItem('p2Active','1');window.sentCommands=[];
-  window.nativeState={nativeRecovery:true,serviceActive:true,isPlaying:false,manualPause:true,eq:[0,0,600,0,0],normalize:true,smooth:false,volume:.7,...JSON.parse(localStorage.testNativeAudio||'{}')};
+  window.nativeState={nativeRecovery:true,serviceActive,isPlaying:false,manualPause:true,eq:[0,0,600,0,0],normalize:true,smooth:false,volume:.7,...JSON.parse(localStorage.testNativeAudio||'{}')};
   const command=u=>{window.sentCommands.push(u);const x=new URL(u),p=x.searchParams,t=window.nativeState;if(x.hostname==='normalize')t.normalize=p.get('on')==='1';if(x.hostname==='smooth')t.smooth=p.get('on')==='1';if(x.hostname==='vol')t.volume=Number(p.get('v'));if(x.hostname==='eq')t.eq[Number(p.get('band'))]=Number(p.get('level'));localStorage.testNativeAudio=JSON.stringify({eq:t.eq,normalize:t.normalize,smooth:t.smooth,volume:t.volume})};
   const wake=()=>JSON.parse(localStorage.testNativeWake||'{"time":"07:00","status":"off","enabled":false,"exactAllowed":true}');
-  window.RadioNative={getWakeAlarm:()=>JSON.stringify(wake()),setWakeAlarm:(h,m,url,name,daily)=>{const d=new Date();d.setHours(h,m,0,0);if(d<=Date.now())d.setDate(d.getDate()+1);const exact=window.wakeExactAllowed!==false;const state={time:String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'),url,name,daily,savedAt:Date.now(),when:+d,enabled:true,scheduled:exact,exactAllowed:exact,status:exact?'scheduled':'permission'};localStorage.testNativeWake=JSON.stringify(state);return JSON.stringify(state)},clearWakeAlarm:()=>{const s={...wake(),enabled:false,scheduled:false,status:'cancelled'};localStorage.testNativeWake=JSON.stringify(s);return JSON.stringify(s)},command,getTelemetry:()=>JSON.stringify(window.nativeState),getNowTitle:()=>'',getRecentTracks:()=>'[]',getStreamHealth:()=>'{}',getProductGuard:()=>'{}',getCatalogHealth:()=>'{}',setQueue:(q,i)=>{window.lastQueue={items:JSON.parse(q),index:i}},getNotaTextArchive:()=>'[]'};
- });
+  window.RadioNative={getWakeAlarm:()=>JSON.stringify(wake()),setWakeAlarm:(h,m,url,name,daily)=>{const d=new Date();d.setHours(h,m,0,0);if(d<=Date.now())d.setDate(d.getDate()+1);const exact=window.wakeExactAllowed!==false;const state={time:String(h).padStart(2,'0')+':'+String(m).padStart(2,'0'),url,name,daily,savedAt:Date.now(),when:+d,enabled:true,scheduled:exact,exactAllowed:exact,status:exact?'scheduled':'permission'};localStorage.testNativeWake=JSON.stringify(state);return JSON.stringify(state)},clearWakeAlarm:()=>{const s={...wake(),enabled:false,scheduled:false,status:'cancelled'};localStorage.testNativeWake=JSON.stringify(s);return JSON.stringify(s)},command,getTelemetry:()=>JSON.stringify(window.nativeState),getNowTitle:()=>'',getRecentTracks:()=>localStorage.testNativeTracks||'[]',getStreamHealth:()=>'{}',getProductGuard:()=>'{}',getCatalogHealth:()=>'{}',setQueue:(q,i)=>{window.lastQueue={items:JSON.parse(q),index:i}},getNotaTextArchive:()=>'[]'};
+ },serviceActive);
  await page.goto(A+'index.html');
  const java=source('turkradyo/app/src/main/java/com/muhammetgecgil/turkradyo/MainActivity.java');
  const raw=java.match(/v\.evaluateJavascript\("(.*)",null\);/)[1].replaceAll('"+A+"',A);
@@ -84,7 +84,7 @@ test('Fresh opening restores a favorite outside the main list through catalog re
   await page.locator('#play').click();
   await page.locator('#menuBtn').click();await page.locator('#search').fill('Dış Pop');await page.locator('#list .fav').click();await page.locator('#closeSheet').click();
   const previous=await page.evaluate(()=>localStorage.trLastRadioKey);
-  page=await reopenApp(page,{main:[...main].reverse(),catalog:[...catalog].reverse()});
+  page=await reopenApp(page,{main:[...main].reverse(),catalog:[...catalog].reverse(),serviceActive:false});
   assert.equal(await page.locator('#now').textContent(),'Dış Pop');
   assert.equal(await page.evaluate(()=>localStorage.trLastRadioKey),previous);
   assert.equal(await page.evaluate(()=>window.trNavigation.mainStations().length),80);
@@ -151,11 +151,11 @@ test('Catalog, Turkey Groups and track filters retain their choices and search t
   await page.locator('[data-mode="all"]').click();await page.locator('[data-cat-view="main"]').click();await page.locator('[data-cat-group="Pop"]').click();await page.locator('#catalogSearch').pressSequentially('Pop');
   assert.equal(await page.locator('#catalogSearch').inputValue(),'Pop');await page.locator('#closeSheet').click();
   await page.locator('#p2Genres').click();await page.locator('[data-p2g="Haber"]').click();await page.locator('#p2Search').fill('Haber A');await page.locator('#closeSheet').click();
-  await page.locator('#p2Tracks').click();await page.locator('#p2TrackSearch').fill('Sezen');
+  await page.evaluate(()=>localStorage.testNativeTracks=JSON.stringify([{title:'Sezen Aksu',station:'Haber A',time:Date.now()},{title:'Diğer Şarkı',station:'Pop A',time:Date.now()}]));await page.locator('#p2Tracks').click();await page.locator('#tr279TrackStation').selectOption('Haber A');await page.locator('#tr279TrackSearch').fill('Sezen');
   page=await reopenApp(page,{main:groupMain,catalog:groupCatalog});
   await page.locator('[data-mode="all"]').click();assert.equal(await page.locator('[data-cat-view="main"]').evaluate(e=>e.classList.contains('active')),true);assert.equal(await page.locator('[data-cat-group="Pop"]').evaluate(e=>e.classList.contains('active')),true);assert.equal(await page.locator('#catalogSearch').inputValue(),'Pop');await page.locator('#closeSheet').click();
   await page.locator('#p2Genres').click();assert.equal(await page.locator('.p2Cat.on').textContent(),'Haber');assert.equal(await page.locator('#p2Search').inputValue(),'Haber A');assert.deepEqual(await page.locator('#p2Stations strong').allTextContents(),['Haber A']);await page.locator('#closeSheet').click();
-  await page.locator('#p2Tracks').click();assert.equal(await page.locator('#p2TrackSearch').inputValue(),'Sezen');
+  await page.locator('#p2Tracks').click();assert.equal(await page.locator('#tr279TrackSearch').inputValue(),'Sezen');assert.equal(await page.locator('#tr279TrackStation').inputValue(),'Haber A');assert.match(await page.locator('#tr279TrackList').textContent(),/Sezen Aksu/);
  }finally{await page.close()}
 });
 

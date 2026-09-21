@@ -10,7 +10,7 @@ function stream(s){if(!s)return s;const o=get('v6Overrides',{})?.[s.stationuuid|
 function remember(s){if(valid(s))set('trLastStation293',snapshot(s))}
 function restore(list,catalog=[]){
  const saved=get('trLastStation293',null),cache=get('v201CatalogCache',{});
- const all=[...catalog,...(Array.isArray(cache?.data)?cache.data:[])];
+ const all=[...(Array.isArray(cache?.data)?cache.data:[]),...catalog];
  const map=new Map(all.filter(valid).map(s=>[key(s),s]));
  if(valid(saved))map.set(key(saved),map.get(key(saved))||saved);
  const extra=[...(Array.isArray(get('favs',[]))?get('favs',[]):[]),...(Array.isArray(get('recent',[]))?get('recent',[]):[])];

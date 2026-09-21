@@ -90,5 +90,8 @@ https://developer.android.com/develop/background-work/services/fgs/restrictions-
 - Browser regression cases reopen a fresh context from durable origin storage,
   discarding globals and sessionStorage. Native regression recreates RadioService
   and checks volume, gain, EQ, normalization and smooth-transition preferences.
+- Theme filters no longer share the global favorite-button click binding. The active
+  Son 50 screen stores both search text and station filter. Cold-start Play explicitly
+  starts the restored station; a live paused session can still resume normally.
 - These guarantees concern reopening the same installed app. A separate test APK
   has independent storage. Uninstalling or clearing app data removes preferences.
